@@ -44,7 +44,7 @@ uiStroke.Thickness = 2
 
 local title = Instance.new("TextLabel", main)
 title.Size = UDim2.new(1, 0, 0, 36)
-title.Text = "TDS MACRO V4"
+title.Text = "MD MACRO TDS"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 16
