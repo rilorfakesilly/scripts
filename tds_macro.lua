@@ -1,6 +1,3 @@
--- ═══════════════════════════════════════════════════════
--- TDS Macro System v4 — Deferred Capture Engine
--- ═══════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -24,8 +21,8 @@ local state = {
     unloaded = false,
 }
 
-local captureQueue = {} -- raw args get dumped here by the hook
-local triggerQueue = {} -- game-start detections get queued here
+local captureQueue = {} 
+local triggerQueue = {} 
 local connections = {}
 
 -- ─── UI ────────────────────────────────────────────────
@@ -99,7 +96,7 @@ do
     end)
 end
 
--- ─── Safe Serialization (called OUTSIDE the hook) ──────
+-- ─── Safe Serialization ──────
 local function safeSerialize(val)
     if val == nil then return nil end
     local t = typeof(val)
@@ -158,7 +155,7 @@ local function safeDeserialize(val)
         if not tower then log("WARN: Tower not found at saved pos", Color3.new(1, 0.4, 0.2)) end
         return tower
     elseif val.__t == "inst" then
-        return val.name -- pass name as string fallback
+        return val.name 
     elseif val.__t == "enum" then
         return val.v
     else
@@ -171,7 +168,7 @@ local function safeDeserialize(val)
     end
 end
 
--- ─── The Hook (MINIMAL — no serialize, no pcall needed) ─
+-- ─── The Hook ─
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
@@ -203,7 +200,7 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     return oldNamecall(self, ...)
 end)
 
--- ─── Deferred Processing (runs on Heartbeat, OUTSIDE hook) ─
+-- ─── Deferred Processing ─
 connections.processor = RunService.Heartbeat:Connect(function()
     if state.unloaded then return end
     if #captureQueue == 0 then return end
@@ -212,7 +209,6 @@ connections.processor = RunService.Heartbeat:Connect(function()
         local raw = table.remove(captureQueue, 1)
         local args = raw.a
         
-        -- Filter: only capture relevant remotes
         local dominated = false
         if args[1] == "Hotbar" or args[1] == "Streaming" or args[1] == "Troops" or args[1] == "Voting" then
             dominated = true
@@ -237,7 +233,7 @@ connections.processor = RunService.Heartbeat:Connect(function()
 end)
 
 -- ─── Game Start Trigger Processing ─────────────────────
-local recBtn -- forward declare so trigger can update it
+local recBtn 
 local lastTriggerTime = 0
 local TRIGGER_COOLDOWN = 120 -- seconds: ignore Voting/Skip for this long after a trigger
 
@@ -502,7 +498,7 @@ makeToggle("Auto-Record on Start", 362, Color3.fromRGB(255, 120, 50), "autoRecor
 
 local replayToggle = makeToggle("Auto-Replay Match", 398, Color3.fromRGB(50, 220, 180), "autoReplay")
 
--- Background Watcher: Ensures the loop is running if the toggle is ON
+-- Background Watcher
 task.spawn(function()
     while not state.unloaded do
         if state.autoReplay and not state.loopActive then
@@ -534,3 +530,4 @@ btn("🗑 UNLOAD", 440, Color3.fromRGB(60, 60, 70), function()
 end).TextSize = 10
 
 log("MD MACRO Ready.", Color3.fromRGB(0, 200, 255))
+-- yes, it is skidded but only some of it
