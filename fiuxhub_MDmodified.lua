@@ -173,6 +173,7 @@ local Tabs = {
     Legit    = Window:AddTab({ Title = "Legit",   Icon = "crosshair" }),
     Game     = Window:AddTab({ Title = "Game",    Icon = "gamepad-2" }),
     Visuals  = Window:AddTab({ Title = "Visuals", Icon = "eye" }),
+    Lighting = Window:AddTab({ Title = "Lighting",Icon = "sun" }),
     Settings = Window:AddTab({ Title = "Settings",Icon = "settings" })
 }
 
@@ -182,32 +183,7 @@ local Options = Fluent.Options
 -- SHARED STATE
 --------------------------------------------------
 
-local silentAimSettings = {
-    Enabled       = false,
-    HitPart       = "Head",
-    KOCheck       = false,
-    HitChance     = 100,
-    LockOnEnabled = false,
-    LockedTarget  = nil,
-    Prediction    = 0,
-}
-
-local streamableSettings = {
-    Enabled       = false,
-    HitPart       = "Head",
-    KOCheck       = false,
-    HitChance     = 100,
-    LockOnEnabled = false,
-    LockedTarget  = nil,
-    ShowTracer    = false,
-    Prediction    = 0,
-    FOV = {
-        Enabled      = false,
-        Radius       = 100,
-        Thickness    = 2,
-        Transparency = 1,
-    },
-}
+-- Silent Aim configs removed
 
 local camlockSettings = {
     isLockedOn      = false,
@@ -229,23 +205,33 @@ local strafeSettings = {
 
 local desyncConfig = {
     enabled       = false,
-    mode          = "Void",
+    mode          = "Bait",
     toggleEnabled = false,
     oldPosition   = nil,
     teleportPos   = Vector3.new(0,0,0),
 }
 
 local espConfig = {
-    showBox       = false,
-    showChams     = false,
+    enabled = false,
+    showBox = false,
+    showChams = false,
     showHealthBar = false,
-    showName      = false,
-    showDistance  = false,
-    showTracers   = false,
-    tracerPosition= "Mouse",
+    showName = false,
+    showTracers = false,
+    tracerPosition = "Bottom",
     tracerThickness = 1,
-    defaultColor  = Color3.fromRGB(255,0,0),
-    teamColor     = true,
+    boxColor = Color3.fromRGB(255, 0, 0),
+    boxOpacity = 1.0,
+    nameColor = Color3.fromRGB(255, 255, 255),
+    nameOpacity = 1.0,
+    tracerColor = Color3.fromRGB(255, 0, 0),
+    tracerOpacity = 1.0,
+    healthColorFull = Color3.fromRGB(0, 255, 0),
+    healthColorLow = Color3.fromRGB(255, 0, 0),
+    chamFillColor = Color3.fromRGB(255, 0, 128),
+    chamOutlineColor = Color3.fromRGB(255, 255, 255),
+    chamFillTransparency = 0.5,
+    chamOutlineTransparency = 0,
 }
 
 local hitboxSettings = {
@@ -267,6 +253,195 @@ local flyConfig = {
     enabled = false,
     speed   = 30,
 }
+
+local selectedTargetPlayer = nil
+local targetKillActive = false
+
+local multiEquipDropdown
+local multiEquipSettings = {
+    enabled = false,
+    selected = {}
+}
+
+local function getInventoryTools()
+    local tools = {}
+    local seen = {}
+    
+    local function collect(container)
+        for _, item in ipairs(container:GetChildren()) do
+            if item:IsA("Tool") and not seen[item.Name] then
+                table.insert(tools, item.Name)
+                seen[item.Name] = true
+            end
+        end
+    end
+    
+    if localPlayer:FindFirstChild("Backpack") then
+        collect(localPlayer.Backpack)
+    end
+    if localPlayer.Character then
+        collect(localPlayer.Character)
+    end
+    
+    table.sort(tools)
+    return tools
+end
+
+local function refreshMultiEquipDropdown()
+    if not multiEquipDropdown then return end
+    local tools = getInventoryTools()
+    multiEquipDropdown:SetValues(tools)
+end
+
+local backpackConnection1
+local backpackConnection2
+local charConnection1
+local charConnection2
+
+local function setupInventoryListeners()
+    if backpackConnection1 then backpackConnection1:Disconnect() end
+    if backpackConnection2 then backpackConnection2:Disconnect() end
+    if charConnection1 then charConnection1:Disconnect() end
+    if charConnection2 then charConnection2:Disconnect() end
+    
+    local backpack = localPlayer:WaitForChild("Backpack", 5)
+    if backpack then
+        backpackConnection1 = backpack.ChildAdded:Connect(refreshMultiEquipDropdown)
+        backpackConnection2 = backpack.ChildRemoved:Connect(refreshMultiEquipDropdown)
+    end
+    
+    local char = localPlayer.Character
+    if char then
+        charConnection1 = char.ChildAdded:Connect(refreshMultiEquipDropdown)
+        charConnection2 = char.ChildRemoved:Connect(refreshMultiEquipDropdown)
+    end
+end
+
+local toolActivationConnection
+local function setupToolActivationHook()
+    if toolActivationConnection then toolActivationConnection:Disconnect() end
+    toolActivationConnection = UserInputService.InputBegan:Connect(function(input, processed)
+        if processed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if multiEquipSettings.enabled and localPlayer.Character then
+                for _, tool in ipairs(localPlayer.Character:GetChildren()) do
+                    if tool:IsA("Tool") and multiEquipSettings.selected[tool.Name] then
+                        task.spawn(function()
+                            pcall(function() tool:Activate() end)
+                        end)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+setupInventoryListeners()
+setupToolActivationHook()
+
+localPlayer.CharacterAdded:Connect(function(char)
+    task.wait(1)
+    setupInventoryListeners()
+    setupToolActivationHook()
+    refreshMultiEquipDropdown()
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if multiEquipSettings.enabled and localPlayer.Character then
+            local backpack = localPlayer:FindFirstChild("Backpack")
+            if backpack then
+                for _, tool in ipairs(backpack:GetChildren()) do
+                    if tool:IsA("Tool") and multiEquipSettings.selected[tool.Name] then
+                        tool.Parent = localPlayer.Character
+                    end
+                end
+            end
+        end
+    end
+end)
+
+local lightingConfig = {
+    Enabled = false,
+    AmbientEnabled = false,
+    AmbientColor = Color3.fromRGB(163, 204, 255),
+    ColorShiftTopEnabled = false,
+    ColorShiftTopColor = Color3.fromRGB(163, 204, 255),
+    ColorShiftBottomEnabled = false,
+    ColorShiftBottomColor = Color3.fromRGB(163, 204, 255),
+    CustomFogEnabled = false,
+    FogColor = Color3.fromRGB(163, 204, 255),
+    FogEnd = 500,
+    FogStart = 0,
+    CustomTimeEnabled = false,
+    ClockTime = 11.8,
+}
+
+local LightingService = game:GetService("Lighting")
+local originalLighting = {
+    Ambient = LightingService.Ambient,
+    ColorShift_Top = LightingService.ColorShift_Top,
+    ColorShift_Bottom = LightingService.ColorShift_Bottom,
+    FogColor = LightingService.FogColor,
+    FogEnd = LightingService.FogEnd,
+    FogStart = LightingService.FogStart,
+    ClockTime = LightingService.ClockTime,
+}
+
+local function applyLightingSettings()
+    if not lightingConfig.Enabled then
+        LightingService.Ambient = originalLighting.Ambient
+        LightingService.ColorShift_Top = originalLighting.ColorShift_Top
+        LightingService.ColorShift_Bottom = originalLighting.ColorShift_Bottom
+        LightingService.FogColor = originalLighting.FogColor
+        LightingService.FogEnd = originalLighting.FogEnd
+        LightingService.FogStart = originalLighting.FogStart
+        LightingService.ClockTime = originalLighting.ClockTime
+        return
+    end
+
+    if lightingConfig.AmbientEnabled then
+        LightingService.Ambient = lightingConfig.AmbientColor
+    else
+        LightingService.Ambient = originalLighting.Ambient
+    end
+
+    if lightingConfig.ColorShiftTopEnabled then
+        LightingService.ColorShift_Top = lightingConfig.ColorShiftTopColor
+    else
+        LightingService.ColorShift_Top = originalLighting.ColorShift_Top
+    end
+
+    if lightingConfig.ColorShiftBottomEnabled then
+        LightingService.ColorShift_Bottom = lightingConfig.ColorShiftBottomColor
+    else
+        LightingService.ColorShift_Bottom = originalLighting.ColorShift_Bottom
+    end
+
+    if lightingConfig.CustomFogEnabled then
+        LightingService.FogColor = lightingConfig.FogColor
+        LightingService.FogEnd = lightingConfig.FogEnd
+        LightingService.FogStart = lightingConfig.FogStart
+    else
+        LightingService.FogColor = originalLighting.FogColor
+        LightingService.FogEnd = originalLighting.FogEnd
+        LightingService.FogStart = originalLighting.FogStart
+    end
+
+    if lightingConfig.CustomTimeEnabled then
+        LightingService.ClockTime = lightingConfig.ClockTime
+    else
+        LightingService.ClockTime = originalLighting.ClockTime
+    end
+end
+
+local lightingConnection
+lightingConnection = RunService.Heartbeat:Connect(function()
+    if lightingConfig.Enabled then
+        applyLightingSettings()
+    end
+end)
 
 --------------------------------------------------
 -- HELPER FUNCTIONS
@@ -296,95 +471,7 @@ end
 -- SILENT AIM (mt hook)
 --------------------------------------------------
 
-local mt = getrawmetatable(game)
-local oldIndex = mt.__index
-setreadonly(mt, false)
-
-local function getPredictedPos(part, predFactor)
-    if predFactor <= 0 then return part.Position end
-    local vel = part.AssemblyLinearVelocity or Vector3.zero
-    return part.Position + vel * predFactor
-end
-
-local function isValidTarget(player, koCheck)
-    if player == localPlayer or not player.Character then return false end
-    local hum = player.Character:FindFirstChild("Humanoid")
-    if not hum or hum.Health <= 0 then return false end
-    if koCheck then
-        local be = player.Character:FindFirstChild("BodyEffects")
-        local ko = be and be:FindFirstChild("K.O")
-        if ko and ko.Value then return false end
-    end
-    return true
-end
-
-local function getSilentTarget()
-    local shortest = math.huge
-    local mouseLoc = UserInputService:GetMouseLocation()
-    local result = nil
-    for _, p in pairs(Players:GetPlayers()) do
-        if isValidTarget(p, silentAimSettings.KOCheck) then
-            local part = p.Character:FindFirstChild(silentAimSettings.HitPart)
-            if part then
-                local pos = getPredictedPos(part, silentAimSettings.Prediction)
-                local sp, onScreen = currentCamera:WorldToViewportPoint(pos)
-                if onScreen then
-                    local dist = (mouseLoc - Vector2.new(sp.X, sp.Y)).Magnitude
-                    if dist < shortest then shortest = dist; result = part end
-                end
-            end
-        end
-    end
-    return result
-end
-
-local function getStreamableTarget()
-    local shortest = math.huge
-    local mouseLoc = UserInputService:GetMouseLocation()
-    local result = nil
-    for _, p in pairs(Players:GetPlayers()) do
-        if isValidTarget(p, streamableSettings.KOCheck) then
-            local part = p.Character:FindFirstChild(streamableSettings.HitPart)
-            if part then
-                local pos = getPredictedPos(part, streamableSettings.Prediction)
-                local sp, onScreen = currentCamera:WorldToViewportPoint(pos)
-                if onScreen then
-                    local dist = (mouseLoc - Vector2.new(sp.X, sp.Y)).Magnitude
-                    if dist < shortest and dist <= streamableSettings.FOV.Radius then
-                        shortest = dist; result = part
-                    end
-                end
-            end
-        end
-    end
-    return result
-end
-
-function mt.__index(self, key)
-    if not checkcaller() and self == playerMouse and (key == "Hit" or key == "Target") then
-        local target, pred = nil, 0
-        if silentAimSettings.Enabled then
-            pred = silentAimSettings.Prediction
-            target = (silentAimSettings.LockOnEnabled and silentAimSettings.LockedTarget) or getSilentTarget()
-        elseif streamableSettings.Enabled then
-            pred = streamableSettings.Prediction
-            target = (streamableSettings.LockOnEnabled and streamableSettings.LockedTarget) or getStreamableTarget()
-        end
-        if target then
-            local aimPos = getPredictedPos(target, pred)
-            local chance = silentAimSettings.Enabled and silentAimSettings.HitChance or streamableSettings.HitChance
-            if math.random(1, 100) <= chance then
-                return key == "Hit" and CFrame.new(aimPos) or target
-            end
-            local spread = 3
-            local ox = (math.random() + math.random() - 1) * spread
-            local oy = (math.random() + math.random() - 1) * spread
-            local oz = (math.random() + math.random() - 1) * spread
-            return key == "Hit" and CFrame.new(aimPos + Vector3.new(ox, oy, oz)) or target
-        end
-    end
-    return oldIndex(self, key)
-end
+-- Metamethod Silent Aim hooks removed
 
 --------------------------------------------------
 -- CAMLOCK
@@ -540,14 +627,25 @@ RunService.Heartbeat:Connect(function()
     if root then
         desyncConfig.oldPosition = root.CFrame
         local mode = desyncConfig.mode
-        if mode == "Void" then
-            desyncConfig.teleportPos = Vector3.new(root.Position.X + math.random(-444444,444444), root.Position.Y + math.random(-444444,444444), root.Position.Z + math.random(-44444,44444))
-        elseif mode == "Void Spam" then
-            desyncConfig.teleportPos = math.random(1,2) == 1 and desyncConfig.oldPosition.Position or Vector3.new(math.random(10000,50000), math.random(10000,50000), math.random(10000,50000))
-        elseif mode == "Underground" then
-            desyncConfig.teleportPos = root.Position - Vector3.new(0,12,0)
+        local velocity = root.AssemblyLinearVelocity or Vector3.zero
+        if mode == "Bait" then
+            -- Teleports the character slightly to replicate baiting hitboxes
+            desyncConfig.teleportPos = root.Position + Vector3.new(math.random(-5, 5), math.random(-2, 2), math.random(-5, 5))
+        elseif mode == "Randomize" then
+            -- Rapidly randomizes coordinates
+            desyncConfig.teleportPos = root.Position + Vector3.new(math.random(-200, 200), math.random(-50, 50), math.random(-200, 200))
         elseif mode == "Destroy Cheaters" then
-            desyncConfig.teleportPos = Vector3.new(1.122334455667789e19, 1, 1)
+            -- Extremely large numbers to crash mathematical logic of auto-aim predictions
+            desyncConfig.teleportPos = Vector3.new(9e18, 9e18, 9e18)
+        elseif mode == "Static Void" then
+            -- Fixed offset down into the void
+            desyncConfig.teleportPos = root.Position - Vector3.new(0, 1500, 0)
+        elseif mode == "Predictions Breaker" then
+            -- Reversing current moving velocity to break lag-compensation calculations
+            desyncConfig.teleportPos = root.Position - (velocity * 2.5) + Vector3.new(math.random(-8, 8), 0, math.random(-8, 8))
+        elseif mode == "Unhittable" then
+            -- Super high velocity vectors and erratic offsets
+            desyncConfig.teleportPos = root.Position + Vector3.new(math.random(-99999, 99999), math.random(-99999, 99999), math.random(-99999, 99999))
         end
         root.CFrame = CFrame.new(desyncConfig.teleportPos)
         currentCamera.CameraSubject = desyncPart
@@ -559,37 +657,7 @@ end)
 
 
 
--- FOV Circle & tracer for streamable
-local fovCircle = Drawing.new("Circle")
-fovCircle.Filled = false
-fovCircle.Visible = false
-fovCircle.Radius = 100
-fovCircle.Thickness = 2
-fovCircle.Transparency = 1
-
-local fovTracer = Drawing.new("Line")
-fovTracer.Visible = false
-fovTracer.Thickness = 2
-fovTracer.Transparency = 1
-
-RunService.RenderStepped:Connect(function()
-    fovCircle.Visible = streamableSettings.FOV.Enabled and streamableSettings.Enabled
-    fovCircle.Position = UserInputService:GetMouseLocation()
-    fovCircle.Radius = streamableSettings.FOV.Radius
-    if streamableSettings.ShowTracer and streamableSettings.Enabled then
-        local t = streamableSettings.LockedTarget or getStreamableTarget()
-        if t then
-            local sp = currentCamera:WorldToViewportPoint(t.Position)
-            fovTracer.From = Vector2.new(fovCircle.Position.X, fovCircle.Position.Y + fovCircle.Radius)
-            fovTracer.To = Vector2.new(sp.X, sp.Y)
-            fovTracer.Visible = true
-        else
-            fovTracer.Visible = false
-        end
-    else
-        fovTracer.Visible = false
-    end
-end)
+-- FOV rendering removed
 
 --------------------------------------------------
 -- HITBOX EXPANDER
@@ -714,6 +782,60 @@ local function getLocalRoot()
     return localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
 end
 
+local function getRandomShopItemByName(itemName)
+    local items = {}
+    for _, child in ipairs(shopFolder:GetChildren()) do
+        if child.Name == itemName then
+            table.insert(items, child)
+        end
+    end
+    if #items > 0 then
+        return items[math.random(1, #items)]
+    end
+    return nil
+end
+
+local cachedShopItemNames = {}
+
+local function updateShopCache()
+    local names = {}
+    local seen = {}
+    for _, child in ipairs(shopFolder:GetChildren()) do
+        if not seen[child.Name] then
+            seen[child.Name] = true
+            table.insert(names, child.Name)
+        end
+    end
+    table.sort(names)
+    cachedShopItemNames = names
+end
+
+-- Initial population
+updateShopCache()
+
+local function getShopItemNames()
+    return cachedShopItemNames
+end
+
+local function refreshShopDropdown()
+    updateShopCache()
+    if Options.ShopItem then
+        local searchText = Options.ShopSearch and Options.ShopSearch.Value or ""
+        local allItems = getShopItemNames()
+        local filtered = {}
+        local lowerSearch = searchText:lower()
+        for _, name in ipairs(allItems) do
+            if name:lower():find(lowerSearch, 1, true) then
+                table.insert(filtered, name)
+            end
+        end
+        Options.ShopItem:SetValues(filtered)
+    end
+end
+
+shopFolder.ChildAdded:Connect(refreshShopDropdown)
+shopFolder.ChildRemoved:Connect(refreshShopDropdown)
+
 local function executeBuyItem(itemName)
     if not itemName or isBuyingItem then return end
     isBuyingItem = true
@@ -721,51 +843,32 @@ local function executeBuyItem(itemName)
     if desyncWas then toggleDesync(false) task.wait(0.1) end
     local root = getLocalRoot()
     if root then
-        local item = shopFolder:FindFirstChild(itemName)
+        local item = getRandomShopItemByName(itemName)
         if item then
             local cd = item:FindFirstChildOfClass("ClickDetector")
-            if cd then
+            local targetPart = item:FindFirstChild("Head") or item:FindFirstChildOfClass("Part") or item:FindFirstChildWhichIsA("BasePart")
+            if cd and targetPart then
                 local saved = root.CFrame
-                root.CFrame = CFrame.new(item.Head.Position + Vector3.new(0,3,0))
+                root.CFrame = CFrame.new(targetPart.Position + Vector3.new(0,3,0))
                 task.wait(0.2)
                 fireclickdetector(cd)
                 notify("Shop", "Purchased: " .. itemName)
                 root.CFrame = saved
-            else notify("Shop Error", "ClickDetector not found in " .. itemName) end
+            else notify("Shop Error", "ClickDetector or target part not found in " .. itemName) end
         else notify("Shop Error", "Item not found: " .. itemName) end
         if desyncWas then task.wait(0.2) toggleDesync(true) end
     end
     isBuyingItem = false
 end
 
-local ammoMap = {
-    ["[Revolver] - $1421"] = "12 [Revolver Ammo] - $55",
-    ["[AUG] - $2131"]      = "90 [AUG Ammo] - $87",
-    ["[LMG] - $4098"]      = "200 [LMG Ammo] - $328",
-    ["[Rifle] - $1694"]    = "5 [Rifle Ammo] - $273",
-}
-
-local function executeBuyAmmo()
-    if not selectedShopItem then return end
-    local ammoItem = ammoMap[selectedShopItem]
-    if ammoItem then executeBuyItem(ammoItem)
-    else notify("Shop Error", "No ammo for this item.") end
-end
-
 localPlayer.CharacterAdded:Connect(function()
     task.wait(1)
     shopFolder = Workspace:WaitForChild("Ignored"):WaitForChild("Shop")
+    refreshShopDropdown()
     if autoBuyOnRespawn and selectedShopItem then
         executeBuyItem(selectedShopItem)
-        for _ = 1,3 do executeBuyAmmo() task.wait(0.5) end
     end
 end)
-
--- Player actions
-local isActionRunning = false
-local actionOldPos = nil
-local selectedTarget = nil
-local selectedAction = "Knock"
 
 local function shootAtHead(tool, targetChar, bursts)
     bursts = bursts or 3
@@ -781,88 +884,19 @@ local function shootAtHead(tool, targetChar, bursts)
     end
 end
 
-local function executeKnock(target)
-    local tc = target.Character
-    local be = tc and tc:FindFirstChild("BodyEffects")
-    local ko = be and be:WaitForChild("K.O", 5)
-    if not ko then return end
-    local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-    local savedPos = root and root.Position
-    isActionRunning = true
-    task.spawn(function()
-        while not ko.Value and isActionRunning do
-            if tc:FindFirstChild("HumanoidRootPart") then
-                root.CFrame = CFrame.new(tc.HumanoidRootPart.Position + Vector3.new(0,-20,0))
-            end
-            shootAtHead(localPlayer.Character:FindFirstChildWhichIsA("Tool"), tc)
-            task.wait()
-        end
-        if savedPos then root.CFrame = CFrame.new(savedPos) end
-        isActionRunning = false
-    end)
-end
-
-local function executeStomp(target)
-    local tc = target.Character
-    local be = tc and tc:FindFirstChild("BodyEffects")
-    local ko = be and be:WaitForChild("K.O", 5)
-    local sd = be and be:WaitForChild("SDeath", 5)
-    if not ko or not sd then return end
-    local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-    actionOldPos = root and root.Position
-    isActionRunning = true
-    task.spawn(function()
-        while not ko.Value and isActionRunning do
-            if tc:FindFirstChild("HumanoidRootPart") then
-                root.CFrame = CFrame.new(tc.HumanoidRootPart.Position + Vector3.new(0,-20,0))
-            end
-            shootAtHead(localPlayer.Character:FindFirstChildWhichIsA("Tool"), tc)
-            task.wait()
-        end
-        while not sd.Value and isActionRunning do
-            local torso = tc:FindFirstChild("UpperTorso")
-            if torso then root.CFrame = CFrame.new(torso.Position + Vector3.new(0,3,0)) RunService.RenderStepped:Wait() end
-            pcall(function() ReplicatedStorage.MainEvent:FireServer("Stomp") end)
-            task.wait()
-        end
-        if actionOldPos then root.CFrame = CFrame.new(actionOldPos) end
-        isActionRunning = false
-    end)
-end
-
-local function executeBring(target)
-    local tc = target.Character
-    local be = tc and tc:FindFirstChild("BodyEffects")
-    local ko = be and be:FindFirstChild("K.O")
-    if not ko then return end
-    local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-    actionOldPos = root and root.Position
-    isActionRunning = true
-    task.spawn(function()
-        while not ko.Value and isActionRunning do
-            local tRoot = tc:FindFirstChild("HumanoidRootPart")
-            if tRoot then root.CFrame = CFrame.new(tRoot.Position + Vector3.new(0,-20,0)) end
-            shootAtHead(localPlayer.Character:FindFirstChildWhichIsA("Tool"), tc)
-            task.wait()
-        end
-        while ko.Value and not tc:FindFirstChild("GRABBING_CONSTRAINT") and isActionRunning do
-            local torso = tc:FindFirstChild("UpperTorso")
-            if torso then root.CFrame = CFrame.new(torso.Position + Vector3.new(0,3,0)) RunService.RenderStepped:Wait() end
-            pcall(function() ReplicatedStorage.MainEvent:FireServer("Grabbing", false) end)
-            task.wait(0.1)
-        end
-        if actionOldPos then root.CFrame = CFrame.new(actionOldPos) end
-        isActionRunning = false
-    end)
-end
-
-local function stopAllActions()
-    isActionRunning = false
-    if actionOldPos and localPlayer.Character then
-        local root = localPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if root then root.CFrame = CFrame.new(actionOldPos) end
+local function autoReloadAndAim(tool, targetChar)
+    if not tool or not targetChar then return false end
+    local ammo = tool:FindFirstChild("Ammo")
+    if ammo and ammo.Value == 0 then
+        ReplicatedStorage.MainEvent:FireServer("Reload", tool)
+        task.wait(1.5)
+        return false
     end
-    notify("Actions", "All actions stopped.")
+    local head = targetChar:FindFirstChild("Head")
+    if head then
+        ReplicatedStorage.MainEvent:FireServer("UpdateMousePosI2", head.Position)
+    end
+    return true
 end
 
 -- Self chams / trail / highlight
@@ -888,7 +922,10 @@ local spinbotConfig = {
 local forcefieldEnabled = false
 local selfHighlightEnabled = false
 local selfHighlight = nil
-local selfHighlightColor = Color3.fromRGB(0, 200, 255)
+local selfHighlightFillColor = Color3.fromRGB(0, 200, 255)
+local selfHighlightOutlineColor = Color3.fromRGB(255, 255, 255)
+local selfHighlightFillTransparency = 0.5
+local selfHighlightOutlineTransparency = 0
 local selfMaterialMode = "None"
 local initialChar = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 
@@ -991,12 +1028,218 @@ local function applySelfHighlight(char)
     if selfHighlight then pcall(function() selfHighlight:Destroy() end) end
     selfHighlight = Instance.new("Highlight")
     selfHighlight.Name = "FIXZ_SelfHL"
-    selfHighlight.FillColor = selfHighlightColor
-    selfHighlight.OutlineColor = Color3.new(1, 1, 1)
-    selfHighlight.FillTransparency = 0.5
-    selfHighlight.OutlineTransparency = 0
+    selfHighlight.FillColor = selfHighlightFillColor
+    selfHighlight.OutlineColor = selfHighlightOutlineColor
+    selfHighlight.FillTransparency = selfHighlightFillTransparency
+    selfHighlight.OutlineTransparency = selfHighlightOutlineTransparency
     selfHighlight.Parent = char
 end
+
+local function updateSelfHighlight()
+    local char = localPlayer.Character
+    if char and selfHighlightEnabled then
+        applySelfHighlight(char)
+    end
+end
+
+-- ==================================================
+-- ESP (Drawing & Highlights) System
+-- ==================================================
+
+local espPlayers = {}
+
+local function createESP(player)
+    if player == localPlayer then return end
+    if espPlayers[player] then return end
+    
+    local drawings = {
+        Box = Drawing.new("Square"),
+        BoxOutline = Drawing.new("Square"),
+        Name = Drawing.new("Text"),
+        Tracer = Drawing.new("Line"),
+        HealthBarBg = Drawing.new("Line"),
+        HealthBar = Drawing.new("Line"),
+        Highlight = nil
+    }
+    
+    drawings.Box.Thickness = 1.5
+    drawings.Box.Filled = false
+    drawings.Box.Visible = false
+    
+    drawings.BoxOutline.Thickness = 2.5
+    drawings.BoxOutline.Color = Color3.new(0, 0, 0)
+    drawings.BoxOutline.Filled = false
+    drawings.BoxOutline.Visible = false
+    
+    drawings.Name.Size = 13
+    drawings.Name.Center = true
+    drawings.Name.Outline = true
+    drawings.Name.Visible = false
+    
+    drawings.Tracer.Thickness = 1.5
+    drawings.Tracer.Visible = false
+    
+    drawings.HealthBarBg.Thickness = 3
+    drawings.HealthBarBg.Color = Color3.new(0, 0, 0)
+    drawings.HealthBarBg.Visible = false
+    
+    drawings.HealthBar.Thickness = 1.5
+    drawings.HealthBar.Visible = false
+    
+    espPlayers[player] = drawings
+end
+
+local function removeESP(player)
+    local drawings = espPlayers[player]
+    if drawings then
+        pcall(function() drawings.Box:Remove() end)
+        pcall(function() drawings.BoxOutline:Remove() end)
+        pcall(function() drawings.Name:Remove() end)
+        pcall(function() drawings.Tracer:Remove() end)
+        pcall(function() drawings.HealthBarBg:Remove() end)
+        pcall(function() drawings.HealthBar:Remove() end)
+        if drawings.Highlight then
+            pcall(function() drawings.Highlight:Destroy() end)
+        end
+        espPlayers[player] = nil
+    end
+end
+
+for _, p in pairs(Players:GetPlayers()) do
+    createESP(p)
+end
+
+local espPlayerAddedConnection = Players.PlayerAdded:Connect(createESP)
+local espPlayerRemovingConnection = Players.PlayerRemoving:Connect(removeESP)
+
+local espConnection
+espConnection = RunService.RenderStepped:Connect(function()
+    if not espConfig.enabled then return end
+    for player, drawings in pairs(espPlayers) do
+        local char = player.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        
+        local visible = false
+        
+        if char and root and hum and hum.Health > 0 then
+            local pos, onScreen = currentCamera:WorldToViewportPoint(root.Position)
+            if onScreen then
+                visible = true
+                
+                local extents = char:GetExtentsSize()
+                local topPoint = root.Position + Vector3.new(0, extents.Y / 2 + 0.5, 0)
+                local bottomPoint = root.Position - Vector3.new(0, extents.Y / 2 + 0.5, 0)
+                
+                local topScreen = currentCamera:WorldToViewportPoint(topPoint)
+                local bottomScreen = currentCamera:WorldToViewportPoint(bottomPoint)
+                
+                local height = math.abs(topScreen.Y - bottomScreen.Y)
+                local width = height * 0.55
+                
+                local boxX = pos.X - width / 2
+                local boxY = pos.Y - height / 2
+                
+                -- Box
+                if espConfig.showBox then
+                    drawings.BoxOutline.Size = Vector2.new(width, height)
+                    drawings.BoxOutline.Position = Vector2.new(boxX, boxY)
+                    drawings.BoxOutline.Visible = true
+                    
+                    drawings.Box.Size = Vector2.new(width, height)
+                    drawings.Box.Position = Vector2.new(boxX, boxY)
+                    drawings.Box.Color = espConfig.boxColor
+                    drawings.Box.Transparency = espConfig.boxOpacity
+                    drawings.Box.Visible = true
+                else
+                    drawings.BoxOutline.Visible = false
+                    drawings.Box.Visible = false
+                end
+                
+                -- Name
+                if espConfig.showName then
+                    drawings.Name.Position = Vector2.new(pos.X, boxY - 16)
+                    drawings.Name.Text = player.Name
+                    drawings.Name.Color = espConfig.nameColor
+                    drawings.Name.Transparency = espConfig.nameOpacity
+                    drawings.Name.Visible = true
+                else
+                    drawings.Name.Visible = false
+                end
+                
+                -- Health Bar
+                if espConfig.showHealthBar then
+                    local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                    local healthColor = espConfig.healthColorLow:Lerp(espConfig.healthColorFull, healthPercent)
+                    
+                    local barX = boxX - 6
+                    local barY = boxY
+                    
+                    drawings.HealthBarBg.From = Vector2.new(barX, barY)
+                    drawings.HealthBarBg.To = Vector2.new(barX, barY + height)
+                    drawings.HealthBarBg.Visible = true
+                    
+                    drawings.HealthBar.From = Vector2.new(barX, barY + height)
+                    drawings.HealthBar.To = Vector2.new(barX, barY + height - (height * healthPercent))
+                    drawings.HealthBar.Color = healthColor
+                    drawings.HealthBar.Visible = true
+                else
+                    drawings.HealthBarBg.Visible = false
+                    drawings.HealthBar.Visible = false
+                end
+                
+                -- Tracer
+                if espConfig.showTracers then
+                    local fromPos
+                    if espConfig.tracerPosition == "Bottom" then
+                        fromPos = Vector2.new(currentCamera.ViewportSize.X / 2, currentCamera.ViewportSize.Y)
+                    else
+                        fromPos = UserInputService:GetMouseLocation()
+                    end
+                    
+                    drawings.Tracer.From = fromPos
+                    drawings.Tracer.To = Vector2.new(pos.X, pos.Y + height / 2)
+                    drawings.Tracer.Color = espConfig.tracerColor
+                    drawings.Tracer.Transparency = espConfig.tracerOpacity
+                    drawings.Tracer.Visible = true
+                else
+                    drawings.Tracer.Visible = false
+                end
+                
+                -- Chams
+                if espConfig.showChams then
+                    if not drawings.Highlight or drawings.Highlight.Parent ~= char then
+                        if drawings.Highlight then pcall(function() drawings.Highlight:Destroy() end) end
+                        drawings.Highlight = Instance.new("Highlight")
+                        drawings.Highlight.Name = "FIXZ_ESPChams"
+                        drawings.Highlight.Parent = char
+                    end
+                    drawings.Highlight.FillColor = espConfig.chamFillColor
+                    drawings.Highlight.OutlineColor = espConfig.chamOutlineColor
+                    drawings.Highlight.FillTransparency = espConfig.chamFillTransparency
+                    drawings.Highlight.OutlineTransparency = espConfig.chamOutlineTransparency
+                    drawings.Highlight.Enabled = true
+                else
+                    if drawings.Highlight then
+                        drawings.Highlight.Enabled = false
+                    end
+                end
+            end
+        end
+        
+        if not visible then
+            drawings.Box.Visible = false
+            drawings.BoxOutline.Visible = false
+            drawings.Name.Visible = false
+            drawings.Tracer.Visible = false
+            drawings.HealthBarBg.Visible = false
+            drawings.HealthBar.Visible = false
+            if drawings.Highlight then
+                drawings.Highlight.Enabled = false
+            end
+        end
+    end
+end)
 
 localPlayer.CharacterAdded:Connect(function(c)
     task.wait(1)
@@ -1043,79 +1286,10 @@ local function setupAntiStomp(char)
     end)
 end
 
-local killAllActive = false
-local stompAllActive = false
-
 local function isKO(player)
     local be = player.Character and player.Character:FindFirstChild("BodyEffects")
     local ko = be and be:FindFirstChild("K.O")
     return ko and ko.Value or false
-end
-
-local function performStompAll()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= localPlayer and p.Character then
-            local be = p.Character:FindFirstChild("BodyEffects")
-            local ko = be and be:FindFirstChild("K.O")
-            local sd = be and be:FindFirstChild("SDeath")
-            if ko and sd and ko.Value and not sd.Value then
-                while not sd.Value and stompAllActive do
-                    if not ko.Value then break end
-                    local torso = p.Character:FindFirstChild("UpperTorso")
-                    local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-                    if torso and root then
-                        root.CFrame = CFrame.new(torso.Position + Vector3.new(0,3,0))
-                        RunService.RenderStepped:Wait()
-                    end
-                    pcall(function() ReplicatedStorage.MainEvent:FireServer("Stomp") end)
-                    task.wait()
-                end
-            end
-        end
-    end
-end
-
-local function buyItemMass(itemName)
-    for _, c in pairs(localPlayer.Character:GetChildren()) do if c:IsA("Tool") then c.Parent = localPlayer.Backpack end end
-    for _, item in pairs(shopFolder:GetChildren()) do
-        if item.Name == itemName then
-            local head = item:FindFirstChild("Head")
-            if head then
-                localPlayer.Character.HumanoidRootPart.CFrame = head.CFrame + Vector3.new(0,3.2,0)
-                task.wait(0.1)
-                local cd = item:FindFirstChild("ClickDetector")
-                if cd then fireclickdetector(cd) end
-            end
-            break
-        end
-    end
-end
-
-local function performKillAll()
-    local savedPos = localPlayer.Character.HumanoidRootPart.CFrame
-    for _, c in pairs(localPlayer.Character:GetChildren()) do if c:IsA("Tool") then c.Parent = localPlayer.Backpack end end
-    while not (localPlayer.Backpack:FindFirstChild("[LMG]") or localPlayer.Character:FindFirstChild("[LMG]")) do
-        buyItemMass("[LMG] - $4098") task.wait(0.2)
-    end
-    for _ = 1,5 do buyItemMass("200 [LMG Ammo] - $328") task.wait(0) end
-    local lmg = localPlayer.Backpack:FindFirstChild("[LMG]") or localPlayer.Character:FindFirstChild("[LMG]")
-    if lmg then lmg.Parent = localPlayer.Character end
-    local tool = localPlayer.Character:FindFirstChild("[LMG]")
-    if not tool then return end
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            currentCamera.CameraSubject = p.Character.Humanoid
-            while not isKO(p) and killAllActive do
-                localPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame - Vector3.new(0,20,0)
-                shootAtHead(tool, p.Character, 5)
-                task.wait()
-            end
-            if not killAllActive then break end
-        end
-    end
-    localPlayer.Character.HumanoidRootPart.CFrame = savedPos
-    currentCamera.CameraSubject = localPlayer.Character.Humanoid
-    if stompAllActive then task.spawn(performStompAll) end
 end
 
 --------------------------------------------------
@@ -1189,44 +1363,55 @@ end
 -- BUILD UI - RAGE TAB
 --------------------------------------------------
 
-Tabs.Rage:AddSection("Silent Aim")
+local playerList = {}
+for _, p in pairs(Players:GetPlayers()) do if p ~= localPlayer then table.insert(playerList, p.Name) end end
 
-Tabs.Rage:AddToggle("SilentAim", {
-    Title = "Silent Aim",
-    Description = "Silently redirect shots to target.",
-    Default = false
-}):OnChanged(function(v) silentAimSettings.Enabled = v end)
-Options.SilentAim:SetValue(false)
+local function updateAllDropdowns()
+    table.sort(playerList)
+    if Options.RageTargetSelect then
+        Options.RageTargetSelect:SetValues(playerList)
+    end
+end
 
-Tabs.Rage:AddToggle("KOCheck", {
-    Title = "K.O Check",
-    Description = "Skip knocked players.",
-    Default = false
-}):OnChanged(function(v) silentAimSettings.KOCheck = v end)
-Options.KOCheck:SetValue(false)
+local function updateTargetAvatar(playerName)
+    local avatarImage = localPlayer.PlayerGui:FindFirstChild("TargetAvatarFrame", true) and localPlayer.PlayerGui:FindFirstChild("TargetAvatarFrame", true):FindFirstChild("AvatarImage")
+    local playerInfoLabel = localPlayer.PlayerGui:FindFirstChild("TargetAvatarFrame", true) and localPlayer.PlayerGui:FindFirstChild("TargetAvatarFrame", true):FindFirstChild("PlayerInfoLabel")
+    local player = Players:FindFirstChild(playerName)
+    if player then
+        local avatarId = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150"
+        if avatarImage then avatarImage.Image = avatarId end
+        if playerInfoLabel then playerInfoLabel.Text = "Username: " .. player.Name .. "\nDisplay Name: " .. player.DisplayName .. "\nUser ID: " .. player.UserId end
+    else
+        if avatarImage then avatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=1&w=150&h=150" end
+        if playerInfoLabel then playerInfoLabel.Text = "Player not found" end
+    end
+end
 
-Tabs.Rage:AddSlider("HitChance", {
-    Title = "Hit Chance",
-    Default = 100, Min = 0, Max = 100, Rounding = 0
-}):OnChanged(function(v) silentAimSettings.HitChance = v end)
+Players.PlayerAdded:Connect(function(p)
+    if p ~= localPlayer and not table.find(playerList, p.Name) then
+        table.insert(playerList, p.Name)
+        updateAllDropdowns()
+    end
+end)
 
-Tabs.Rage:AddDropdown("HitPart", {
-    Title = "Hit Part",
-    Values = {"Head","UpperTorso","HumanoidRootPart","LowerTorso","LeftHand","RightHand","LeftUpperArm","RightUpperArm","LeftUpperLeg","RightUpperLeg"},
-    Default = "Head"
-}):OnChanged(function(v) silentAimSettings.HitPart = v end)
+Players.PlayerRemoving:Connect(function(p)
+    for i, n in pairs(playerList) do
+        if n == p.Name then
+            table.remove(playerList, i)
+            break
+        end
+    end
+    updateAllDropdowns()
+    if selectedTargetPlayer == p.Name then
+        selectedTargetPlayer = playerList[1] or ""
+        updateTargetAvatar(selectedTargetPlayer)
+        if Options.RageTargetSelect then
+            Options.RageTargetSelect:SetValue(selectedTargetPlayer)
+        end
+    end
+end)
 
-Tabs.Rage:AddSlider("SilentPrediction", {
-    Title = "Prediction (ms)",
-    Default = 0, Min = 0, Max = 200, Rounding = 0
-}):OnChanged(function(v) silentAimSettings.Prediction = v / 1000 end)
-
-Tabs.Rage:AddSection("Targeting")
-
-Tabs.Rage:AddToggle("ShowSilentTracer", {
-    Title = "Show Tracer (Silent Aim Target)",
-    Default = false
-})
+-- Silent Aim UI section removed
 
 Tabs.Rage:AddSection("Anti-Aim (Desync)")
 
@@ -1241,8 +1426,8 @@ Options.DesyncToggle:SetValue(false)
 
 Tabs.Rage:AddDropdown("DesyncMode", {
     Title = "Desync Method",
-    Values = {"Void","Void Spam","Underground","Destroy Cheaters"},
-    Default = "Void"
+    Values = {"Bait", "Randomize", "Destroy Cheaters", "Static Void", "Predictions Breaker", "Unhittable"},
+    Default = "Bait"
 }):OnChanged(function(v) desyncConfig.mode = v end)
 
 Tabs.Rage:AddButton({
@@ -1285,70 +1470,177 @@ Tabs.Rage:AddSlider("StrafeHeight", {
     Default = 5, Min = 0, Max = 20, Rounding = 1
 }):OnChanged(function(v) strafeSettings.strafeHeight = v end)
 
-Tabs.Rage:AddSection("Player Actions")
+--------------------------------------------------
+-- BUILD UI - TARGETING SECTION
+--------------------------------------------------
 
-local playerList = {}
-for _, p in pairs(Players:GetPlayers()) do if p ~= localPlayer then table.insert(playerList, p.Name) end end
-Players.PlayerAdded:Connect(function(p) table.insert(playerList, p.Name) end)
-Players.PlayerRemoving:Connect(function(p)
-    for i, n in pairs(playerList) do if n == p.Name then table.remove(playerList, i) break end end
-end)
+Tabs.Rage:AddSection("Targeting")
 
-Tabs.Rage:AddDropdown("TargetPlayer", {
-    Title = "Select Target",
+local targetDropdown = Tabs.Rage:AddDropdown("RageTargetSelect", {
+    Title = "Select Target Player",
+    Description = "Select a player from the server to target.",
     Values = playerList,
     Default = playerList[1] or ""
-}):OnChanged(function(v) selectedTarget = v end)
+})
 
-Tabs.Rage:AddDropdown("ActionType", {
-    Title = "Action",
-    Values = {"Knock","Bring","Stomp"},
-    Default = "Knock"
-}):OnChanged(function(v) selectedAction = v end)
+-- Custom Avatar Frame
+local targetAvatarFrame = Instance.new("Frame")
+targetAvatarFrame.Name = "TargetAvatarFrame"
+targetAvatarFrame.Size = UDim2.new(1, -20, 0, 120)
+targetAvatarFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+targetAvatarFrame.BorderSizePixel = 0
 
-Tabs.Rage:AddButton({
-    Title = "Execute Action",
-    Callback = function()
-        if not selectedTarget then notify("Error", "Select a target first!") return end
-        local target = Players:FindFirstChild(selectedTarget)
-        if not target or not target.Character then notify("Error", "Target not found.") return end
-        local tool = localPlayer.Character and localPlayer.Character:FindFirstChildWhichIsA("Tool")
-        if not tool or not tool:FindFirstChild("Ammo") then notify("Error", "Equip a gun first!") return end
-        if selectedAction == "Knock" then executeKnock(target)
-        elseif selectedAction == "Bring" then executeBring(target)
-        elseif selectedAction == "Stomp" then executeStomp(target) end
+local corner = Instance.new("UICorner", targetAvatarFrame)
+corner.CornerRadius = UDim.new(0, 8)
+
+local stroke = Instance.new("UIStroke", targetAvatarFrame)
+stroke.Color = Color3.fromRGB(45, 45, 45)
+stroke.Thickness = 1.2
+
+local avatarImage = Instance.new("ImageLabel", targetAvatarFrame)
+avatarImage.Name = "AvatarImage"
+avatarImage.Size = UDim2.new(0, 90, 0, 90)
+avatarImage.Position = UDim2.new(0, 15, 0, 15)
+avatarImage.BackgroundTransparency = 1
+avatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=1&w=150&h=150"
+
+local avatarCorner = Instance.new("UICorner", avatarImage)
+avatarCorner.CornerRadius = UDim.new(1, 0)
+
+local avatarStroke = Instance.new("UIStroke", avatarImage)
+avatarStroke.Color = Color3.fromRGB(60, 60, 60)
+avatarStroke.Thickness = 1.5
+
+local playerInfoLabel = Instance.new("TextLabel", targetAvatarFrame)
+playerInfoLabel.Name = "PlayerInfoLabel"
+playerInfoLabel.Size = UDim2.new(1, -130, 0, 80)
+playerInfoLabel.Position = UDim2.new(0, 120, 0, 20)
+playerInfoLabel.BackgroundTransparency = 1
+playerInfoLabel.Font = Enum.Font.GothamBold
+playerInfoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+playerInfoLabel.TextSize = 13
+playerInfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+playerInfoLabel.TextYAlignment = Enum.TextYAlignment.Top
+playerInfoLabel.TextWrapped = true
+playerInfoLabel.LineHeight = 1.3
+playerInfoLabel.Text = "Select a player to view info"
+
+task.spawn(function()
+    while not targetDropdown.Frame or not targetDropdown.Frame.Parent do
+        task.wait()
     end
-})
+    targetAvatarFrame.Parent = targetDropdown.Frame.Parent
+    targetAvatarFrame.LayoutOrder = targetDropdown.Frame.LayoutOrder + 1
+end)
 
-Tabs.Rage:AddButton({
-    Title = "Stop All Actions",
-    Callback = function() stopAllActions() end
-})
-
-Tabs.Rage:AddSection("Mass Actions")
-
-Tabs.Rage:AddToggle("KillAll", {
-    Title = "Kill All",
-    Default = false
-}):OnChanged(function(v)
-    killAllActive = v
-    if v then task.spawn(performKillAll)
+local function updateTargetAvatarLocal(playerName)
+    local player = Players:FindFirstChild(playerName)
+    if player then
+        local avatarId = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150"
+        avatarImage.Image = avatarId
+        playerInfoLabel.Text = "Username: " .. player.Name .. "\nDisplay Name: " .. player.DisplayName .. "\nUser ID: " .. player.UserId
     else
-        local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if root and actionOldPos then root.CFrame = CFrame.new(actionOldPos) end
-        currentCamera.CameraSubject = localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid")
+        avatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=1&w=150&h=150"
+        playerInfoLabel.Text = "Player not found"
     end
-end)
-Options.KillAll:SetValue(false)
+end
 
-Tabs.Rage:AddToggle("StompAll", {
-    Title = "Stomp All",
+targetDropdown:OnChanged(function(v)
+    selectedTargetPlayer = v
+    updateTargetAvatarLocal(v)
+end)
+
+if playerList[1] then
+    selectedTargetPlayer = playerList[1]
+    updateTargetAvatarLocal(playerList[1])
+end
+
+Tabs.Rage:AddButton({
+    Title = "Teleport to Target (Goto)",
+    Description = "Teleport to the selected target player's position.",
+    Callback = function()
+        if not selectedTargetPlayer or selectedTargetPlayer == "" then
+            notify("Target Error", "Select a target first!")
+            return
+        end
+        local target = Players:FindFirstChild(selectedTargetPlayer)
+        local char = target and target.Character
+        local targetHrp = char and char:FindFirstChild("HumanoidRootPart")
+        local localHrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if targetHrp and localHrp then
+            localHrp.CFrame = targetHrp.CFrame + Vector3.new(0, 3, 0)
+            notify("Target", "Teleported to " .. selectedTargetPlayer)
+        else
+            notify("Target Error", "Could not find player or target character.")
+        end
+    end
+})
+
+Tabs.Rage:AddToggle("KillTargetToggle", {
+    Title = "Kill Target",
+    Description = "Teleport above target and shoot until they are knocked.",
     Default = false
 }):OnChanged(function(v)
-    stompAllActive = v
-    if v and not killAllActive then task.spawn(performStompAll) end
+    targetKillActive = v
+    if v then
+        if not selectedTargetPlayer or selectedTargetPlayer == "" then
+            notify("Target Error", "Select a target first!")
+            Options.KillTargetToggle:SetValue(false)
+            return
+        end
+        local target = Players:FindFirstChild(selectedTargetPlayer)
+        if not target or not target.Character then
+            notify("Target Error", "Target player or character not found.")
+            Options.KillTargetToggle:SetValue(false)
+            return
+        end
+        
+        task.spawn(function()
+            local savedPos = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and localPlayer.Character.HumanoidRootPart.CFrame
+            
+            -- Ensure gun equipped
+            local tool = localPlayer.Character and localPlayer.Character:FindFirstChildWhichIsA("Tool")
+            if not tool or not tool:FindFirstChild("Ammo") then
+                tool = localPlayer.Backpack:FindFirstChildWhichIsA("Tool")
+                if tool and tool:FindFirstChild("Ammo") then
+                    tool.Parent = localPlayer.Character
+                end
+            end
+            
+            if not tool or not tool:FindFirstChild("Ammo") then
+                notify("Kill Error", "Equip a gun or make sure you have one in your backpack!")
+                Options.KillTargetToggle:SetValue(false)
+                return
+            end
+            
+            notify("Kill Target", "Activating kill automation on " .. target.Name)
+            
+            while targetKillActive and target.Character and not isKO(target) do
+                local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+                if root and targetRoot then
+                    root.CFrame = targetRoot.CFrame * CFrame.new(0, 3.2, 0)
+                    if not localPlayer.Character:FindFirstChild(tool.Name) then
+                        tool.Parent = localPlayer.Character
+                    end
+                    if autoReloadAndAim(tool, target.Character) then
+                        shootAtHead(tool, target.Character, 5)
+                    end
+                end
+                task.wait(0.08)
+            end
+            
+            targetKillActive = false
+            Options.KillTargetToggle:SetValue(false)
+            
+            if savedPos and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                localPlayer.Character.HumanoidRootPart.CFrame = savedPos
+            end
+            
+            notify("Kill Target", "Kill automation ended.")
+        end)
+    end
 end)
-Options.StompAll:SetValue(false)
 
 --------------------------------------------------
 -- BUILD UI - LEGIT TAB
@@ -1396,52 +1688,7 @@ Tabs.Legit:AddToggle("TeamCheck", {
 }):OnChanged(function(v) camlockSettings.teamCheckEnabled = v end)
 Options.TeamCheck:SetValue(false)
 
-Tabs.Legit:AddSection("Streamable Silent Aim")
-
-Tabs.Legit:AddToggle("StreamableEnabled", {
-    Title = "Streamable Silent Aim",
-    Default = false
-}):OnChanged(function(v) streamableSettings.Enabled = v end)
-Options.StreamableEnabled:SetValue(false)
-
-Tabs.Legit:AddToggle("StreamableKOCheck", {
-    Title = "K.O Check",
-    Default = false
-}):OnChanged(function(v) streamableSettings.KOCheck = v end)
-Options.StreamableKOCheck:SetValue(false)
-
-Tabs.Legit:AddToggle("FOVEnabled", {
-    Title = "Show FOV Circle",
-    Default = false
-}):OnChanged(function(v) streamableSettings.FOV.Enabled = v end)
-Options.FOVEnabled:SetValue(false)
-
-Tabs.Legit:AddToggle("StreamableTracer", {
-    Title = "Show Tracer",
-    Default = false
-}):OnChanged(function(v) streamableSettings.ShowTracer = v end)
-Options.StreamableTracer:SetValue(false)
-
-Tabs.Legit:AddSlider("FOVRadius", {
-    Title = "FOV Radius",
-    Default = 100, Min = 0, Max = 500, Rounding = 0
-}):OnChanged(function(v) streamableSettings.FOV.Radius = v end)
-
-Tabs.Legit:AddSlider("StreamableHitChance", {
-    Title = "Hit Chance",
-    Default = 100, Min = 0, Max = 100, Rounding = 0
-}):OnChanged(function(v) streamableSettings.HitChance = v end)
-
-Tabs.Legit:AddDropdown("StreamableHitPart", {
-    Title = "Hit Part",
-    Values = {"Head","UpperTorso","HumanoidRootPart","LowerTorso","LeftHand","RightHand"},
-    Default = "Head"
-}):OnChanged(function(v) streamableSettings.HitPart = v end)
-
-Tabs.Legit:AddSlider("StreamablePrediction", {
-    Title = "Prediction (ms)",
-    Default = 0, Min = 0, Max = 200, Rounding = 0
-}):OnChanged(function(v) streamableSettings.Prediction = v / 1000 end)
+-- Streamable Silent Aim UI section removed
 
 Tabs.Legit:AddSection("Hitbox Expander")
 
@@ -1471,6 +1718,8 @@ Tabs.Legit:AddSlider("HitboxTransparency", {
     Title = "Hitbox Transparency",
     Default = 50, Min = 0, Max = 100, Rounding = 0
 }):OnChanged(function(v) hitboxSettings.transparency = v / 100 end)
+
+-- Old Target UI section removed
 
 --------------------------------------------------
 -- BUILD UI - GAME TAB
@@ -1512,24 +1761,44 @@ Tabs.Game:AddSlider("FlySpeed", {
 
 Tabs.Game:AddSection("Shop")
 
+local searchDebounce = nil
+Tabs.Game:AddInput("ShopSearch", {
+    Title = "Search Shop Item",
+    Default = "",
+    Placeholder = "Search item name..."
+}):OnChanged(function(searchText)
+    if searchDebounce then task.cancel(searchDebounce) end
+    searchDebounce = task.delay(0.25, function()
+        local allItems = getShopItemNames()
+        local filtered = {}
+        local lowerSearch = searchText:lower()
+        for _, name in ipairs(allItems) do
+            if name:lower():find(lowerSearch, 1, true) then
+                table.insert(filtered, name)
+            end
+        end
+        if Options.ShopItem then
+            Options.ShopItem:SetValues(filtered)
+            if #filtered > 0 then
+                if Options.ShopItem.Value ~= filtered[1] then
+                    Options.ShopItem:SetValue(filtered[1])
+                end
+            else
+                Options.ShopItem:SetValue("")
+            end
+        end
+    end)
+end)
+
 Tabs.Game:AddDropdown("ShopItem", {
     Title = "Select Item",
-    Values = {
-        "[Taco] - $2","[Hamburger] - $5","[Revolver] - $1421",
-        "12 [Revolver Ammo] - $55","90 [AUG Ammo] - $87",
-        "[AUG] - $2131","[Rifle] - $1694","[LMG] - $4098","200 [LMG Ammo] - $328"
-    },
-    Default = "[Taco] - $2"
+    Values = getShopItemNames(),
+    Default = getShopItemNames()[1] or ""
 }):OnChanged(function(v) selectedShopItem = v end)
 
 Tabs.Game:AddButton({
     Title = "Buy Item",
     Callback = function() executeBuyItem(selectedShopItem) end
-})
-
-Tabs.Game:AddButton({
-    Title = "Buy Ammo",
-    Callback = function() executeBuyAmmo() end
 })
 
 Tabs.Game:AddToggle("AutoBuyRespawn", {
@@ -1621,6 +1890,35 @@ Tabs.Game:AddToggle("AntiStomp", {
 end)
 Options.AntiStomp:SetValue(false)
 
+Tabs.Game:AddSection("Multi Equip Tools")
+
+multiEquipDropdown = Tabs.Game:AddDropdown("MultiEquipDropdown", {
+    Title = "Select Tools",
+    Description = "Select multiple tools to equip.",
+    Values = getInventoryTools(),
+    Multi = true,
+    Default = {}
+})
+
+multiEquipDropdown:OnChanged(function(v)
+    multiEquipSettings.selected = v
+end)
+
+Tabs.Game:AddToggle("MultiEquipToggle", {
+    Title = "Enable Multi Equip",
+    Default = false
+}):OnChanged(function(v)
+    multiEquipSettings.enabled = v
+end)
+Options.MultiEquipToggle:SetValue(false)
+
+Tabs.Game:AddButton({
+    Title = "Refresh Tool List",
+    Callback = function()
+        refreshMultiEquipDropdown()
+    end
+})
+
 --------------------------------------------------
 -- BUILD UI - VISUALS TAB
 --------------------------------------------------
@@ -1655,6 +1953,193 @@ Tabs.Visuals:AddToggle("SelfHighlight", {
 end)
 Options.SelfHighlight:SetValue(false)
 
+Tabs.Visuals:AddColorpicker("SelfHighlightFillColor", {
+    Title = "Self Fill Color",
+    Default = Color3.fromRGB(0, 200, 255)
+}):OnChanged(function(v)
+    selfHighlightFillColor = v
+    updateSelfHighlight()
+end)
+
+Tabs.Visuals:AddSlider("SelfHighlightFillBrightness", {
+    Title = "Self Fill Brightness (Opacity)",
+    Default = 50, Min = 0, Max = 100, Rounding = 0
+}):OnChanged(function(v)
+    selfHighlightFillTransparency = (100 - v) / 100
+    updateSelfHighlight()
+end)
+
+Tabs.Visuals:AddColorpicker("SelfHighlightOutlineColor", {
+    Title = "Self Outline Color",
+    Default = Color3.fromRGB(255, 255, 255)
+}):OnChanged(function(v)
+    selfHighlightOutlineColor = v
+    updateSelfHighlight()
+end)
+
+Tabs.Visuals:AddSlider("SelfHighlightOutlineBrightness", {
+    Title = "Self Outline Brightness (Opacity)",
+    Default = 100, Min = 0, Max = 100, Rounding = 0
+}):OnChanged(function(v)
+    selfHighlightOutlineTransparency = (100 - v) / 100
+    updateSelfHighlight()
+end)
+
+Tabs.Visuals:AddSection("ESP")
+
+Tabs.Visuals:AddToggle("ESPEnabled", {
+    Title = "Enable ESP",
+    Default = false
+}):OnChanged(function(v)
+    espConfig.enabled = v
+    if not v then
+        for _, drawings in pairs(espPlayers) do
+            pcall(function() drawings.Box.Visible = false end)
+            pcall(function() drawings.BoxOutline.Visible = false end)
+            pcall(function() drawings.Name.Visible = false end)
+            pcall(function() drawings.Tracer.Visible = false end)
+            pcall(function() drawings.HealthBarBg.Visible = false end)
+            pcall(function() drawings.HealthBar.Visible = false end)
+            if drawings.Highlight then
+                pcall(function() drawings.Highlight.Enabled = false end)
+            end
+        end
+    end
+end)
+Options.ESPEnabled:SetValue(false)
+
+Tabs.Visuals:AddToggle("ESPShowBox", {
+    Title = "Show Box",
+    Default = false
+}):OnChanged(function(v)
+    espConfig.showBox = v
+end)
+Options.ESPShowBox:SetValue(false)
+
+Tabs.Visuals:AddColorpicker("ESPBoxColor", {
+    Title = "Box Color",
+    Default = Color3.fromRGB(255, 0, 0)
+}):OnChanged(function(v)
+    espConfig.boxColor = v
+end)
+
+Tabs.Visuals:AddSlider("ESPBoxOpacity", {
+    Title = "Box Opacity",
+    Default = 100, Min = 0, Max = 100, Rounding = 0
+}):OnChanged(function(v)
+    espConfig.boxOpacity = v / 100
+end)
+
+Tabs.Visuals:AddToggle("ESPShowName", {
+    Title = "Show Name",
+    Default = false
+}):OnChanged(function(v)
+    espConfig.showName = v
+end)
+Options.ESPShowName:SetValue(false)
+
+Tabs.Visuals:AddColorpicker("ESPNameColor", {
+    Title = "Name Color",
+    Default = Color3.fromRGB(255, 255, 255)
+}):OnChanged(function(v)
+    espConfig.nameColor = v
+end)
+
+Tabs.Visuals:AddSlider("ESPNameOpacity", {
+    Title = "Name Opacity",
+    Default = 100, Min = 0, Max = 100, Rounding = 0
+}):OnChanged(function(v)
+    espConfig.nameOpacity = v / 100
+end)
+
+Tabs.Visuals:AddToggle("ESPShowHealthBar", {
+    Title = "Show Health Bar",
+    Default = false
+}):OnChanged(function(v)
+    espConfig.showHealthBar = v
+end)
+Options.ESPShowHealthBar:SetValue(false)
+
+Tabs.Visuals:AddColorpicker("ESPHealthColorFull", {
+    Title = "Health Bar Full Color",
+    Default = Color3.fromRGB(0, 255, 0)
+}):OnChanged(function(v)
+    espConfig.healthColorFull = v
+end)
+
+Tabs.Visuals:AddColorpicker("ESPHealthColorLow", {
+    Title = "Health Bar Low Color",
+    Default = Color3.fromRGB(255, 0, 0)
+}):OnChanged(function(v)
+    espConfig.healthColorLow = v
+end)
+
+Tabs.Visuals:AddToggle("ESPShowTracers", {
+    Title = "Show Tracers",
+    Default = false
+}):OnChanged(function(v)
+    espConfig.showTracers = v
+end)
+Options.ESPShowTracers:SetValue(false)
+
+Tabs.Visuals:AddDropdown("ESPTracerPos", {
+    Title = "Tracer Position",
+    Values = {"Bottom", "Mouse"},
+    Default = "Bottom"
+}):OnChanged(function(v)
+    espConfig.tracerPosition = v
+end)
+
+Tabs.Visuals:AddColorpicker("ESPTracerColor", {
+    Title = "Tracer Color",
+    Default = Color3.fromRGB(255, 0, 0)
+}):OnChanged(function(v)
+    espConfig.tracerColor = v
+end)
+
+Tabs.Visuals:AddSlider("ESPTracerOpacity", {
+    Title = "Tracer Opacity",
+    Default = 100, Min = 0, Max = 100, Rounding = 0
+}):OnChanged(function(v)
+    espConfig.tracerOpacity = v / 100
+end)
+
+Tabs.Visuals:AddToggle("ESPShowChams", {
+    Title = "Show Chams",
+    Default = false
+}):OnChanged(function(v)
+    espConfig.showChams = v
+end)
+Options.ESPShowChams:SetValue(false)
+
+Tabs.Visuals:AddColorpicker("ESPChamFillColor", {
+    Title = "Chams Fill Color",
+    Default = Color3.fromRGB(255, 0, 128)
+}):OnChanged(function(v)
+    espConfig.chamFillColor = v
+end)
+
+Tabs.Visuals:AddSlider("ESPChamFillBrightness", {
+    Title = "Chams Fill Brightness",
+    Default = 50, Min = 0, Max = 100, Rounding = 0
+}):OnChanged(function(v)
+    espConfig.chamFillTransparency = (100 - v) / 100
+end)
+
+Tabs.Visuals:AddColorpicker("ESPChamOutlineColor", {
+    Title = "Chams Outline Color",
+    Default = Color3.fromRGB(255, 255, 255)
+}):OnChanged(function(v)
+    espConfig.chamOutlineColor = v
+end)
+
+Tabs.Visuals:AddSlider("ESPChamOutlineBrightness", {
+    Title = "Chams Outline Brightness",
+    Default = 100, Min = 0, Max = 100, Rounding = 0
+}):OnChanged(function(v)
+    espConfig.chamOutlineTransparency = (100 - v) / 100
+end)
+
 Tabs.Visuals:AddSection("Trail")
 
 Tabs.Visuals:AddToggle("Trail", {
@@ -1675,6 +2160,22 @@ Tabs.Visuals:AddDropdown("TrailColorMode", {
     Default = "Solid"
 }):OnChanged(function(v)
     trailConfig.colorMode = v
+    if trailConfig.enabled then updateTrailProps() end
+end)
+
+Tabs.Visuals:AddColorpicker("TrailColorPrimary", {
+    Title = "Trail Primary Color (Solid/Gradient)",
+    Default = Color3.fromRGB(255, 255, 255)
+}):OnChanged(function(v)
+    trailConfig.color = v
+    if trailConfig.enabled then updateTrailProps() end
+end)
+
+Tabs.Visuals:AddColorpicker("TrailColorSecondary", {
+    Title = "Trail Secondary Color (Gradient)",
+    Default = Color3.fromRGB(255, 0, 255)
+}):OnChanged(function(v)
+    trailConfig.color2 = v
     if trailConfig.enabled then updateTrailProps() end
 end)
 
@@ -1785,6 +2286,122 @@ Tabs.Visuals:AddButton({
 })
 
 --------------------------------------------------
+-- BUILD UI - LIGHTING TAB
+--------------------------------------------------
+
+Tabs.Lighting:AddSection("Lighting")
+
+Tabs.Lighting:AddToggle("LightingEnabled", {
+    Title = "Enabled",
+    Default = false
+}):OnChanged(function(v)
+    lightingConfig.Enabled = v
+    applyLightingSettings()
+end)
+Options.LightingEnabled:SetValue(false)
+
+Tabs.Lighting:AddToggle("LightingAmbient", {
+    Title = "Ambient",
+    Default = false
+}):OnChanged(function(v)
+    lightingConfig.AmbientEnabled = v
+    applyLightingSettings()
+end)
+Options.LightingAmbient:SetValue(false)
+
+Tabs.Lighting:AddColorpicker("LightingAmbientColor", {
+    Title = "Ambient Color",
+    Default = Color3.fromRGB(163, 204, 255)
+}):OnChanged(function(v)
+    lightingConfig.AmbientColor = v
+    applyLightingSettings()
+end)
+
+Tabs.Lighting:AddToggle("LightingColorShiftTop", {
+    Title = "Color Shift Top",
+    Default = false
+}):OnChanged(function(v)
+    lightingConfig.ColorShiftTopEnabled = v
+    applyLightingSettings()
+end)
+Options.LightingColorShiftTop:SetValue(false)
+
+Tabs.Lighting:AddColorpicker("LightingTopColor", {
+    Title = "Top Color",
+    Default = Color3.fromRGB(163, 204, 255)
+}):OnChanged(function(v)
+    lightingConfig.ColorShiftTopColor = v
+    applyLightingSettings()
+end)
+
+Tabs.Lighting:AddToggle("LightingColorShiftBottom", {
+    Title = "Color Shift Bottom",
+    Default = false
+}):OnChanged(function(v)
+    lightingConfig.ColorShiftBottomEnabled = v
+    applyLightingSettings()
+end)
+Options.LightingColorShiftBottom:SetValue(false)
+
+Tabs.Lighting:AddColorpicker("LightingBottomColor", {
+    Title = "Bottom Color",
+    Default = Color3.fromRGB(163, 204, 255)
+}):OnChanged(function(v)
+    lightingConfig.ColorShiftBottomColor = v
+    applyLightingSettings()
+end)
+
+Tabs.Lighting:AddToggle("LightingCustomFog", {
+    Title = "Custom Fog",
+    Default = false
+}):OnChanged(function(v)
+    lightingConfig.CustomFogEnabled = v
+    applyLightingSettings()
+end)
+Options.LightingCustomFog:SetValue(false)
+
+Tabs.Lighting:AddColorpicker("LightingFogColor", {
+    Title = "Fog Color",
+    Default = Color3.fromRGB(163, 204, 255)
+}):OnChanged(function(v)
+    lightingConfig.FogColor = v
+    applyLightingSettings()
+end)
+
+Tabs.Lighting:AddSlider("LightingFogEnd", {
+    Title = "Fog End",
+    Default = 500, Min = 0, Max = 10000, Rounding = 0
+}):OnChanged(function(v)
+    lightingConfig.FogEnd = v
+    applyLightingSettings()
+end)
+
+Tabs.Lighting:AddSlider("LightingFogStart", {
+    Title = "Fog Start",
+    Default = 0, Min = 0, Max = 10000, Rounding = 0
+}):OnChanged(function(v)
+    lightingConfig.FogStart = v
+    applyLightingSettings()
+end)
+
+Tabs.Lighting:AddToggle("LightingCustomTime", {
+    Title = "Custom Time",
+    Default = false
+}):OnChanged(function(v)
+    lightingConfig.CustomTimeEnabled = v
+    applyLightingSettings()
+end)
+Options.LightingCustomTime:SetValue(false)
+
+Tabs.Lighting:AddSlider("LightingClockTime", {
+    Title = "Clock Time",
+    Default = 11.8, Min = 0, Max = 24, Rounding = 1
+}):OnChanged(function(v)
+    lightingConfig.ClockTime = v
+    applyLightingSettings()
+end)
+
+--------------------------------------------------
 -- KEYBINDS
 --------------------------------------------------
 
@@ -1844,21 +2461,47 @@ Tabs.Settings:AddButton({
     Description = "Cleans up all hooks and destroys the UI",
     Callback = function()
         -- disable all active systems
+        targetKillActive = false
         camlockSettings.enabled = false
         desyncConfig.enabled = false
         strafeSettings.enabled = false
         spinbotConfig.enabled = false
-        silentAimSettings.Enabled = false
+        -- silent aim settings disable removed
         hitboxSettings.expanderActive = false
         flyActive = false
         flyConfig.enabled = false
-        -- restore metamethod
-        pcall(function()
-            local mt2 = getrawmetatable(game)
-            setreadonly(mt2, false)
-            mt2.__index = oldIndex
-            setreadonly(mt2, true)
-        end)
+        espConfig.enabled = false
+        if espConnection then
+            espConnection:Disconnect()
+            espConnection = nil
+        end
+        if espPlayerAddedConnection then
+            espPlayerAddedConnection:Disconnect()
+            espPlayerAddedConnection = nil
+        end
+        if espPlayerRemovingConnection then
+            espPlayerRemovingConnection:Disconnect()
+            espPlayerRemovingConnection = nil
+        end
+        for p in pairs(espPlayers) do
+            removeESP(p)
+        end
+        multiEquipSettings.enabled = false
+        if toolActivationConnection then
+            toolActivationConnection:Disconnect()
+            toolActivationConnection = nil
+        end
+        if backpackConnection1 then backpackConnection1:Disconnect() end
+        if backpackConnection2 then backpackConnection2:Disconnect() end
+        if charConnection1 then charConnection1:Disconnect() end
+        if charConnection2 then charConnection2:Disconnect() end
+        lightingConfig.Enabled = false
+        applyLightingSettings()
+        if lightingConnection then
+            lightingConnection:Disconnect()
+            lightingConnection = nil
+        end
+        -- metamethod restore removed
         -- unbind render steps
         pcall(function() RunService:UnbindFromRenderStep("fixz_camlock") end)
         pcall(function() RunService:UnbindFromRenderStep("fixz_hitbox") end)
