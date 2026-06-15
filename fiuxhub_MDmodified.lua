@@ -2025,173 +2025,297 @@ Tabs.Rage:AddSlider("StrafeHeight", {
 -- BUILD UI - TARGETING SECTION
 --------------------------------------------------
 
-Tabs.Rage:AddSection("Targeting")
+do
+    --------------------------------------------------
+    -- CLICK TO TARGET STATE & FUNCTIONS
+    --------------------------------------------------
+    local pickingTarget = false
+    local pickConnection = nil
+    local hoverConnection = nil
+    local currentHoveredChar = nil
+    local hoverHighlight = nil
 
-local targetDropdown = Tabs.Rage:AddDropdown("RageTargetSelect", {
-    Title = "Select Target Player",
-    Description = "Select a player from the server to target.",
-    Values = playerList,
-    Default = playerList[1] or ""
-})
-
--- Custom Avatar Frame
-local targetAvatarFrame = Instance.new("Frame")
-targetAvatarFrame.Name = "TargetAvatarFrame"
-targetAvatarFrame.Size = UDim2.new(1, -20, 0, 120)
-targetAvatarFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-targetAvatarFrame.BorderSizePixel = 0
-
-local corner = Instance.new("UICorner", targetAvatarFrame)
-corner.CornerRadius = UDim.new(0, 8)
-
-local stroke = Instance.new("UIStroke", targetAvatarFrame)
-stroke.Color = Color3.fromRGB(45, 45, 45)
-stroke.Thickness = 1.2
-
-local avatarImage = Instance.new("ImageLabel", targetAvatarFrame)
-avatarImage.Name = "AvatarImage"
-avatarImage.Size = UDim2.new(0, 90, 0, 90)
-avatarImage.Position = UDim2.new(0, 15, 0, 15)
-avatarImage.BackgroundTransparency = 1
-avatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=1&w=150&h=150"
-
-local avatarCorner = Instance.new("UICorner", avatarImage)
-avatarCorner.CornerRadius = UDim.new(1, 0)
-
-local avatarStroke = Instance.new("UIStroke", avatarImage)
-avatarStroke.Color = Color3.fromRGB(60, 60, 60)
-avatarStroke.Thickness = 1.5
-
-local playerInfoLabel = Instance.new("TextLabel", targetAvatarFrame)
-playerInfoLabel.Name = "PlayerInfoLabel"
-playerInfoLabel.Size = UDim2.new(1, -130, 0, 80)
-playerInfoLabel.Position = UDim2.new(0, 120, 0, 20)
-playerInfoLabel.BackgroundTransparency = 1
-playerInfoLabel.Font = Enum.Font.GothamBold
-playerInfoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-playerInfoLabel.TextSize = 13
-playerInfoLabel.TextXAlignment = Enum.TextXAlignment.Left
-playerInfoLabel.TextYAlignment = Enum.TextYAlignment.Top
-playerInfoLabel.TextWrapped = true
-playerInfoLabel.LineHeight = 1.3
-playerInfoLabel.Text = "Select a player to view info"
-
-task.spawn(function()
-    while not targetDropdown.Frame or not targetDropdown.Frame.Parent do
-        task.wait()
-    end
-    targetAvatarFrame.Parent = targetDropdown.Frame.Parent
-    targetAvatarFrame.LayoutOrder = targetDropdown.Frame.LayoutOrder + 1
-end)
-
-local function updateTargetAvatarLocal(playerName)
-    local player = Players:FindFirstChild(playerName)
-    if player then
-        local avatarId = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150"
-        avatarImage.Image = avatarId
-        playerInfoLabel.Text = "Username: " .. player.Name .. "\nDisplay Name: " .. player.DisplayName .. "\nUser ID: " .. player.UserId
-    else
-        avatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=1&w=150&h=150"
-        playerInfoLabel.Text = "Player not found"
-    end
-end
-
-targetDropdown:OnChanged(function(v)
-    selectedTargetPlayer = v
-    updateTargetAvatarLocal(v)
-end)
-
-if playerList[1] then
-    selectedTargetPlayer = playerList[1]
-    updateTargetAvatarLocal(playerList[1])
-end
-
-Tabs.Rage:AddButton({
-    Title = "Teleport to Target (Goto)",
-    Description = "Teleport to the selected target player's position.",
-    Callback = function()
-        if not selectedTargetPlayer or selectedTargetPlayer == "" then
-            notify("Target Error", "Select a target first!")
-            return
+    local function clearHoverHighlight()
+        if hoverHighlight then
+            pcall(function() hoverHighlight:Destroy() end)
+            hoverHighlight = nil
         end
-        local target = Players:FindFirstChild(selectedTargetPlayer)
-        local char = target and target.Character
-        local targetHrp = char and char:FindFirstChild("HumanoidRootPart")
-        local localHrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if targetHrp and localHrp then
-            localHrp.CFrame = targetHrp.CFrame + Vector3.new(0, 3, 0)
-            notify("Target", "Teleported to " .. selectedTargetPlayer)
-        else
-            notify("Target Error", "Could not find player or target character.")
-        end
+        currentHoveredChar = nil
     end
-})
 
-Tabs.Rage:AddToggle("KillTargetToggle", {
-    Title = "Kill Target",
-    Description = "Teleport above target and shoot until they are knocked.",
-    Default = false
-}):OnChanged(function(v)
-    targetKillActive = v
-    if v then
-        if not selectedTargetPlayer or selectedTargetPlayer == "" then
-            notify("Target Error", "Select a target first!")
-            Options.KillTargetToggle:SetValue(false)
-            return
-        end
-        local target = Players:FindFirstChild(selectedTargetPlayer)
-        if not target or not target.Character then
-            notify("Target Error", "Target player or character not found.")
-            Options.KillTargetToggle:SetValue(false)
+    local function stopPicking()
+        pickingTarget = false
+        if pickConnection then pickConnection:Disconnect() pickConnection = nil end
+        if hoverConnection then hoverConnection:Disconnect() hoverConnection = nil end
+        clearHoverHighlight()
+    end
+    
+    _G.stopPickingTarget = stopPicking
+
+    local function startPickingTarget()
+        if pickingTarget then
+            stopPicking()
+            notify("Targeting", "Target pick cancelled.")
             return
         end
         
-        task.spawn(function()
-            local savedPos = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and localPlayer.Character.HumanoidRootPart.CFrame
+        pickingTarget = true
+        notify("Targeting", "Hover over a player and click to target them. (ESC to cancel)")
+        
+        local function getPlayerUnderMouse()
+            local mousePos = UserInputService:GetMouseLocation()
+            local unitRay = currentCamera:ViewportPointToRay(mousePos.X, mousePos.Y)
             
-            -- Ensure gun equipped
-            local tool = localPlayer.Character and localPlayer.Character:FindFirstChildWhichIsA("Tool")
-            if not tool or not tool:FindFirstChild("Ammo") then
-                tool = localPlayer.Backpack:FindFirstChildWhichIsA("Tool")
-                if tool and tool:FindFirstChild("Ammo") then
-                    tool.Parent = localPlayer.Character
+            -- Find the player whose character is closest to the ray
+            local closestPlayer = nil
+            local closestDistance = 15 -- Max stud distance from ray line to character root
+            
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= localPlayer and player.Character then
+                    local root = player.Character:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        -- Calculate distance from point (root position) to line (ray origin + ray direction)
+                        local rayToRoot = root.Position - unitRay.Origin
+                        local projection = rayToRoot:Dot(unitRay.Direction)
+                        if projection > 0 then
+                            local closestPointOnRay = unitRay.Origin + (unitRay.Direction * projection)
+                            local dist = (root.Position - closestPointOnRay).Magnitude
+                            if dist < closestDistance then
+                                closestDistance = dist
+                                closestPlayer = player
+                            end
+                        end
+                    end
                 end
             end
             
-            if not tool or not tool:FindFirstChild("Ammo") then
-                notify("Kill Error", "Equip a gun or make sure you have one in your backpack!")
+            return closestPlayer
+        end
+
+        hoverConnection = RunService.RenderStepped:Connect(function()
+            local player = getPlayerUnderMouse()
+            local model = player and player.Character
+            if model then
+                if currentHoveredChar ~= model then
+                    clearHoverHighlight()
+                    currentHoveredChar = model
+                    hoverHighlight = Instance.new("Highlight")
+                    hoverHighlight.Name = "FIXZ_HoverHighlight"
+                    hoverHighlight.FillColor = Color3.fromRGB(0, 255, 128)
+                    hoverHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hoverHighlight.FillTransparency = 0.6
+                    hoverHighlight.OutlineTransparency = 0.2
+                    hoverHighlight.Parent = model
+                end
+            else
+                clearHoverHighlight()
+            end
+        end)
+        
+        pickConnection = UserInputService.InputBegan:Connect(function(input, processed)
+            if processed then return end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                local player = getPlayerUnderMouse()
+                if player then
+                    stopPicking()
+                    if Options.RageTargetSelect then
+                        Options.RageTargetSelect:SetValue(player.Name)
+                    end
+                    notify("Targeting", "Selected target: " .. player.Name)
+                end
+            elseif input.KeyCode == Enum.KeyCode.Escape then
+                stopPicking()
+                notify("Targeting", "Target pick cancelled.")
+            end
+        end)
+    end
+
+    --------------------------------------------------
+    -- BUILD UI - TARGETING SECTION
+    --------------------------------------------------
+
+    Tabs.Rage:AddSection("Targeting")
+
+    local targetDropdown = Tabs.Rage:AddDropdown("RageTargetSelect", {
+        Title = "Select Target Player",
+        Description = "Select a player from the server to target.",
+        Values = playerList,
+        Default = playerList[1] or ""
+    })
+
+    local pickTargetBtn = Tabs.Rage:AddButton({
+        Title = "Pick Target (Hover & Click)",
+        Description = "Click here, then click a player character in the workspace to target them.",
+        Callback = function()
+            startPickingTarget()
+        end
+    })
+
+    -- Custom Avatar Frame
+    local targetAvatarFrame = Instance.new("Frame")
+    targetAvatarFrame.Name = "TargetAvatarFrame"
+    targetAvatarFrame.Size = UDim2.new(1, -20, 0, 120)
+    targetAvatarFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    targetAvatarFrame.BorderSizePixel = 0
+
+    local corner = Instance.new("UICorner", targetAvatarFrame)
+    corner.CornerRadius = UDim.new(0, 8)
+
+    local stroke = Instance.new("UIStroke", targetAvatarFrame)
+    stroke.Color = Color3.fromRGB(45, 45, 45)
+    stroke.Thickness = 1.2
+
+    local avatarImage = Instance.new("ImageLabel", targetAvatarFrame)
+    avatarImage.Name = "AvatarImage"
+    avatarImage.Size = UDim2.new(0, 90, 0, 90)
+    avatarImage.Position = UDim2.new(0, 15, 0, 15)
+    avatarImage.BackgroundTransparency = 1
+    avatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=1&w=150&h=150"
+
+    local avatarCorner = Instance.new("UICorner", avatarImage)
+    avatarCorner.CornerRadius = UDim.new(1, 0)
+
+    local avatarStroke = Instance.new("UIStroke", avatarImage)
+    avatarStroke.Color = Color3.fromRGB(60, 60, 60)
+    avatarStroke.Thickness = 1.5
+
+    local playerInfoLabel = Instance.new("TextLabel", targetAvatarFrame)
+    playerInfoLabel.Name = "PlayerInfoLabel"
+    playerInfoLabel.Size = UDim2.new(1, -130, 0, 80)
+    playerInfoLabel.Position = UDim2.new(0, 120, 0, 20)
+    playerInfoLabel.BackgroundTransparency = 1
+    playerInfoLabel.Font = Enum.Font.GothamBold
+    playerInfoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    playerInfoLabel.TextSize = 13
+    playerInfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+    playerInfoLabel.TextYAlignment = Enum.TextYAlignment.Top
+    playerInfoLabel.TextWrapped = true
+    playerInfoLabel.LineHeight = 1.3
+    playerInfoLabel.Text = "Select a player to view info"
+
+    local gotoBtn = Tabs.Rage:AddButton({
+        Title = "Teleport to Target (Goto)",
+        Description = "Teleport to the selected target player's position.",
+        Callback = function()
+            if not selectedTargetPlayer or selectedTargetPlayer == "" then
+                notify("Target Error", "Select a target first!")
+                return
+            end
+            local target = Players:FindFirstChild(selectedTargetPlayer)
+            local char = target and target.Character
+            local targetHrp = char and char:FindFirstChild("HumanoidRootPart")
+            local localHrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if targetHrp and localHrp then
+                localHrp.CFrame = targetHrp.CFrame + Vector3.new(0, 3, 0)
+                notify("Target", "Teleported to " .. selectedTargetPlayer)
+            else
+                notify("Target Error", "Could not find player or target character.")
+            end
+        end
+    })
+
+    local killToggle = Tabs.Rage:AddToggle("KillTargetToggle", {
+        Title = "Kill Target",
+        Description = "Teleport above target and shoot until they are knocked.",
+        Default = false
+    })
+
+    killToggle:OnChanged(function(v)
+        targetKillActive = v
+        if v then
+            if not selectedTargetPlayer or selectedTargetPlayer == "" then
+                notify("Target Error", "Select a target first!")
+                Options.KillTargetToggle:SetValue(false)
+                return
+            end
+            local target = Players:FindFirstChild(selectedTargetPlayer)
+            if not target or not target.Character then
+                notify("Target Error", "Target player or character not found.")
                 Options.KillTargetToggle:SetValue(false)
                 return
             end
             
-            notify("Kill Target", "Activating kill automation on " .. target.Name)
-            
-            while targetKillActive and target.Character and not isKO(target) do
-                local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-                local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
-                if root and targetRoot then
-                    root.CFrame = targetRoot.CFrame * CFrame.new(0, 3.2, 0)
-                    if not localPlayer.Character:FindFirstChild(tool.Name) then
+            task.spawn(function()
+                local savedPos = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and localPlayer.Character.HumanoidRootPart.CFrame
+                
+                -- Ensure gun equipped
+                local tool = localPlayer.Character and localPlayer.Character:FindFirstChildWhichIsA("Tool")
+                if not tool or not tool:FindFirstChild("Ammo") then
+                    tool = localPlayer.Backpack:FindFirstChildWhichIsA("Tool")
+                    if tool and tool:FindFirstChild("Ammo") then
                         tool.Parent = localPlayer.Character
                     end
-                    if autoReloadAndAim(tool, target.Character) then
-                        shootAtHead(tool, target.Character, 5)
-                    end
                 end
-                task.wait(0.08)
-            end
-            
-            targetKillActive = false
-            Options.KillTargetToggle:SetValue(false)
-            
-            if savedPos and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                localPlayer.Character.HumanoidRootPart.CFrame = savedPos
-            end
-            
-            notify("Kill Target", "Kill automation ended.")
-        end)
+                
+                if not tool or not tool:FindFirstChild("Ammo") then
+                    notify("Kill Error", "Equip a gun or make sure you have one in your backpack!")
+                    Options.KillTargetToggle:SetValue(false)
+                    return
+                end
+                
+                notify("Kill Target", "Activating kill automation on " .. target.Name)
+                
+                while targetKillActive and target.Character and not isKO(target) do
+                    local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+                    if root and targetRoot then
+                        root.CFrame = targetRoot.CFrame * CFrame.new(0, 3.2, 0)
+                        if not localPlayer.Character:FindFirstChild(tool.Name) then
+                            tool.Parent = localPlayer.Character
+                        end
+                        if autoReloadAndAim(tool, target.Character) then
+                            shootAtHead(tool, target.Character, 5)
+                        end
+                    end
+                    task.wait(0.08)
+                end
+                
+                targetKillActive = false
+                Options.KillTargetToggle:SetValue(false)
+                
+                if savedPos and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    localPlayer.Character.HumanoidRootPart.CFrame = savedPos
+                end
+                
+                notify("Kill Target", "Kill automation ended.")
+            end)
+        end
+    end)
+
+    task.spawn(function()
+        while not targetDropdown.Frame or not targetDropdown.Frame.Parent or not pickTargetBtn.Frame or not gotoBtn.Frame or not killToggle.Frame do
+            task.wait()
+        end
+        local baseOrder = targetDropdown.Frame.LayoutOrder
+        targetAvatarFrame.Parent = targetDropdown.Frame.Parent
+        targetAvatarFrame.LayoutOrder = baseOrder + 1
+        pickTargetBtn.Frame.LayoutOrder = baseOrder + 2
+        gotoBtn.Frame.LayoutOrder = baseOrder + 3
+        killToggle.Frame.LayoutOrder = baseOrder + 4
+    end)
+
+    local function updateTargetAvatarLocal(playerName)
+        local player = Players:FindFirstChild(playerName)
+        if player then
+            local avatarId = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150"
+            avatarImage.Image = avatarId
+            playerInfoLabel.Text = "Username: " .. player.Name .. "\nDisplay Name: " .. player.DisplayName .. "\nUser ID: " .. player.UserId
+        else
+            avatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=1&w=150&h=150"
+            playerInfoLabel.Text = "Player not found"
+        end
     end
-end)
+
+    targetDropdown:OnChanged(function(v)
+        selectedTargetPlayer = v
+        updateTargetAvatarLocal(v)
+    end)
+
+    if playerList[1] then
+        selectedTargetPlayer = playerList[1]
+        updateTargetAvatarLocal(playerList[1])
+    end
+end
 
 --------------------------------------------------
 -- BUILD UI - LEGIT TAB
@@ -2317,30 +2441,32 @@ Tabs.Game:AddSlider("FlySpeed", {
 
 Tabs.Game:AddSection("Shop")
 
-local searchDebounce = nil
-Tabs.Game:AddInput("ShopSearch", {
-    Title = "Search Shop Item",
-    Default = "",
-    Placeholder = "Search item name..."
-}):OnChanged(function(searchText)
-    if searchDebounce then task.cancel(searchDebounce) end
-    searchDebounce = task.delay(0.1, function()
-        local lowerSearch = searchText:lower()
-        if lowerSearch == "" then return end
-        local allItems = getShopItemNames()
-        local lowerItems = cachedLowerShopItemNames
-        for i = 1, #allItems do
-            local name = allItems[i]
-            local lowerName = lowerItems[i]
-            if lowerName and lowerName:find(lowerSearch, 1, true) then
-                if Options.ShopItem and Options.ShopItem.Value ~= name then
-                    Options.ShopItem:SetValue(name)
+do
+    local searchDebounce = nil
+    Tabs.Game:AddInput("ShopSearch", {
+        Title = "Search Shop Item",
+        Default = "",
+        Placeholder = "Search item name..."
+    }):OnChanged(function(searchText)
+        if searchDebounce then task.cancel(searchDebounce) end
+        searchDebounce = task.delay(0.1, function()
+            local lowerSearch = searchText:lower()
+            if lowerSearch == "" then return end
+            local allItems = getShopItemNames()
+            local lowerItems = cachedLowerShopItemNames
+            for i = 1, #allItems do
+                local name = allItems[i]
+                local lowerName = lowerItems[i]
+                if lowerName and lowerName:find(lowerSearch, 1, true) then
+                    if Options.ShopItem and Options.ShopItem.Value ~= name then
+                        Options.ShopItem:SetValue(name)
+                    end
+                    break
                 end
-                break
             end
-        end
+        end)
     end)
-end)
+end
 
 Tabs.Game:AddDropdown("ShopItem", {
     Title = "Select Item",
@@ -3221,6 +3347,10 @@ Tabs.Settings:AddButton({
     Callback = function()
         -- disable all active systems
         targetKillActive = false
+        if _G.stopPickingTarget then
+            pcall(_G.stopPickingTarget)
+            _G.stopPickingTarget = nil
+        end
         autoReloadEnabled = false
         if antiStompThread then
             task.cancel(antiStompThread)
