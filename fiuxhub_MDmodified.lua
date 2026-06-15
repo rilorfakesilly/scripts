@@ -449,6 +449,100 @@ end
 
 local lightingConnection = nil
 -- lightingConnection removed to prevent heavy rendering lag from setting properties every frame
+--------------------------------------------------
+-- GLOBAL PLAYER CACHE & UTILITIES (OPTIMIZATION)
+--------------------------------------------------
+local espPlayers = {}
+local playerCache = {}
+
+local function onPlayerAdded(p)
+    if p == localPlayer then return end
+    local data = {
+        char = nil,
+        hrp = nil,
+        hum = nil,
+        conn = nil
+    }
+    playerCache[p] = data
+    
+    local function onCharAdded(char)
+        data.char = char
+        data.hrp = char:WaitForChild("HumanoidRootPart", 10)
+        data.hum = char:WaitForChild("Humanoid", 10)
+    end
+    
+    if p.Character then
+        task.spawn(onCharAdded, p.Character)
+    end
+    data.conn = p.CharacterAdded:Connect(onCharAdded)
+end
+
+local function onPlayerRemoving(p)
+    local data = playerCache[p]
+    if data then
+        if data.conn then data.conn:Disconnect() end
+        playerCache[p] = nil
+    end
+end
+
+for _, p in pairs(Players:GetPlayers()) do
+    onPlayerAdded(p)
+end
+local playerAddedConn = Players.PlayerAdded:Connect(onPlayerAdded)
+local playerRemovingConn = Players.PlayerRemoving:Connect(onPlayerRemoving)
+
+local function getPlayerParts(p)
+    local data = playerCache[p]
+    if not data then return nil, nil, nil end
+    local char = p.Character
+    if not char then
+        data.char = nil
+        data.hrp = nil
+        data.hum = nil
+        return nil, nil, nil
+    end
+    
+    -- If character changed or cache is empty, update it
+    if data.char ~= char or not (data.hrp and data.hrp.Parent == char and data.hum and data.hum.Parent == char) then
+        data.char = char
+        data.hrp = char:FindFirstChild("HumanoidRootPart")
+        data.hum = char:FindFirstChildOfClass("Humanoid")
+        
+        -- Reset ESP drawings specific cache if this player has drawings
+        local drawings = espPlayers[p]
+        if drawings then
+            drawings.ExtentsSize = nil
+        end
+    end
+    return char, data.hrp, data.hum
+end
+
+-- Local player cache
+local localCharacter = nil
+local localHrp = nil
+local localHumanoid = nil
+
+local function updateLocalCharCache(char)
+    localCharacter = char
+    if char then
+        localHrp = char:WaitForChild("HumanoidRootPart", 10)
+        localHumanoid = char:WaitForChild("Humanoid", 10)
+    else
+        localHrp = nil
+        localHumanoid = nil
+    end
+end
+
+if localPlayer.Character then updateLocalCharCache(localPlayer.Character) end
+local localCharAddedConn = localPlayer.CharacterAdded:Connect(updateLocalCharCache)
+
+local function setDrawProp(drawings, objName, prop, val)
+    local cacheKey = "_" .. objName .. prop
+    if drawings[cacheKey] ~= val then
+        drawings[cacheKey] = val
+        pcall(function() drawings[objName][prop] = val end)
+    end
+end
 
 --------------------------------------------------
 -- HELPER FUNCTIONS
@@ -459,8 +553,10 @@ local function checkTeam(player)
 end
 
 local function getRole(player)
-    if not player or not player.Character then return nil end
-    for _, v in pairs(player.Character:GetDescendants()) do
+    if not player then return nil end
+    local char = player.Character
+    if not char then return nil end
+    for _, v in pairs(char:GetDescendants()) do
         if v:IsA("Tool") then
             local n = v.Name:lower()
             if n:match("knife") then return "Murder" end
@@ -489,12 +585,17 @@ local function getCamlockTarget()
     local shortest = math.huge
     local result = nil
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= localPlayer and p.Character and p.Character:FindFirstChild(camlockSettings.bodyPartSelected) and checkTeam(p) then
-            local part = p.Character[camlockSettings.bodyPartSelected]
-            local sp, onScreen = currentCamera:WorldToViewportPoint(part.Position)
-            if onScreen then
-                local dist = (Vector2.new(sp.X, sp.Y) - Vector2.new(playerMouse.X, playerMouse.Y)).Magnitude
-                if dist < shortest then shortest = dist result = p end
+        if p ~= localPlayer and checkTeam(p) then
+            local char, hrp, hum = getPlayerParts(p)
+            if char and hum and hum.Health > 0 then
+                local part = char:FindFirstChild(camlockSettings.bodyPartSelected)
+                if part then
+                    local sp, onScreen = currentCamera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(sp.X, sp.Y) - Vector2.new(playerMouse.X, playerMouse.Y)).Magnitude
+                        if dist < shortest then shortest = dist result = p end
+                    end
+                end
             end
         end
     end
@@ -504,20 +605,19 @@ end
 local camlockConnection = nil
 local function updateCamlock()
     local tp = camlockSettings.targetPlayer
-    if not tp or not tp.Character then
+    if not tp then
+        camlockSettings.isLockedOn = false
+        if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
+        return
+    end
+    local char, hrp, hum = getPlayerParts(tp)
+    if not char or not hum or hum.Health <= 0 then
         camlockSettings.isLockedOn = false
         camlockSettings.targetPlayer = nil
         if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
         return
     end
-    local hum = tp.Character:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then
-        camlockSettings.isLockedOn = false
-        camlockSettings.targetPlayer = nil
-        if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
-        return
-    end
-    local be = tp.Character:FindFirstChild("BodyEffects")
+    local be = char:FindFirstChild("BodyEffects")
     local ko = be and be:FindFirstChild("K.O")
     if ko and ko.Value then
         camlockSettings.isLockedOn = false
@@ -525,7 +625,7 @@ local function updateCamlock()
         if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
         return
     end
-    local part = tp.Character:FindFirstChild(camlockSettings.bodyPartSelected)
+    local part = char:FindFirstChild(camlockSettings.bodyPartSelected)
     if part then
         local predicted = part.Position + (part.AssemblyLinearVelocity or Vector3.zero) * camlockSettings.predictionFactor
         local goalCF = CFrame.new(currentCamera.CFrame.Position, predicted)
@@ -549,11 +649,14 @@ local function toggleCamlock()
             toggleCamlockConnection(false)
         else
             camlockSettings.targetPlayer = getCamlockTarget()
-            if camlockSettings.targetPlayer and camlockSettings.targetPlayer.Character then
-                local part = camlockSettings.targetPlayer.Character:FindFirstChild(camlockSettings.bodyPartSelected)
-                if part then 
-                    camlockSettings.isLockedOn = true 
-                    toggleCamlockConnection(true)
+            if camlockSettings.targetPlayer then
+                local char, hrp, hum = getPlayerParts(camlockSettings.targetPlayer)
+                if char then
+                    local part = char:FindFirstChild(camlockSettings.bodyPartSelected)
+                    if part then 
+                        camlockSettings.isLockedOn = true 
+                        toggleCamlockConnection(true)
+                    end
                 end
             end
         end
@@ -573,11 +676,14 @@ local function getStrafeTarget()
     local mouseLoc = UserInputService:GetMouseLocation()
     local result = nil
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local sp, onScreen = currentCamera:WorldToScreenPoint(p.Character.HumanoidRootPart.Position)
-            if onScreen then
-                local dist = (Vector2.new(sp.X, sp.Y) - mouseLoc).Magnitude
-                if dist < shortest then shortest = dist result = p end
+        if p ~= localPlayer then
+            local char, hrp, hum = getPlayerParts(p)
+            if hrp and hum and hum.Health > 0 then
+                local sp, onScreen = currentCamera:WorldToScreenPoint(hrp.Position)
+                if onScreen then
+                    local dist = (Vector2.new(sp.X, sp.Y) - mouseLoc).Magnitude
+                    if dist < shortest then shortest = dist result = p end
+                end
             end
         end
     end
@@ -586,16 +692,15 @@ end
 
 local strafeConnection = nil
 local function updateStrafe(dt)
-    if not (strafeSettings.enabled and isStrafing and strafeTargetPlayer and strafeTargetPlayer.Character and strafeTargetPlayer.Character:FindFirstChild("HumanoidRootPart")) then return end
-    local targetRoot = strafeTargetPlayer.Character.HumanoidRootPart
+    if not (strafeSettings.enabled and isStrafing and strafeTargetPlayer) then return end
+    local char, targetRoot, hum = getPlayerParts(strafeTargetPlayer)
+    if not targetRoot or not hum or hum.Health <= 0 then return end
     currentStrafeAngle = (currentStrafeAngle + strafeSettings.strafeSpeed * dt * 360) % 360
     local x = math.cos(math.rad(currentStrafeAngle)) * strafeSettings.strafeRadius
     local z = math.sin(math.rad(currentStrafeAngle)) * strafeSettings.strafeRadius
     local newPos = Vector3.new(targetRoot.Position.X + x, targetRoot.Position.Y + strafeSettings.strafeHeight, targetRoot.Position.Z + z)
-    local char = localPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.CFrame = CFrame.new(newPos, targetRoot.Position)
+    if localHrp then
+        localHrp.CFrame = CFrame.new(newPos, targetRoot.Position)
         currentCamera.CameraSubject = targetRoot
     end
 end
@@ -610,7 +715,7 @@ end
 local function toggleStrafe()
     if isStrafing then
         isStrafing = false
-        currentCamera.CameraSubject = localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid")
+        currentCamera.CameraSubject = localHumanoid
         notify("Strafe", "Unstrafed " .. (strafeTargetPlayer and strafeTargetPlayer.Name or ""))
         strafeTargetPlayer = nil
         toggleStrafeConnection(false)
@@ -637,35 +742,33 @@ desyncPart.Transparency = 1
 desyncPart.Parent = Workspace
 
 local function resetCameraToPlayer()
-    local hum = localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid")
-    if hum then currentCamera.CameraSubject = hum end
+    if localHumanoid then currentCamera.CameraSubject = localHumanoid end
 end
 
 local desyncConnection = nil
 local function updateDesync()
-    local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if root then
-        desyncConfig.oldPosition = root.CFrame
+    if localHrp and localHrp.Parent == localCharacter then
+        desyncConfig.oldPosition = localHrp.CFrame
         local mode = desyncConfig.mode
-        local velocity = root.AssemblyLinearVelocity or Vector3.zero
+        local velocity = localHrp.AssemblyLinearVelocity or Vector3.zero
         if mode == "Bait" then
-            desyncConfig.teleportPos = root.Position + Vector3.new(math.random(-5, 5), math.random(-2, 2), math.random(-5, 5))
+            desyncConfig.teleportPos = localHrp.Position + Vector3.new(math.random(-5, 5), math.random(-2, 2), math.random(-5, 5))
         elseif mode == "Randomize" then
-            desyncConfig.teleportPos = root.Position + Vector3.new(math.random(-200, 200), math.random(-50, 50), math.random(-200, 200))
+            desyncConfig.teleportPos = localHrp.Position + Vector3.new(math.random(-200, 200), math.random(-50, 50), math.random(-200, 200))
         elseif mode == "Destroy Cheaters" then
             desyncConfig.teleportPos = Vector3.new(9e18, 9e18, 9e18)
         elseif mode == "Static Void" then
-            desyncConfig.teleportPos = root.Position - Vector3.new(0, 1500, 0)
+            desyncConfig.teleportPos = localHrp.Position - Vector3.new(0, 1500, 0)
         elseif mode == "Predictions Breaker" then
-            desyncConfig.teleportPos = root.Position - (velocity * 2.5) + Vector3.new(math.random(-8, 8), 0, math.random(-8, 8))
+            desyncConfig.teleportPos = localHrp.Position - (velocity * 2.5) + Vector3.new(math.random(-8, 8), 0, math.random(-8, 8))
         elseif mode == "Unhittable" then
-            desyncConfig.teleportPos = root.Position + Vector3.new(math.random(-99999, 99999), math.random(-99999, 99999), math.random(-99999, 99999))
+            desyncConfig.teleportPos = localHrp.Position + Vector3.new(math.random(-99999, 99999), math.random(-99999, 99999), math.random(-99999, 99999))
         end
-        root.CFrame = CFrame.new(desyncConfig.teleportPos)
+        localHrp.CFrame = CFrame.new(desyncConfig.teleportPos)
         currentCamera.CameraSubject = desyncPart
         RunService.RenderStepped:Wait()
-        desyncPart.CFrame = desyncConfig.oldPosition * CFrame.new(0, root.Size.Y/2 + 0.5, 0)
-        root.CFrame = desyncConfig.oldPosition
+        desyncPart.CFrame = desyncConfig.oldPosition * CFrame.new(0, localHrp.Size.Y/2 + 0.5, 0)
+        localHrp.CFrame = desyncConfig.oldPosition
     end
 end
 
@@ -688,8 +791,6 @@ local function toggleDesync(state)
     end
 end
 
-
-
 -- FOV rendering removed
 
 --------------------------------------------------
@@ -701,9 +802,9 @@ local function getHitboxTarget()
     local mv = Vector2.new(playerMouse.X, playerMouse.Y)
     local result = nil
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= localPlayer and p.Character then
-            local root = p.Character:FindFirstChild("HumanoidRootPart")
-            if root then
+        if p ~= localPlayer then
+            local char, root, hum = getPlayerParts(p)
+            if root and hum and hum.Health > 0 then
                 local sp, onScreen = currentCamera:WorldToScreenPoint(root.Position)
                 if onScreen then
                     local dist = (mv - Vector2.new(sp.X, sp.Y)).Magnitude
@@ -716,8 +817,9 @@ local function getHitboxTarget()
 end
 
 local function revertHitbox(player)
-    if player and player.Character then
-        local root = player.Character:FindFirstChild("HumanoidRootPart")
+    if player then
+        local char, root, hum = getPlayerParts(player)
+        if not char and player.Character then char = player.Character root = char:FindFirstChild("HumanoidRootPart") end
         if root and hitboxSettings.originalProps[player] then
             root.Size = hitboxSettings.originalProps[player].Size
             root.Transparency = hitboxSettings.originalProps[player].Transparency
@@ -740,24 +842,47 @@ local function runHitboxExpander()
         hitboxTarget = getHitboxTarget()
     end
     local target = hitboxTarget
-    if not target then return end
-    -- KO check: skip if target is knocked out
-    local be = target.Character and target.Character:FindFirstChild("BodyEffects")
-    local ko = be and be:FindFirstChild("K.O")
-    if ko and ko.Value then
-        if hitboxSettings.expandedPlayer then revertHitbox(hitboxSettings.expandedPlayer) hitboxSettings.expandedPlayer = nil end
+    
+    local isTargetValid = false
+    if target then
+        local char, root, hum = getPlayerParts(target)
+        if char and root and hum and hum.Health > 0 then
+            local be = char:FindFirstChild("BodyEffects")
+            local ko = be and be:FindFirstChild("K.O")
+            if not (ko and ko.Value) then
+                isTargetValid = true
+            end
+        end
+    end
+    
+    if not isTargetValid or not target then
+        if hitboxSettings.expandedPlayer then
+            revertHitbox(hitboxSettings.expandedPlayer)
+            hitboxSettings.expandedPlayer = nil
+        end
         return
     end
-    local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-    if root then
-        if hitboxSettings.expandedPlayer and hitboxSettings.expandedPlayer ~= target then revertHitbox(hitboxSettings.expandedPlayer) end
-        if not hitboxSettings.originalProps[target] then
-            hitboxSettings.originalProps[target] = { Size = root.Size, Transparency = root.Transparency, CanCollide = root.CanCollide }
+    
+    if hitboxSettings.expandedPlayer ~= target then
+        if hitboxSettings.expandedPlayer then
+            revertHitbox(hitboxSettings.expandedPlayer)
         end
-        hitboxSettings.expandedPlayer = target
-        root.Size = Vector3.new(hitboxSettings.size, hitboxSettings.size, hitboxSettings.size)
-        root.Transparency = hitboxSettings.transparency
-        root.CanCollide = false
+        local char, root, hum = getPlayerParts(target)
+        if root then
+            if not hitboxSettings.originalProps[target] then
+                hitboxSettings.originalProps[target] = { Size = root.Size, Transparency = root.Transparency, CanCollide = root.CanCollide }
+            end
+            hitboxSettings.expandedPlayer = target
+            root.Size = Vector3.new(hitboxSettings.size, hitboxSettings.size, hitboxSettings.size)
+            root.Transparency = hitboxSettings.transparency
+            root.CanCollide = false
+        end
+    else
+        local char, root, hum = getPlayerParts(target)
+        if root and root.Size.X ~= hitboxSettings.size then
+            root.Size = Vector3.new(hitboxSettings.size, hitboxSettings.size, hitboxSettings.size)
+            root.Transparency = hitboxSettings.transparency
+        end
     end
 end
 
@@ -777,11 +902,8 @@ end
 local speedConnection
 local function updateSpeed()
     if not cframeSpeedSettings.isFunctionalityEnabled or not cframeSpeedSettings.isSpeedActive then return end
-    local char = localPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChild("Humanoid")
-    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
-        hrp.CFrame = hrp.CFrame + hum.MoveDirection.Unit * cframeSpeedSettings.multiplier
+    if localHrp and localHumanoid and localHumanoid.Parent == localCharacter and localHumanoid.MoveDirection.Magnitude > 0 then
+        localHrp.CFrame = localHrp.CFrame + localHumanoid.MoveDirection.Unit * cframeSpeedSettings.multiplier
     end
 end
 
@@ -841,35 +963,46 @@ local isBuyingItem = false
 local autoBuyOnRespawn = false
 
 local function getLocalRoot()
-    return localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    return localHrp
 end
 
-local function getRandomShopItemByName(itemName)
-    local items = {}
-    for _, child in ipairs(shopFolder:GetChildren()) do
-        if child.Name == itemName then
-            table.insert(items, child)
-        end
-    end
-    if #items > 0 then
-        return items[math.random(1, #items)]
-    end
-    return nil
-end
-
+local shopItemsCache = {} -- itemName -> list of { position = Vector3, cd = ClickDetector, part = BasePart }
 local cachedShopItemNames = {}
+local cachedLowerShopItemNames = {}
 
 local function updateShopCache()
     local names = {}
     local seen = {}
+    local newCache = {}
     for _, child in ipairs(shopFolder:GetChildren()) do
-        if not seen[child.Name] then
-            seen[child.Name] = true
-            table.insert(names, child.Name)
+        local name = child.Name
+        if not seen[name] then
+            seen[name] = true
+            table.insert(names, name)
+        end
+        
+        local cd = child:FindFirstChildOfClass("ClickDetector")
+        local targetPart = child:FindFirstChild("Head") or child:FindFirstChildOfClass("Part") or child:FindFirstChildWhichIsA("BasePart")
+        if targetPart then
+            if not newCache[name] then
+                newCache[name] = {}
+            end
+            table.insert(newCache[name], {
+                position = targetPart.Position,
+                cd = cd,
+                part = targetPart
+            })
         end
     end
     table.sort(names)
     cachedShopItemNames = names
+    shopItemsCache = newCache
+    
+    local lowerNames = {}
+    for i, name in ipairs(names) do
+        lowerNames[i] = name:lower()
+    end
+    cachedLowerShopItemNames = lowerNames
 end
 
 -- Initial population
@@ -879,29 +1012,6 @@ local function getShopItemNames()
     return cachedShopItemNames
 end
 
-local shopRefreshDebounce
-local function refreshShopDropdown()
-    if shopRefreshDebounce then task.cancel(shopRefreshDebounce) end
-    shopRefreshDebounce = task.delay(0.3, function()
-        updateShopCache()
-        if Options.ShopItem then
-            local searchText = Options.ShopSearch and Options.ShopSearch.Value or ""
-            local allItems = getShopItemNames()
-            local filtered = {}
-            local lowerSearch = searchText:lower()
-            for _, name in ipairs(allItems) do
-                if name:lower():find(lowerSearch, 1, true) then
-                    table.insert(filtered, name)
-                end
-            end
-            Options.ShopItem:SetValues(filtered)
-        end
-    end)
-end
-
-shopFolder.ChildAdded:Connect(refreshShopDropdown)
-shopFolder.ChildRemoved:Connect(refreshShopDropdown)
-
 local function executeBuyItem(itemName)
     if not itemName or isBuyingItem then return end
     isBuyingItem = true
@@ -909,28 +1019,55 @@ local function executeBuyItem(itemName)
     if desyncWas then toggleDesync(false) task.wait(0.1) end
     local root = getLocalRoot()
     if root then
-        local item = getRandomShopItemByName(itemName)
-        if item then
-            local cd = item:FindFirstChildOfClass("ClickDetector")
-            local targetPart = item:FindFirstChild("Head") or item:FindFirstChildOfClass("Part") or item:FindFirstChildWhichIsA("BasePart")
-            if cd and targetPart then
-                local saved = root.CFrame
-                root.CFrame = CFrame.new(targetPart.Position + Vector3.new(0,3,0))
-                task.wait(0.2)
+        local cachedList = shopItemsCache[itemName]
+        local itemData = cachedList and cachedList[math.random(1, #cachedList)]
+        if itemData then
+            local targetPos = itemData.position
+            if itemData.part and itemData.part.Parent then
+                targetPos = itemData.part.Position
+            end
+            
+            local saved = root.CFrame
+            root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
+            task.wait(0.25)
+            
+            local cd = itemData.cd
+            if not (cd and cd.Parent) then
+                for _, child in ipairs(shopFolder:GetChildren()) do
+                    if child.Name == itemName then
+                        local head = child:FindFirstChild("Head") or child:FindFirstChildOfClass("Part") or child:FindFirstChildWhichIsA("BasePart")
+                        if head and (head.Position - targetPos).Magnitude < 10 then
+                            local foundCd = child:FindFirstChildOfClass("ClickDetector")
+                            if foundCd then
+                                cd = foundCd
+                                itemData.part = head
+                                itemData.cd = foundCd
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+            
+            if cd then
                 fireclickdetector(cd)
                 notify("Shop", "Purchased: " .. itemName)
-                root.CFrame = saved
-            else notify("Shop Error", "ClickDetector or target part not found in " .. itemName) end
-        else notify("Shop Error", "Item not found: " .. itemName) end
+            else
+                notify("Shop Error", "ClickDetector not found for " .. itemName)
+            end
+            root.CFrame = saved
+        else
+            notify("Shop Error", "Item not found: " .. itemName)
+        end
         if desyncWas then task.wait(0.2) toggleDesync(true) end
     end
     isBuyingItem = false
 end
 
 localPlayer.CharacterAdded:Connect(function()
-    task.wait(1)
+    task.wait(1.5)
     shopFolder = Workspace:WaitForChild("Ignored"):WaitForChild("Shop")
-    refreshShopDropdown()
+    updateShopCache()
     if autoBuyOnRespawn and selectedShopItem then
         executeBuyItem(selectedShopItem)
     end
@@ -1014,7 +1151,10 @@ local materialMap = {
     SmoothPlastic = Enum.Material.SmoothPlastic,
 }
 
+local localTrail = nil
+
 local function removeAllTrails(char)
+    localTrail = nil
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if hrp then
         for _, c in pairs(hrp:GetChildren()) do
@@ -1036,24 +1176,17 @@ local function getTrailColorSequence()
 end
 
 local function updateTrailProps()
-    local char = localPlayer.Character
-    if not char or not trailConfig.enabled then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    for _, c in pairs(hrp:GetChildren()) do
-        if c:IsA("Trail") then
-            c.Color = getTrailColorSequence()
-            c.Lifetime = trailConfig.lifetime
-            c.Transparency = NumberSequence.new(trailConfig.transparency, 1)
-            c.LightEmission = trailConfig.lightEmission
-            c.WidthScale = NumberSequence.new(trailConfig.width / 10)
-            if trailConfig.textureId ~= "" then
-                c.Texture = "rbxassetid://" .. trailConfig.textureId
-                c.TextureMode = Enum.TextureMode.Static
-            else
-                c.Texture = ""
-            end
-        end
+    if not trailConfig.enabled or not localTrail or not localTrail.Parent then return end
+    localTrail.Color = getTrailColorSequence()
+    localTrail.Lifetime = trailConfig.lifetime
+    localTrail.Transparency = NumberSequence.new(trailConfig.transparency, 1)
+    localTrail.LightEmission = trailConfig.lightEmission
+    localTrail.WidthScale = NumberSequence.new(trailConfig.width / 10)
+    if trailConfig.textureId ~= "" then
+        localTrail.Texture = "rbxassetid://" .. trailConfig.textureId
+        localTrail.TextureMode = Enum.TextureMode.Static
+    else
+        localTrail.Texture = ""
     end
 end
 
@@ -1069,13 +1202,14 @@ local chinaHatConfig = {
     heightOffset = 2.0
 }
 
+local chinaHatAdornments = {}
 local chinaHatConnections = {}
 local chinaHatPlayerAddedConn = nil
 local chinaHatPlayerRemovingConn = nil
 
-local function applyChinaHat(char)
+local function applyChinaHat(player, char)
     if not char then return end
-    local hrp = char:WaitForChild("HumanoidRootPart", 3)
+    local hrp = char:WaitForChild("HumanoidRootPart", 3) or char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
     
     local existing = hrp:FindFirstChild("FIXZ_ChinaHat")
@@ -1091,9 +1225,12 @@ local function applyChinaHat(char)
     adornment.Adornee = hrp
     adornment.CFrame = CFrame.new(0, chinaHatConfig.heightOffset, 0) * CFrame.Angles(math.rad(90), 0, 0)
     adornment.Parent = hrp
+    
+    chinaHatAdornments[player] = adornment
 end
 
-local function removeChinaHat(char)
+local function removeChinaHat(player, char)
+    chinaHatAdornments[player] = nil
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if hrp then
@@ -1107,7 +1244,7 @@ local function setupChinaHatForPlayer(player)
         task.wait(1)
         if chinaHatConfig.enabled then
             if player == localPlayer or not chinaHatConfig.selfOnly then
-                applyChinaHat(char)
+                applyChinaHat(player, char)
             end
         end
     end
@@ -1121,23 +1258,22 @@ local function removeChinaHatForPlayer(player)
         chinaHatConnections[player] = nil
     end
     if player.Character then
-        removeChinaHat(player.Character)
+        removeChinaHat(player, player.Character)
     end
 end
 
 local function updateChinaHatColors()
     local color = chinaHatConfig.rainbow and Color3.fromHSV(rainbowHue, 1, 1) or chinaHatConfig.color
-    if localPlayer.Character then
-        local hrp = localPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local adornment = hrp and hrp:FindFirstChild("FIXZ_ChinaHat")
-        if adornment then adornment.Color3 = color end
+    
+    local localAdornment = chinaHatAdornments[localPlayer]
+    if localAdornment and localAdornment.Parent then
+        localAdornment.Color3 = color
     end
+    
     if not chinaHatConfig.selfOnly then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= localPlayer and p.Character then
-                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-                local adornment = hrp and hrp:FindFirstChild("FIXZ_ChinaHat")
-                if adornment then adornment.Color3 = color end
+        for player, adornment in pairs(chinaHatAdornments) do
+            if player ~= localPlayer and adornment and adornment.Parent then
+                adornment.Color3 = color
             end
         end
     end
@@ -1145,7 +1281,7 @@ end
 
 local function updateChinaHatProperties()
     local color = chinaHatConfig.rainbow and Color3.fromHSV(rainbowHue, 1, 1) or chinaHatConfig.color
-    local function applyProps(char)
+    local function applyProps(player, char)
         if not char then return end
         local hrp = char:FindFirstChild("HumanoidRootPart")
         local adornment = hrp and hrp:FindFirstChild("FIXZ_ChinaHat")
@@ -1159,13 +1295,13 @@ local function updateChinaHatProperties()
         end
     end
     
-    if localPlayer.Character then applyProps(localPlayer.Character) end
+    if localPlayer.Character then applyProps(localPlayer, localPlayer.Character) end
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= localPlayer and p.Character then
             if not chinaHatConfig.selfOnly then
-                applyProps(p.Character)
+                applyProps(p, p.Character)
             else
-                removeChinaHat(p.Character)
+                removeChinaHat(p, p.Character)
             end
         end
     end
@@ -1193,20 +1329,13 @@ local function stopChinaHat()
         removeChinaHatForPlayer(p)
     end
     for _, p in pairs(Players:GetPlayers()) do
-        if p.Character then removeChinaHat(p.Character) end
+        if p.Character then removeChinaHat(p, p.Character) end
     end
 end
 
 local function updateTrailColorOnly()
-    local char = localPlayer.Character
-    if not char or not trailConfig.enabled then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    local colorSeq = getTrailColorSequence()
-    for _, c in pairs(hrp:GetChildren()) do
-        if c:IsA("Trail") then
-            c.Color = colorSeq
-        end
+    if localTrail and localTrail.Parent then
+        localTrail.Color = getTrailColorSequence()
     end
 end
 
@@ -1258,6 +1387,7 @@ local function applyTrail(char)
         t.Texture = "rbxassetid://" .. trailConfig.textureId
         t.TextureMode = Enum.TextureMode.Static
     end
+    localTrail = t
 end
 
 local function applySelfHighlight(char)
@@ -1272,17 +1402,22 @@ local function applySelfHighlight(char)
 end
 
 local function updateSelfHighlight()
-    local char = localPlayer.Character
-    if char and selfHighlightEnabled then
-        applySelfHighlight(char)
+    if selfHighlightEnabled and selfHighlight and selfHighlight.Parent then
+        selfHighlight.FillColor = selfHighlightFillColor
+        selfHighlight.OutlineColor = selfHighlightOutlineColor
+        selfHighlight.FillTransparency = selfHighlightFillTransparency
+        selfHighlight.OutlineTransparency = selfHighlightOutlineTransparency
+    else
+        local char = localPlayer.Character
+        if char and selfHighlightEnabled then
+            applySelfHighlight(char)
+        end
     end
 end
 
 -- ==================================================
 -- ESP (Drawing & Highlights) System
 -- ==================================================
-
-local espPlayers = {}
 
 local function createESP(player)
     if player == localPlayer then return end
@@ -1295,7 +1430,15 @@ local function createESP(player)
         Tracer = Drawing.new("Line"),
         HealthBarBg = Drawing.new("Line"),
         HealthBar = Drawing.new("Line"),
-        Highlight = nil
+        Highlight = nil,
+        
+        -- Cache to prevent crossing Lua/C++ bridge unnecessarily
+        _BoxVisible = false,
+        _BoxOutlineVisible = false,
+        _NameVisible = false,
+        _TracerVisible = false,
+        _HealthBarBgVisible = false,
+        _HealthBarVisible = false
     }
     
     drawings.Box.Thickness = 1.5
@@ -1356,11 +1499,11 @@ local function startESP()
     espPlayerRemovingConnection = Players.PlayerRemoving:Connect(removeESP)
     
     espConnection = RunService.RenderStepped:Connect(function()
+        local mouseLoc = UserInputService:GetMouseLocation()
+        local viewportSize = currentCamera.ViewportSize
+        
         for player, drawings in pairs(espPlayers) do
-            local char = player.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            
+            local char, root, hum = getPlayerParts(player)
             local visible = false
             
             if char and root and hum and hum.Health > 0 then
@@ -1368,7 +1511,12 @@ local function startESP()
                 if onScreen then
                     visible = true
                     
-                    local extents = char:GetExtentsSize()
+                    local extents = drawings.ExtentsSize
+                    if not extents then
+                        extents = char:GetExtentsSize()
+                        drawings.ExtentsSize = extents
+                    end
+                    
                     local topPoint = root.Position + Vector3.new(0, extents.Y / 2 + 0.5, 0)
                     local bottomPoint = root.Position - Vector3.new(0, extents.Y / 2 + 0.5, 0)
                     
@@ -1383,29 +1531,47 @@ local function startESP()
                     
                     -- Box
                     if espConfig.showBox then
-                        drawings.BoxOutline.Size = Vector2.new(width, height)
-                        drawings.BoxOutline.Position = Vector2.new(boxX, boxY)
-                        drawings.BoxOutline.Visible = true
+                        setDrawProp(drawings, "BoxOutline", "Size", Vector2.new(width, height))
+                        setDrawProp(drawings, "BoxOutline", "Position", Vector2.new(boxX, boxY))
+                        if not drawings._BoxOutlineVisible then
+                            drawings._BoxOutlineVisible = true
+                            pcall(function() drawings.BoxOutline.Visible = true end)
+                        end
                         
-                        drawings.Box.Size = Vector2.new(width, height)
-                        drawings.Box.Position = Vector2.new(boxX, boxY)
-                        drawings.Box.Color = espConfig.boxColor
-                        drawings.Box.Transparency = espConfig.boxOpacity
-                        drawings.Box.Visible = true
+                        setDrawProp(drawings, "Box", "Size", Vector2.new(width, height))
+                        setDrawProp(drawings, "Box", "Position", Vector2.new(boxX, boxY))
+                        setDrawProp(drawings, "Box", "Color", espConfig.boxColor)
+                        setDrawProp(drawings, "Box", "Transparency", espConfig.boxOpacity)
+                        if not drawings._BoxVisible then
+                            drawings._BoxVisible = true
+                            pcall(function() drawings.Box.Visible = true end)
+                        end
                     else
-                        drawings.BoxOutline.Visible = false
-                        drawings.Box.Visible = false
+                        if drawings._BoxOutlineVisible then
+                            drawings._BoxOutlineVisible = false
+                            pcall(function() drawings.BoxOutline.Visible = false end)
+                        end
+                        if drawings._BoxVisible then
+                            drawings._BoxVisible = false
+                            pcall(function() drawings.Box.Visible = false end)
+                        end
                     end
                     
                     -- Name
                     if espConfig.showName then
-                        drawings.Name.Position = Vector2.new(pos.X, boxY - 16)
-                        drawings.Name.Text = player.Name
-                        drawings.Name.Color = espConfig.nameColor
-                        drawings.Name.Transparency = espConfig.nameOpacity
-                        drawings.Name.Visible = true
+                        setDrawProp(drawings, "Name", "Position", Vector2.new(pos.X, boxY - 16))
+                        setDrawProp(drawings, "Name", "Text", player.Name)
+                        setDrawProp(drawings, "Name", "Color", espConfig.nameColor)
+                        setDrawProp(drawings, "Name", "Transparency", espConfig.nameOpacity)
+                        if not drawings._NameVisible then
+                            drawings._NameVisible = true
+                            pcall(function() drawings.Name.Visible = true end)
+                        end
                     else
-                        drawings.Name.Visible = false
+                        if drawings._NameVisible then
+                            drawings._NameVisible = false
+                            pcall(function() drawings.Name.Visible = false end)
+                        end
                     end
                     
                     -- Health Bar
@@ -1416,35 +1582,53 @@ local function startESP()
                         local barX = boxX - 6
                         local barY = boxY
                         
-                        drawings.HealthBarBg.From = Vector2.new(barX, barY)
-                        drawings.HealthBarBg.To = Vector2.new(barX, barY + height)
-                        drawings.HealthBarBg.Visible = true
+                        setDrawProp(drawings, "HealthBarBg", "From", Vector2.new(barX, barY))
+                        setDrawProp(drawings, "HealthBarBg", "To", Vector2.new(barX, barY + height))
+                        if not drawings._HealthBarBgVisible then
+                            drawings._HealthBarBgVisible = true
+                            pcall(function() drawings.HealthBarBg.Visible = true end)
+                        end
                         
-                        drawings.HealthBar.From = Vector2.new(barX, barY + height)
-                        drawings.HealthBar.To = Vector2.new(barX, barY + height - (height * healthPercent))
-                        drawings.HealthBar.Color = healthColor
-                        drawings.HealthBar.Visible = true
+                        setDrawProp(drawings, "HealthBar", "From", Vector2.new(barX, barY + height))
+                        setDrawProp(drawings, "HealthBar", "To", Vector2.new(barX, barY + height - (height * healthPercent)))
+                        setDrawProp(drawings, "HealthBar", "Color", healthColor)
+                        if not drawings._HealthBarVisible then
+                            drawings._HealthBarVisible = true
+                            pcall(function() drawings.HealthBar.Visible = true end)
+                        end
                     else
-                        drawings.HealthBarBg.Visible = false
-                        drawings.HealthBar.Visible = false
+                        if drawings._HealthBarBgVisible then
+                            drawings._HealthBarBgVisible = false
+                            pcall(function() drawings.HealthBarBg.Visible = false end)
+                        end
+                        if drawings._HealthBarVisible then
+                            drawings._HealthBarVisible = false
+                            pcall(function() drawings.HealthBar.Visible = false end)
+                        end
                     end
                     
                     -- Tracer
                     if espConfig.showTracers then
                         local fromPos
                         if espConfig.tracerPosition == "Bottom" then
-                            fromPos = Vector2.new(currentCamera.ViewportSize.X / 2, currentCamera.ViewportSize.Y)
+                            fromPos = Vector2.new(viewportSize.X / 2, viewportSize.Y)
                         else
-                            fromPos = UserInputService:GetMouseLocation()
+                            fromPos = mouseLoc
                         end
                         
-                        drawings.Tracer.From = fromPos
-                        drawings.Tracer.To = Vector2.new(pos.X, pos.Y + height / 2)
-                        drawings.Tracer.Color = espConfig.tracerColor
-                        drawings.Tracer.Transparency = espConfig.tracerOpacity
-                        drawings.Tracer.Visible = true
+                        setDrawProp(drawings, "Tracer", "From", fromPos)
+                        setDrawProp(drawings, "Tracer", "To", Vector2.new(pos.X, pos.Y + height / 2))
+                        setDrawProp(drawings, "Tracer", "Color", espConfig.tracerColor)
+                        setDrawProp(drawings, "Tracer", "Transparency", espConfig.tracerOpacity)
+                        if not drawings._TracerVisible then
+                            drawings._TracerVisible = true
+                            pcall(function() drawings.Tracer.Visible = true end)
+                        end
                     else
-                        drawings.Tracer.Visible = false
+                        if drawings._TracerVisible then
+                            drawings._TracerVisible = false
+                            pcall(function() drawings.Tracer.Visible = false end)
+                        end
                     end
                     
                     -- Chams
@@ -1470,12 +1654,12 @@ local function startESP()
             end
             
             if not visible then
-                drawings.Box.Visible = false
-                drawings.BoxOutline.Visible = false
-                drawings.Name.Visible = false
-                drawings.Tracer.Visible = false
-                drawings.HealthBarBg.Visible = false
-                drawings.HealthBar.Visible = false
+                if drawings._BoxVisible then drawings._BoxVisible = false pcall(function() drawings.Box.Visible = false end) end
+                if drawings._BoxOutlineVisible then drawings._BoxOutlineVisible = false pcall(function() drawings.BoxOutline.Visible = false end) end
+                if drawings._NameVisible then drawings._NameVisible = false pcall(function() drawings.Name.Visible = false end) end
+                if drawings._TracerVisible then drawings._TracerVisible = false pcall(function() drawings.Tracer.Visible = false end) end
+                if drawings._HealthBarBgVisible then drawings._HealthBarBgVisible = false pcall(function() drawings.HealthBarBg.Visible = false end) end
+                if drawings._HealthBarVisible then drawings._HealthBarVisible = false pcall(function() drawings.HealthBar.Visible = false end) end
                 if drawings.Highlight and drawings.Highlight.Enabled then
                     drawings.Highlight.Enabled = false
                 end
@@ -1513,21 +1697,18 @@ end)
 
 local spinbotConnection = nil
 local function updateSpinbot()
-    local char = localPlayer.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+    if not localHrp or localHrp.Parent ~= localCharacter then return end
     spinbotConfig.angle = (spinbotConfig.angle + spinbotConfig.speed) % 360
     local yaw = math.rad(spinbotConfig.angle)
-    hrp.CFrame = CFrame.new(hrp.Position) * CFrame.Angles(0, yaw, 0)
-    if spinbotConfig.lookUp then
-        local neck = char:FindFirstChild("Neck", true)
+    localHrp.CFrame = CFrame.new(localHrp.Position) * CFrame.Angles(0, yaw, 0)
+    if spinbotConfig.lookUp and localCharacter then
+        local neck = localCharacter:FindFirstChild("Neck", true)
         if neck and neck:IsA("Motor6D") then
             neck.C0 = CFrame.new(0, 1, 0) * CFrame.Angles(math.rad(-85), math.rad(spinbotConfig.angle), 0)
         end
-        local tool = char:FindFirstChildWhichIsA("Tool")
+        local tool = localCharacter:FindFirstChildWhichIsA("Tool")
         if tool then
-            local rj = char:FindFirstChild("RightGrip", true)
+            local rj = localCharacter:FindFirstChild("RightGrip", true)
             if rj and rj:IsA("Motor6D") then
                 rj.C1 = CFrame.Angles(math.rad(90), 0, 0)
             end
@@ -2045,23 +2226,19 @@ Tabs.Game:AddInput("ShopSearch", {
     Placeholder = "Search item name..."
 }):OnChanged(function(searchText)
     if searchDebounce then task.cancel(searchDebounce) end
-    searchDebounce = task.delay(0.25, function()
-        local allItems = getShopItemNames()
-        local filtered = {}
+    searchDebounce = task.delay(0.1, function()
         local lowerSearch = searchText:lower()
-        for _, name in ipairs(allItems) do
-            if name:lower():find(lowerSearch, 1, true) then
-                table.insert(filtered, name)
-            end
-        end
-        if Options.ShopItem then
-            Options.ShopItem:SetValues(filtered)
-            if #filtered > 0 then
-                if Options.ShopItem.Value ~= filtered[1] then
-                    Options.ShopItem:SetValue(filtered[1])
+        if lowerSearch == "" then return end
+        local allItems = getShopItemNames()
+        local lowerItems = cachedLowerShopItemNames
+        for i = 1, #allItems do
+            local name = allItems[i]
+            local lowerName = lowerItems[i]
+            if lowerName and lowerName:find(lowerSearch, 1, true) then
+                if Options.ShopItem and Options.ShopItem.Value ~= name then
+                    Options.ShopItem:SetValue(name)
                 end
-            else
-                Options.ShopItem:SetValue("")
+                break
             end
         end
     end)
@@ -2834,7 +3011,7 @@ end)
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
+SaveManager:SetIgnoreIndexes({"ShopSearch"})
 InterfaceManager:SetFolder("FluentScriptHub")
 SaveManager:SetFolder("FluentScriptHub/da-hood")
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
@@ -2911,6 +3088,16 @@ Tabs.Settings:AddButton({
             currentCamera.CameraType = Enum.CameraType.Custom
             currentCamera.CameraSubject = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid")
         end)
+        if playerAddedConn then playerAddedConn:Disconnect() playerAddedConn = nil end
+        if playerRemovingConn then playerRemovingConn:Disconnect() playerRemovingConn = nil end
+        if localCharAddedConn then localCharAddedConn:Disconnect() localCharAddedConn = nil end
+        for p, data in pairs(playerCache) do
+            if data.conn then data.conn:Disconnect() end
+        end
+        playerCache = {}
+        chinaHatAdornments = {}
+        espPlayers = {}
+        
         -- remove self visuals
         pcall(function()
             local char = localPlayer.Character
@@ -2939,3 +3126,5 @@ Tabs.Settings:AddButton({
 
 Window:SelectTab(1)
 SaveManager:LoadAutoloadConfig()
+
+-- i lowkey dont know how to fix the lag bro
