@@ -1057,6 +1057,146 @@ local function updateTrailProps()
     end
 end
 
+local chinaHatConfig = {
+    enabled = false,
+    color = Color3.fromRGB(0, 200, 255),
+    transparency = 0.3,
+    alwaysOnTop = true,
+    rainbow = false,
+    selfOnly = true,
+    height = 0.6,
+    radius = 1.2,
+    heightOffset = 2.0
+}
+
+local chinaHatConnections = {}
+local chinaHatPlayerAddedConn = nil
+local chinaHatPlayerRemovingConn = nil
+
+local function applyChinaHat(char)
+    if not char then return end
+    local hrp = char:WaitForChild("HumanoidRootPart", 3)
+    if not hrp then return end
+    
+    local existing = hrp:FindFirstChild("FIXZ_ChinaHat")
+    if existing then existing:Destroy() end
+    
+    local adornment = Instance.new("ConeHandleAdornment")
+    adornment.Name = "FIXZ_ChinaHat"
+    adornment.Height = chinaHatConfig.height
+    adornment.Radius = chinaHatConfig.radius
+    adornment.Color3 = chinaHatConfig.rainbow and Color3.fromHSV(rainbowHue, 1, 1) or chinaHatConfig.color
+    adornment.Transparency = chinaHatConfig.transparency
+    adornment.AlwaysOnTop = chinaHatConfig.alwaysOnTop
+    adornment.Adornee = hrp
+    adornment.CFrame = CFrame.new(0, chinaHatConfig.heightOffset, 0) * CFrame.Angles(math.rad(90), 0, 0)
+    adornment.Parent = hrp
+end
+
+local function removeChinaHat(char)
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local adornment = hrp:FindFirstChild("FIXZ_ChinaHat")
+        if adornment then adornment:Destroy() end
+    end
+end
+
+local function setupChinaHatForPlayer(player)
+    local function onCharAdded(char)
+        task.wait(1)
+        if chinaHatConfig.enabled then
+            if player == localPlayer or not chinaHatConfig.selfOnly then
+                applyChinaHat(char)
+            end
+        end
+    end
+    if player.Character then task.spawn(onCharAdded, player.Character) end
+    chinaHatConnections[player] = player.CharacterAdded:Connect(onCharAdded)
+end
+
+local function removeChinaHatForPlayer(player)
+    if chinaHatConnections[player] then
+        chinaHatConnections[player]:Disconnect()
+        chinaHatConnections[player] = nil
+    end
+    if player.Character then
+        removeChinaHat(player.Character)
+    end
+end
+
+local function updateChinaHatColors()
+    local color = chinaHatConfig.rainbow and Color3.fromHSV(rainbowHue, 1, 1) or chinaHatConfig.color
+    if localPlayer.Character then
+        local hrp = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local adornment = hrp and hrp:FindFirstChild("FIXZ_ChinaHat")
+        if adornment then adornment.Color3 = color end
+    end
+    if not chinaHatConfig.selfOnly then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= localPlayer and p.Character then
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                local adornment = hrp and hrp:FindFirstChild("FIXZ_ChinaHat")
+                if adornment then adornment.Color3 = color end
+            end
+        end
+    end
+end
+
+local function updateChinaHatProperties()
+    local color = chinaHatConfig.rainbow and Color3.fromHSV(rainbowHue, 1, 1) or chinaHatConfig.color
+    local function applyProps(char)
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local adornment = hrp and hrp:FindFirstChild("FIXZ_ChinaHat")
+        if adornment then
+            adornment.Color3 = color
+            adornment.Transparency = chinaHatConfig.transparency
+            adornment.AlwaysOnTop = chinaHatConfig.alwaysOnTop
+            adornment.Height = chinaHatConfig.height
+            adornment.Radius = chinaHatConfig.radius
+            adornment.CFrame = CFrame.new(0, chinaHatConfig.heightOffset, 0) * CFrame.Angles(math.rad(90), 0, 0)
+        end
+    end
+    
+    if localPlayer.Character then applyProps(localPlayer.Character) end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= localPlayer and p.Character then
+            if not chinaHatConfig.selfOnly then
+                applyProps(p.Character)
+            else
+                removeChinaHat(p.Character)
+            end
+        end
+    end
+end
+
+local function startChinaHat()
+    if chinaHatPlayerAddedConn then return end
+    for _, p in pairs(Players:GetPlayers()) do
+        setupChinaHatForPlayer(p)
+    end
+    chinaHatPlayerAddedConn = Players.PlayerAdded:Connect(setupChinaHatForPlayer)
+    chinaHatPlayerRemovingConn = Players.PlayerRemoving:Connect(removeChinaHatForPlayer)
+end
+
+local function stopChinaHat()
+    if chinaHatPlayerAddedConn then
+        chinaHatPlayerAddedConn:Disconnect()
+        chinaHatPlayerAddedConn = nil
+    end
+    if chinaHatPlayerRemovingConn then
+        chinaHatPlayerRemovingConn:Disconnect()
+        chinaHatPlayerRemovingConn = nil
+    end
+    for p in pairs(chinaHatConnections) do
+        removeChinaHatForPlayer(p)
+    end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character then removeChinaHat(p.Character) end
+    end
+end
+
 local function updateTrailColorOnly()
     local char = localPlayer.Character
     if not char or not trailConfig.enabled then return end
@@ -1073,7 +1213,12 @@ end
 local rainbowConnection = nil
 local function updateRainbowTrail(dt)
     rainbowHue = (rainbowHue + dt * 0.5) % 1
-    updateTrailColorOnly()
+    if trailConfig.enabled and trailConfig.colorMode == "Rainbow" then
+        updateTrailColorOnly()
+    end
+    if chinaHatConfig.enabled and chinaHatConfig.rainbow then
+        updateChinaHatColors()
+    end
 end
 
 local function toggleRainbowConnection(state)
@@ -1081,6 +1226,12 @@ local function toggleRainbowConnection(state)
     if state then
         rainbowConnection = RunService.Heartbeat:Connect(updateRainbowTrail)
     end
+end
+
+local function updateRainbowState()
+    local needRainbow = (trailConfig.enabled and trailConfig.colorMode == "Rainbow")
+                     or (chinaHatConfig.enabled and chinaHatConfig.rainbow)
+    toggleRainbowConnection(needRainbow)
 end
 
 local function applyTrail(char)
@@ -2278,7 +2429,7 @@ Tabs.Visuals:AddToggle("Trail", {
     if char then
         if v then applyTrail(char) else removeAllTrails(char) end
     end
-    toggleRainbowConnection(v and trailConfig.colorMode == "Rainbow")
+    updateRainbowState()
 end)
 Options.Trail:SetValue(false)
 
@@ -2289,7 +2440,7 @@ Tabs.Visuals:AddDropdown("TrailColorMode", {
 }):OnChanged(function(v)
     trailConfig.colorMode = v
     if trailConfig.enabled then updateTrailProps() end
-    toggleRainbowConnection(trailConfig.enabled and v == "Rainbow")
+    updateRainbowState()
 end)
 
 Tabs.Visuals:AddColorpicker("TrailColorPrimary", {
@@ -2435,6 +2586,103 @@ Tabs.Visuals:AddButton({
         notify("Sound", "Applied sound ID: " .. customSoundId)
     end
 })
+
+Tabs.Visuals:AddSection("China Hat")
+
+Tabs.Visuals:AddToggle("ChinaHatEnabled", {
+    Title = "Enable China Hat",
+    Description = "Renders a cosmetic conical hat on your character",
+    Default = false
+}):OnChanged(function(v)
+    chinaHatConfig.enabled = v
+    if v then
+        startChinaHat()
+    else
+        stopChinaHat()
+    end
+    updateRainbowState()
+end)
+Options.ChinaHatEnabled:SetValue(false)
+
+Tabs.Visuals:AddToggle("ChinaHatRainbow", {
+    Title = "Rainbow Color",
+    Description = "Cycle hat colors smoothly",
+    Default = false
+}):OnChanged(function(v)
+    chinaHatConfig.rainbow = v
+    updateRainbowState()
+    if not v then
+        updateChinaHatProperties()
+    end
+end)
+Options.ChinaHatRainbow:SetValue(false)
+
+Tabs.Visuals:AddColorpicker("ChinaHatColor", {
+    Title = "Hat Color",
+    Default = Color3.fromRGB(0, 200, 255)
+}):OnChanged(function(v)
+    chinaHatConfig.color = v
+    if not chinaHatConfig.rainbow then
+        updateChinaHatProperties()
+    end
+end)
+
+Tabs.Visuals:AddSlider("ChinaHatTransparency", {
+    Title = "Hat Transparency",
+    Default = 30, Min = 0, Max = 100, Rounding = 0
+}):OnChanged(function(v)
+    chinaHatConfig.transparency = v / 100
+    updateChinaHatProperties()
+end)
+
+Tabs.Visuals:AddToggle("ChinaHatAlwaysOnTop", {
+    Title = "Always On Top",
+    Description = "Hat renders through walls",
+    Default = true
+}):OnChanged(function(v)
+    chinaHatConfig.alwaysOnTop = v
+    updateChinaHatProperties()
+end)
+Options.ChinaHatAlwaysOnTop:SetValue(true)
+
+Tabs.Visuals:AddToggle("ChinaHatSelfOnly", {
+    Title = "Self Only",
+    Description = "Only render on your own character",
+    Default = true
+}):OnChanged(function(v)
+    chinaHatConfig.selfOnly = v
+    updateChinaHatProperties()
+    if chinaHatConfig.enabled then
+        stopChinaHat()
+        startChinaHat()
+    end
+end)
+Options.ChinaHatSelfOnly:SetValue(true)
+
+Tabs.Visuals:AddSlider("ChinaHatHeight", {
+    Title = "Hat Height",
+    Default = 6, Min = 1, Max = 30, Rounding = 0
+}):OnChanged(function(v)
+    chinaHatConfig.height = v / 10
+    updateChinaHatProperties()
+end)
+
+Tabs.Visuals:AddSlider("ChinaHatRadius", {
+    Title = "Hat Radius",
+    Default = 12, Min = 5, Max = 40, Rounding = 0
+}):OnChanged(function(v)
+    chinaHatConfig.radius = v / 10
+    updateChinaHatProperties()
+end)
+
+Tabs.Visuals:AddSlider("ChinaHatHeightOffset", {
+    Title = "Hat Height Offset",
+    Description = "Adjust hat position above torso",
+    Default = 20, Min = 10, Max = 40, Rounding = 1
+}):OnChanged(function(v)
+    chinaHatConfig.heightOffset = v / 10
+    updateChinaHatProperties()
+end)
 
 --------------------------------------------------
 -- BUILD UI - LIGHTING TAB
@@ -2624,6 +2872,8 @@ Tabs.Settings:AddButton({
         flyConfig.enabled = false
         espConfig.enabled = false
         stopESP()
+        chinaHatConfig.enabled = false
+        stopChinaHat()
         if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
         if strafeConnection then strafeConnection:Disconnect() strafeConnection = nil end
         if desyncConnection then desyncConnection:Disconnect() desyncConnection = nil end
