@@ -287,10 +287,14 @@ local function getInventoryTools()
     return tools
 end
 
+local multiEquipRefreshDebounce
 local function refreshMultiEquipDropdown()
     if not multiEquipDropdown then return end
-    local tools = getInventoryTools()
-    multiEquipDropdown:SetValues(tools)
+    if multiEquipRefreshDebounce then task.cancel(multiEquipRefreshDebounce) end
+    multiEquipRefreshDebounce = task.delay(0.3, function()
+        local tools = getInventoryTools()
+        multiEquipDropdown:SetValues(tools)
+    end)
 end
 
 local backpackConnection1
@@ -336,30 +340,37 @@ local function setupToolActivationHook()
     end)
 end
 
-setupInventoryListeners()
-setupToolActivationHook()
-
-localPlayer.CharacterAdded:Connect(function(char)
-    task.wait(1)
-    setupInventoryListeners()
-    setupToolActivationHook()
-    refreshMultiEquipDropdown()
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(0.1)
-        if multiEquipSettings.enabled and localPlayer.Character then
-            local backpack = localPlayer:FindFirstChild("Backpack")
-            if backpack then
-                for _, tool in ipairs(backpack:GetChildren()) do
-                    if tool:IsA("Tool") and multiEquipSettings.selected[tool.Name] then
-                        tool.Parent = localPlayer.Character
+local multiEquipThread = nil
+local function startMultiEquipLoop()
+    if multiEquipThread then return end
+    multiEquipThread = task.spawn(function()
+        while multiEquipSettings.enabled do
+            task.wait(0.1)
+            if localPlayer.Character then
+                local backpack = localPlayer:FindFirstChild("Backpack")
+                if backpack then
+                    for _, tool in ipairs(backpack:GetChildren()) do
+                        if tool:IsA("Tool") and multiEquipSettings.selected[tool.Name] then
+                            tool.Parent = localPlayer.Character
+                        end
                     end
                 end
             end
         end
+        multiEquipThread = nil
+    end)
+end
+
+setupInventoryListeners()
+
+localPlayer.CharacterAdded:Connect(function(char)
+    task.wait(1)
+    setupInventoryListeners()
+    if multiEquipSettings.enabled then
+        setupToolActivationHook()
+        startMultiEquipLoop()
     end
+    refreshMultiEquipDropdown()
 end)
 
 local lightingConfig = {
@@ -436,12 +447,8 @@ local function applyLightingSettings()
     end
 end
 
-local lightingConnection
-lightingConnection = RunService.Heartbeat:Connect(function()
-    if lightingConfig.Enabled then
-        applyLightingSettings()
-    end
-end)
+local lightingConnection = nil
+-- lightingConnection removed to prevent heavy rendering lag from setting properties every frame
 
 --------------------------------------------------
 -- HELPER FUNCTIONS
@@ -494,18 +501,20 @@ local function getCamlockTarget()
     return result
 end
 
-RunService.RenderStepped:Connect(function()
-    if not (camlockSettings.aimLockEnabled and camlockSettings.lockEnabled and camlockSettings.isLockedOn) then return end
+local camlockConnection = nil
+local function updateCamlock()
     local tp = camlockSettings.targetPlayer
     if not tp or not tp.Character then
         camlockSettings.isLockedOn = false
         camlockSettings.targetPlayer = nil
+        if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
         return
     end
     local hum = tp.Character:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then
         camlockSettings.isLockedOn = false
         camlockSettings.targetPlayer = nil
+        if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
         return
     end
     local be = tp.Character:FindFirstChild("BodyEffects")
@@ -513,6 +522,7 @@ RunService.RenderStepped:Connect(function()
     if ko and ko.Value then
         camlockSettings.isLockedOn = false
         camlockSettings.targetPlayer = nil
+        if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
         return
     end
     local part = tp.Character:FindFirstChild(camlockSettings.bodyPartSelected)
@@ -522,18 +532,29 @@ RunService.RenderStepped:Connect(function()
         local alpha = math.clamp(1 - camlockSettings.smoothingFactor, 0.05, 1)
         currentCamera.CFrame = currentCamera.CFrame:Lerp(goalCF, alpha)
     end
-end)
+end
+
+local function toggleCamlockConnection(state)
+    if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
+    if state then
+        camlockConnection = RunService.RenderStepped:Connect(updateCamlock)
+    end
+end
 
 local function toggleCamlock()
     if camlockSettings.lockEnabled and camlockSettings.aimLockEnabled then
         if camlockSettings.isLockedOn then
             camlockSettings.isLockedOn = false
             camlockSettings.targetPlayer = nil
+            toggleCamlockConnection(false)
         else
             camlockSettings.targetPlayer = getCamlockTarget()
             if camlockSettings.targetPlayer and camlockSettings.targetPlayer.Character then
                 local part = camlockSettings.targetPlayer.Character:FindFirstChild(camlockSettings.bodyPartSelected)
-                if part then camlockSettings.isLockedOn = true end
+                if part then 
+                    camlockSettings.isLockedOn = true 
+                    toggleCamlockConnection(true)
+                end
             end
         end
     end
@@ -563,21 +584,28 @@ local function getStrafeTarget()
     return result
 end
 
-RunService.RenderStepped:Connect(function(dt)
-    if strafeSettings.enabled and isStrafing and strafeTargetPlayer and strafeTargetPlayer.Character and strafeTargetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local targetRoot = strafeTargetPlayer.Character.HumanoidRootPart
-        currentStrafeAngle = (currentStrafeAngle + strafeSettings.strafeSpeed * dt * 360) % 360
-        local x = math.cos(math.rad(currentStrafeAngle)) * strafeSettings.strafeRadius
-        local z = math.sin(math.rad(currentStrafeAngle)) * strafeSettings.strafeRadius
-        local newPos = Vector3.new(targetRoot.Position.X + x, targetRoot.Position.Y + strafeSettings.strafeHeight, targetRoot.Position.Z + z)
-        local char = localPlayer.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.CFrame = CFrame.new(newPos, targetRoot.Position)
-            currentCamera.CameraSubject = targetRoot
-        end
+local strafeConnection = nil
+local function updateStrafe(dt)
+    if not (strafeSettings.enabled and isStrafing and strafeTargetPlayer and strafeTargetPlayer.Character and strafeTargetPlayer.Character:FindFirstChild("HumanoidRootPart")) then return end
+    local targetRoot = strafeTargetPlayer.Character.HumanoidRootPart
+    currentStrafeAngle = (currentStrafeAngle + strafeSettings.strafeSpeed * dt * 360) % 360
+    local x = math.cos(math.rad(currentStrafeAngle)) * strafeSettings.strafeRadius
+    local z = math.sin(math.rad(currentStrafeAngle)) * strafeSettings.strafeRadius
+    local newPos = Vector3.new(targetRoot.Position.X + x, targetRoot.Position.Y + strafeSettings.strafeHeight, targetRoot.Position.Z + z)
+    local char = localPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.CFrame = CFrame.new(newPos, targetRoot.Position)
+        currentCamera.CameraSubject = targetRoot
     end
-end)
+end
+
+local function toggleStrafeConnection(state)
+    if strafeConnection then strafeConnection:Disconnect() strafeConnection = nil end
+    if state then
+        strafeConnection = RunService.RenderStepped:Connect(updateStrafe)
+    end
+end
 
 local function toggleStrafe()
     if isStrafing then
@@ -585,11 +613,13 @@ local function toggleStrafe()
         currentCamera.CameraSubject = localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid")
         notify("Strafe", "Unstrafed " .. (strafeTargetPlayer and strafeTargetPlayer.Name or ""))
         strafeTargetPlayer = nil
+        toggleStrafeConnection(false)
     else
         strafeTargetPlayer = getStrafeTarget()
         if strafeTargetPlayer then
             isStrafing = true
             notify("Strafe", "Strafing " .. strafeTargetPlayer.Name)
+            toggleStrafeConnection(true)
         end
     end
 end
@@ -611,40 +641,24 @@ local function resetCameraToPlayer()
     if hum then currentCamera.CameraSubject = hum end
 end
 
-local function toggleDesync(state)
-    desyncConfig.enabled = state
-    if state then
-        currentCamera.CameraSubject = desyncPart
-        notify("Anti-Aim", "Desync ON — mode: " .. desyncConfig.mode)
-    else
-        resetCameraToPlayer()
-        notify("Anti-Aim", "Desync OFF")
-    end
-end
-
-RunService.Heartbeat:Connect(function()
-    local root = desyncConfig.enabled and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+local desyncConnection = nil
+local function updateDesync()
+    local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
     if root then
         desyncConfig.oldPosition = root.CFrame
         local mode = desyncConfig.mode
         local velocity = root.AssemblyLinearVelocity or Vector3.zero
         if mode == "Bait" then
-            -- Teleports the character slightly to replicate baiting hitboxes
             desyncConfig.teleportPos = root.Position + Vector3.new(math.random(-5, 5), math.random(-2, 2), math.random(-5, 5))
         elseif mode == "Randomize" then
-            -- Rapidly randomizes coordinates
             desyncConfig.teleportPos = root.Position + Vector3.new(math.random(-200, 200), math.random(-50, 50), math.random(-200, 200))
         elseif mode == "Destroy Cheaters" then
-            -- Extremely large numbers to crash mathematical logic of auto-aim predictions
             desyncConfig.teleportPos = Vector3.new(9e18, 9e18, 9e18)
         elseif mode == "Static Void" then
-            -- Fixed offset down into the void
             desyncConfig.teleportPos = root.Position - Vector3.new(0, 1500, 0)
         elseif mode == "Predictions Breaker" then
-            -- Reversing current moving velocity to break lag-compensation calculations
             desyncConfig.teleportPos = root.Position - (velocity * 2.5) + Vector3.new(math.random(-8, 8), 0, math.random(-8, 8))
         elseif mode == "Unhittable" then
-            -- Super high velocity vectors and erratic offsets
             desyncConfig.teleportPos = root.Position + Vector3.new(math.random(-99999, 99999), math.random(-99999, 99999), math.random(-99999, 99999))
         end
         root.CFrame = CFrame.new(desyncConfig.teleportPos)
@@ -653,7 +667,26 @@ RunService.Heartbeat:Connect(function()
         desyncPart.CFrame = desyncConfig.oldPosition * CFrame.new(0, root.Size.Y/2 + 0.5, 0)
         root.CFrame = desyncConfig.oldPosition
     end
-end)
+end
+
+local function toggleDesyncConnection(state)
+    if desyncConnection then desyncConnection:Disconnect() desyncConnection = nil end
+    if state then
+        desyncConnection = RunService.Heartbeat:Connect(updateDesync)
+    else
+        resetCameraToPlayer()
+    end
+end
+
+local function toggleDesync(state)
+    desyncConfig.enabled = state
+    toggleDesyncConnection(state)
+    if state then
+        notify("Anti-Aim", "Desync ON — mode: " .. desyncConfig.mode)
+    else
+        notify("Anti-Aim", "Desync OFF")
+    end
+end
 
 
 
@@ -697,13 +730,25 @@ local function revertHitbox(player)
     end
 end
 
+local hitboxConnection = nil
+local lastHitboxScan = 0
+local hitboxTarget = nil
 local function runHitboxExpander()
-    if not hitboxSettings.scriptEnabled or not hitboxSettings.expanderActive then
+    local now = os.clock()
+    if now - lastHitboxScan > 0.1 then
+        lastHitboxScan = now
+        hitboxTarget = getHitboxTarget()
+    end
+    local target = hitboxTarget
+    if not target then return end
+    -- KO check: skip if target is knocked out
+    local be = target.Character and target.Character:FindFirstChild("BodyEffects")
+    local ko = be and be:FindFirstChild("K.O")
+    if ko and ko.Value then
         if hitboxSettings.expandedPlayer then revertHitbox(hitboxSettings.expandedPlayer) hitboxSettings.expandedPlayer = nil end
         return
     end
-    local target = getHitboxTarget()
-    local root = target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
     if root then
         if hitboxSettings.expandedPlayer and hitboxSettings.expandedPlayer ~= target then revertHitbox(hitboxSettings.expandedPlayer) end
         if not hitboxSettings.originalProps[target] then
@@ -716,26 +761,36 @@ local function runHitboxExpander()
     end
 end
 
-RunService.RenderStepped:Connect(runHitboxExpander)
+local function toggleHitboxConnection(state)
+    if hitboxConnection then hitboxConnection:Disconnect() hitboxConnection = nil end
+    if state then
+        hitboxConnection = RunService.RenderStepped:Connect(runHitboxExpander)
+    else
+        if hitboxSettings.expandedPlayer then revertHitbox(hitboxSettings.expandedPlayer) hitboxSettings.expandedPlayer = nil end
+    end
+end
 
 --------------------------------------------------
 -- CFRAME SPEED
 --------------------------------------------------
 
-task.spawn(function()
-    while true do
-        task.wait()
-        if cframeSpeedSettings.isFunctionalityEnabled then
-            local char = localPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local hum = char:FindFirstChild("Humanoid")
-                if cframeSpeedSettings.isSpeedActive and hum and hum.MoveDirection.Magnitude > 0 then
-                    char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame + hum.MoveDirection.Unit * cframeSpeedSettings.multiplier
-                end
-            end
-        end
+local speedConnection
+local function updateSpeed()
+    if not cframeSpeedSettings.isFunctionalityEnabled or not cframeSpeedSettings.isSpeedActive then return end
+    local char = localPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChild("Humanoid")
+    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+        hrp.CFrame = hrp.CFrame + hum.MoveDirection.Unit * cframeSpeedSettings.multiplier
     end
-end)
+end
+
+local function toggleSpeedConnection(state)
+    if speedConnection then speedConnection:Disconnect() speedConnection = nil end
+    if state then
+        speedConnection = RunService.Heartbeat:Connect(updateSpeed)
+    end
+end
 
 --------------------------------------------------
 -- FLY
@@ -750,12 +805,19 @@ local flyActive = false
 
 Players.LocalPlayer.CharacterAdded:Connect(function(c) flyCharacter = c end)
 
-RunService.Stepped:Connect(function()
-    if flyActive then
-        flyPivot = CFrame.new(flyPivot.Position, flyPivot.Position + currentCamera.CFrame.LookVector)
-        flyCharacter:PivotTo(flyPivot)
+local flyConnection = nil
+local function updateFly()
+    if not flyActive then return end
+    flyPivot = CFrame.new(flyPivot.Position, flyPivot.Position + currentCamera.CFrame.LookVector)
+    flyCharacter:PivotTo(flyPivot)
+end
+
+local function toggleFlyConnection(state)
+    if flyConnection then flyConnection:Disconnect() flyConnection = nil end
+    if state then
+        flyConnection = RunService.Stepped:Connect(updateFly)
     end
-end)
+end
 
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed or not flyActive then return end
@@ -817,20 +879,24 @@ local function getShopItemNames()
     return cachedShopItemNames
 end
 
+local shopRefreshDebounce
 local function refreshShopDropdown()
-    updateShopCache()
-    if Options.ShopItem then
-        local searchText = Options.ShopSearch and Options.ShopSearch.Value or ""
-        local allItems = getShopItemNames()
-        local filtered = {}
-        local lowerSearch = searchText:lower()
-        for _, name in ipairs(allItems) do
-            if name:lower():find(lowerSearch, 1, true) then
-                table.insert(filtered, name)
+    if shopRefreshDebounce then task.cancel(shopRefreshDebounce) end
+    shopRefreshDebounce = task.delay(0.3, function()
+        updateShopCache()
+        if Options.ShopItem then
+            local searchText = Options.ShopSearch and Options.ShopSearch.Value or ""
+            local allItems = getShopItemNames()
+            local filtered = {}
+            local lowerSearch = searchText:lower()
+            for _, name in ipairs(allItems) do
+                if name:lower():find(lowerSearch, 1, true) then
+                    table.insert(filtered, name)
+                end
             end
+            Options.ShopItem:SetValues(filtered)
         end
-        Options.ShopItem:SetValues(filtered)
-    end
+    end)
 end
 
 shopFolder.ChildAdded:Connect(refreshShopDropdown)
@@ -991,12 +1057,31 @@ local function updateTrailProps()
     end
 end
 
-RunService.Heartbeat:Connect(function(dt)
-    if trailConfig.enabled and trailConfig.colorMode == "Rainbow" then
-        rainbowHue = (rainbowHue + dt * 0.5) % 1
-        updateTrailProps()
+local function updateTrailColorOnly()
+    local char = localPlayer.Character
+    if not char or not trailConfig.enabled then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local colorSeq = getTrailColorSequence()
+    for _, c in pairs(hrp:GetChildren()) do
+        if c:IsA("Trail") then
+            c.Color = colorSeq
+        end
     end
-end)
+end
+
+local rainbowConnection = nil
+local function updateRainbowTrail(dt)
+    rainbowHue = (rainbowHue + dt * 0.5) % 1
+    updateTrailColorOnly()
+end
+
+local function toggleRainbowConnection(state)
+    if rainbowConnection then rainbowConnection:Disconnect() rainbowConnection = nil end
+    if state then
+        rainbowConnection = RunService.Heartbeat:Connect(updateRainbowTrail)
+    end
+end
 
 local function applyTrail(char)
     removeAllTrails(char)
@@ -1105,141 +1190,166 @@ local function removeESP(player)
     end
 end
 
-for _, p in pairs(Players:GetPlayers()) do
-    createESP(p)
+local espConnection = nil
+local espPlayerAddedConnection = nil
+local espPlayerRemovingConnection = nil
+
+local function startESP()
+    if espConnection then return end
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        createESP(p)
+    end
+    
+    espPlayerAddedConnection = Players.PlayerAdded:Connect(createESP)
+    espPlayerRemovingConnection = Players.PlayerRemoving:Connect(removeESP)
+    
+    espConnection = RunService.RenderStepped:Connect(function()
+        for player, drawings in pairs(espPlayers) do
+            local char = player.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            
+            local visible = false
+            
+            if char and root and hum and hum.Health > 0 then
+                local pos, onScreen = currentCamera:WorldToViewportPoint(root.Position)
+                if onScreen then
+                    visible = true
+                    
+                    local extents = char:GetExtentsSize()
+                    local topPoint = root.Position + Vector3.new(0, extents.Y / 2 + 0.5, 0)
+                    local bottomPoint = root.Position - Vector3.new(0, extents.Y / 2 + 0.5, 0)
+                    
+                    local topScreen = currentCamera:WorldToViewportPoint(topPoint)
+                    local bottomScreen = currentCamera:WorldToViewportPoint(bottomPoint)
+                    
+                    local height = math.abs(topScreen.Y - bottomScreen.Y)
+                    local width = height * 0.55
+                    
+                    local boxX = pos.X - width / 2
+                    local boxY = pos.Y - height / 2
+                    
+                    -- Box
+                    if espConfig.showBox then
+                        drawings.BoxOutline.Size = Vector2.new(width, height)
+                        drawings.BoxOutline.Position = Vector2.new(boxX, boxY)
+                        drawings.BoxOutline.Visible = true
+                        
+                        drawings.Box.Size = Vector2.new(width, height)
+                        drawings.Box.Position = Vector2.new(boxX, boxY)
+                        drawings.Box.Color = espConfig.boxColor
+                        drawings.Box.Transparency = espConfig.boxOpacity
+                        drawings.Box.Visible = true
+                    else
+                        drawings.BoxOutline.Visible = false
+                        drawings.Box.Visible = false
+                    end
+                    
+                    -- Name
+                    if espConfig.showName then
+                        drawings.Name.Position = Vector2.new(pos.X, boxY - 16)
+                        drawings.Name.Text = player.Name
+                        drawings.Name.Color = espConfig.nameColor
+                        drawings.Name.Transparency = espConfig.nameOpacity
+                        drawings.Name.Visible = true
+                    else
+                        drawings.Name.Visible = false
+                    end
+                    
+                    -- Health Bar
+                    if espConfig.showHealthBar then
+                        local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                        local healthColor = espConfig.healthColorLow:Lerp(espConfig.healthColorFull, healthPercent)
+                        
+                        local barX = boxX - 6
+                        local barY = boxY
+                        
+                        drawings.HealthBarBg.From = Vector2.new(barX, barY)
+                        drawings.HealthBarBg.To = Vector2.new(barX, barY + height)
+                        drawings.HealthBarBg.Visible = true
+                        
+                        drawings.HealthBar.From = Vector2.new(barX, barY + height)
+                        drawings.HealthBar.To = Vector2.new(barX, barY + height - (height * healthPercent))
+                        drawings.HealthBar.Color = healthColor
+                        drawings.HealthBar.Visible = true
+                    else
+                        drawings.HealthBarBg.Visible = false
+                        drawings.HealthBar.Visible = false
+                    end
+                    
+                    -- Tracer
+                    if espConfig.showTracers then
+                        local fromPos
+                        if espConfig.tracerPosition == "Bottom" then
+                            fromPos = Vector2.new(currentCamera.ViewportSize.X / 2, currentCamera.ViewportSize.Y)
+                        else
+                            fromPos = UserInputService:GetMouseLocation()
+                        end
+                        
+                        drawings.Tracer.From = fromPos
+                        drawings.Tracer.To = Vector2.new(pos.X, pos.Y + height / 2)
+                        drawings.Tracer.Color = espConfig.tracerColor
+                        drawings.Tracer.Transparency = espConfig.tracerOpacity
+                        drawings.Tracer.Visible = true
+                    else
+                        drawings.Tracer.Visible = false
+                    end
+                    
+                    -- Chams
+                    if espConfig.showChams then
+                        if not drawings.Highlight or drawings.Highlight.Parent ~= char then
+                            if drawings.Highlight then pcall(function() drawings.Highlight:Destroy() end) end
+                            drawings.Highlight = Instance.new("Highlight")
+                            drawings.Highlight.Name = "FIXZ_ESPChams"
+                            drawings.Highlight.Parent = char
+                        end
+                        local h = drawings.Highlight
+                        if h.FillColor ~= espConfig.chamFillColor then h.FillColor = espConfig.chamFillColor end
+                        if h.OutlineColor ~= espConfig.chamOutlineColor then h.OutlineColor = espConfig.chamOutlineColor end
+                        if h.FillTransparency ~= espConfig.chamFillTransparency then h.FillTransparency = espConfig.chamFillTransparency end
+                        if h.OutlineTransparency ~= espConfig.chamOutlineTransparency then h.OutlineTransparency = espConfig.chamOutlineTransparency end
+                        if not h.Enabled then h.Enabled = true end
+                    else
+                        if drawings.Highlight and drawings.Highlight.Enabled then
+                            drawings.Highlight.Enabled = false
+                        end
+                    end
+                end
+            end
+            
+            if not visible then
+                drawings.Box.Visible = false
+                drawings.BoxOutline.Visible = false
+                drawings.Name.Visible = false
+                drawings.Tracer.Visible = false
+                drawings.HealthBarBg.Visible = false
+                drawings.HealthBar.Visible = false
+                if drawings.Highlight and drawings.Highlight.Enabled then
+                    drawings.Highlight.Enabled = false
+                end
+            end
+        end
+    end)
 end
 
-local espPlayerAddedConnection = Players.PlayerAdded:Connect(createESP)
-local espPlayerRemovingConnection = Players.PlayerRemoving:Connect(removeESP)
-
-local espConnection
-espConnection = RunService.RenderStepped:Connect(function()
-    if not espConfig.enabled then return end
-    for player, drawings in pairs(espPlayers) do
-        local char = player.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        
-        local visible = false
-        
-        if char and root and hum and hum.Health > 0 then
-            local pos, onScreen = currentCamera:WorldToViewportPoint(root.Position)
-            if onScreen then
-                visible = true
-                
-                local extents = char:GetExtentsSize()
-                local topPoint = root.Position + Vector3.new(0, extents.Y / 2 + 0.5, 0)
-                local bottomPoint = root.Position - Vector3.new(0, extents.Y / 2 + 0.5, 0)
-                
-                local topScreen = currentCamera:WorldToViewportPoint(topPoint)
-                local bottomScreen = currentCamera:WorldToViewportPoint(bottomPoint)
-                
-                local height = math.abs(topScreen.Y - bottomScreen.Y)
-                local width = height * 0.55
-                
-                local boxX = pos.X - width / 2
-                local boxY = pos.Y - height / 2
-                
-                -- Box
-                if espConfig.showBox then
-                    drawings.BoxOutline.Size = Vector2.new(width, height)
-                    drawings.BoxOutline.Position = Vector2.new(boxX, boxY)
-                    drawings.BoxOutline.Visible = true
-                    
-                    drawings.Box.Size = Vector2.new(width, height)
-                    drawings.Box.Position = Vector2.new(boxX, boxY)
-                    drawings.Box.Color = espConfig.boxColor
-                    drawings.Box.Transparency = espConfig.boxOpacity
-                    drawings.Box.Visible = true
-                else
-                    drawings.BoxOutline.Visible = false
-                    drawings.Box.Visible = false
-                end
-                
-                -- Name
-                if espConfig.showName then
-                    drawings.Name.Position = Vector2.new(pos.X, boxY - 16)
-                    drawings.Name.Text = player.Name
-                    drawings.Name.Color = espConfig.nameColor
-                    drawings.Name.Transparency = espConfig.nameOpacity
-                    drawings.Name.Visible = true
-                else
-                    drawings.Name.Visible = false
-                end
-                
-                -- Health Bar
-                if espConfig.showHealthBar then
-                    local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-                    local healthColor = espConfig.healthColorLow:Lerp(espConfig.healthColorFull, healthPercent)
-                    
-                    local barX = boxX - 6
-                    local barY = boxY
-                    
-                    drawings.HealthBarBg.From = Vector2.new(barX, barY)
-                    drawings.HealthBarBg.To = Vector2.new(barX, barY + height)
-                    drawings.HealthBarBg.Visible = true
-                    
-                    drawings.HealthBar.From = Vector2.new(barX, barY + height)
-                    drawings.HealthBar.To = Vector2.new(barX, barY + height - (height * healthPercent))
-                    drawings.HealthBar.Color = healthColor
-                    drawings.HealthBar.Visible = true
-                else
-                    drawings.HealthBarBg.Visible = false
-                    drawings.HealthBar.Visible = false
-                end
-                
-                -- Tracer
-                if espConfig.showTracers then
-                    local fromPos
-                    if espConfig.tracerPosition == "Bottom" then
-                        fromPos = Vector2.new(currentCamera.ViewportSize.X / 2, currentCamera.ViewportSize.Y)
-                    else
-                        fromPos = UserInputService:GetMouseLocation()
-                    end
-                    
-                    drawings.Tracer.From = fromPos
-                    drawings.Tracer.To = Vector2.new(pos.X, pos.Y + height / 2)
-                    drawings.Tracer.Color = espConfig.tracerColor
-                    drawings.Tracer.Transparency = espConfig.tracerOpacity
-                    drawings.Tracer.Visible = true
-                else
-                    drawings.Tracer.Visible = false
-                end
-                
-                -- Chams
-                if espConfig.showChams then
-                    if not drawings.Highlight or drawings.Highlight.Parent ~= char then
-                        if drawings.Highlight then pcall(function() drawings.Highlight:Destroy() end) end
-                        drawings.Highlight = Instance.new("Highlight")
-                        drawings.Highlight.Name = "FIXZ_ESPChams"
-                        drawings.Highlight.Parent = char
-                    end
-                    drawings.Highlight.FillColor = espConfig.chamFillColor
-                    drawings.Highlight.OutlineColor = espConfig.chamOutlineColor
-                    drawings.Highlight.FillTransparency = espConfig.chamFillTransparency
-                    drawings.Highlight.OutlineTransparency = espConfig.chamOutlineTransparency
-                    drawings.Highlight.Enabled = true
-                else
-                    if drawings.Highlight then
-                        drawings.Highlight.Enabled = false
-                    end
-                end
-            end
-        end
-        
-        if not visible then
-            drawings.Box.Visible = false
-            drawings.BoxOutline.Visible = false
-            drawings.Name.Visible = false
-            drawings.Tracer.Visible = false
-            drawings.HealthBarBg.Visible = false
-            drawings.HealthBar.Visible = false
-            if drawings.Highlight then
-                drawings.Highlight.Enabled = false
-            end
-        end
+local function stopESP()
+    if espConnection then
+        espConnection:Disconnect()
+        espConnection = nil
     end
-end)
+    if espPlayerAddedConnection then
+        espPlayerAddedConnection:Disconnect()
+        espPlayerAddedConnection = nil
+    end
+    if espPlayerRemovingConnection then
+        espPlayerRemovingConnection:Disconnect()
+        espPlayerRemovingConnection = nil
+    end
+    for p in pairs(espPlayers) do
+        removeESP(p)
+    end
+end
 
 localPlayer.CharacterAdded:Connect(function(c)
     task.wait(1)
@@ -1250,8 +1360,8 @@ localPlayer.CharacterAdded:Connect(function(c)
     if selfHighlightEnabled then applySelfHighlight(c) end
 end)
 
-RunService.RenderStepped:Connect(function()
-    if not spinbotConfig.enabled then return end
+local spinbotConnection = nil
+local function updateSpinbot()
     local char = localPlayer.Character
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
@@ -1272,7 +1382,14 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-end)
+end
+
+local function toggleSpinbotConnection(state)
+    if spinbotConnection then spinbotConnection:Disconnect() spinbotConnection = nil end
+    if state then
+        spinbotConnection = RunService.RenderStepped:Connect(updateSpinbot)
+    end
+end
 
 local function setupAntiStomp(char)
     local be = char:WaitForChild("BodyEffects")
@@ -1447,7 +1564,10 @@ Tabs.Rage:AddSection("Target Strafe")
 Tabs.Rage:AddToggle("StrafeEnabled", {
     Title = "Enable Target Strafe",
     Default = false
-}):OnChanged(function(v) strafeSettings.enabled = v end)
+}):OnChanged(function(v)
+    strafeSettings.enabled = v
+    if not v and isStrafing then toggleStrafe() end
+end)
 Options.StrafeEnabled:SetValue(false)
 
 Tabs.Rage:AddButton({
@@ -1658,7 +1778,7 @@ end)
 Options.CamlockEnabled:SetValue(false)
 
 Tabs.Legit:AddButton({
-    Title = "Toggle Lock (set bind in Settings tab)",
+    Title = "Toggle Lock (click to turn on. set bind in Settings tab)",
     Callback = function()
         camlockSettings.lockEnabled = not camlockSettings.lockEnabled
         if not camlockSettings.lockEnabled then camlockSettings.isLockedOn = false camlockSettings.targetPlayer = nil end
@@ -1698,6 +1818,7 @@ Tabs.Legit:AddToggle("HitboxMaster", {
 }):OnChanged(function(v)
     hitboxSettings.scriptEnabled = v
     if not v then hitboxSettings.expanderActive = false end
+    toggleHitboxConnection(v and hitboxSettings.expanderActive)
 end)
 Options.HitboxMaster:SetValue(false)
 
@@ -1706,6 +1827,7 @@ Tabs.Legit:AddToggle("HitboxExpander", {
     Default = false
 }):OnChanged(function(v)
     if hitboxSettings.scriptEnabled then hitboxSettings.expanderActive = v end
+    toggleHitboxConnection(hitboxSettings.scriptEnabled and hitboxSettings.expanderActive)
 end)
 Options.HitboxExpander:SetValue(false)
 
@@ -1730,7 +1852,10 @@ Tabs.Game:AddSection("Movement")
 Tabs.Game:AddToggle("SpeedEnabled", {
     Title = "Enable CFrame Speed",
     Default = false
-}):OnChanged(function(v) cframeSpeedSettings.isFunctionalityEnabled = v end)
+}):OnChanged(function(v)
+    cframeSpeedSettings.isFunctionalityEnabled = v
+    toggleSpeedConnection(v)
+end)
 Options.SpeedEnabled:SetValue(false)
 
 Tabs.Game:AddToggle("SpeedActive", {
@@ -1751,6 +1876,7 @@ Tabs.Game:AddToggle("FlyEnabled", {
     flyConfig.enabled = v
     flyActive = v
     if v and localPlayer.Character then flyPivot = localPlayer.Character:GetPivot() end
+    toggleFlyConnection(v)
 end)
 Options.FlyEnabled:SetValue(false)
 
@@ -1909,6 +2035,15 @@ Tabs.Game:AddToggle("MultiEquipToggle", {
     Default = false
 }):OnChanged(function(v)
     multiEquipSettings.enabled = v
+    if v then
+        setupToolActivationHook()
+        startMultiEquipLoop()
+    else
+        if toolActivationConnection then
+            toolActivationConnection:Disconnect()
+            toolActivationConnection = nil
+        end
+    end
 end)
 Options.MultiEquipToggle:SetValue(false)
 
@@ -1992,18 +2127,10 @@ Tabs.Visuals:AddToggle("ESPEnabled", {
     Default = false
 }):OnChanged(function(v)
     espConfig.enabled = v
-    if not v then
-        for _, drawings in pairs(espPlayers) do
-            pcall(function() drawings.Box.Visible = false end)
-            pcall(function() drawings.BoxOutline.Visible = false end)
-            pcall(function() drawings.Name.Visible = false end)
-            pcall(function() drawings.Tracer.Visible = false end)
-            pcall(function() drawings.HealthBarBg.Visible = false end)
-            pcall(function() drawings.HealthBar.Visible = false end)
-            if drawings.Highlight then
-                pcall(function() drawings.Highlight.Enabled = false end)
-            end
-        end
+    if v then
+        startESP()
+    else
+        stopESP()
     end
 end)
 Options.ESPEnabled:SetValue(false)
@@ -2151,6 +2278,7 @@ Tabs.Visuals:AddToggle("Trail", {
     if char then
         if v then applyTrail(char) else removeAllTrails(char) end
     end
+    toggleRainbowConnection(v and trailConfig.colorMode == "Rainbow")
 end)
 Options.Trail:SetValue(false)
 
@@ -2161,6 +2289,7 @@ Tabs.Visuals:AddDropdown("TrailColorMode", {
 }):OnChanged(function(v)
     trailConfig.colorMode = v
     if trailConfig.enabled then updateTrailProps() end
+    toggleRainbowConnection(trailConfig.enabled and v == "Rainbow")
 end)
 
 Tabs.Visuals:AddColorpicker("TrailColorPrimary", {
@@ -2227,7 +2356,10 @@ Tabs.Visuals:AddToggle("SpinbotToggle", {
     Title = "Enable Spinbot",
     Description = "CS2-style character spin",
     Default = false
-}):OnChanged(function(v) spinbotConfig.enabled = v end)
+}):OnChanged(function(v)
+    spinbotConfig.enabled = v
+    toggleSpinbotConnection(v)
+end)
 Options.SpinbotToggle:SetValue(false)
 
 Tabs.Visuals:AddSlider("SpinbotSpeed", {
@@ -2270,6 +2402,25 @@ Tabs.Visuals:AddInput("CustomSoundId", {
     if customSoundEnabled and customSoundId ~= "" then
         applyCustomSounds()
         notify("Sound", "Sound ID updated: " .. customSoundId)
+    end
+end)
+
+Tabs.Visuals:AddDropdown("CustomSoundPreset", {
+    Title = "Preset Sounds",
+    Description = "Select a preset sound effect",
+    Values = {"None", "Bark Fart", "Laser 1", "Laser 2", "Love Rev", "Meow"},
+    Default = "None"
+}):OnChanged(function(v)
+    local presets = {
+        ["Bark Fart"] = "119447356569253",
+        ["Laser 1"] = "77280130656922",
+        ["Laser 2"] = "105335761848767",
+        ["Love Rev"] = "90072080058983",
+        ["Meow"] = "134881862056957"
+    }
+    local id = presets[v]
+    if id and Options.CustomSoundId then
+        Options.CustomSoundId:SetValue(id)
     end
 end)
 
@@ -2424,6 +2575,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
     elseif kc == Enum.KeyCode.X and flyConfig.enabled then
         flyActive = not flyActive
         if flyActive and localPlayer.Character then flyPivot = localPlayer.Character:GetPivot() end
+        Options.FlyEnabled:SetValue(flyActive)
     end
 end)
 
@@ -2471,20 +2623,17 @@ Tabs.Settings:AddButton({
         flyActive = false
         flyConfig.enabled = false
         espConfig.enabled = false
-        if espConnection then
-            espConnection:Disconnect()
-            espConnection = nil
-        end
-        if espPlayerAddedConnection then
-            espPlayerAddedConnection:Disconnect()
-            espPlayerAddedConnection = nil
-        end
-        if espPlayerRemovingConnection then
-            espPlayerRemovingConnection:Disconnect()
-            espPlayerRemovingConnection = nil
-        end
-        for p in pairs(espPlayers) do
-            removeESP(p)
+        stopESP()
+        if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
+        if strafeConnection then strafeConnection:Disconnect() strafeConnection = nil end
+        if desyncConnection then desyncConnection:Disconnect() desyncConnection = nil end
+        if hitboxConnection then hitboxConnection:Disconnect() hitboxConnection = nil end
+        if flyConnection then flyConnection:Disconnect() flyConnection = nil end
+        if spinbotConnection then spinbotConnection:Disconnect() spinbotConnection = nil end
+        if rainbowConnection then rainbowConnection:Disconnect() rainbowConnection = nil end
+        if speedConnection then
+            speedConnection:Disconnect()
+            speedConnection = nil
         end
         multiEquipSettings.enabled = false
         if toolActivationConnection then
