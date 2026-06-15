@@ -921,40 +921,73 @@ end
 -- FLY
 --------------------------------------------------
 
-local flyMaid = {}
-local isCFrameFlying = false
 local cframeFlySpeed = 3
-local flyCharacter = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-local flyPivot = flyCharacter:GetPivot()
 local flyActive = false
 
-Players.LocalPlayer.CharacterAdded:Connect(function(c) flyCharacter = c end)
-
 local flyConnection = nil
-local function updateFly()
-    if not flyActive then return end
-    flyPivot = CFrame.new(flyPivot.Position, flyPivot.Position + currentCamera.CFrame.LookVector)
-    flyCharacter:PivotTo(flyPivot)
+local function updateFly(dt)
+    if not flyActive or not localHrp or not localHumanoid then return end
+    
+    local moveDir = Vector3.zero
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+        moveDir = moveDir + currentCamera.CFrame.LookVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+        moveDir = moveDir - currentCamera.CFrame.LookVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+        moveDir = moveDir - currentCamera.CFrame.RightVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+        moveDir = moveDir + currentCamera.CFrame.RightVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+        moveDir = moveDir + Vector3.new(0, 1, 0)
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+        moveDir = moveDir - Vector3.new(0, 1, 0)
+    end
+    
+    if moveDir.Magnitude > 0 then
+        moveDir = moveDir.Unit
+    end
+    
+    local look = currentCamera.CFrame.LookVector
+    local flatLook = Vector3.new(look.X, 0, look.Z)
+    if flatLook.Magnitude == 0 then
+        flatLook = Vector3.new(0, 0, -1)
+    else
+        flatLook = flatLook.Unit
+    end
+    
+    pcall(function()
+        localHrp.AssemblyLinearVelocity = Vector3.zero
+        localHrp.AssemblyAngularVelocity = Vector3.zero
+    end)
+    
+    local targetPos = localHrp.Position + moveDir * (cframeFlySpeed * 60 * dt)
+    localHrp.CFrame = CFrame.new(targetPos, targetPos + flatLook)
 end
 
 local function toggleFlyConnection(state)
     if flyConnection then flyConnection:Disconnect() flyConnection = nil end
     if state then
-        flyConnection = RunService.Stepped:Connect(updateFly)
+        if localHumanoid then
+            localHumanoid:ChangeState(Enum.HumanoidStateType.Physics)
+        end
+        flyConnection = RunService.Heartbeat:Connect(updateFly)
+    else
+        if localHumanoid then
+            localHumanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+        end
+        if localHrp then
+            pcall(function()
+                localHrp.AssemblyLinearVelocity = Vector3.zero
+                localHrp.AssemblyAngularVelocity = Vector3.zero
+            end)
+        end
     end
 end
-
-UserInputService.InputBegan:Connect(function(input, processed)
-    if processed or not flyActive then return end
-    local kc = input.KeyCode
-    task.spawn(function()
-        if kc == Enum.KeyCode.W then while UserInputService:IsKeyDown(Enum.KeyCode.W) and flyActive do flyPivot = flyPivot * CFrame.new(0,0,-cframeFlySpeed) RunService.Stepped:Wait() end
-        elseif kc == Enum.KeyCode.S then while UserInputService:IsKeyDown(Enum.KeyCode.S) and flyActive do flyPivot = flyPivot * CFrame.new(0,0,cframeFlySpeed) RunService.Stepped:Wait() end
-        elseif kc == Enum.KeyCode.A then while UserInputService:IsKeyDown(Enum.KeyCode.A) and flyActive do flyPivot = flyPivot * CFrame.new(-cframeFlySpeed,0,0) RunService.Stepped:Wait() end
-        elseif kc == Enum.KeyCode.D then while UserInputService:IsKeyDown(Enum.KeyCode.D) and flyActive do flyPivot = flyPivot * CFrame.new(cframeFlySpeed,0,0) RunService.Stepped:Wait() end
-        end
-    end)
-end)
 
 --------------------------------------------------
 -- SHOP & PLAYER ACTIONS
@@ -1749,13 +1782,53 @@ local function toggleSpinbotConnection(state)
     end
 end
 
-local function setupAntiStomp(char)
-    local be = char:WaitForChild("BodyEffects")
-    local ko = be:WaitForChild("K.O")
-    ko:GetPropertyChangedSignal("Value"):Connect(function()
-        if ko.Value then
-            for _, p in pairs(char:GetDescendants()) do
-                if p:IsA("BasePart") then pcall(function() p:Destroy() end) end
+local antiStompThread = nil
+local antiStompAnimationTrack = nil
+
+local function playAntiStompEmote()
+    if antiStompThread then task.cancel(antiStompThread) end
+    if antiStompAnimationTrack then pcall(function() antiStompAnimationTrack:Stop(0.1) end) antiStompAnimationTrack = nil end
+    
+    antiStompThread = task.spawn(function()
+        while Options.AntiStomp and Options.AntiStomp.Value do
+            local char = localPlayer.Character
+            local be = char and char:FindFirstChild("BodyEffects")
+            local ko = be and be:FindFirstChild("K.O")
+            if ko and ko.Value then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                local animator = hum and hum:FindFirstChildOfClass("Animator")
+                if animator then
+                    local anim = Instance.new("Animation")
+                    anim.AnimationId = "rbxassetid://135373056067761" -- Tornado Emote (Massive movement/bug)
+                    local ok, track = pcall(function() return animator:LoadAnimation(anim) end)
+                    if ok and track then
+                        track.Priority = Enum.AnimationPriority.Action
+                        track.Looped = false
+                        track.Speed = 1000 -- Max speed to bug out character completely
+                        track:Play(0.1)
+                        antiStompAnimationTrack = track
+                        
+                        -- Wait for track to stop or KO to end
+                        local stopped = false
+                        local trackConn = track.Stopped:Connect(function() stopped = true end)
+                        while not stopped and ko.Parent and ko.Value and Options.AntiStomp.Value do
+                            task.wait(0.05)
+                        end
+                        trackConn:Disconnect()
+                        pcall(function() track:Stop(0.1) end)
+                        antiStompAnimationTrack = nil
+                    else
+                        task.wait(0.5)
+                    end
+                else
+                    task.wait(0.5)
+                end
+            else
+                if antiStompAnimationTrack then
+                    pcall(function() antiStompAnimationTrack:Stop(0.1) end)
+                    antiStompAnimationTrack = nil
+                end
+                task.wait(0.2)
             end
         end
     end)
@@ -1929,7 +2002,7 @@ end)
 Options.StrafeEnabled:SetValue(false)
 
 Tabs.Rage:AddButton({
-    Title = "Toggle Strafe (keybind: B)",
+    Title = "Toggle Strafe",
     Callback = function() toggleStrafe() end
 })
 
@@ -2136,7 +2209,7 @@ end)
 Options.CamlockEnabled:SetValue(false)
 
 Tabs.Legit:AddButton({
-    Title = "Toggle Lock (click to turn on. set bind in Settings tab)",
+    Title = "Toggle Lock (click to turn on. Press keybind to toggle)",
     Callback = function()
         camlockSettings.lockEnabled = not camlockSettings.lockEnabled
         if not camlockSettings.lockEnabled then camlockSettings.isLockedOn = false camlockSettings.targetPlayer = nil end
@@ -2181,7 +2254,7 @@ end)
 Options.HitboxMaster:SetValue(false)
 
 Tabs.Legit:AddToggle("HitboxExpander", {
-    Title = "Activate Expander (H)",
+    Title = "Activate Expander",
     Default = false
 }):OnChanged(function(v)
     if hitboxSettings.scriptEnabled then hitboxSettings.expanderActive = v end
@@ -2217,7 +2290,7 @@ end)
 Options.SpeedEnabled:SetValue(false)
 
 Tabs.Game:AddToggle("SpeedActive", {
-    Title = "Activate Speed (C)",
+    Title = "Activate Speed (press keybind or turn on ->)",
     Default = false
 }):OnChanged(function(v) cframeSpeedSettings.isSpeedActive = v end)
 Options.SpeedActive:SetValue(false)
@@ -2233,7 +2306,6 @@ Tabs.Game:AddToggle("FlyEnabled", {
 }):OnChanged(function(v)
     flyConfig.enabled = v
     flyActive = v
-    if v and localPlayer.Character then flyPivot = localPlayer.Character:GetPivot() end
     toggleFlyConnection(v)
 end)
 Options.FlyEnabled:SetValue(false)
@@ -2344,7 +2416,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 Tabs.Game:AddButton({
-    Title = "Magic Bullet",
+    Title = "Magic Bullet (might work might not)",
     Callback = function()
         pcall(function()
             local mm = game:FindService("ReplicatedStorage").MainModule
@@ -2359,16 +2431,19 @@ Tabs.Game:AddButton({
 })
 
 Tabs.Game:AddToggle("AntiStomp", {
-    Title = "Anti Stomp",
+    Title = "Anti Stomp (doesnt work sorry :( )",
     Default = false
 }):OnChanged(function(v)
     if v then
-        local char = localPlayer.Character
-        if char then pcall(function() setupAntiStomp(char) end) end
-        localPlayer.CharacterAdded:Connect(function(c) pcall(function() setupAntiStomp(c) end) end)
+        playAntiStompEmote()
+    else
+        if antiStompThread then task.cancel(antiStompThread) antiStompThread = nil end
+        if antiStompAnimationTrack then pcall(function() antiStompAnimationTrack:Stop(0.1) end) antiStompAnimationTrack = nil end
     end
 end)
 Options.AntiStomp:SetValue(false)
+
+
 
 Tabs.Game:AddToggle("AutoReloadToggle", {
     Title = "Auto Reload",
@@ -3025,24 +3100,28 @@ end)
 --------------------------------------------------
 
 local camlockBind = Enum.KeyCode.Q
+local flyBind     = Enum.KeyCode.F
+local desyncBind  = Enum.KeyCode.V
+local strafeBind  = Enum.KeyCode.B
+local speedBind   = Enum.KeyCode.C
+local hitboxBind  = Enum.KeyCode.H
 
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
     local kc = input.KeyCode
     if kc == camlockBind then
         toggleCamlock()
-    elseif kc == Enum.KeyCode.V and desyncConfig.toggleEnabled then
+    elseif kc == desyncBind and desyncConfig.toggleEnabled then
         toggleDesync(not desyncConfig.enabled)
-    elseif kc == Enum.KeyCode.B and strafeSettings.enabled then
+    elseif kc == strafeBind and strafeSettings.enabled then
         toggleStrafe()
-    elseif kc == Enum.KeyCode.C then
+    elseif kc == speedBind then
         cframeSpeedSettings.isSpeedActive = not cframeSpeedSettings.isSpeedActive
-    elseif kc == Enum.KeyCode.H and hitboxSettings.scriptEnabled then
+    elseif kc == hitboxBind and hitboxSettings.scriptEnabled then
         hitboxSettings.expanderActive = not hitboxSettings.expanderActive
         Options.HitboxExpander:SetValue(hitboxSettings.expanderActive)
-    elseif kc == Enum.KeyCode.X and flyConfig.enabled then
+    elseif kc == flyBind and flyConfig.enabled then
         flyActive = not flyActive
-        if flyActive and localPlayer.Character then flyPivot = localPlayer.Character:GetPivot() end
         Options.FlyEnabled:SetValue(flyActive)
     end
 end)
@@ -3074,6 +3153,66 @@ Tabs.Settings:AddDropdown("CamlockBind", {
     if ok and key then camlockBind = key end
 end)
 
+Tabs.Settings:AddDropdown("FlyBind", {
+    Title = "Fly Keybind",
+    Description = "Key to toggle flying",
+    Values = {"Q","E","R","T","Y","F","G","Z","X","C","V","B","N","M",
+              "F1","F2","F3","F4","F5","F6","F7","F8",
+              "LeftAlt","RightAlt","LeftControl","RightControl"},
+    Default = "F"
+}):OnChanged(function(v)
+    local ok, key = pcall(function() return Enum.KeyCode[v] end)
+    if ok and key then flyBind = key end
+end)
+
+Tabs.Settings:AddDropdown("DesyncBind", {
+    Title = "Desync Keybind",
+    Description = "Key to toggle desync (anti-aim)",
+    Values = {"Q","E","R","T","Y","F","G","Z","X","C","V","B","N","M",
+              "F1","F2","F3","F4","F5","F6","F7","F8",
+              "LeftAlt","RightAlt","LeftControl","RightControl"},
+    Default = "V"
+}):OnChanged(function(v)
+    local ok, key = pcall(function() return Enum.KeyCode[v] end)
+    if ok and key then desyncBind = key end
+end)
+
+Tabs.Settings:AddDropdown("StrafeBind", {
+    Title = "Strafe Keybind",
+    Description = "Key to toggle target strafe",
+    Values = {"Q","E","R","T","Y","F","G","Z","X","C","V","B","N","M",
+              "F1","F2","F3","F4","F5","F6","F7","F8",
+              "LeftAlt","RightAlt","LeftControl","RightControl"},
+    Default = "B"
+}):OnChanged(function(v)
+    local ok, key = pcall(function() return Enum.KeyCode[v] end)
+    if ok and key then strafeBind = key end
+end)
+
+Tabs.Settings:AddDropdown("SpeedBind", {
+    Title = "Speed Keybind",
+    Description = "Key to toggle CFrame speed",
+    Values = {"Q","E","R","T","Y","F","G","Z","X","C","V","B","N","M",
+              "F1","F2","F3","F4","F5","F6","F7","F8",
+              "LeftAlt","RightAlt","LeftControl","RightControl"},
+    Default = "C"
+}):OnChanged(function(v)
+    local ok, key = pcall(function() return Enum.KeyCode[v] end)
+    if ok and key then speedBind = key end
+end)
+
+Tabs.Settings:AddDropdown("HitboxBind", {
+    Title = "Hitbox Keybind",
+    Description = "Key to toggle hitbox expander",
+    Values = {"Q","E","R","T","Y","F","G","Z","X","C","V","B","N","M",
+              "F1","F2","F3","F4","F5","F6","F7","F8",
+              "LeftAlt","RightAlt","LeftControl","RightControl"},
+    Default = "H"
+}):OnChanged(function(v)
+    local ok, key = pcall(function() return Enum.KeyCode[v] end)
+    if ok and key then hitboxBind = key end
+end)
+
 Tabs.Settings:AddSection("Script")
 
 Tabs.Settings:AddButton({
@@ -3083,6 +3222,14 @@ Tabs.Settings:AddButton({
         -- disable all active systems
         targetKillActive = false
         autoReloadEnabled = false
+        if antiStompThread then
+            task.cancel(antiStompThread)
+            antiStompThread = nil
+        end
+        if antiStompAnimationTrack then
+            pcall(function() antiStompAnimationTrack:Stop(0.1) end)
+            antiStompAnimationTrack = nil
+        end
         if autoReloadThread then
             task.cancel(autoReloadThread)
             autoReloadThread = nil
