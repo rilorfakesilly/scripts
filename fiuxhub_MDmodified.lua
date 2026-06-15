@@ -257,6 +257,9 @@ local flyConfig = {
 local selectedTargetPlayer = nil
 local targetKillActive = false
 
+local autoReloadEnabled = false
+local autoReloadThread = nil
+
 local multiEquipDropdown
 local multiEquipSettings = {
     enabled = false,
@@ -1100,6 +1103,29 @@ local function autoReloadAndAim(tool, targetChar)
         ReplicatedStorage.MainEvent:FireServer("UpdateMousePosI2", head.Position)
     end
     return true
+end
+
+local function startAutoReloadLoop()
+    if autoReloadThread then return end
+    autoReloadThread = task.spawn(function()
+        while autoReloadEnabled do
+            task.wait(0.1)
+            pcall(function()
+                local char = localPlayer.Character
+                if char then
+                    local tool = char:FindFirstChildOfClass("Tool")
+                    if tool then
+                        local ammo = tool:FindFirstChild("Ammo")
+                        if ammo and ammo.Value == 0 then
+                            ReplicatedStorage.MainEvent:FireServer("Reload", tool)
+                            task.wait(1.5)
+                        end
+                    end
+                end
+            end)
+        end
+        autoReloadThread = nil
+    end)
 end
 
 -- Self chams / trail / highlight
@@ -2344,6 +2370,23 @@ Tabs.Game:AddToggle("AntiStomp", {
 end)
 Options.AntiStomp:SetValue(false)
 
+Tabs.Game:AddToggle("AutoReloadToggle", {
+    Title = "Auto Reload",
+    Description = "Automatically reloads equipped guns when out of ammo",
+    Default = false
+}):OnChanged(function(v)
+    autoReloadEnabled = v
+    if v then
+        startAutoReloadLoop()
+    else
+        if autoReloadThread then
+            task.cancel(autoReloadThread)
+            autoReloadThread = nil
+        end
+    end
+end)
+Options.AutoReloadToggle:SetValue(false)
+
 Tabs.Game:AddSection("Multi Equip Tools")
 
 multiEquipDropdown = Tabs.Game:AddDropdown("MultiEquipDropdown", {
@@ -3039,6 +3082,11 @@ Tabs.Settings:AddButton({
     Callback = function()
         -- disable all active systems
         targetKillActive = false
+        autoReloadEnabled = false
+        if autoReloadThread then
+            task.cancel(autoReloadThread)
+            autoReloadThread = nil
+        end
         camlockSettings.enabled = false
         desyncConfig.enabled = false
         strafeSettings.enabled = false
@@ -3126,5 +3174,3 @@ Tabs.Settings:AddButton({
 
 Window:SelectTab(1)
 SaveManager:LoadAutoloadConfig()
-
--- i lowkey dont know how to fix the lag bro
