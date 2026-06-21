@@ -1,4 +1,4 @@
-print("test")
+print("test2")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -1210,6 +1210,11 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         
         -- Button
         function builder:Button(text, colorType, callback)
+            if typeof(colorType) == "function" then
+                callback = colorType
+                colorType = nil
+            end
+            
             local btn = Instance.new("TextButton", container)
             btn.Size = UDim2.new(1, -16, 0, 32)
             
@@ -1236,7 +1241,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             
             btn.MouseButton1Click:Connect(function()
                 playSound(CLICK_SOUND)
-                callback()
+                if callback then callback() end
             end)
             
             return btn
@@ -1619,7 +1624,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         end)
         
         local builder = createComponentsBuilder(contentFrame)
-        builder.Button = tabBtn
+        builder.TabButton = tabBtn
         builder.Container = contentFrame
         return builder
     end
