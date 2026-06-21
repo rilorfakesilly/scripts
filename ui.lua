@@ -1,4 +1,8 @@
-print("test2")
+-- ═══════════════════════════════════════════════════════
+-- MD | PREMIUM UI LIBRARY (TemplateUI.lua)
+-- Premium UI remake with bouncy spring animations, 
+-- glassmorphism, rainbow glow border, custom sounds & fonts.
+-- ═══════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -14,7 +18,7 @@ Library.Unloaded = false
 
 -- ── sound ids ───────────────────────────────────────────
 local HOVER_SOUND = 139719503904449
-local CLICK_SOUND = 140207837688369
+local CLICK_SOUND = 88442833509532
 
 local function playSound(soundId)
     if Library.Unloaded then return end
