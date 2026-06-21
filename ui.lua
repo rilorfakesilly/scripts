@@ -1,8 +1,3 @@
--- ═══════════════════════════════════════════════════════
--- MD | PREMIUM UI LIBRARY (TemplateUI.lua)
--- Premium UI remake with bouncy spring animations, 
--- glassmorphism, rainbow glow border, custom sounds & fonts.
--- ═══════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
