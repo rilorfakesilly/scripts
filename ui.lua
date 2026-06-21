@@ -552,6 +552,31 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     
     table.clear(tabs)
     currentTab = nil
+    local sortedNames = {}
+    
+    local function realignTabs()
+        local visibleTabs = {}
+        for _, name in ipairs(sortedNames) do
+            local tData = tabs[name]
+            if tData and tData.Button and tData.Button.Visible then
+                table.insert(visibleTabs, name)
+            end
+        end
+        
+        local visibleCount = #visibleTabs
+        if visibleCount == 0 then return end
+        for idx, name in ipairs(visibleTabs) do
+            local tData = tabs[name]
+            local width = 275 / visibleCount
+            tData.Button.Size = UDim2.new(0, width, 1, 0)
+            tData.Button.Position = UDim2.new(0, (idx - 1) * width, 0, 0)
+        end
+        
+        -- If current tab is now invisible, select the first visible one
+        if currentTab and tabs[currentTab] and not tabs[currentTab].Button.Visible then
+            selectTab(visibleTabs[1])
+        end
+    end
     
     selectTab = function(tabName, force)
         if currentTab == tabName and not force then return end
@@ -582,6 +607,8 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     end
     
     local tabCount = 0
+    
+    -- Component factory creation helpers
     
     -- Component factory creation helpers
     local function createComponentsBuilder(container)
@@ -834,15 +861,20 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             local open = false
             local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
             
+            local updateOptions -- forward declare so toggleDropdown can see it
             local function toggleDropdown(shouldOpen)
                 open = shouldOpen
                 if open then
+                    if typeof(options) == "function" then
+                        updateOptions(options())
+                    end
                     listFrame.Visible = true
                     local numOptions = 0
-                    for _, c in ipairs(listFrame:GetChildren()) do if c:IsA("TextButton") then numOptions = numOptions + 1 end end
+                    for _, c in ipairs(listFrame:GetChildren()) do
+                        if c:IsA("TextButton") then numOptions = numOptions + 1 end
+                    end
                     local targetHeight = math.min(numOptions * 26 + 8, 120)
                     listFrame.CanvasSize = UDim2.new(0, 0, 0, numOptions * 26 + 8)
-                    
                     playTween(btnArrow, tweenInfo, {Rotation = 180})
                     playTween(listFrame, tweenInfo, {Size = UDim2.new(1, -4, 0, targetHeight)})
                     playTween(frame, tweenInfo, {Size = UDim2.new(1, -16, 0, 52 + targetHeight)})
@@ -856,27 +888,11 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 end
             end
             
-            btn.MouseButton1Click:Connect(function()
-                playSound(CLICK_SOUND)
-                toggleDropdown(not open)
-            end)
-            
-            local ddHoverInfo = TweenInfo.new(0.12)
-            btn.MouseEnter:Connect(function()
-                playSound(HOVER_SOUND)
-                playTween(btn, ddHoverInfo, {BackgroundTransparency = 0.1})
-                playTween(btnScale, ddHoverInfo, {Scale = 1.02})
-            end)
-            btn.MouseLeave:Connect(function()
-                playTween(btn, ddHoverInfo, {BackgroundTransparency = 0.3})
-                playTween(btnScale, ddHoverInfo, {Scale = 1.0})
-            end)
-            
-            local function updateOptions(newOptions)
+            updateOptions = function(newOptions)
                 for _, c in ipairs(listFrame:GetChildren()) do
                     if c:IsA("TextButton") then c:Destroy() end
                 end
-                for _, opt in ipairs(newOptions) do
+                for _, opt in ipairs(newOptions or {}) do
                     local optBtn = Instance.new("TextButton", listFrame)
                     optBtn.Size = UDim2.new(1, -10, 0, 24)
                     optBtn.BackgroundColor3 = THEME.BG
@@ -889,7 +905,6 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                     optBtn.ZIndex = 21
                     Instance.new("UICorner", optBtn).CornerRadius = UDim.new(0, 6)
                     registerFontElement(optBtn)
-                    
                     local optHoverInfo = TweenInfo.new(0.12)
                     optBtn.MouseEnter:Connect(function()
                         playSound(HOVER_SOUND)
@@ -898,7 +913,6 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                     optBtn.MouseLeave:Connect(function()
                         playTween(optBtn, optHoverInfo, {BackgroundTransparency = 0.8})
                     end)
-                    
                     optBtn.MouseButton1Click:Connect(function()
                         playSound(CLICK_SOUND)
                         currentVal = opt
@@ -909,7 +923,24 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 end
             end
             
-            updateOptions(options)
+            btn.MouseButton1Click:Connect(function()
+                playSound(CLICK_SOUND)
+                toggleDropdown(not open)
+            end)
+            local ddHoverInfo = TweenInfo.new(0.12)
+            btn.MouseEnter:Connect(function()
+                playSound(HOVER_SOUND)
+                playTween(btn, ddHoverInfo, {BackgroundTransparency = 0.1})
+                playTween(btnScale, ddHoverInfo, {Scale = 1.02})
+            end)
+            btn.MouseLeave:Connect(function()
+                playTween(btn, ddHoverInfo, {BackgroundTransparency = 0.3})
+                playTween(btnScale, ddHoverInfo, {Scale = 1.0})
+            end)
+            
+            if typeof(options) ~= "function" then
+                updateOptions(options)
+            end
             
             return {
                 Frame = frame,
@@ -920,7 +951,6 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 end
             }
         end
-        
         -- Searchable Dropdown
         function builder:SearchableDropdown(label, options, defaultVal, callback)
             local frame = Instance.new("Frame", container)
@@ -1018,6 +1048,9 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             local function toggleDropdown(shouldOpen)
                 open = shouldOpen
                 if open then
+                    if typeof(options) == "function" then
+                        updateOptions(options())
+                    end
                     listFrame.Visible = true
                     local numOptions = 0
                     for _, ob in ipairs(optButtons) do
@@ -1112,7 +1145,9 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 end
             end)
             
-            updateOptions(options)
+            if typeof(options) ~= "function" then
+                updateOptions(options)
+            end
             
             return {
                 Frame = frame,
@@ -1425,6 +1460,80 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             }
         end
         
+        -- ButtonRow: side by side buttons
+        function builder:ButtonRow(buttonsData)
+            local row = Instance.new("Frame", container)
+            row.Size = UDim2.new(1, -16, 0, 32)
+            row.BackgroundTransparency = 1
+            
+            local listLayout = Instance.new("UIListLayout", row)
+            listLayout.FillDirection = Enum.FillDirection.Horizontal
+            listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            listLayout.Padding = UDim.new(0, 6)
+            
+            local numButtons = #buttonsData
+            local buttons = {}
+            for idx, btnData in ipairs(buttonsData) do
+                local btn = Instance.new("TextButton", row)
+                btn.Size = UDim2.new(1 / numButtons, - (6 * (numButtons - 1) / numButtons), 1, 0)
+                btn.LayoutOrder = idx
+                
+                local defaultColor = THEME.ACCENT
+                local hoverColor = THEME.ACCENT_LIGHT
+                
+                if btnData.colorType == "SUCCESS" then
+                    defaultColor = THEME.SUCCESS
+                    hoverColor = Color3.fromRGB(40, 190, 100)
+                elseif btnData.colorType == "DANGER" then
+                    defaultColor = THEME.DANGER
+                    hoverColor = Color3.fromRGB(240, 60, 60)
+                elseif btnData.colorType == "SECONDARY" then
+                    defaultColor = THEME.BAR
+                    hoverColor = Color3.fromRGB(45, 45, 52)
+                end
+                
+                btn.BackgroundColor3 = defaultColor
+                btn.Text = btnData.text:upper()
+                btn.TextColor3 = THEME.TEXT
+                btn.TextSize = 8.5
+                btn.Font = Enum.Font.GothamBold
+                btn.BorderSizePixel = 0
+                Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+                
+                local stroke = Instance.new("UIStroke", btn)
+                stroke.Color = THEME.BORDER
+                stroke.Thickness = 1
+                
+                addHoverAnimation(btn, hoverColor, defaultColor)
+                registerFontElement(btn)
+                
+                btn.MouseButton1Click:Connect(function()
+                    playSound(CLICK_SOUND)
+                    btnData.callback()
+                end)
+                
+                table.insert(buttons, btn)
+            end
+            return {
+                Row = row,
+                Buttons = buttons
+            }
+        end
+        
+        -- Label
+        function builder:Label(text, color)
+            local lbl = Instance.new("TextLabel", container)
+            lbl.Size = UDim2.new(1, -16, 0, 20)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = text
+            lbl.TextColor3 = color or THEME.TEXT_DIM
+            lbl.TextSize = 8.5
+            lbl.Font = Enum.Font.GothamBold
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            registerFontElement(lbl)
+            return lbl
+        end
+        
         return builder
     end
     
@@ -1474,23 +1583,11 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             Order = tabOrder
         }
         
-        -- Realign tab buttons
-        local currentCount = 0
-        for _ in pairs(tabs) do currentCount = currentCount + 1 end
-        
-        -- Sort and place
-        local sortedNames = {}
-        for name, _ in pairs(tabs) do
-            table.insert(sortedNames, name)
-        end
+        table.insert(sortedNames, tabName)
         table.sort(sortedNames, function(a, b) return tabs[a].Order < tabs[b].Order end)
         
-        for idx, name in ipairs(sortedNames) do
-            local tData = tabs[name]
-            local width = 275 / currentCount
-            tData.Button.Size = UDim2.new(0, width, 1, 0)
-            tData.Button.Position = UDim2.new(0, (idx - 1) * width, 0, 0)
-        end
+        tabBtn:GetPropertyChangedSignal("Visible"):Connect(realignTabs)
+        realignTabs()
         
         tabBtn.MouseButton1Click:Connect(function()
             playSound(CLICK_SOUND)
@@ -1510,7 +1607,10 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             end
         end)
         
-        return createComponentsBuilder(contentFrame)
+        local builder = createComponentsBuilder(contentFrame)
+        builder.Button = tabBtn
+        builder.Container = contentFrame
+        return builder
     end
     
     -- Draggable Window handler
@@ -1589,6 +1689,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     return {
         CreateTab = createTab,
         SelectTab = function(name) selectTab(name) end,
+        RealignTabs = realignTabs,
         Unload = doUnload,
         ApplyTheme = applyTheme,
         ApplyFont = applyFont,
