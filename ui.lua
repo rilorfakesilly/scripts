@@ -1,3 +1,4 @@
+print("test")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -361,6 +362,16 @@ end
 
 -- ── CreateWindow ─────────────────────────────────────────────────────────────
 function Library.CreateWindow(titleText, subtitleText, hubIconId)
+    -- Accept either a config table {title, subtitle, icon} or positional args
+    if type(titleText) == "table" then
+        local cfg = titleText
+        titleText    = cfg.title    or cfg[1] or "WINDOW"
+        subtitleText = cfg.subtitle or cfg[2] or ""
+        hubIconId    = cfg.icon     or cfg[3] or nil
+    else
+        titleText    = titleText    or "WINDOW"
+        subtitleText = subtitleText or ""
+    end
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "PremiumModernUI"
     screenGui.ResetOnSpawn = false
