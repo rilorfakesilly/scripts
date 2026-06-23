@@ -144,7 +144,7 @@ task.wait(0.5)
 SendNotification("CREDITS", "GoldNotify - discord.gg/Q9hFWuVGPJ", 8)
 
 task.wait(0.5)
-SendNotification("CREDITS", "Insignificant", 8)
+SendNotification("CREDITS", "Insignificant/49yw discord", 8)
 
 -- Services
 local Players         = game:GetService("Players")
@@ -300,27 +300,24 @@ local function refreshMultiEquipDropdown()
     end)
 end
 
-local backpackConnection1
-local backpackConnection2
-local charConnection1
-local charConnection2
+local invConns = {}
 
 local function setupInventoryListeners()
-    if backpackConnection1 then backpackConnection1:Disconnect() end
-    if backpackConnection2 then backpackConnection2:Disconnect() end
-    if charConnection1 then charConnection1:Disconnect() end
-    if charConnection2 then charConnection2:Disconnect() end
+    if invConns.backpack1 then invConns.backpack1:Disconnect() end
+    if invConns.backpack2 then invConns.backpack2:Disconnect() end
+    if invConns.char1 then invConns.char1:Disconnect() end
+    if invConns.char2 then invConns.char2:Disconnect() end
     
     local backpack = localPlayer:WaitForChild("Backpack", 5)
     if backpack then
-        backpackConnection1 = backpack.ChildAdded:Connect(refreshMultiEquipDropdown)
-        backpackConnection2 = backpack.ChildRemoved:Connect(refreshMultiEquipDropdown)
+        invConns.backpack1 = backpack.ChildAdded:Connect(refreshMultiEquipDropdown)
+        invConns.backpack2 = backpack.ChildRemoved:Connect(refreshMultiEquipDropdown)
     end
     
     local char = localPlayer.Character
     if char then
-        charConnection1 = char.ChildAdded:Connect(refreshMultiEquipDropdown)
-        charConnection2 = char.ChildRemoved:Connect(refreshMultiEquipDropdown)
+        invConns.char1 = char.ChildAdded:Connect(refreshMultiEquipDropdown)
+        invConns.char2 = char.ChildRemoved:Connect(refreshMultiEquipDropdown)
     end
 end
 
@@ -470,12 +467,12 @@ local function onPlayerAdded(p)
     
     local function onCharAdded(char)
         data.char = char
-        data.hrp = char:WaitForChild("HumanoidRootPart", 10)
-        data.hum = char:WaitForChild("Humanoid", 10)
+        data.hrp = char:FindFirstChild("HumanoidRootPart")
+        data.hum = char:FindFirstChildOfClass("Humanoid")
     end
     
     if p.Character then
-        task.spawn(onCharAdded, p.Character)
+        onCharAdded(p.Character)
     end
     data.conn = p.CharacterAdded:Connect(onCharAdded)
 end
@@ -520,19 +517,61 @@ local function getPlayerParts(p)
     return char, data.hrp, data.hum
 end
 
+local rapidFireEnabled = false
+local rapidFireToolThread = nil
+local function startRapidFireLoop()
+    if rapidFireToolThread then task.cancel(rapidFireToolThread) rapidFireToolThread = nil end
+    rapidFireToolThread = task.spawn(function()
+        local blacklist = { Wallet = true, Phone = true, Key = true, SprayCan = true, Combat = true }
+        while rapidFireEnabled do
+            if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                local char = localPlayer.Character
+                local tool = char and char:FindFirstChildOfClass("Tool")
+                if tool and not blacklist[tool.Name] then
+                    pcall(function() tool:Activate() end)
+                end
+            end
+            task.wait(0.015)
+        end
+        rapidFireToolThread = nil
+    end)
+end
+
+local function hookTool(tool)
+    -- No-op placeholder kept for compatibility; rapid fire is handled by startRapidFireLoop
+end
+
+
 -- Local player cache
 local localCharacter = nil
 local localHrp = nil
 local localHumanoid = nil
+local rapidFireConnection = nil
 
 local function updateLocalCharCache(char)
     localCharacter = char
     if char then
-        localHrp = char:WaitForChild("HumanoidRootPart", 10)
-        localHumanoid = char:WaitForChild("Humanoid", 10)
+        localHrp = char:WaitForChild("HumanoidRootPart", 3) or char:FindFirstChild("HumanoidRootPart")
+        localHumanoid = char:WaitForChild("Humanoid", 3) or char:FindFirstChildOfClass("Humanoid")
+        
+        if rapidFireConnection then rapidFireConnection:Disconnect() end
+        rapidFireConnection = char.ChildAdded:Connect(function(child)
+            if Options.RapidFire and Options.RapidFire.Value then
+                hookTool(child)
+            end
+        end)
+        
+        local tool = char:FindFirstChildOfClass("Tool")
+        if tool and Options.RapidFire and Options.RapidFire.Value then
+            hookTool(tool)
+        end
     else
         localHrp = nil
         localHumanoid = nil
+        if rapidFireConnection then
+            rapidFireConnection:Disconnect()
+            rapidFireConnection = nil
+        end
     end
 end
 
@@ -543,7 +582,10 @@ local function setDrawProp(drawings, objName, prop, val)
     local cacheKey = "_" .. objName .. prop
     if drawings[cacheKey] ~= val then
         drawings[cacheKey] = val
-        pcall(function() drawings[objName][prop] = val end)
+        local obj = drawings[objName]
+        if obj then
+            obj[prop] = val
+        end
     end
 end
 
@@ -611,6 +653,11 @@ local function updateCamlock()
     if not tp then
         camlockSettings.isLockedOn = false
         if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
+        if Options.CamlockActive and Options.CamlockActive.Value then
+            task.defer(function()
+                Options.CamlockActive:SetValue(false)
+            end)
+        end
         return
     end
     local char, hrp, hum = getPlayerParts(tp)
@@ -618,6 +665,11 @@ local function updateCamlock()
         camlockSettings.isLockedOn = false
         camlockSettings.targetPlayer = nil
         if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
+        if Options.CamlockActive and Options.CamlockActive.Value then
+            task.defer(function()
+                Options.CamlockActive:SetValue(false)
+            end)
+        end
         return
     end
     local be = char:FindFirstChild("BodyEffects")
@@ -626,6 +678,11 @@ local function updateCamlock()
         camlockSettings.isLockedOn = false
         camlockSettings.targetPlayer = nil
         if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
+        if Options.CamlockActive and Options.CamlockActive.Value then
+            task.defer(function()
+                Options.CamlockActive:SetValue(false)
+            end)
+        end
         return
     end
     local part = char:FindFirstChild(camlockSettings.bodyPartSelected)
@@ -645,24 +702,9 @@ local function toggleCamlockConnection(state)
 end
 
 local function toggleCamlock()
-    if camlockSettings.lockEnabled and camlockSettings.aimLockEnabled then
-        if camlockSettings.isLockedOn then
-            camlockSettings.isLockedOn = false
-            camlockSettings.targetPlayer = nil
-            toggleCamlockConnection(false)
-        else
-            camlockSettings.targetPlayer = getCamlockTarget()
-            if camlockSettings.targetPlayer then
-                local char, hrp, hum = getPlayerParts(camlockSettings.targetPlayer)
-                if char then
-                    local part = char:FindFirstChild(camlockSettings.bodyPartSelected)
-                    if part then 
-                        camlockSettings.isLockedOn = true 
-                        toggleCamlockConnection(true)
-                    end
-                end
-            end
-        end
+    if not camlockSettings.aimLockEnabled then return end
+    if Options.CamlockActive then
+        Options.CamlockActive:SetValue(not Options.CamlockActive.Value)
     end
 end
 
@@ -923,35 +965,66 @@ end
 
 local cframeFlySpeed = 3
 local flyActive = false
+local flyNoclipEnabled = false
+local flyHoverPos = nil     -- locked position when no movement keys held
+local flyHoverLook = nil    -- locked look when no movement keys held
 
-local flyConnection = nil
+local flyConnection   = nil
+local noclipConnection = nil
+
+local function setNoclip(enabled)
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    if enabled then
+        noclipConnection = RunService.Heartbeat:Connect(function()
+            local char = localPlayer.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        -- Restore collision on current character
+        local char = localPlayer.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end
+
 local function updateFly(dt)
     if not flyActive or not localHrp or not localHumanoid then return end
-    
+
+    local moving = false
     local moveDir = Vector3.zero
     if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-        moveDir = moveDir + currentCamera.CFrame.LookVector
+        moveDir = moveDir + currentCamera.CFrame.LookVector; moving = true
     end
     if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-        moveDir = moveDir - currentCamera.CFrame.LookVector
+        moveDir = moveDir - currentCamera.CFrame.LookVector; moving = true
     end
     if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-        moveDir = moveDir - currentCamera.CFrame.RightVector
+        moveDir = moveDir - currentCamera.CFrame.RightVector; moving = true
     end
     if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-        moveDir = moveDir + currentCamera.CFrame.RightVector
+        moveDir = moveDir + currentCamera.CFrame.RightVector; moving = true
     end
     if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-        moveDir = moveDir + Vector3.new(0, 1, 0)
+        moveDir = moveDir + Vector3.new(0, 1, 0); moving = true
     end
     if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-        moveDir = moveDir - Vector3.new(0, 1, 0)
+        moveDir = moveDir - Vector3.new(0, 1, 0); moving = true
     end
-    
-    if moveDir.Magnitude > 0 then
-        moveDir = moveDir.Unit
-    end
-    
+
     local look = currentCamera.CFrame.LookVector
     local flatLook = Vector3.new(look.X, 0, look.Z)
     if flatLook.Magnitude == 0 then
@@ -959,24 +1032,45 @@ local function updateFly(dt)
     else
         flatLook = flatLook.Unit
     end
-    
+
     pcall(function()
         localHrp.AssemblyLinearVelocity = Vector3.zero
         localHrp.AssemblyAngularVelocity = Vector3.zero
     end)
-    
-    local targetPos = localHrp.Position + moveDir * (cframeFlySpeed * 60 * dt)
-    localHrp.CFrame = CFrame.new(targetPos, targetPos + flatLook)
+
+    if moving then
+        if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
+        local targetPos = localHrp.Position + moveDir * (cframeFlySpeed * 60 * dt)
+        flyHoverPos  = targetPos
+        flyHoverLook = flatLook
+        localHrp.CFrame = CFrame.new(targetPos, targetPos + flatLook)
+    else
+        -- No input: lock to hoverPos so gravity cannot drift the character down
+        if flyHoverPos then
+            localHrp.CFrame = CFrame.new(flyHoverPos, flyHoverPos + (flyHoverLook or flatLook))
+        else
+            -- First frame: capture current position as hover anchor
+            flyHoverPos  = localHrp.Position
+            flyHoverLook = flatLook
+            localHrp.CFrame = CFrame.new(flyHoverPos, flyHoverPos + flyHoverLook)
+        end
+    end
 end
 
 local function toggleFlyConnection(state)
     if flyConnection then flyConnection:Disconnect() flyConnection = nil end
     if state then
+        flyHoverPos  = nil
+        flyHoverLook = nil
         if localHumanoid then
             localHumanoid:ChangeState(Enum.HumanoidStateType.Physics)
         end
         flyConnection = RunService.Heartbeat:Connect(updateFly)
+        if flyNoclipEnabled then setNoclip(true) end
     else
+        flyHoverPos  = nil
+        flyHoverLook = nil
+        setNoclip(false)
         if localHumanoid then
             localHumanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
         end
@@ -1114,12 +1208,16 @@ local function shootAtHead(tool, targetChar, bursts)
     local head = targetChar:FindFirstChild("Head")
     local handle = tool and tool:FindFirstChild("Handle")
     if not head or not handle or not tool:FindFirstChild("Ammo") then return end
-    local origin = handle.CFrame.Position
-    local dir = (head.Position - origin).Unit
+    -- Use local HRP as origin (matches server-side validation) and predict head position
+    local origin = localHrp and localHrp.Position or handle.CFrame.Position
+    local vel = head.AssemblyLinearVelocity or Vector3.zero
+    local predicted = head.Position + vel * 0.083 -- ~1 server tick ahead
+    local dir = (predicted - origin).Unit
     for _ = 1, bursts do
         pcall(function()
-            ReplicatedStorage.MainEvent:FireServer("ShootGun", handle, origin, head.Position, head, dir)
+            ReplicatedStorage.MainEvent:FireServer("ShootGun", handle, origin, predicted, head, dir)
         end)
+        task.wait(0.016) -- spread shots slightly so server processes each
     end
 end
 
@@ -1133,7 +1231,10 @@ local function autoReloadAndAim(tool, targetChar)
     end
     local head = targetChar:FindFirstChild("Head")
     if head then
-        ReplicatedStorage.MainEvent:FireServer("UpdateMousePosI2", head.Position)
+        -- Send velocity-predicted position so server mouse matches shot direction
+        local vel = head.AssemblyLinearVelocity or Vector3.zero
+        local predicted = head.Position + vel * 0.083
+        ReplicatedStorage.MainEvent:FireServer("UpdateMousePosI2", predicted)
     end
     return true
 end
@@ -1557,8 +1658,11 @@ local function startESP()
     espPlayerAddedConnection = Players.PlayerAdded:Connect(createESP)
     espPlayerRemovingConnection = Players.PlayerRemoving:Connect(removeESP)
     
+    local espThrottleFrame = 0
     espConnection = RunService.RenderStepped:Connect(function()
-        local mouseLoc = UserInputService:GetMouseLocation()
+        -- Throttle ESP to every 2 frames to halve render thread cost
+        espThrottleFrame = espThrottleFrame + 1
+        if espThrottleFrame % 2 ~= 0 then return end
         local viewportSize = currentCamera.ViewportSize
         
         for player, drawings in pairs(espPlayers) do
@@ -1672,7 +1776,7 @@ local function startESP()
                         if espConfig.tracerPosition == "Bottom" then
                             fromPos = Vector2.new(viewportSize.X / 2, viewportSize.Y)
                         else
-                            fromPos = mouseLoc
+                            fromPos = UserInputService:GetMouseLocation()
                         end
                         
                         setDrawProp(drawings, "Tracer", "From", fromPos)
@@ -1761,13 +1865,16 @@ local function updateSpinbot()
     local yaw = math.rad(spinbotConfig.angle)
     localHrp.CFrame = CFrame.new(localHrp.Position) * CFrame.Angles(0, yaw, 0)
     if spinbotConfig.lookUp and localCharacter then
-        local neck = localCharacter:FindFirstChild("Neck", true)
+        local head = localCharacter:FindFirstChild("Head")
+        local torso = localCharacter:FindFirstChild("Torso") or localCharacter:FindFirstChild("UpperTorso")
+        local neck = (head and head:FindFirstChild("Neck")) or (torso and torso:FindFirstChild("Neck"))
         if neck and neck:IsA("Motor6D") then
             neck.C0 = CFrame.new(0, 1, 0) * CFrame.Angles(math.rad(-85), math.rad(spinbotConfig.angle), 0)
         end
         local tool = localCharacter:FindFirstChildWhichIsA("Tool")
         if tool then
-            local rj = localCharacter:FindFirstChild("RightGrip", true)
+            local rightArm = localCharacter:FindFirstChild("Right Arm") or localCharacter:FindFirstChild("RightHand")
+            local rj = rightArm and rightArm:FindFirstChild("RightGrip")
             if rj and rj:IsA("Motor6D") then
                 rj.C1 = CFrame.Angles(math.rad(90), 0, 0)
             end
@@ -1783,55 +1890,57 @@ local function toggleSpinbotConnection(state)
 end
 
 local antiStompThread = nil
-local antiStompAnimationTrack = nil
+local antiStompConnections = {}
 
-local function playAntiStompEmote()
-    if antiStompThread then task.cancel(antiStompThread) end
-    if antiStompAnimationTrack then pcall(function() antiStompAnimationTrack:Stop(0.1) end) antiStompAnimationTrack = nil end
-    
-    antiStompThread = task.spawn(function()
-        while Options.AntiStomp and Options.AntiStomp.Value do
-            local char = localPlayer.Character
-            local be = char and char:FindFirstChild("BodyEffects")
-            local ko = be and be:FindFirstChild("K.O")
-            if ko and ko.Value then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                local animator = hum and hum:FindFirstChildOfClass("Animator")
-                if animator then
-                    local anim = Instance.new("Animation")
-                    anim.AnimationId = "rbxassetid://135373056067761" -- Tornado Emote (Massive movement/bug)
-                    local ok, track = pcall(function() return animator:LoadAnimation(anim) end)
-                    if ok and track then
-                        track.Priority = Enum.AnimationPriority.Action
-                        track.Looped = false
-                        track.Speed = 1000 -- Max speed to bug out character completely
-                        track:Play(0.1)
-                        antiStompAnimationTrack = track
-                        
-                        -- Wait for track to stop or KO to end
-                        local stopped = false
-                        local trackConn = track.Stopped:Connect(function() stopped = true end)
-                        while not stopped and ko.Parent and ko.Value and Options.AntiStomp.Value do
-                            task.wait(0.05)
-                        end
-                        trackConn:Disconnect()
-                        pcall(function() track:Stop(0.1) end)
-                        antiStompAnimationTrack = nil
-                    else
-                        task.wait(0.5)
-                    end
-                else
-                    task.wait(0.5)
-                end
-            else
-                if antiStompAnimationTrack then
-                    pcall(function() antiStompAnimationTrack:Stop(0.1) end)
-                    antiStompAnimationTrack = nil
-                end
-                task.wait(0.2)
+local function setupAntiStompChar(char)
+    local be = char:WaitForChild("BodyEffects", 5)
+    if not be then return end
+    local ko = be:WaitForChild("K.O", 5)
+    if not ko then return end
+    local conn = ko:GetPropertyChangedSignal("Value"):Connect(function()
+        if not ko.Value then return end
+        if not (Options.AntiStomp and Options.AntiStomp.Value) then return end
+        -- disable all ragdoll constraints so body stays upright and out of stomp range
+        for _, v in pairs(char:GetDescendants()) do
+            if v:IsA("BallSocketConstraint") or v:IsA("HingeConstraint") then
+                pcall(function() v.Enabled = false end)
             end
         end
+        -- also freeze all parts in place
+        local sinkConn
+        sinkConn = RunService.Heartbeat:Connect(function()
+            if not ko.Value or not (Options.AntiStomp and Options.AntiStomp.Value) then
+                sinkConn:Disconnect()
+                return
+            end
+            for _, v in pairs(char:GetDescendants()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then
+                    pcall(function()
+                        v.AssemblyLinearVelocity = Vector3.zero
+                        v.AssemblyAngularVelocity = Vector3.zero
+                    end)
+                end
+            end
+        end)
     end)
+    table.insert(antiStompConnections, conn)
+end
+
+local function startAntiStompLoop()
+    -- disconnect old connections
+    for _, c in pairs(antiStompConnections) do pcall(function() c:Disconnect() end) end
+    antiStompConnections = {}
+    -- setup for current character
+    local char = localPlayer.Character
+    if char then task.spawn(setupAntiStompChar, char) end
+    -- setup for future characters
+    local respawnConn = localPlayer.CharacterAdded:Connect(function(c)
+        if Options.AntiStomp and Options.AntiStomp.Value then
+            task.wait(0.5)
+            task.spawn(setupAntiStompChar, c)
+        end
+    end)
+    table.insert(antiStompConnections, respawnConn)
 end
 
 local function isKO(player)
@@ -1911,14 +2020,24 @@ end
 -- BUILD UI - RAGE TAB
 --------------------------------------------------
 
+local playerListState = {
+    addedConn = nil,
+    removingConn = nil,
+    debounce = nil
+}
+
 local playerList = {}
 for _, p in pairs(Players:GetPlayers()) do if p ~= localPlayer then table.insert(playerList, p.Name) end end
 
 local function updateAllDropdowns()
-    table.sort(playerList)
-    if Options.RageTargetSelect then
-        Options.RageTargetSelect:SetValues(playerList)
-    end
+    if playerListState.debounce then task.cancel(playerListState.debounce) end
+    playerListState.debounce = task.delay(1.5, function()
+        table.sort(playerList)
+        if Options.RageTargetSelect then
+            Options.RageTargetSelect:SetValues(playerList)
+        end
+        playerListState.debounce = nil
+    end)
 end
 
 local function updateTargetAvatar(playerName)
@@ -1935,14 +2054,14 @@ local function updateTargetAvatar(playerName)
     end
 end
 
-Players.PlayerAdded:Connect(function(p)
+playerListState.addedConn = Players.PlayerAdded:Connect(function(p)
     if p ~= localPlayer and not table.find(playerList, p.Name) then
         table.insert(playerList, p.Name)
         updateAllDropdowns()
     end
 end)
 
-Players.PlayerRemoving:Connect(function(p)
+playerListState.removingConn = Players.PlayerRemoving:Connect(function(p)
     for i, n in pairs(playerList) do
         if n == p.Name then
             table.remove(playerList, i)
@@ -2025,61 +2144,65 @@ Tabs.Rage:AddSlider("StrafeHeight", {
 -- BUILD UI - TARGETING SECTION
 --------------------------------------------------
 
+-- Upvalue refs shared across targeting sub-blocks
+local avatarImage       = nil
+local playerInfoLabel   = nil
+local targetAvatarFrame = nil
+
 do
     --------------------------------------------------
     -- CLICK TO TARGET STATE & FUNCTIONS
     --------------------------------------------------
-    local pickingTarget = false
-    local pickConnection = nil
-    local hoverConnection = nil
-    local currentHoveredChar = nil
-    local hoverHighlight = nil
+    -- Grouping all targeting state in a single table to minimize local variables (Lua 200 local limit)
+    local state = {
+        pickingTarget = false,
+        pickConnection = nil,
+        hoverConnection = nil,
+        currentHoveredChar = nil,
+        hoverHighlight = nil
+    }
 
     local function clearHoverHighlight()
-        if hoverHighlight then
-            pcall(function() hoverHighlight:Destroy() end)
-            hoverHighlight = nil
+        if state.hoverHighlight then
+            pcall(function() state.hoverHighlight:Destroy() end)
+            state.hoverHighlight = nil
         end
-        currentHoveredChar = nil
+        state.currentHoveredChar = nil
     end
 
     local function stopPicking()
-        pickingTarget = false
-        if pickConnection then pickConnection:Disconnect() pickConnection = nil end
-        if hoverConnection then hoverConnection:Disconnect() hoverConnection = nil end
+        state.pickingTarget = false
+        if state.pickConnection then state.pickConnection:Disconnect() state.pickConnection = nil end
+        if state.hoverConnection then state.hoverConnection:Disconnect() state.hoverConnection = nil end
         clearHoverHighlight()
     end
-    
+
     _G.stopPickingTarget = stopPicking
 
     local function startPickingTarget()
-        if pickingTarget then
+        if state.pickingTarget then
             stopPicking()
             notify("Targeting", "Target pick cancelled.")
             return
         end
-        
-        pickingTarget = true
+
+        state.pickingTarget = true
         notify("Targeting", "Hover over a player and click to target them. (ESC to cancel)")
-        
+
         local function getPlayerUnderMouse()
             local mousePos = UserInputService:GetMouseLocation()
             local unitRay = currentCamera:ViewportPointToRay(mousePos.X, mousePos.Y)
-            
-            -- Find the player whose character is closest to the ray
             local closestPlayer = nil
-            local closestDistance = 15 -- Max stud distance from ray line to character root
-            
+            local closestDistance = 15
             for _, player in ipairs(Players:GetPlayers()) do
                 if player ~= localPlayer and player.Character then
                     local root = player.Character:FindFirstChild("HumanoidRootPart")
                     if root then
-                        -- Calculate distance from point (root position) to line (ray origin + ray direction)
                         local rayToRoot = root.Position - unitRay.Origin
                         local projection = rayToRoot:Dot(unitRay.Direction)
                         if projection > 0 then
-                            local closestPointOnRay = unitRay.Origin + (unitRay.Direction * projection)
-                            local dist = (root.Position - closestPointOnRay).Magnitude
+                            local closestPt = unitRay.Origin + unitRay.Direction * projection
+                            local dist = (root.Position - closestPt).Magnitude
                             if dist < closestDistance then
                                 closestDistance = dist
                                 closestPlayer = player
@@ -2088,31 +2211,30 @@ do
                     end
                 end
             end
-            
             return closestPlayer
         end
 
-        hoverConnection = RunService.RenderStepped:Connect(function()
+        state.hoverConnection = RunService.RenderStepped:Connect(function()
             local player = getPlayerUnderMouse()
             local model = player and player.Character
             if model then
-                if currentHoveredChar ~= model then
+                if state.currentHoveredChar ~= model then
                     clearHoverHighlight()
-                    currentHoveredChar = model
-                    hoverHighlight = Instance.new("Highlight")
-                    hoverHighlight.Name = "FIXZ_HoverHighlight"
-                    hoverHighlight.FillColor = Color3.fromRGB(0, 255, 128)
-                    hoverHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    hoverHighlight.FillTransparency = 0.6
-                    hoverHighlight.OutlineTransparency = 0.2
-                    hoverHighlight.Parent = model
+                    state.currentHoveredChar = model
+                    state.hoverHighlight = Instance.new("Highlight")
+                    state.hoverHighlight.Name = "FIXZ_HoverHighlight"
+                    state.hoverHighlight.FillColor = Color3.fromRGB(0, 255, 128)
+                    state.hoverHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    state.hoverHighlight.FillTransparency = 0.6
+                    state.hoverHighlight.OutlineTransparency = 0.2
+                    state.hoverHighlight.Parent = model
                 end
             else
                 clearHoverHighlight()
             end
         end)
-        
-        pickConnection = UserInputService.InputBegan:Connect(function(input, processed)
+
+        state.pickConnection = UserInputService.InputBegan:Connect(function(input, processed)
             if processed then return end
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 local player = getPlayerUnderMouse()
@@ -2130,10 +2252,6 @@ do
         end)
     end
 
-    --------------------------------------------------
-    -- BUILD UI - TARGETING SECTION
-    --------------------------------------------------
-
     Tabs.Rage:AddSection("Targeting")
 
     local targetDropdown = Tabs.Rage:AddDropdown("RageTargetSelect", {
@@ -2143,166 +2261,165 @@ do
         Default = playerList[1] or ""
     })
 
-    local pickTargetBtn = Tabs.Rage:AddButton({
+    Tabs.Rage:AddButton({
         Title = "Pick Target (Hover & Click)",
         Description = "Click here, then click a player character in the workspace to target them.",
-        Callback = function()
-            startPickingTarget()
-        end
+        Callback = function() startPickingTarget() end
     })
 
-    -- Custom Avatar Frame
-    local targetAvatarFrame = Instance.new("Frame")
-    targetAvatarFrame.Name = "TargetAvatarFrame"
-    targetAvatarFrame.Size = UDim2.new(1, -20, 0, 120)
-    targetAvatarFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    targetAvatarFrame.BorderSizePixel = 0
+    -- Avatar panel ScreenGui
+    do
+        local ui = {}
+        ui.tGui = localPlayer:WaitForChild("PlayerGui"):FindFirstChild("FIXZ_TargetGui")
+        if ui.tGui then ui.tGui:Destroy() end
+        ui.tGui = Instance.new("ScreenGui")
+        ui.tGui.Name = "FIXZ_TargetGui"
+        ui.tGui.ResetOnSpawn = false
+        ui.tGui.DisplayOrder = 50
+        ui.tGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        ui.tGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
-    local corner = Instance.new("UICorner", targetAvatarFrame)
-    corner.CornerRadius = UDim.new(0, 8)
+        targetAvatarFrame = Instance.new("Frame", ui.tGui)
+        targetAvatarFrame.Name = "TargetAvatarFrame"
+        targetAvatarFrame.Size = UDim2.new(0, 260, 0, 110)
+        targetAvatarFrame.Position = UDim2.new(0, 8, 0.5, -55)
+        targetAvatarFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        targetAvatarFrame.BackgroundTransparency = 0.1
+        targetAvatarFrame.BorderSizePixel = 0
+        targetAvatarFrame.Visible = false
+        Instance.new("UICorner", targetAvatarFrame).CornerRadius = UDim.new(0, 10)
+        
+        ui.st = Instance.new("UIStroke", targetAvatarFrame)
+        ui.st.Color = Color3.fromRGB(80, 80, 80)
+        ui.st.Thickness = 1.2
 
-    local stroke = Instance.new("UIStroke", targetAvatarFrame)
-    stroke.Color = Color3.fromRGB(45, 45, 45)
-    stroke.Thickness = 1.2
+        avatarImage = Instance.new("ImageLabel", targetAvatarFrame)
+        avatarImage.Name = "AvatarImage"
+        avatarImage.Size = UDim2.new(0, 80, 0, 80)
+        avatarImage.Position = UDim2.new(0, 12, 0, 15)
+        avatarImage.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        avatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=1&w=150&h=150"
+        Instance.new("UICorner", avatarImage).CornerRadius = UDim.new(1, 0)
+        
+        ui.si = Instance.new("UIStroke", avatarImage)
+        ui.si.Color = Color3.fromRGB(100, 100, 100)
+        ui.si.Thickness = 1.5
 
-    local avatarImage = Instance.new("ImageLabel", targetAvatarFrame)
-    avatarImage.Name = "AvatarImage"
-    avatarImage.Size = UDim2.new(0, 90, 0, 90)
-    avatarImage.Position = UDim2.new(0, 15, 0, 15)
-    avatarImage.BackgroundTransparency = 1
-    avatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=1&w=150&h=150"
+        ui.titleLbl = Instance.new("TextLabel", targetAvatarFrame)
+        ui.titleLbl.Size = UDim2.new(1, -104, 0, 18)
+        ui.titleLbl.Position = UDim2.new(0, 100, 0, 8)
+        ui.titleLbl.BackgroundTransparency = 1
+        ui.titleLbl.Font = Enum.Font.GothamBlack
+        ui.titleLbl.Text = "TARGET"
+        ui.titleLbl.TextColor3 = Color3.fromRGB(255, 80, 80)
+        ui.titleLbl.TextSize = 11
+        ui.titleLbl.TextXAlignment = Enum.TextXAlignment.Left
 
-    local avatarCorner = Instance.new("UICorner", avatarImage)
-    avatarCorner.CornerRadius = UDim.new(1, 0)
+        playerInfoLabel = Instance.new("TextLabel", targetAvatarFrame)
+        playerInfoLabel.Name = "PlayerInfoLabel"
+        playerInfoLabel.Size = UDim2.new(1, -104, 0, 80)
+        playerInfoLabel.Position = UDim2.new(0, 100, 0, 26)
+        playerInfoLabel.BackgroundTransparency = 1
+        playerInfoLabel.Font = Enum.Font.Gotham
+        playerInfoLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+        playerInfoLabel.TextSize = 12
+        playerInfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+        playerInfoLabel.TextYAlignment = Enum.TextYAlignment.Top
+        playerInfoLabel.TextWrapped = true
+        playerInfoLabel.LineHeight = 1.4
+        playerInfoLabel.Text = "Select a player to\nview info"
+    end
 
-    local avatarStroke = Instance.new("UIStroke", avatarImage)
-    avatarStroke.Color = Color3.fromRGB(60, 60, 60)
-    avatarStroke.Thickness = 1.5
+    -- Goto + Kill in their own scope to reduce local count
+    do
+        Tabs.Rage:AddButton({
+            Title = "Teleport to Target (Goto)",
+            Description = "Teleport to the selected target player's position.",
+            Callback = function()
+                if not selectedTargetPlayer or selectedTargetPlayer == "" then
+                    notify("Target Error", "Select a target first!") return
+                end
+                local tgt = Players:FindFirstChild(selectedTargetPlayer)
+                local tChar = tgt and tgt.Character
+                local tHrp  = tChar and tChar:FindFirstChild("HumanoidRootPart")
+                local myHrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if tHrp and myHrp then
+                    myHrp.CFrame = tHrp.CFrame + Vector3.new(0, 3, 0)
+                    notify("Target", "Teleported to " .. selectedTargetPlayer)
+                else
+                    notify("Target Error", "Could not find player or target character.")
+                end
+            end
+        })
 
-    local playerInfoLabel = Instance.new("TextLabel", targetAvatarFrame)
-    playerInfoLabel.Name = "PlayerInfoLabel"
-    playerInfoLabel.Size = UDim2.new(1, -130, 0, 80)
-    playerInfoLabel.Position = UDim2.new(0, 120, 0, 20)
-    playerInfoLabel.BackgroundTransparency = 1
-    playerInfoLabel.Font = Enum.Font.GothamBold
-    playerInfoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    playerInfoLabel.TextSize = 13
-    playerInfoLabel.TextXAlignment = Enum.TextXAlignment.Left
-    playerInfoLabel.TextYAlignment = Enum.TextYAlignment.Top
-    playerInfoLabel.TextWrapped = true
-    playerInfoLabel.LineHeight = 1.3
-    playerInfoLabel.Text = "Select a player to view info"
+        local killToggle = Tabs.Rage:AddToggle("KillTargetToggle", {
+            Title = "Kill Target",
+            Description = "Teleport above target and shoot until they are knocked.",
+            Default = false
+        })
 
-    local gotoBtn = Tabs.Rage:AddButton({
-        Title = "Teleport to Target (Goto)",
-        Description = "Teleport to the selected target player's position.",
-        Callback = function()
+        killToggle:OnChanged(function(v)
+            targetKillActive = v
+            if not v then return end
             if not selectedTargetPlayer or selectedTargetPlayer == "" then
                 notify("Target Error", "Select a target first!")
-                return
+                Options.KillTargetToggle:SetValue(false) return
             end
-            local target = Players:FindFirstChild(selectedTargetPlayer)
-            local char = target and target.Character
-            local targetHrp = char and char:FindFirstChild("HumanoidRootPart")
-            local localHrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if targetHrp and localHrp then
-                localHrp.CFrame = targetHrp.CFrame + Vector3.new(0, 3, 0)
-                notify("Target", "Teleported to " .. selectedTargetPlayer)
-            else
-                notify("Target Error", "Could not find player or target character.")
-            end
-        end
-    })
-
-    local killToggle = Tabs.Rage:AddToggle("KillTargetToggle", {
-        Title = "Kill Target",
-        Description = "Teleport above target and shoot until they are knocked.",
-        Default = false
-    })
-
-    killToggle:OnChanged(function(v)
-        targetKillActive = v
-        if v then
-            if not selectedTargetPlayer or selectedTargetPlayer == "" then
-                notify("Target Error", "Select a target first!")
-                Options.KillTargetToggle:SetValue(false)
-                return
-            end
-            local target = Players:FindFirstChild(selectedTargetPlayer)
-            if not target or not target.Character then
+            local tgt = Players:FindFirstChild(selectedTargetPlayer)
+            if not tgt or not tgt.Character then
                 notify("Target Error", "Target player or character not found.")
-                Options.KillTargetToggle:SetValue(false)
-                return
+                Options.KillTargetToggle:SetValue(false) return
             end
-            
             task.spawn(function()
-                local savedPos = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and localPlayer.Character.HumanoidRootPart.CFrame
-                
-                -- Ensure gun equipped
+                local savedPos = localPlayer.Character
+                    and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    and localPlayer.Character.HumanoidRootPart.CFrame
                 local tool = localPlayer.Character and localPlayer.Character:FindFirstChildWhichIsA("Tool")
                 if not tool or not tool:FindFirstChild("Ammo") then
                     tool = localPlayer.Backpack:FindFirstChildWhichIsA("Tool")
-                    if tool and tool:FindFirstChild("Ammo") then
-                        tool.Parent = localPlayer.Character
-                    end
+                    if tool and tool:FindFirstChild("Ammo") then tool.Parent = localPlayer.Character end
                 end
-                
                 if not tool or not tool:FindFirstChild("Ammo") then
-                    notify("Kill Error", "Equip a gun or make sure you have one in your backpack!")
-                    Options.KillTargetToggle:SetValue(false)
-                    return
+                    notify("Kill Error", "Equip a gun or have one in backpack!")
+                    Options.KillTargetToggle:SetValue(false) return
                 end
-                
-                notify("Kill Target", "Activating kill automation on " .. target.Name)
-                
-                while targetKillActive and target.Character and not isKO(target) do
-                    local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-                    local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
-                    if root and targetRoot then
-                        root.CFrame = targetRoot.CFrame * CFrame.new(0, 3.2, 0)
+                notify("Kill Target", "Activating kill automation on " .. tgt.Name)
+                while targetKillActive and tgt.Character and not isKO(tgt) do
+                    local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    local tRoot  = tgt.Character:FindFirstChild("HumanoidRootPart")
+                    if myRoot and tRoot then
+                        myRoot.CFrame = tRoot.CFrame * CFrame.new(0, 2.8, -1.5)
+                        task.wait(0.05)
                         if not localPlayer.Character:FindFirstChild(tool.Name) then
                             tool.Parent = localPlayer.Character
                         end
-                        if autoReloadAndAim(tool, target.Character) then
-                            shootAtHead(tool, target.Character, 5)
+                        if autoReloadAndAim(tool, tgt.Character) then
+                            shootAtHead(tool, tgt.Character, 3)
                         end
                     end
-                    task.wait(0.08)
+                    task.wait(0.12)
                 end
-                
                 targetKillActive = false
                 Options.KillTargetToggle:SetValue(false)
-                
                 if savedPos and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     localPlayer.Character.HumanoidRootPart.CFrame = savedPos
                 end
-                
                 notify("Kill Target", "Kill automation ended.")
             end)
-        end
-    end)
+        end)
+    end
 
-    task.spawn(function()
-        while not targetDropdown.Frame or not targetDropdown.Frame.Parent or not pickTargetBtn.Frame or not gotoBtn.Frame or not killToggle.Frame do
-            task.wait()
-        end
-        local baseOrder = targetDropdown.Frame.LayoutOrder
-        targetAvatarFrame.Parent = targetDropdown.Frame.Parent
-        targetAvatarFrame.LayoutOrder = baseOrder + 1
-        pickTargetBtn.Frame.LayoutOrder = baseOrder + 2
-        gotoBtn.Frame.LayoutOrder = baseOrder + 3
-        killToggle.Frame.LayoutOrder = baseOrder + 4
-    end)
-
+    -- Dropdown onChange + initial avatar update
     local function updateTargetAvatarLocal(playerName)
         local player = Players:FindFirstChild(playerName)
-        if player then
-            local avatarId = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150"
-            avatarImage.Image = avatarId
-            playerInfoLabel.Text = "Username: " .. player.Name .. "\nDisplay Name: " .. player.DisplayName .. "\nUser ID: " .. player.UserId
-        else
-            avatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=1&w=150&h=150"
-            playerInfoLabel.Text = "Player not found"
+        if player and avatarImage and playerInfoLabel and targetAvatarFrame then
+            avatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150"
+            playerInfoLabel.Text = player.Name .. "\n@" .. player.DisplayName .. "\nID: " .. player.UserId
+            targetAvatarFrame.Visible = true
+        elseif targetAvatarFrame then
+            if avatarImage then avatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=1&w=150&h=150" end
+            if playerInfoLabel then playerInfoLabel.Text = "No target selected" end
+            targetAvatarFrame.Visible = false
         end
     end
 
@@ -2315,9 +2432,7 @@ do
         selectedTargetPlayer = playerList[1]
         updateTargetAvatarLocal(playerList[1])
     end
-end
-
---------------------------------------------------
+end--------------------------------------------------
 -- BUILD UI - LEGIT TAB
 --------------------------------------------------
 
@@ -2328,18 +2443,54 @@ Tabs.Legit:AddToggle("CamlockEnabled", {
     Default = false
 }):OnChanged(function(v)
     camlockSettings.aimLockEnabled = v
-    if not v then camlockSettings.lockEnabled = false camlockSettings.isLockedOn = false camlockSettings.targetPlayer = nil end
+    if not v then
+        camlockSettings.isLockedOn = false
+        camlockSettings.targetPlayer = nil
+        toggleCamlockConnection(false)
+        if Options.CamlockActive and Options.CamlockActive.Value then
+            Options.CamlockActive:SetValue(false)
+        end
+    end
 end)
 Options.CamlockEnabled:SetValue(false)
 
-Tabs.Legit:AddButton({
-    Title = "Toggle Lock (click to turn on. Press keybind to toggle)",
-    Callback = function()
-        camlockSettings.lockEnabled = not camlockSettings.lockEnabled
-        if not camlockSettings.lockEnabled then camlockSettings.isLockedOn = false camlockSettings.targetPlayer = nil end
-        toggleCamlock()
+Tabs.Legit:AddToggle("CamlockActive", {
+    Title = "Lock Target",
+    Description = "Lock onto a target (or press keybind)",
+    Default = false
+}):OnChanged(function(v)
+    if not camlockSettings.aimLockEnabled then
+        if v then
+            task.defer(function()
+                Options.CamlockActive:SetValue(false)
+            end)
+            notify("Camlock", "Enable Camlock first!")
+        end
+        return
     end
-})
+    
+    if v then
+        if not camlockSettings.isLockedOn then
+            local target = getCamlockTarget()
+            if target then
+                camlockSettings.targetPlayer = target
+                camlockSettings.isLockedOn = true
+                toggleCamlockConnection(true)
+                notify("Camlock", "Locked onto " .. target.Name)
+            else
+                task.defer(function()
+                    Options.CamlockActive:SetValue(false)
+                end)
+                notify("Camlock", "No target in view!")
+            end
+        end
+    else
+        camlockSettings.isLockedOn = false
+        camlockSettings.targetPlayer = nil
+        toggleCamlockConnection(false)
+    end
+end)
+Options.CamlockActive:SetValue(false)
 
 Tabs.Legit:AddSlider("CamlockSmoothing", {
     Title = "Camera Smoothing",
@@ -2439,6 +2590,18 @@ Tabs.Game:AddSlider("FlySpeed", {
     Default = 30, Min = 30, Max = 500, Rounding = 0
 }):OnChanged(function(v) cframeFlySpeed = v / 10 end)
 
+Tabs.Game:AddToggle("FlyNoclip", {
+    Title = "Fly Noclip",
+    Description = "Pass through walls while flying",
+    Default = false
+}):OnChanged(function(v)
+    flyNoclipEnabled = v
+    if flyActive then
+        setNoclip(v)
+    end
+end)
+Options.FlyNoclip:SetValue(false)
+
 Tabs.Game:AddSection("Shop")
 
 do
@@ -2449,19 +2612,34 @@ do
         Placeholder = "Search item name..."
     }):OnChanged(function(searchText)
         if searchDebounce then task.cancel(searchDebounce) end
-        searchDebounce = task.delay(0.1, function()
-            local lowerSearch = searchText:lower()
-            if lowerSearch == "" then return end
+        searchDebounce = task.delay(0.15, function()
+            local lowerSearch = searchText:lower():gsub("^%s+", ""):gsub("%s+$", "")
             local allItems = getShopItemNames()
-            local lowerItems = cachedLowerShopItemNames
-            for i = 1, #allItems do
-                local name = allItems[i]
-                local lowerName = lowerItems[i]
-                if lowerName and lowerName:find(lowerSearch, 1, true) then
-                    if Options.ShopItem and Options.ShopItem.Value ~= name then
-                        Options.ShopItem:SetValue(name)
+            if lowerSearch == "" then
+                -- restore full list without changing selected value
+                if Options.ShopItem then
+                    Options.ShopItem:SetValues(allItems)
+                end
+                return
+            end
+            local filtered = {}
+            for _, name in ipairs(allItems) do
+                if name:lower():find(lowerSearch, 1, true) then
+                    table.insert(filtered, name)
+                end
+            end
+            if #filtered > 0 and Options.ShopItem then
+                Options.ShopItem:SetValues(filtered)
+                -- only update selection if current selection isn't in results
+                local currentValid = false
+                for _, name in ipairs(filtered) do
+                    if name == Options.ShopItem.Value then
+                        currentValid = true
+                        break
                     end
-                    break
+                end
+                if not currentValid then
+                    Options.ShopItem:SetValue(filtered[1])
                 end
             end
         end)
@@ -2489,31 +2667,58 @@ Tabs.Game:AddSection("Misc")
 
 Tabs.Game:AddToggle("RapidFire", {
     Title = "Rapid Fire",
+    Description = "Hold LMB to fire as fast as possible",
     Default = false
 }):OnChanged(function(v)
     if v then
         task.spawn(function()
-            local lastTool = nil
             while Options.RapidFire.Value do
+                task.wait()
                 local tool = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Tool")
-                if tool and tool ~= lastTool and tool:FindFirstChild("GunScript") then
-                    lastTool = tool
-                    pcall(function()
-                        for _, conn in ipairs(getconnections(tool.Activated)) do
-                            for i = 1, debug.getinfo(conn.Function).nups do
-                                local n = debug.getupvalue(conn.Function, i)
-                                if type(n) == "number" then debug.setupvalue(conn.Function, i, 1e-20) end
-                            end
+                if tool and tool:FindFirstChild("GunScript") then
+                    for _, conn in ipairs(getconnections(tool.Activated)) do
+                        for i = 1, debug.getinfo(conn.Function).nups do
+                            local n = debug.getupvalue(conn.Function, i)
+                            if type(n) == "number" then debug.setupvalue(conn.Function, i, 1e-20) end
                         end
-                    end)
+                    end
                 end
-                task.wait(0.1)
             end
-            lastTool = nil
         end)
     end
 end)
 Options.RapidFire:SetValue(false)
+
+local hyperFireEnabled = false
+local hyperFireConnection = nil
+local toleranceCooldowns = {} -- cached list, populated at toggle-on
+local toleranceDescConn  = nil -- listens for newly added cooldown values
+
+local function refreshToleranceCache()
+    toleranceCooldowns = {}
+    for _, d in pairs(game:GetDescendants()) do
+        if d.Name == "ToleranceCooldown" and d:IsA("ValueBase") then
+            table.insert(toleranceCooldowns, d)
+        end
+    end
+end
+
+local function startHyperFireConnection()
+    if hyperFireConnection then hyperFireConnection:Disconnect() hyperFireConnection = nil end
+    hyperFireConnection = RunService.RenderStepped:Connect(function()
+        if not hyperFireEnabled then return end
+        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) and localPlayer.Character then
+            local tool = localPlayer.Character:FindFirstChildOfClass("Tool")
+            if tool and tool:FindFirstChild("Ammo") then
+                pcall(function() tool:Activate() end)
+            end
+        end
+        -- Zero all cooldown values every frame (semi-auto → full-auto)
+        for _, d in ipairs(toleranceCooldowns) do
+            if d.Parent and d.Value ~= 0 then d.Value = 0 end
+        end
+    end)
+end
 
 local hyperFireEnabled = false
 Tabs.Game:AddToggle("AutoGuns", {
@@ -2521,15 +2726,8 @@ Tabs.Game:AddToggle("AutoGuns", {
     Default = false
 }):OnChanged(function(v)
     hyperFireEnabled = v
-    if v then
-        pcall(function()
-            local tool = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Tool")
-            if tool then
-                for _, d in pairs(tool:GetDescendants()) do
-                    if d.Name == "ToleranceCooldown" and d:IsA("ValueBase") then d.Value = 0 end
-                end
-            end
-        end)
+    for _, d in pairs(game:GetDescendants()) do
+        if d.Name == "ToleranceCooldown" and d:IsA("ValueBase") then d.Value = 0 end
     end
 end)
 Options.AutoGuns:SetValue(false)
@@ -2540,6 +2738,7 @@ RunService.RenderStepped:Connect(function()
         if tool and tool:FindFirstChild("Ammo") then pcall(function() tool:Activate() end) end
     end
 end)
+Options.AutoGuns:SetValue(false)
 
 Tabs.Game:AddButton({
     Title = "Magic Bullet (might work might not)",
@@ -2557,14 +2756,14 @@ Tabs.Game:AddButton({
 })
 
 Tabs.Game:AddToggle("AntiStomp", {
-    Title = "Anti Stomp (doesnt work sorry :( )",
+    Title = "Anti Stomp",
     Default = false
 }):OnChanged(function(v)
     if v then
-        playAntiStompEmote()
+        startAntiStompLoop()
     else
-        if antiStompThread then task.cancel(antiStompThread) antiStompThread = nil end
-        if antiStompAnimationTrack then pcall(function() antiStompAnimationTrack:Stop(0.1) end) antiStompAnimationTrack = nil end
+        for _, c in pairs(antiStompConnections) do pcall(function() c:Disconnect() end) end
+        antiStompConnections = {}
     end
 end)
 Options.AntiStomp:SetValue(false)
@@ -2926,7 +3125,7 @@ Tabs.Visuals:AddSection("Spinbot")
 
 Tabs.Visuals:AddToggle("SpinbotToggle", {
     Title = "Enable Spinbot",
-    Description = "CS2-style character spin",
+    Description = "character spin",
     Default = false
 }):OnChanged(function(v)
     spinbotConfig.enabled = v
@@ -2940,7 +3139,7 @@ Tabs.Visuals:AddSlider("SpinbotSpeed", {
 }):OnChanged(function(v) spinbotConfig.speed = v end)
 
 Tabs.Visuals:AddToggle("SpinbotLookUp", {
-    Title = "Look Up (CS2 Style)",
+    Title = "Face up",
     Description = "Tilts head and tool upward",
     Default = true
 }):OnChanged(function(v) spinbotConfig.lookUp = v end)
@@ -3225,30 +3424,31 @@ end)
 -- KEYBINDS
 --------------------------------------------------
 
-local camlockBind = Enum.KeyCode.Q
-local flyBind     = Enum.KeyCode.F
-local desyncBind  = Enum.KeyCode.V
-local strafeBind  = Enum.KeyCode.B
-local speedBind   = Enum.KeyCode.C
-local hitboxBind  = Enum.KeyCode.H
+local Binds = {
+    camlock = Enum.KeyCode.Q,
+    fly     = Enum.KeyCode.F,
+    desync  = Enum.KeyCode.V,
+    strafe  = Enum.KeyCode.B,
+    speed   = Enum.KeyCode.C,
+    hitbox  = Enum.KeyCode.H,
+}
 
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
     local kc = input.KeyCode
-    if kc == camlockBind then
+    if kc == Binds.camlock then
         toggleCamlock()
-    elseif kc == desyncBind and desyncConfig.toggleEnabled then
+    elseif kc == Binds.desync and desyncConfig.toggleEnabled then
         toggleDesync(not desyncConfig.enabled)
-    elseif kc == strafeBind and strafeSettings.enabled then
+    elseif kc == Binds.strafe and strafeSettings.enabled then
         toggleStrafe()
-    elseif kc == speedBind then
+    elseif kc == Binds.speed then
         cframeSpeedSettings.isSpeedActive = not cframeSpeedSettings.isSpeedActive
-    elseif kc == hitboxBind and hitboxSettings.scriptEnabled then
+    elseif kc == Binds.hitbox and hitboxSettings.scriptEnabled then
         hitboxSettings.expanderActive = not hitboxSettings.expanderActive
         Options.HitboxExpander:SetValue(hitboxSettings.expanderActive)
-    elseif kc == flyBind and flyConfig.enabled then
-        flyActive = not flyActive
-        Options.FlyEnabled:SetValue(flyActive)
+    elseif kc == Binds.fly then
+        Options.FlyEnabled:SetValue(not Options.FlyEnabled.Value)
     end
 end)
 
@@ -3276,7 +3476,7 @@ Tabs.Settings:AddDropdown("CamlockBind", {
     Default = "Q"
 }):OnChanged(function(v)
     local ok, key = pcall(function() return Enum.KeyCode[v] end)
-    if ok and key then camlockBind = key end
+    if ok and key then Binds.camlock = key end
 end)
 
 Tabs.Settings:AddDropdown("FlyBind", {
@@ -3288,7 +3488,7 @@ Tabs.Settings:AddDropdown("FlyBind", {
     Default = "F"
 }):OnChanged(function(v)
     local ok, key = pcall(function() return Enum.KeyCode[v] end)
-    if ok and key then flyBind = key end
+    if ok and key then Binds.fly = key end
 end)
 
 Tabs.Settings:AddDropdown("DesyncBind", {
@@ -3300,7 +3500,7 @@ Tabs.Settings:AddDropdown("DesyncBind", {
     Default = "V"
 }):OnChanged(function(v)
     local ok, key = pcall(function() return Enum.KeyCode[v] end)
-    if ok and key then desyncBind = key end
+    if ok and key then Binds.desync = key end
 end)
 
 Tabs.Settings:AddDropdown("StrafeBind", {
@@ -3312,7 +3512,7 @@ Tabs.Settings:AddDropdown("StrafeBind", {
     Default = "B"
 }):OnChanged(function(v)
     local ok, key = pcall(function() return Enum.KeyCode[v] end)
-    if ok and key then strafeBind = key end
+    if ok and key then Binds.strafe = key end
 end)
 
 Tabs.Settings:AddDropdown("SpeedBind", {
@@ -3324,7 +3524,7 @@ Tabs.Settings:AddDropdown("SpeedBind", {
     Default = "C"
 }):OnChanged(function(v)
     local ok, key = pcall(function() return Enum.KeyCode[v] end)
-    if ok and key then speedBind = key end
+    if ok and key then Binds.speed = key end
 end)
 
 Tabs.Settings:AddDropdown("HitboxBind", {
@@ -3336,7 +3536,7 @@ Tabs.Settings:AddDropdown("HitboxBind", {
     Default = "H"
 }):OnChanged(function(v)
     local ok, key = pcall(function() return Enum.KeyCode[v] end)
-    if ok and key then hitboxBind = key end
+    if ok and key then Binds.hitbox = key end
 end)
 
 Tabs.Settings:AddSection("Script")
@@ -3356,10 +3556,6 @@ Tabs.Settings:AddButton({
             task.cancel(antiStompThread)
             antiStompThread = nil
         end
-        if antiStompAnimationTrack then
-            pcall(function() antiStompAnimationTrack:Stop(0.1) end)
-            antiStompAnimationTrack = nil
-        end
         if autoReloadThread then
             task.cancel(autoReloadThread)
             autoReloadThread = nil
@@ -3368,10 +3564,13 @@ Tabs.Settings:AddButton({
         desyncConfig.enabled = false
         strafeSettings.enabled = false
         spinbotConfig.enabled = false
-        -- silent aim settings disable removed
         hitboxSettings.expanderActive = false
         flyActive = false
         flyConfig.enabled = false
+        flyNoclipEnabled = false
+        flyHoverPos = nil
+        flyHoverLook = nil
+        setNoclip(false)
         espConfig.enabled = false
         stopESP()
         chinaHatConfig.enabled = false
@@ -3388,21 +3587,33 @@ Tabs.Settings:AddButton({
             speedConnection = nil
         end
         multiEquipSettings.enabled = false
+        hyperFireEnabled = false
+        if hyperFireConnection then hyperFireConnection:Disconnect() hyperFireConnection = nil end
+        if toleranceDescConn then toleranceDescConn:Disconnect() toleranceDescConn = nil end
+        toleranceCooldowns = {}
+        rapidFireEnabled = false
+        if rapidFireToolThread then
+            task.cancel(rapidFireToolThread)
+            rapidFireToolThread = nil
+        end
+        if rapidFireConnection then
+            rapidFireConnection:Disconnect()
+            rapidFireConnection = nil
+        end
         if toolActivationConnection then
             toolActivationConnection:Disconnect()
             toolActivationConnection = nil
         end
-        if backpackConnection1 then backpackConnection1:Disconnect() end
-        if backpackConnection2 then backpackConnection2:Disconnect() end
-        if charConnection1 then charConnection1:Disconnect() end
-        if charConnection2 then charConnection2:Disconnect() end
+        if invConns.backpack1 then invConns.backpack1:Disconnect() end
+        if invConns.backpack2 then invConns.backpack2:Disconnect() end
+        if invConns.char1 then invConns.char1:Disconnect() end
+        if invConns.char2 then invConns.char2:Disconnect() end
         lightingConfig.Enabled = false
         applyLightingSettings()
         if lightingConnection then
             lightingConnection:Disconnect()
             lightingConnection = nil
         end
-        -- metamethod restore removed
         -- unbind render steps
         pcall(function() RunService:UnbindFromRenderStep("fixz_camlock") end)
         pcall(function() RunService:UnbindFromRenderStep("fixz_hitbox") end)
@@ -3416,6 +3627,9 @@ Tabs.Settings:AddButton({
         if playerAddedConn then playerAddedConn:Disconnect() playerAddedConn = nil end
         if playerRemovingConn then playerRemovingConn:Disconnect() playerRemovingConn = nil end
         if localCharAddedConn then localCharAddedConn:Disconnect() localCharAddedConn = nil end
+        if playerListState.addedConn then playerListState.addedConn:Disconnect() playerListState.addedConn = nil end
+        if playerListState.removingConn then playerListState.removingConn:Disconnect() playerListState.removingConn = nil end
+        if playerListState.debounce then task.cancel(playerListState.debounce) playerListState.debounce = nil end
         for p, data in pairs(playerCache) do
             if data.conn then data.conn:Disconnect() end
         end
@@ -3441,6 +3655,11 @@ Tabs.Settings:AddButton({
             if not g then
                 g = localPlayer:FindFirstChild("PlayerGui") and localPlayer.PlayerGui:FindFirstChild("GoldNotifyGui")
             end
+            if g then g:Destroy() end
+        end)
+        -- remove target GUI
+        pcall(function()
+            local g = localPlayer:FindFirstChild("PlayerGui") and localPlayer.PlayerGui:FindFirstChild("FIXZ_TargetGui")
             if g then g:Destroy() end
         end)
         -- destroy Fluent window
