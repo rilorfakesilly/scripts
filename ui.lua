@@ -469,7 +469,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     minBtn.Size = UDim2.new(0, 58, 0, 16)
     minBtn.Position = UDim2.new(1, -66, 0, 9)
     minBtn.BackgroundColor3 = THEME.BORDER
-    minBtn.Text = "MINIMISE"
+    minBtn.Text = "HIDE"
     minBtn.TextColor3 = THEME.TEXT
     minBtn.TextSize = 7.5
     minBtn.Font = Enum.Font.GothamBold
@@ -1261,10 +1261,6 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 colorType = nil
             end
             
-            local btnContainer = Instance.new("Frame", container)
-            btnContainer.Size = UDim2.new(1, -16, 0, 35)
-            btnContainer.BackgroundTransparency = 1
-            
             local defaultColor = THEME.ACCENT
             local hoverColor = THEME.ACCENT_LIGHT
             local themeable = true
@@ -1279,23 +1275,8 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 themeable = false
             end
             
-            -- Dark shadow base color
-            local darkColor = themeable and THEME.ACCENT_DARK or Color3.fromRGB(
-                math.max(0, defaultColor.R * 255 - 45),
-                math.max(0, defaultColor.G * 255 - 45),
-                math.max(0, defaultColor.B * 255 - 45)
-            )
-            
-            local shadow = Instance.new("Frame", btnContainer)
-            shadow.Size = UDim2.new(1, 0, 1, -3)
-            shadow.Position = UDim2.new(0, 0, 0, 3)
-            shadow.BackgroundColor3 = darkColor
-            shadow.BorderSizePixel = 0
-            Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 8)
-            
-            local btn = Instance.new("TextButton", btnContainer)
-            btn.Size = UDim2.new(1, 0, 1, -3)
-            btn.Position = UDim2.new(0, 0, 0, 0)
+            local btn = Instance.new("TextButton", container)
+            btn.Size = UDim2.new(1, -16, 0, 32)
             btn.BackgroundColor3 = defaultColor
             btn.Text = text:upper()
             btn.TextColor3 = THEME.TEXT
@@ -1304,36 +1285,41 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             btn.BorderSizePixel = 0
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
             
+            -- 3D bevel via UIGradient (corner-safe, no child frame bleed)
+            local bevelGrad = Instance.new("UIGradient", btn)
+            bevelGrad.Rotation = 90
+            bevelGrad.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0),
+                NumberSequenceKeypoint.new(0.08, 0.55),
+                NumberSequenceKeypoint.new(0.92, 0.6),
+                NumberSequenceKeypoint.new(1, 0)
+            })
+            bevelGrad.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+                ColorSequenceKeypoint.new(0.08, Color3.fromRGB(255, 255, 255)),
+                ColorSequenceKeypoint.new(0.92, Color3.fromRGB(0, 0, 0)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+            })
+            
             if themeable then
                 btn:SetAttribute("Themeable", true)
                 registerAccentColor(btn)
-                local shadowThemeConn = btn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-                    shadow.BackgroundColor3 = THEME.ACCENT_DARK
-                end)
-                table.insert(Library.Connections, shadowThemeConn)
             end
-            
-            -- Highlight line at top of button for 3D bevel look
-            local highlight = Instance.new("Frame", btn)
-            highlight.Size = UDim2.new(1, 0, 0, 1)
-            highlight.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            highlight.BackgroundTransparency = 0.4
-            highlight.BorderSizePixel = 0
-            Instance.new("UICorner", highlight).CornerRadius = UDim.new(0, 8)
             
             addHoverAnimation(btn, hoverColor, defaultColor)
             registerFontElement(btn)
             
-            -- Physical pressing motion
+            -- UIScale press: no position shift, no layout mess
+            local btnScale = Instance.new("UIScale", btn)
             local clickInfo = TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
             btn.MouseButton1Down:Connect(function()
-                playTween(btn, clickInfo, {Position = UDim2.new(0, 0, 0, 2.5)})
+                playTween(btnScale, clickInfo, {Scale = 0.96})
             end)
             btn.MouseButton1Up:Connect(function()
-                playTween(btn, clickInfo, {Position = UDim2.new(0, 0, 0, 0)})
+                playTween(btnScale, clickInfo, {Scale = 1})
             end)
             btn.MouseLeave:Connect(function()
-                playTween(btn, clickInfo, {Position = UDim2.new(0, 0, 0, 0)})
+                playTween(btnScale, clickInfo, {Scale = 1})
             end)
             
             btn.MouseButton1Click:Connect(function()
@@ -1341,7 +1327,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 if callback then callback() end
             end)
             
-            return btnContainer
+            return btn
         end
         
         -- Collapsible Section
@@ -1576,7 +1562,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         -- ButtonRow: side by side buttons
         function builder:ButtonRow(buttonsData)
             local row = Instance.new("Frame", container)
-            row.Size = UDim2.new(1, -16, 0, 35)
+            row.Size = UDim2.new(1, -16, 0, 32)
             row.BackgroundTransparency = 1
             
             local listLayout = Instance.new("UIListLayout", row)
@@ -1587,11 +1573,6 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             local numButtons = #buttonsData
             local buttons = {}
             for idx, btnData in ipairs(buttonsData) do
-                local btnContainer = Instance.new("Frame", row)
-                btnContainer.Size = UDim2.new(1 / numButtons, - (6 * (numButtons - 1) / numButtons), 1, 0)
-                btnContainer.LayoutOrder = idx
-                btnContainer.BackgroundTransparency = 1
-                
                 local defaultColor = THEME.ACCENT
                 local hoverColor = THEME.ACCENT_LIGHT
                 local themeable = true
@@ -1610,23 +1591,9 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                     themeable = false
                 end
                 
-                -- Dark shadow base color
-                local darkColor = themeable and THEME.ACCENT_DARK or Color3.fromRGB(
-                    math.max(0, defaultColor.R * 255 - 45),
-                    math.max(0, defaultColor.G * 255 - 45),
-                    math.max(0, defaultColor.B * 255 - 45)
-                )
-                
-                local shadow = Instance.new("Frame", btnContainer)
-                shadow.Size = UDim2.new(1, 0, 1, -3)
-                shadow.Position = UDim2.new(0, 0, 0, 3)
-                shadow.BackgroundColor3 = darkColor
-                shadow.BorderSizePixel = 0
-                Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 8)
-                
-                local btn = Instance.new("TextButton", btnContainer)
-                btn.Size = UDim2.new(1, 0, 1, -3)
-                btn.Position = UDim2.new(0, 0, 0, 0)
+                local btn = Instance.new("TextButton", row)
+                btn.Size = UDim2.new(1 / numButtons, - (6 * (numButtons - 1) / numButtons), 1, 0)
+                btn.LayoutOrder = idx
                 btn.BackgroundColor3 = defaultColor
                 btn.Text = btnData.text:upper()
                 btn.TextColor3 = THEME.TEXT
@@ -1635,36 +1602,41 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 btn.BorderSizePixel = 0
                 Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
                 
+                -- 3D bevel via UIGradient (corner-safe, no child frame bleed)
+                local bevelGrad = Instance.new("UIGradient", btn)
+                bevelGrad.Rotation = 90
+                bevelGrad.Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0),
+                    NumberSequenceKeypoint.new(0.08, 0.55),
+                    NumberSequenceKeypoint.new(0.92, 0.6),
+                    NumberSequenceKeypoint.new(1, 0)
+                })
+                bevelGrad.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+                    ColorSequenceKeypoint.new(0.08, Color3.fromRGB(255, 255, 255)),
+                    ColorSequenceKeypoint.new(0.92, Color3.fromRGB(0, 0, 0)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+                })
+                
                 if themeable then
                     btn:SetAttribute("Themeable", true)
                     registerAccentColor(btn)
-                    local shadowThemeConn = btn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-                        shadow.BackgroundColor3 = THEME.ACCENT_DARK
-                    end)
-                    table.insert(Library.Connections, shadowThemeConn)
                 end
-                
-                -- Highlight line at top of button for 3D bevel look
-                local highlight = Instance.new("Frame", btn)
-                highlight.Size = UDim2.new(1, 0, 0, 1)
-                highlight.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                highlight.BackgroundTransparency = 0.4
-                highlight.BorderSizePixel = 0
-                Instance.new("UICorner", highlight).CornerRadius = UDim.new(0, 8)
                 
                 addHoverAnimation(btn, hoverColor, defaultColor)
                 registerFontElement(btn)
                 
-                -- Physical pressing motion
+                -- UIScale press: no position shift, no layout mess
+                local btnScale = Instance.new("UIScale", btn)
                 local clickInfo = TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
                 btn.MouseButton1Down:Connect(function()
-                    playTween(btn, clickInfo, {Position = UDim2.new(0, 0, 0, 2.5)})
+                    playTween(btnScale, clickInfo, {Scale = 0.96})
                 end)
                 btn.MouseButton1Up:Connect(function()
-                    playTween(btn, clickInfo, {Position = UDim2.new(0, 0, 0, 0)})
+                    playTween(btnScale, clickInfo, {Scale = 1})
                 end)
                 btn.MouseLeave:Connect(function()
-                    playTween(btn, clickInfo, {Position = UDim2.new(0, 0, 0, 0)})
+                    playTween(btnScale, clickInfo, {Scale = 1})
                 end)
                 
                 btn.MouseButton1Click:Connect(function()
