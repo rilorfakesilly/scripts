@@ -431,7 +431,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     
     local dragDetector = Instance.new("Frame", header)
     dragDetector.Name = "DragDetector"
-    dragDetector.Size = UDim2.new(1, -30, 0, 36)
+    dragDetector.Size = UDim2.new(1, -75, 0, 36)
     dragDetector.BackgroundTransparency = 1
     dragDetector.Active = true
     
@@ -443,7 +443,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     Instance.new("UICorner", icon).CornerRadius = UDim.new(0, 6)
     
     local titleLabel = Instance.new("TextLabel", header)
-    titleLabel.Size = UDim2.new(1, -70, 0, 20)
+    titleLabel.Size = UDim2.new(1, -110, 0, 20)
     titleLabel.Position = UDim2.new(0, 38, 0, 4)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Text = titleText:upper()
@@ -454,7 +454,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     registerFontElement(titleLabel)
     
     local subLabel = Instance.new("TextLabel", header)
-    subLabel.Size = UDim2.new(1, -70, 0, 12)
+    subLabel.Size = UDim2.new(1, -110, 0, 12)
     subLabel.Position = UDim2.new(0, 38, 0, 20)
     subLabel.BackgroundTransparency = 1
     subLabel.Text = subtitleText:upper()
@@ -466,15 +466,16 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     
     -- Minimize / Restore Button
     local minBtn = Instance.new("TextButton", header)
-    minBtn.Size = UDim2.new(0, 22, 0, 22)
-    minBtn.Position = UDim2.new(1, -28, 0, 6)
-    minBtn.BackgroundColor3 = THEME.DANGER
-    minBtn.Text = "×"
+    minBtn.Size = UDim2.new(0, 58, 0, 16)
+    minBtn.Position = UDim2.new(1, -66, 0, 9)
+    minBtn.BackgroundColor3 = THEME.BORDER
+    minBtn.Text = "MINIMISE"
     minBtn.TextColor3 = THEME.TEXT
-    minBtn.TextSize = 16
+    minBtn.TextSize = 7.5
+    minBtn.Font = Enum.Font.GothamBold
     minBtn.BorderSizePixel = 0
-    Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 7)
-    addHoverAnimation(minBtn, Color3.fromRGB(255, 100, 80), THEME.DANGER)
+    Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 6)
+    addHoverAnimation(minBtn, Color3.fromRGB(70, 70, 80), THEME.BORDER)
     registerFontElement(minBtn)
     
     -- Minimize Icon setup
