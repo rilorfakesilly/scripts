@@ -1,4 +1,4 @@
-print("test again")
+print("test3")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -21,7 +21,7 @@ local function playSound(soundId)
     pcall(function()
         local s = Instance.new("Sound")
         s.SoundId = "rbxassetid://" .. tostring(soundId)
-        s.Volume = 0.5
+        s.Volume = 0.75
         s.Parent = game:GetService("SoundService") or workspace
         s:Play()
         task.spawn(function()
@@ -248,11 +248,13 @@ local function addHoverAnimation(button, hoverBgColor, originalBgColor)
     
     button.MouseEnter:Connect(function()
         playSound(HOVER_SOUND)
-        playTween(button, hoverInfo, {BackgroundColor3 = hoverBgColor})
+        local hover = button:GetAttribute("Themeable") and THEME.ACCENT_LIGHT or hoverBgColor
+        playTween(button, hoverInfo, {BackgroundColor3 = hover})
         playTween(uiScale, hoverInfo, {Scale = 1.04})
     end)
     button.MouseLeave:Connect(function()
-        playTween(button, hoverInfo, {BackgroundColor3 = originalBgColor})
+        local orig = button:GetAttribute("Themeable") and THEME.ACCENT or originalBgColor
+        playTween(button, hoverInfo, {BackgroundColor3 = orig})
         playTween(uiScale, hoverInfo, {Scale = 1.0})
     end)
 end
@@ -323,6 +325,8 @@ local function applyTheme(name)
                 local switchState = inst:GetAttribute("SwitchState")
                 if switchState ~= nil then
                     inst.BackgroundColor3 = switchState and THEME.ACCENT or THEME.BAR
+                elseif inst:GetAttribute("Themeable") then
+                    inst.BackgroundColor3 = THEME.ACCENT
                 elseif inst:IsA("Frame") then
                     inst.BackgroundColor3 = THEME.ACCENT
                 end
@@ -375,16 +379,26 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "PremiumModernUI"
     screenGui.ResetOnSpawn = false
+    screenGui.DisplayOrder = 999        -- always render above game UI
+    screenGui.IgnoreGuiInset = true     -- full-screen coordinates
     
     -- Secure GUI parenting
+    local parentedOk = false
     pcall(function()
         if gethui then
             screenGui.Parent = gethui()
-        else
-            screenGui.Parent = game:GetService("CoreGui")
+            parentedOk = screenGui.Parent ~= nil
         end
     end)
-    if not screenGui.Parent then screenGui.Parent = PlayerGui end
+    if not parentedOk then
+        pcall(function()
+            screenGui.Parent = game:GetService("CoreGui")
+            parentedOk = screenGui.Parent ~= nil
+        end)
+    end
+    if not parentedOk then
+        screenGui.Parent = PlayerGui
+    end
     
     local main = Instance.new("Frame", screenGui)
     main.Size = UDim2.new(0, 275, 0, 370)
@@ -1220,13 +1234,16 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             
             local defaultColor = THEME.ACCENT
             local hoverColor = THEME.ACCENT_LIGHT
+            local themeable = true
             
             if colorType == "SUCCESS" then
                 defaultColor = THEME.SUCCESS
                 hoverColor = Color3.fromRGB(40, 190, 100)
+                themeable = false
             elseif colorType == "DANGER" then
                 defaultColor = THEME.DANGER
                 hoverColor = Color3.fromRGB(240, 60, 60)
+                themeable = false
             end
             
             btn.BackgroundColor3 = defaultColor
@@ -1236,6 +1253,12 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             btn.Font = Enum.Font.GothamBold
             btn.BorderSizePixel = 0
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+            
+            if themeable then
+                btn:SetAttribute("Themeable", true)
+                registerAccentColor(btn)
+            end
+            
             addHoverAnimation(btn, hoverColor, defaultColor)
             registerFontElement(btn)
             
@@ -1707,6 +1730,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         SelectTab = function(name) selectTab(name) end,
         RealignTabs = realignTabs,
         Unload = doUnload,
+        ScreenGui = screenGui,           -- exposed for external cleanup tracking
         ApplyTheme = applyTheme,
         ApplyFont = applyFont,
         ThemePresets = PRESETS,
