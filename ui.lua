@@ -666,16 +666,43 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             switch:SetAttribute("SwitchState", default)
             registerAccentColor(switch)
             
+            -- Recessed 3D track gradient
+            local switchGrad = Instance.new("UIGradient", switch)
+            switchGrad.Rotation = 90
+            switchGrad.Color = ColorSequence.new(Color3.fromRGB(180, 180, 180), Color3.fromRGB(255, 255, 255))
+            
             local switchStroke = Instance.new("UIStroke", switch)
             switchStroke.Color = THEME.BORDER
-            switchStroke.Thickness = 1
+            switchStroke.Thickness = 1.2
+            switchStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             
+            -- Drop shadow behind the dot
+            local dotShadow = Instance.new("Frame", switch)
+            dotShadow.Size = UDim2.new(0, 12, 0, 12)
+            dotShadow.Position = default and UDim2.new(1, -13.5, 0.5, -5) or UDim2.new(0, 2.5, 0.5, -5)
+            dotShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            dotShadow.BackgroundTransparency = 0.5
+            dotShadow.BorderSizePixel = 0
+            Instance.new("UICorner", dotShadow).CornerRadius = UDim.new(1, 0)
+            
+            -- Raised 3D knob
             local dot = Instance.new("Frame", switch)
             dot.Size = UDim2.new(0, 12, 0, 12)
             dot.Position = default and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)
             dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             dot.BorderSizePixel = 0
             Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+            
+            -- Sphere lighting gradient on knob
+            local dotGrad = Instance.new("UIGradient", dot)
+            dotGrad.Rotation = 90
+            dotGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(210, 210, 215))
+            
+            -- Knob stroke border
+            local dotStroke = Instance.new("UIStroke", dot)
+            dotStroke.Color = Color3.fromRGB(180, 180, 180)
+            dotStroke.Thickness = 0.8
+            dotStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             
             local toggleInfo = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
             local state = default
@@ -685,8 +712,12 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 switch:SetAttribute("SwitchState", state)
                 local targetColor = state and THEME.ACCENT or THEME.BAR
                 local targetPos = state and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)
+                local targetShadowPos = state and UDim2.new(1, -13.5, 0.5, -5) or UDim2.new(0, 2.5, 0.5, -5)
+                
                 playTween(switch, toggleInfo, {BackgroundColor3 = targetColor})
                 playTween(dot, toggleInfo, {Position = targetPos})
+                playTween(dotShadow, toggleInfo, {Position = targetShadowPos})
+                
                 if fireCallback ~= false then
                     callback(state)
                 end
@@ -1229,8 +1260,9 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 colorType = nil
             end
             
-            local btn = Instance.new("TextButton", container)
-            btn.Size = UDim2.new(1, -16, 0, 32)
+            local btnContainer = Instance.new("Frame", container)
+            btnContainer.Size = UDim2.new(1, -16, 0, 35)
+            btnContainer.BackgroundTransparency = 1
             
             local defaultColor = THEME.ACCENT
             local hoverColor = THEME.ACCENT_LIGHT
@@ -1246,6 +1278,23 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 themeable = false
             end
             
+            -- Dark shadow base color
+            local darkColor = themeable and THEME.ACCENT_DARK or Color3.fromRGB(
+                math.max(0, defaultColor.R * 255 - 45),
+                math.max(0, defaultColor.G * 255 - 45),
+                math.max(0, defaultColor.B * 255 - 45)
+            )
+            
+            local shadow = Instance.new("Frame", btnContainer)
+            shadow.Size = UDim2.new(1, 0, 1, -3)
+            shadow.Position = UDim2.new(0, 0, 0, 3)
+            shadow.BackgroundColor3 = darkColor
+            shadow.BorderSizePixel = 0
+            Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 8)
+            
+            local btn = Instance.new("TextButton", btnContainer)
+            btn.Size = UDim2.new(1, 0, 1, -3)
+            btn.Position = UDim2.new(0, 0, 0, 0)
             btn.BackgroundColor3 = defaultColor
             btn.Text = text:upper()
             btn.TextColor3 = THEME.TEXT
@@ -1257,17 +1306,41 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             if themeable then
                 btn:SetAttribute("Themeable", true)
                 registerAccentColor(btn)
+                local shadowThemeConn = btn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+                    shadow.BackgroundColor3 = THEME.ACCENT_DARK
+                end)
+                table.insert(Library.Connections, shadowThemeConn)
             end
+            
+            -- Highlight line at top of button for 3D bevel look
+            local highlight = Instance.new("Frame", btn)
+            highlight.Size = UDim2.new(1, 0, 0, 1)
+            highlight.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            highlight.BackgroundTransparency = 0.4
+            highlight.BorderSizePixel = 0
+            Instance.new("UICorner", highlight).CornerRadius = UDim.new(0, 8)
             
             addHoverAnimation(btn, hoverColor, defaultColor)
             registerFontElement(btn)
+            
+            -- Physical pressing motion
+            local clickInfo = TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            btn.MouseButton1Down:Connect(function()
+                playTween(btn, clickInfo, {Position = UDim2.new(0, 0, 0, 2.5)})
+            end)
+            btn.MouseButton1Up:Connect(function()
+                playTween(btn, clickInfo, {Position = UDim2.new(0, 0, 0, 0)})
+            end)
+            btn.MouseLeave:Connect(function()
+                playTween(btn, clickInfo, {Position = UDim2.new(0, 0, 0, 0)})
+            end)
             
             btn.MouseButton1Click:Connect(function()
                 playSound(CLICK_SOUND)
                 if callback then callback() end
             end)
             
-            return btn
+            return btnContainer
         end
         
         -- Collapsible Section
@@ -1502,7 +1575,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         -- ButtonRow: side by side buttons
         function builder:ButtonRow(buttonsData)
             local row = Instance.new("Frame", container)
-            row.Size = UDim2.new(1, -16, 0, 32)
+            row.Size = UDim2.new(1, -16, 0, 35)
             row.BackgroundTransparency = 1
             
             local listLayout = Instance.new("UIListLayout", row)
@@ -1513,24 +1586,46 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             local numButtons = #buttonsData
             local buttons = {}
             for idx, btnData in ipairs(buttonsData) do
-                local btn = Instance.new("TextButton", row)
-                btn.Size = UDim2.new(1 / numButtons, - (6 * (numButtons - 1) / numButtons), 1, 0)
-                btn.LayoutOrder = idx
+                local btnContainer = Instance.new("Frame", row)
+                btnContainer.Size = UDim2.new(1 / numButtons, - (6 * (numButtons - 1) / numButtons), 1, 0)
+                btnContainer.LayoutOrder = idx
+                btnContainer.BackgroundTransparency = 1
                 
                 local defaultColor = THEME.ACCENT
                 local hoverColor = THEME.ACCENT_LIGHT
+                local themeable = true
                 
                 if btnData.colorType == "SUCCESS" then
                     defaultColor = THEME.SUCCESS
                     hoverColor = Color3.fromRGB(40, 190, 100)
+                    themeable = false
                 elseif btnData.colorType == "DANGER" then
                     defaultColor = THEME.DANGER
                     hoverColor = Color3.fromRGB(240, 60, 60)
+                    themeable = false
                 elseif btnData.colorType == "SECONDARY" then
                     defaultColor = THEME.BAR
                     hoverColor = Color3.fromRGB(45, 45, 52)
+                    themeable = false
                 end
                 
+                -- Dark shadow base color
+                local darkColor = themeable and THEME.ACCENT_DARK or Color3.fromRGB(
+                    math.max(0, defaultColor.R * 255 - 45),
+                    math.max(0, defaultColor.G * 255 - 45),
+                    math.max(0, defaultColor.B * 255 - 45)
+                )
+                
+                local shadow = Instance.new("Frame", btnContainer)
+                shadow.Size = UDim2.new(1, 0, 1, -3)
+                shadow.Position = UDim2.new(0, 0, 0, 3)
+                shadow.BackgroundColor3 = darkColor
+                shadow.BorderSizePixel = 0
+                Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 8)
+                
+                local btn = Instance.new("TextButton", btnContainer)
+                btn.Size = UDim2.new(1, 0, 1, -3)
+                btn.Position = UDim2.new(0, 0, 0, 0)
                 btn.BackgroundColor3 = defaultColor
                 btn.Text = btnData.text:upper()
                 btn.TextColor3 = THEME.TEXT
@@ -1539,12 +1634,37 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 btn.BorderSizePixel = 0
                 Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
                 
-                local stroke = Instance.new("UIStroke", btn)
-                stroke.Color = THEME.BORDER
-                stroke.Thickness = 1
+                if themeable then
+                    btn:SetAttribute("Themeable", true)
+                    registerAccentColor(btn)
+                    local shadowThemeConn = btn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+                        shadow.BackgroundColor3 = THEME.ACCENT_DARK
+                    end)
+                    table.insert(Library.Connections, shadowThemeConn)
+                end
+                
+                -- Highlight line at top of button for 3D bevel look
+                local highlight = Instance.new("Frame", btn)
+                highlight.Size = UDim2.new(1, 0, 0, 1)
+                highlight.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                highlight.BackgroundTransparency = 0.4
+                highlight.BorderSizePixel = 0
+                Instance.new("UICorner", highlight).CornerRadius = UDim.new(0, 8)
                 
                 addHoverAnimation(btn, hoverColor, defaultColor)
                 registerFontElement(btn)
+                
+                -- Physical pressing motion
+                local clickInfo = TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                btn.MouseButton1Down:Connect(function()
+                    playTween(btn, clickInfo, {Position = UDim2.new(0, 0, 0, 2.5)})
+                end)
+                btn.MouseButton1Up:Connect(function()
+                    playTween(btn, clickInfo, {Position = UDim2.new(0, 0, 0, 0)})
+                end)
+                btn.MouseLeave:Connect(function()
+                    playTween(btn, clickInfo, {Position = UDim2.new(0, 0, 0, 0)})
+                end)
                 
                 btn.MouseButton1Click:Connect(function()
                     playSound(CLICK_SOUND)
@@ -1653,57 +1773,87 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     end
     
     -- Draggable Window handler
-    local mouseOverDrag = false
-    local mouseOverMini = false
     local dragging = false
-    local dragOffsetX, dragOffsetY = 0, 0
-    local prevLMB = false
+    local dragInput, dragStart, startPos
+    local mDragInput, mDragStart, mStartPos
     
-    dragDetector.MouseEnter:Connect(function() mouseOverDrag = true end)
-    dragDetector.MouseLeave:Connect(function() mouseOverDrag = false end)
-    miniIcon.MouseEnter:Connect(function() mouseOverMini = true end)
-    miniIcon.MouseLeave:Connect(function() mouseOverMini = false end)
+    local function updateMain(input)
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
     
-    local dragConn = RunService.RenderStepped:Connect(function()
-        if Library.Unloaded then return end
-        local ok, mousePos = pcall(function() return UserInputService:GetMouseLocation() end)
-        if not ok then return end
-        local lmbDown = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
-        
-        if lmbDown and not prevLMB then
-            if main.Visible and mouseOverDrag then
-                dragging = true
-                dragOffsetX = mousePos.X - (main.AbsolutePosition.X + main.AbsoluteSize.X / 2)
-                dragOffsetY = mousePos.Y - (main.AbsolutePosition.Y + main.AbsoluteSize.Y / 2)
-            elseif miniIcon.Visible and mouseOverMini then
-                mDragging = true
-                mMoved = false
-                mDragOffsetX = mousePos.X - (miniIcon.AbsolutePosition.X + miniIcon.AbsoluteSize.X / 2)
-                mDragOffsetY = mousePos.Y - (miniIcon.AbsolutePosition.Y + miniIcon.AbsoluteSize.Y / 2)
-                mDragOriginX = mousePos.X
-                mDragOriginY = mousePos.Y
-            end
+    local function updateMini(input)
+        local delta = input.Position - mDragStart
+        miniIcon.Position = UDim2.new(mStartPos.X.Scale, mStartPos.X.Offset + delta.X, mStartPos.Y.Scale, mStartPos.Y.Offset + delta.Y)
+    end
+    
+    local bConn1 = dragDetector.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = main.Position
+            
+            local cConn
+            cConn = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    if cConn then cConn:Disconnect() end
+                end
+            end)
         end
-        
-        if not lmbDown then
-            dragging = false
-            mDragging = false
+    end)
+    
+    local cConn1 = dragDetector.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
         end
-        
-        if dragging and lmbDown then
-            main.Position = UDim2.new(0, mousePos.X - dragOffsetX, 0, mousePos.Y - dragOffsetY)
+    end)
+    
+    local dragConn = UserInputService.InputChanged:Connect(function(input)
+        if dragging and input == dragInput then
+            updateMain(input)
         end
-        
-        if mDragging and lmbDown then
-            if math.abs(mousePos.X - mDragOriginX) > 3 or math.abs(mousePos.Y - mDragOriginY) > 3 then
+    end)
+    
+    local bConn2 = miniIcon.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            mDragging = true
+            mMoved = false
+            mDragStart = input.Position
+            mStartPos = miniIcon.Position
+            
+            local cConn
+            cConn = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    mDragging = false
+                    if cConn then cConn:Disconnect() end
+                end
+            end)
+        end
+    end)
+    
+    local cConn2 = miniIcon.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            mDragInput = input
+        end
+    end)
+    
+    local miniDragConn = UserInputService.InputChanged:Connect(function(input)
+        if mDragging and input == mDragInput then
+            local delta = input.Position - mDragStart
+            if math.abs(delta.X) > 3 or math.abs(delta.Y) > 3 then
                 mMoved = true
             end
-            miniIcon.Position = UDim2.new(0, mousePos.X - mDragOffsetX, 0, mousePos.Y - mDragOffsetY)
+            updateMini(input)
         end
-        
-        prevLMB = lmbDown
     end)
+    
+    table.insert(Library.Connections, bConn1)
+    table.insert(Library.Connections, cConn1)
     table.insert(Library.Connections, dragConn)
+    table.insert(Library.Connections, bConn2)
+    table.insert(Library.Connections, cConn2)
+    table.insert(Library.Connections, miniDragConn)
     
     -- Cleanup function
     local function doUnload()
