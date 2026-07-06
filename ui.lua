@@ -1292,6 +1292,22 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             stroke.Thickness = 1
             stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             
+            -- Gentle top-highlight / bottom-shadow sheen
+            local bevelGrad = Instance.new("UIGradient", btn)
+            bevelGrad.Rotation = 90
+            bevelGrad.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0,    Color3.fromRGB(255, 255, 255)),
+                ColorSequenceKeypoint.new(0.3,  Color3.fromRGB(255, 255, 255)),
+                ColorSequenceKeypoint.new(0.7,  Color3.fromRGB(0,   0,   0)),
+                ColorSequenceKeypoint.new(1,    Color3.fromRGB(0,   0,   0))
+            })
+            bevelGrad.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0,   0.78),
+                NumberSequenceKeypoint.new(0.3, 1),
+                NumberSequenceKeypoint.new(0.7, 1),
+                NumberSequenceKeypoint.new(1,   0.82)
+            })
+            
             if themeable then
                 btn:SetAttribute("Themeable", true)
                 registerAccentColor(btn)
@@ -1599,6 +1615,22 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 stroke.Transparency = 0.82
                 stroke.Thickness = 1
                 stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                
+                -- Gentle top-highlight / bottom-shadow sheen
+                local bevelGrad = Instance.new("UIGradient", btn)
+                bevelGrad.Rotation = 90
+                bevelGrad.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0,    Color3.fromRGB(255, 255, 255)),
+                    ColorSequenceKeypoint.new(0.3,  Color3.fromRGB(255, 255, 255)),
+                    ColorSequenceKeypoint.new(0.7,  Color3.fromRGB(0,   0,   0)),
+                    ColorSequenceKeypoint.new(1,    Color3.fromRGB(0,   0,   0))
+                })
+                bevelGrad.Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0,   0.78),
+                    NumberSequenceKeypoint.new(0.3, 1),
+                    NumberSequenceKeypoint.new(0.7, 1),
+                    NumberSequenceKeypoint.new(1,   0.82)
+                })
                 
                 if themeable then
                     btn:SetAttribute("Themeable", true)
