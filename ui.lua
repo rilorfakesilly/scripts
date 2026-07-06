@@ -1292,20 +1292,27 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             stroke.Thickness = 1
             stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             
-            -- Gentle top-highlight / bottom-shadow sheen
-            local bevelGrad = Instance.new("UIGradient", btn)
+            -- Visual-only bevel overlay: Active=false so all input passes through to btn
+            local bevelOverlay = Instance.new("Frame", btn)
+            bevelOverlay.Size = UDim2.new(1, 0, 1, 0)
+            bevelOverlay.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            bevelOverlay.BorderSizePixel = 0
+            bevelOverlay.Active = false
+            bevelOverlay.ZIndex = btn.ZIndex + 1
+            Instance.new("UICorner", bevelOverlay).CornerRadius = UDim.new(0, 8)
+            local bevelGrad = Instance.new("UIGradient", bevelOverlay)
             bevelGrad.Rotation = 90
             bevelGrad.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0,    Color3.fromRGB(255, 255, 255)),
-                ColorSequenceKeypoint.new(0.3,  Color3.fromRGB(255, 255, 255)),
-                ColorSequenceKeypoint.new(0.7,  Color3.fromRGB(0,   0,   0)),
-                ColorSequenceKeypoint.new(1,    Color3.fromRGB(0,   0,   0))
+                ColorSequenceKeypoint.new(0,   Color3.fromRGB(255, 255, 255)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0,   0,   0)),
+                ColorSequenceKeypoint.new(1,   Color3.fromRGB(0,   0,   0))
             })
             bevelGrad.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0,   0.78),
-                NumberSequenceKeypoint.new(0.3, 1),
-                NumberSequenceKeypoint.new(0.7, 1),
-                NumberSequenceKeypoint.new(1,   0.82)
+                NumberSequenceKeypoint.new(0,   0.76),
+                NumberSequenceKeypoint.new(0.25, 1),
+                NumberSequenceKeypoint.new(0.75, 1),
+                NumberSequenceKeypoint.new(1,   0.84)
             })
             
             if themeable then
@@ -1616,20 +1623,27 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 stroke.Thickness = 1
                 stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
                 
-                -- Gentle top-highlight / bottom-shadow sheen
-                local bevelGrad = Instance.new("UIGradient", btn)
+                -- Visual-only bevel overlay: Active=false so all input passes through to btn
+                local bevelOverlay = Instance.new("Frame", btn)
+                bevelOverlay.Size = UDim2.new(1, 0, 1, 0)
+                bevelOverlay.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                bevelOverlay.BorderSizePixel = 0
+                bevelOverlay.Active = false
+                bevelOverlay.ZIndex = btn.ZIndex + 1
+                Instance.new("UICorner", bevelOverlay).CornerRadius = UDim.new(0, 8)
+                local bevelGrad = Instance.new("UIGradient", bevelOverlay)
                 bevelGrad.Rotation = 90
                 bevelGrad.Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0,    Color3.fromRGB(255, 255, 255)),
-                    ColorSequenceKeypoint.new(0.3,  Color3.fromRGB(255, 255, 255)),
-                    ColorSequenceKeypoint.new(0.7,  Color3.fromRGB(0,   0,   0)),
-                    ColorSequenceKeypoint.new(1,    Color3.fromRGB(0,   0,   0))
+                    ColorSequenceKeypoint.new(0,   Color3.fromRGB(255, 255, 255)),
+                    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+                    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0,   0,   0)),
+                    ColorSequenceKeypoint.new(1,   Color3.fromRGB(0,   0,   0))
                 })
                 bevelGrad.Transparency = NumberSequence.new({
-                    NumberSequenceKeypoint.new(0,   0.78),
-                    NumberSequenceKeypoint.new(0.3, 1),
-                    NumberSequenceKeypoint.new(0.7, 1),
-                    NumberSequenceKeypoint.new(1,   0.82)
+                    NumberSequenceKeypoint.new(0,    0.76),
+                    NumberSequenceKeypoint.new(0.25, 1),
+                    NumberSequenceKeypoint.new(0.75, 1),
+                    NumberSequenceKeypoint.new(1,    0.84)
                 })
                 
                 if themeable then
