@@ -1285,21 +1285,12 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             btn.BorderSizePixel = 0
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
             
-            -- 3D bevel via UIGradient (corner-safe, no child frame bleed)
-            local bevelGrad = Instance.new("UIGradient", btn)
-            bevelGrad.Rotation = 90
-            bevelGrad.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0),
-                NumberSequenceKeypoint.new(0.08, 0.55),
-                NumberSequenceKeypoint.new(0.92, 0.6),
-                NumberSequenceKeypoint.new(1, 0)
-            })
-            bevelGrad.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-                ColorSequenceKeypoint.new(0.08, Color3.fromRGB(255, 255, 255)),
-                ColorSequenceKeypoint.new(0.92, Color3.fromRGB(0, 0, 0)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
-            })
+            -- Subtle stroke for depth
+            local stroke = Instance.new("UIStroke", btn)
+            stroke.Color = Color3.fromRGB(255, 255, 255)
+            stroke.Transparency = 0.82
+            stroke.Thickness = 1
+            stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             
             if themeable then
                 btn:SetAttribute("Themeable", true)
@@ -1309,7 +1300,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             addHoverAnimation(btn, hoverColor, defaultColor)
             registerFontElement(btn)
             
-            -- UIScale press: no position shift, no layout mess
+            -- UIScale press: tactile feel, no layout disruption
             local btnScale = Instance.new("UIScale", btn)
             local clickInfo = TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
             btn.MouseButton1Down:Connect(function()
@@ -1602,21 +1593,12 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 btn.BorderSizePixel = 0
                 Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
                 
-                -- 3D bevel via UIGradient (corner-safe, no child frame bleed)
-                local bevelGrad = Instance.new("UIGradient", btn)
-                bevelGrad.Rotation = 90
-                bevelGrad.Transparency = NumberSequence.new({
-                    NumberSequenceKeypoint.new(0, 0),
-                    NumberSequenceKeypoint.new(0.08, 0.55),
-                    NumberSequenceKeypoint.new(0.92, 0.6),
-                    NumberSequenceKeypoint.new(1, 0)
-                })
-                bevelGrad.Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-                    ColorSequenceKeypoint.new(0.08, Color3.fromRGB(255, 255, 255)),
-                    ColorSequenceKeypoint.new(0.92, Color3.fromRGB(0, 0, 0)),
-                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
-                })
+                -- Subtle stroke for depth
+                local stroke = Instance.new("UIStroke", btn)
+                stroke.Color = Color3.fromRGB(255, 255, 255)
+                stroke.Transparency = 0.82
+                stroke.Thickness = 1
+                stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
                 
                 if themeable then
                     btn:SetAttribute("Themeable", true)
@@ -1626,7 +1608,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 addHoverAnimation(btn, hoverColor, defaultColor)
                 registerFontElement(btn)
                 
-                -- UIScale press: no position shift, no layout mess
+                -- UIScale press: tactile feel, no layout disruption
                 local btnScale = Instance.new("UIScale", btn)
                 local clickInfo = TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
                 btn.MouseButton1Down:Connect(function()
