@@ -454,12 +454,12 @@ do
     local warningFrame = nil
     local warningTextLabel = nil
     
-    local function updateWarningUI(dangerousFlags)
-        if #dangerousFlags > 0 then
+    local function updateWarningUI(badFlags)
+        if #badFlags > 0 then
             if not _G.flagMonitor.warningGui then
                 local GuiParent = nil
-                local success, coreGui = pcall(function() return game:GetService("CoreGui") end)
-                if success and coreGui then
+                local coreGuiOk, coreGui = pcall(function() return game:GetService("CoreGui") end)
+                if coreGuiOk and coreGui then
                     GuiParent = coreGui
                 else
                     GuiParent = localPlayer:WaitForChild("PlayerGui")
@@ -476,7 +476,7 @@ do
                 warningFrame.Name = "WarningFrame"
                 warningFrame.Size = UDim2.new(0, 280, 0, 0)
                 warningFrame.AutomaticSize = Enum.AutomaticSize.Y
-                warningFrame.Position = UDim2.new(0, 20, 0, 80) -- top left, below topbar/chat
+                warningFrame.Position = UDim2.new(0, 20, 0, 80)
                 warningFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
                 warningFrame.BorderSizePixel = 3
                 warningFrame.BorderColor3 = Color3.fromRGB(255, 0, 0)
@@ -504,7 +504,7 @@ do
             end
             
             local text = "⚠️ DANGER: HIGH FLAGS DETECTED!\nDangerous to keep using script.\n\n"
-            for _, flag in ipairs(dangerousFlags) do
+            for _, flag in ipairs(badFlags) do
                 text = text .. flag.name .. ": " .. tostring(flag.value) .. "\n"
             end
             warningTextLabel.Text = text
@@ -517,7 +517,7 @@ do
     end
     
     local function checkFlags()
-        local dangerousFlags = {}
+        local badFlags = {}
         local dataFolder = localPlayer:FindFirstChild("DataFolder")
         if dataFolder then
             for _, child in ipairs(dataFolder:GetChildren()) do
@@ -526,79 +526,72 @@ do
                     local nameLower = string.lower(child.Name)
                     if string.find(nameLower, "flag") or string.find(nameLower, "report") or string.find(nameLower, "warn") then
                         if val >= 4 then
-                            table.insert(dangerousFlags, { name = child.Name, value = val })
+                            table.insert(badFlags, { name = child.Name, value = val })
                         end
                     end
                 end
             end
         end
-        updateWarningUI(dangerousFlags)
+        updateWarningUI(badFlags)
     end
     
     local function setupFlagWatcher()
-        -- Clean up any existing connections first
         for _, conn in ipairs(_G.flagMonitor.connections) do
             pcall(function() conn:Disconnect() end)
         end
         _G.flagMonitor.connections = {}
         
-        local currentFolderConn = {}
+        local folderConns = {}
         
-        local function watchDataFolder(dataFolder)
-            for _, conn in ipairs(currentFolderConn) do
+        local function watchFolder(dataFolder)
+            for _, conn in ipairs(folderConns) do
                 pcall(function() conn:Disconnect() end)
             end
-            currentFolderConn = {}
-            
+            folderConns = {}
             if not dataFolder then return end
             
-            local function hookChild(child)
+            local function hook(child)
                 if child:IsA("ValueBase") then
                     local nameLower = string.lower(child.Name)
                     if string.find(nameLower, "flag") or string.find(nameLower, "report") or string.find(nameLower, "warn") then
                         local conn = child.Changed:Connect(function()
                             checkFlags()
                         end)
-                        table.insert(currentFolderConn, conn)
+                        table.insert(folderConns, conn)
                         table.insert(_G.flagMonitor.connections, conn)
                     end
                 end
             end
             
-            -- Hook existing children
             for _, child in ipairs(dataFolder:GetChildren()) do
-                hookChild(child)
+                hook(child)
             end
             
-            -- Hook new children
-            local addedConn = dataFolder.ChildAdded:Connect(function(child)
-                hookChild(child)
+            local added = dataFolder.ChildAdded:Connect(function(child)
+                hook(child)
                 checkFlags()
             end)
-            table.insert(currentFolderConn, addedConn)
-            table.insert(_G.flagMonitor.connections, addedConn)
+            table.insert(folderConns, added)
+            table.insert(_G.flagMonitor.connections, added)
             
-            -- Run initial check
             checkFlags()
         end
         
-        -- Watch for DataFolder added to localPlayer
-        local folderAddedConn = localPlayer.ChildAdded:Connect(function(child)
+        local folderAdded = localPlayer.ChildAdded:Connect(function(child)
             if child.Name == "DataFolder" then
-                watchDataFolder(child)
+                watchFolder(child)
             end
         end)
-        table.insert(_G.flagMonitor.connections, folderAddedConn)
+        table.insert(_G.flagMonitor.connections, folderAdded)
         
-        -- Initial setup
         local existingFolder = localPlayer:FindFirstChild("DataFolder")
         if existingFolder then
-            watchDataFolder(existingFolder)
+            watchFolder(existingFolder)
         else
             task.spawn(function()
                 local folder = localPlayer:WaitForChild("DataFolder", 15)
                 if folder and localPlayer:FindFirstChild("DataFolder") == folder then
-                    watchDataFolder(folder)
+                    watchFolder(folder)
                 end
             end)
         end
