@@ -183,8 +183,6 @@ local Options = Fluent.Options
 -- SHARED STATE
 --------------------------------------------------
 
--- Silent Aim configs removed
-
 local camlockSettings = {
     isLockedOn      = false,
     targetPlayer    = nil,
@@ -256,15 +254,10 @@ local flyConfig = {
 
 local selectedTargetPlayer = nil
 local targetKillActive = false
-
 local autoReloadEnabled = false
 local autoReloadThread = nil
-
 local multiEquipDropdown
-local multiEquipSettings = {
-    enabled = false,
-    selected = {}
-}
+local multiEquipSettings = { enabled = false, selected = {} }
 
 local function getInventoryTools()
     local tools = {}
@@ -450,6 +443,170 @@ end
 local lightingConnection = nil
 -- lightingConnection removed to prevent heavy rendering lag from setting properties every frame
 --------------------------------------------------
+-- FLAG MONITORING & WARNING SYSTEM
+--------------------------------------------------
+do
+    _G.flagMonitor = {
+        connections = {},
+        warningGui = nil
+    }
+    
+    local warningFrame = nil
+    local warningTextLabel = nil
+    
+    local function updateWarningUI(dangerousFlags)
+        if #dangerousFlags > 0 then
+            if not _G.flagMonitor.warningGui then
+                local GuiParent = nil
+                local success, coreGui = pcall(function() return game:GetService("CoreGui") end)
+                if success and coreGui then
+                    GuiParent = coreGui
+                else
+                    GuiParent = localPlayer:WaitForChild("PlayerGui")
+                end
+                
+                local warningGui = Instance.new("ScreenGui")
+                warningGui.Name = "MD_WarningGui"
+                warningGui.ResetOnSpawn = false
+                warningGui.DisplayOrder = 1000
+                warningGui.Parent = GuiParent
+                _G.flagMonitor.warningGui = warningGui
+                
+                warningFrame = Instance.new("Frame")
+                warningFrame.Name = "WarningFrame"
+                warningFrame.Size = UDim2.new(0, 280, 0, 0)
+                warningFrame.AutomaticSize = Enum.AutomaticSize.Y
+                warningFrame.Position = UDim2.new(0, 20, 0, 80) -- top left, below topbar/chat
+                warningFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                warningFrame.BorderSizePixel = 3
+                warningFrame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+                warningFrame.Parent = warningGui
+                
+                local padding = Instance.new("UIPadding")
+                padding.PaddingTop = UDim.new(0, 10)
+                padding.PaddingBottom = UDim.new(0, 10)
+                padding.PaddingLeft = UDim.new(0, 10)
+                padding.PaddingRight = UDim.new(0, 10)
+                padding.Parent = warningFrame
+                
+                warningTextLabel = Instance.new("TextLabel")
+                warningTextLabel.Name = "WarningText"
+                warningTextLabel.Size = UDim2.new(1, 0, 0, 0)
+                warningTextLabel.AutomaticSize = Enum.AutomaticSize.Y
+                warningTextLabel.BackgroundTransparency = 1
+                warningTextLabel.Font = Enum.Font.GothamBold
+                warningTextLabel.TextSize = 16
+                warningTextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+                warningTextLabel.TextXAlignment = Enum.TextXAlignment.Left
+                warningTextLabel.TextYAlignment = Enum.TextYAlignment.Top
+                warningTextLabel.TextWrapped = true
+                warningTextLabel.Parent = warningFrame
+            end
+            
+            local text = "⚠️ DANGER: HIGH FLAGS DETECTED!\nDangerous to keep using script.\n\n"
+            for _, flag in ipairs(dangerousFlags) do
+                text = text .. flag.name .. ": " .. tostring(flag.value) .. "\n"
+            end
+            warningTextLabel.Text = text
+            _G.flagMonitor.warningGui.Enabled = true
+        else
+            if _G.flagMonitor.warningGui then
+                _G.flagMonitor.warningGui.Enabled = false
+            end
+        end
+    end
+    
+    local function checkFlags()
+        local dangerousFlags = {}
+        local dataFolder = localPlayer:FindFirstChild("DataFolder")
+        if dataFolder then
+            for _, child in ipairs(dataFolder:GetChildren()) do
+                if child:IsA("ValueBase") then
+                    local val = tonumber(child.Value) or 0
+                    local nameLower = string.lower(child.Name)
+                    if string.find(nameLower, "flag") or string.find(nameLower, "report") or string.find(nameLower, "warn") then
+                        if val >= 4 then
+                            table.insert(dangerousFlags, { name = child.Name, value = val })
+                        end
+                    end
+                end
+            end
+        end
+        updateWarningUI(dangerousFlags)
+    end
+    
+    local function setupFlagWatcher()
+        -- Clean up any existing connections first
+        for _, conn in ipairs(_G.flagMonitor.connections) do
+            pcall(function() conn:Disconnect() end)
+        end
+        _G.flagMonitor.connections = {}
+        
+        local currentFolderConn = {}
+        
+        local function watchDataFolder(dataFolder)
+            for _, conn in ipairs(currentFolderConn) do
+                pcall(function() conn:Disconnect() end)
+            end
+            currentFolderConn = {}
+            
+            if not dataFolder then return end
+            
+            local function hookChild(child)
+                if child:IsA("ValueBase") then
+                    local nameLower = string.lower(child.Name)
+                    if string.find(nameLower, "flag") or string.find(nameLower, "report") or string.find(nameLower, "warn") then
+                        local conn = child.Changed:Connect(function()
+                            checkFlags()
+                        end)
+                        table.insert(currentFolderConn, conn)
+                        table.insert(_G.flagMonitor.connections, conn)
+                    end
+                end
+            end
+            
+            -- Hook existing children
+            for _, child in ipairs(dataFolder:GetChildren()) do
+                hookChild(child)
+            end
+            
+            -- Hook new children
+            local addedConn = dataFolder.ChildAdded:Connect(function(child)
+                hookChild(child)
+                checkFlags()
+            end)
+            table.insert(currentFolderConn, addedConn)
+            table.insert(_G.flagMonitor.connections, addedConn)
+            
+            -- Run initial check
+            checkFlags()
+        end
+        
+        -- Watch for DataFolder added to localPlayer
+        local folderAddedConn = localPlayer.ChildAdded:Connect(function(child)
+            if child.Name == "DataFolder" then
+                watchDataFolder(child)
+            end
+        end)
+        table.insert(_G.flagMonitor.connections, folderAddedConn)
+        
+        -- Initial setup
+        local existingFolder = localPlayer:FindFirstChild("DataFolder")
+        if existingFolder then
+            watchDataFolder(existingFolder)
+        else
+            task.spawn(function()
+                local folder = localPlayer:WaitForChild("DataFolder", 15)
+                if folder and localPlayer:FindFirstChild("DataFolder") == folder then
+                    watchDataFolder(folder)
+                end
+            end)
+        end
+    end
+    
+    setupFlagWatcher()
+end
+--------------------------------------------------
 -- GLOBAL PLAYER CACHE & UTILITIES (OPTIMIZATION)
 --------------------------------------------------
 local espPlayers = {}
@@ -519,6 +676,22 @@ end
 
 local rapidFireEnabled = false
 local rapidFireToolThread = nil
+local localCharacter = nil
+local localHrp = nil
+local localHumanoid = nil
+local rapidFireConnection = nil
+local camlockConnection = nil
+local strafeConnection = nil
+local desyncConnection = nil
+local hitboxConnection = nil
+local speedConnection = nil
+local flyConnection = nil
+local noclipConnection = nil
+local spinbotConnection = nil
+local espConnection = nil
+local espPlayerAddedConnection = nil
+local espPlayerRemovingConnection = nil
+
 local function startRapidFireLoop()
     if rapidFireToolThread then task.cancel(rapidFireToolThread) rapidFireToolThread = nil end
     rapidFireToolThread = task.spawn(function()
@@ -542,11 +715,7 @@ local function hookTool(tool)
 end
 
 
--- Local player cache
-local localCharacter = nil
-local localHrp = nil
-local localHumanoid = nil
-local rapidFireConnection = nil
+
 
 local function updateLocalCharCache(char)
     localCharacter = char
@@ -647,7 +816,7 @@ local function getCamlockTarget()
     return result
 end
 
-local camlockConnection = nil
+
 local function updateCamlock()
     local tp = camlockSettings.targetPlayer
     if not tp then
@@ -735,7 +904,7 @@ local function getStrafeTarget()
     return result
 end
 
-local strafeConnection = nil
+
 local function updateStrafe(dt)
     if not (strafeSettings.enabled and isStrafing and strafeTargetPlayer) then return end
     local char, targetRoot, hum = getPlayerParts(strafeTargetPlayer)
@@ -790,7 +959,7 @@ local function resetCameraToPlayer()
     if localHumanoid then currentCamera.CameraSubject = localHumanoid end
 end
 
-local desyncConnection = nil
+
 local function updateDesync()
     if localHrp and localHrp.Parent == localCharacter then
         desyncConfig.oldPosition = localHrp.CFrame
@@ -877,7 +1046,7 @@ local function revertHitbox(player)
     end
 end
 
-local hitboxConnection = nil
+
 local lastHitboxScan = 0
 local hitboxTarget = nil
 local function runHitboxExpander()
@@ -944,7 +1113,7 @@ end
 -- CFRAME SPEED
 --------------------------------------------------
 
-local speedConnection
+
 local function updateSpeed()
     if not cframeSpeedSettings.isFunctionalityEnabled or not cframeSpeedSettings.isSpeedActive then return end
     if localHrp and localHumanoid and localHumanoid.Parent == localCharacter and localHumanoid.MoveDirection.Magnitude > 0 then
@@ -969,33 +1138,67 @@ local flyNoclipEnabled = false
 local flyHoverPos = nil     -- locked position when no movement keys held
 local flyHoverLook = nil    -- locked look when no movement keys held
 
-local flyConnection   = nil
-local noclipConnection = nil
 
-local function setNoclip(enabled)
-    if noclipConnection then
-        noclipConnection:Disconnect()
-        noclipConnection = nil
-    end
-    if enabled then
-        noclipConnection = RunService.Heartbeat:Connect(function()
-            local char = localPlayer.Character
-            if char then
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
+
+local setNoclip
+do
+    local noclipActive = false
+    local originalCollisions = {}
+
+    setNoclip = function(enabled)
+        if enabled then
+            if not noclipActive then
+                noclipActive = true
+                originalCollisions = {}
+                local char = localPlayer.Character
+                if char then
+                    for _, part in pairs(char:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            originalCollisions[part] = part.CanCollide
+                        end
                     end
                 end
             end
-        end)
-    else
-        -- Restore collision on current character
-        local char = localPlayer.Character
-        if char then
-            for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
+            if not noclipConnection then
+                noclipConnection = RunService.Heartbeat:Connect(function()
+                    local char = localPlayer.Character
+                    if char then
+                        for _, part in pairs(char:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                if originalCollisions[part] == nil then
+                                    originalCollisions[part] = part.CanCollide
+                               end
+                                part.CanCollide = false
+                            end
+                        end
+                    end
+                end)
+            end
+        else
+            if noclipConnection then
+                noclipConnection:Disconnect()
+                noclipConnection = nil
+            end
+            if noclipActive then
+                noclipActive = false
+                local char = localPlayer.Character
+                if char then
+                    for _, part in pairs(char:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            local orig = originalCollisions[part]
+                            if orig ~= nil then
+                                part.CanCollide = orig
+                            else
+                                if part.Name == "HumanoidRootPart" or part.Parent:IsA("Accessory") then
+                                    part.CanCollide = false
+                                else
+                                    part.CanCollide = true
+                                end
+                            end
+                        end
+                    end
                 end
+                originalCollisions = {}
             end
         end
     end
@@ -1087,7 +1290,8 @@ end
 -- SHOP & PLAYER ACTIONS
 --------------------------------------------------
 
-local shopFolder = Workspace:WaitForChild("Ignored"):WaitForChild("Shop")
+local shopFolder = nil
+local shopAvailable = false
 local selectedShopItem = nil
 local isBuyingItem = false
 local autoBuyOnRespawn = false
@@ -1135,14 +1339,26 @@ local function updateShopCache()
     cachedLowerShopItemNames = lowerNames
 end
 
--- Initial population
-updateShopCache()
+-- Initial population (deferred — shop may not exist in all games)
+task.spawn(function()
+    local ok, result = pcall(function()
+        return Workspace:WaitForChild("Ignored", 10):WaitForChild("Shop", 10)
+    end)
+    if ok and result then
+        shopFolder = result
+        shopAvailable = true
+        updateShopCache()
+    else
+        warn("fiux Hub: No shop found — shop features disabled.")
+    end
+end)
 
 local function getShopItemNames()
     return cachedShopItemNames
 end
 
 local function executeBuyItem(itemName)
+    if not shopAvailable then notify("Shop", "No shop in this game.") return end
     if not itemName or isBuyingItem then return end
     isBuyingItem = true
     local desyncWas = desyncConfig.enabled
@@ -1196,9 +1412,15 @@ end
 
 localPlayer.CharacterAdded:Connect(function()
     task.wait(1.5)
-    shopFolder = Workspace:WaitForChild("Ignored"):WaitForChild("Shop")
-    updateShopCache()
-    if autoBuyOnRespawn and selectedShopItem then
+    local ok, result = pcall(function()
+        return Workspace:WaitForChild("Ignored", 5):WaitForChild("Shop", 5)
+    end)
+    if ok and result then
+        shopFolder = result
+        shopAvailable = true
+        updateShopCache()
+    end
+    if autoBuyOnRespawn and selectedShopItem and shopAvailable then
         executeBuyItem(selectedShopItem)
     end
 end)
@@ -1282,13 +1504,22 @@ local spinbotConfig = {
     lookUp   = true,
 }
 
-local forcefieldEnabled = false
+local selfVars = {
+    forcefield = false,
+    highlightEnabled = false,
+    highlight = nil,
+    fillColor = Color3.fromRGB(0, 200, 255),
+    outlineColor = Color3.fromRGB(255, 255, 255),
+    fillTransparency = 0.5,
+    outlineTransparency = 0,
+    materialMode = "None",
+}
 local selfHighlightEnabled = false
 local selfHighlight = nil
-local selfHighlightFillColor = Color3.fromRGB(0, 200, 255)
-local selfHighlightOutlineColor = Color3.fromRGB(255, 255, 255)
-local selfHighlightFillTransparency = 0.5
-local selfHighlightOutlineTransparency = 0
+local selfHighlightFillColor = selfVars.fillColor
+local selfHighlightOutlineColor = selfVars.outlineColor
+local selfHighlightFillTransparency = selfVars.fillTransparency
+local selfHighlightOutlineTransparency = selfVars.outlineTransparency
 local selfMaterialMode = "None"
 local initialChar = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 
@@ -1400,6 +1631,10 @@ local function removeChinaHat(player, char)
 end
 
 local function setupChinaHatForPlayer(player)
+    if chinaHatConnections[player] then
+        chinaHatConnections[player]:Disconnect()
+        chinaHatConnections[player] = nil
+    end
     local function onCharAdded(char)
         task.wait(1)
         if chinaHatConfig.enabled then
@@ -1469,11 +1704,15 @@ end
 
 local function startChinaHat()
     if chinaHatPlayerAddedConn then return end
-    for _, p in pairs(Players:GetPlayers()) do
-        setupChinaHatForPlayer(p)
+    if chinaHatConfig.selfOnly then
+        setupChinaHatForPlayer(localPlayer)
+    else
+        for _, p in pairs(Players:GetPlayers()) do
+            setupChinaHatForPlayer(p)
+        end
+        chinaHatPlayerAddedConn = Players.PlayerAdded:Connect(setupChinaHatForPlayer)
+        chinaHatPlayerRemovingConn = Players.PlayerRemoving:Connect(removeChinaHatForPlayer)
     end
-    chinaHatPlayerAddedConn = Players.PlayerAdded:Connect(setupChinaHatForPlayer)
-    chinaHatPlayerRemovingConn = Players.PlayerRemoving:Connect(removeChinaHatForPlayer)
 end
 
 local function stopChinaHat()
@@ -1644,9 +1883,6 @@ local function removeESP(player)
     end
 end
 
-local espConnection = nil
-local espPlayerAddedConnection = nil
-local espPlayerRemovingConnection = nil
 
 local function startESP()
     if espConnection then return end
@@ -1858,7 +2094,7 @@ localPlayer.CharacterAdded:Connect(function(c)
     if selfHighlightEnabled then applySelfHighlight(c) end
 end)
 
-local spinbotConnection = nil
+
 local function updateSpinbot()
     if not localHrp or localHrp.Parent ~= localCharacter then return end
     spinbotConfig.angle = (spinbotConfig.angle + spinbotConfig.speed) % 360
@@ -1900,26 +2136,18 @@ local function setupAntiStompChar(char)
     local conn = ko:GetPropertyChangedSignal("Value"):Connect(function()
         if not ko.Value then return end
         if not (Options.AntiStomp and Options.AntiStomp.Value) then return end
-        -- disable all ragdoll constraints so body stays upright and out of stomp range
-        for _, v in pairs(char:GetDescendants()) do
-            if v:IsA("BallSocketConstraint") or v:IsA("HingeConstraint") then
-                pcall(function() v.Enabled = false end)
-            end
-        end
-        -- also freeze all parts in place
+        local torso = char:FindFirstChild("UpperTorso")
+        if not torso then return end
         local sinkConn
         sinkConn = RunService.Heartbeat:Connect(function()
             if not ko.Value or not (Options.AntiStomp and Options.AntiStomp.Value) then
                 sinkConn:Disconnect()
                 return
             end
-            for _, v in pairs(char:GetDescendants()) do
-                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then
-                    pcall(function()
-                        v.AssemblyLinearVelocity = Vector3.zero
-                        v.AssemblyAngularVelocity = Vector3.zero
-                    end)
-                end
+            if torso and torso.Parent then
+                pcall(function()
+                    torso.CFrame = CFrame.new(torso.Position.X, -9999, torso.Position.Z)
+                end)
             end
         end)
     end)
@@ -2030,14 +2258,12 @@ local playerList = {}
 for _, p in pairs(Players:GetPlayers()) do if p ~= localPlayer then table.insert(playerList, p.Name) end end
 
 local function updateAllDropdowns()
-    if playerListState.debounce then task.cancel(playerListState.debounce) end
-    playerListState.debounce = task.delay(1.5, function()
-        table.sort(playerList)
-        if Options.RageTargetSelect then
+    table.sort(playerList)
+    if Options.RageTargetSelect then
+        pcall(function()
             Options.RageTargetSelect:SetValues(playerList)
-        end
-        playerListState.debounce = nil
-    end)
+        end)
+    end
 end
 
 local function updateTargetAvatar(playerName)
@@ -2055,31 +2281,34 @@ local function updateTargetAvatar(playerName)
 end
 
 playerListState.addedConn = Players.PlayerAdded:Connect(function(p)
-    if p ~= localPlayer and not table.find(playerList, p.Name) then
-        table.insert(playerList, p.Name)
-        updateAllDropdowns()
-    end
+    task.spawn(function()
+        if p ~= localPlayer and not table.find(playerList, p.Name) then
+            table.insert(playerList, p.Name)
+        end
+    end)
 end)
 
 playerListState.removingConn = Players.PlayerRemoving:Connect(function(p)
-    for i, n in pairs(playerList) do
-        if n == p.Name then
-            table.remove(playerList, i)
-            break
+    task.spawn(function()
+        for i, n in pairs(playerList) do
+            if n == p.Name then
+                table.remove(playerList, i)
+                break
+            end
         end
-    end
-    updateAllDropdowns()
-    if selectedTargetPlayer == p.Name then
-        selectedTargetPlayer = playerList[1] or ""
-        updateTargetAvatar(selectedTargetPlayer)
-        if Options.RageTargetSelect then
-            Options.RageTargetSelect:SetValue(selectedTargetPlayer)
+        if selectedTargetPlayer == p.Name then
+            selectedTargetPlayer = ""
+            updateTargetAvatar(selectedTargetPlayer)
+            if Options.RageTargetSelect then
+                Options.RageTargetSelect:SetValue(selectedTargetPlayer)
+            end
         end
-    end
+    end)
 end)
 
 -- Silent Aim UI section removed
 
+do
 Tabs.Rage:AddSection("Anti-Aim (Desync)")
 
 Tabs.Rage:AddToggle("DesyncToggle", {
@@ -2267,6 +2496,21 @@ do
         Callback = function() startPickingTarget() end
     })
 
+    Tabs.Rage:AddButton({
+        Title = "Refresh Player List",
+        Description = "Updates the target selection dropdown list manually.",
+        Callback = function()
+            playerList = {}
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= localPlayer then
+                    table.insert(playerList, p.Name)
+                end
+            end
+            updateAllDropdowns()
+            notify("Targeting", "Player list refreshed!")
+        end
+    })
+
     -- Avatar panel ScreenGui
     do
         local ui = {}
@@ -2432,9 +2676,14 @@ do
         selectedTargetPlayer = playerList[1]
         updateTargetAvatarLocal(playerList[1])
     end
-end--------------------------------------------------
+end
+
+end
+
+--------------------------------------------------
 -- BUILD UI - LEGIT TAB
 --------------------------------------------------
+do
 
 Tabs.Legit:AddSection("Camlock")
 
@@ -2547,12 +2796,11 @@ Tabs.Legit:AddSlider("HitboxTransparency", {
     Default = 50, Min = 0, Max = 100, Rounding = 0
 }):OnChanged(function(v) hitboxSettings.transparency = v / 100 end)
 
--- Old Target UI section removed
-
+end -- close Legit do block
 --------------------------------------------------
 -- BUILD UI - GAME TAB
 --------------------------------------------------
-
+do
 Tabs.Game:AddSection("Movement")
 
 Tabs.Game:AddToggle("SpeedEnabled", {
@@ -2825,10 +3073,12 @@ Tabs.Game:AddButton({
     end
 })
 
+
+end -- close Game do block
 --------------------------------------------------
 -- BUILD UI - VISUALS TAB
 --------------------------------------------------
-
+do
 Tabs.Visuals:AddSection("Self Chams")
 
 Tabs.Visuals:AddDropdown("SelfMaterial", {
@@ -3304,10 +3554,12 @@ Tabs.Visuals:AddSlider("ChinaHatHeightOffset", {
     updateChinaHatProperties()
 end)
 
+end
+
 --------------------------------------------------
 -- BUILD UI - LIGHTING TAB
 --------------------------------------------------
-
+do
 Tabs.Lighting:AddSection("Lighting")
 
 Tabs.Lighting:AddToggle("LightingEnabled", {
@@ -3420,6 +3672,8 @@ Tabs.Lighting:AddSlider("LightingClockTime", {
     applyLightingSettings()
 end)
 
+end
+
 --------------------------------------------------
 -- KEYBINDS
 --------------------------------------------------
@@ -3467,77 +3721,29 @@ SaveManager:BuildConfigSection(Tabs.Settings)
 
 Tabs.Settings:AddSection("Camera Lock")
 
-Tabs.Settings:AddDropdown("CamlockBind", {
-    Title = "Camlock Keybind",
-    Description = "Key to toggle camera lock",
-    Values = {"Q","E","R","T","Y","F","G","Z","X","C","V","B","N","M",
-              "F1","F2","F3","F4","F5","F6","F7","F8",
-              "LeftAlt","RightAlt","LeftControl","RightControl"},
-    Default = "Q"
-}):OnChanged(function(v)
-    local ok, key = pcall(function() return Enum.KeyCode[v] end)
-    if ok and key then Binds.camlock = key end
-end)
-
-Tabs.Settings:AddDropdown("FlyBind", {
-    Title = "Fly Keybind",
-    Description = "Key to toggle flying",
-    Values = {"Q","E","R","T","Y","F","G","Z","X","C","V","B","N","M",
-              "F1","F2","F3","F4","F5","F6","F7","F8",
-              "LeftAlt","RightAlt","LeftControl","RightControl"},
-    Default = "F"
-}):OnChanged(function(v)
-    local ok, key = pcall(function() return Enum.KeyCode[v] end)
-    if ok and key then Binds.fly = key end
-end)
-
-Tabs.Settings:AddDropdown("DesyncBind", {
-    Title = "Desync Keybind",
-    Description = "Key to toggle desync (anti-aim)",
-    Values = {"Q","E","R","T","Y","F","G","Z","X","C","V","B","N","M",
-              "F1","F2","F3","F4","F5","F6","F7","F8",
-              "LeftAlt","RightAlt","LeftControl","RightControl"},
-    Default = "V"
-}):OnChanged(function(v)
-    local ok, key = pcall(function() return Enum.KeyCode[v] end)
-    if ok and key then Binds.desync = key end
-end)
-
-Tabs.Settings:AddDropdown("StrafeBind", {
-    Title = "Strafe Keybind",
-    Description = "Key to toggle target strafe",
-    Values = {"Q","E","R","T","Y","F","G","Z","X","C","V","B","N","M",
-              "F1","F2","F3","F4","F5","F6","F7","F8",
-              "LeftAlt","RightAlt","LeftControl","RightControl"},
-    Default = "B"
-}):OnChanged(function(v)
-    local ok, key = pcall(function() return Enum.KeyCode[v] end)
-    if ok and key then Binds.strafe = key end
-end)
-
-Tabs.Settings:AddDropdown("SpeedBind", {
-    Title = "Speed Keybind",
-    Description = "Key to toggle CFrame speed",
-    Values = {"Q","E","R","T","Y","F","G","Z","X","C","V","B","N","M",
-              "F1","F2","F3","F4","F5","F6","F7","F8",
-              "LeftAlt","RightAlt","LeftControl","RightControl"},
-    Default = "C"
-}):OnChanged(function(v)
-    local ok, key = pcall(function() return Enum.KeyCode[v] end)
-    if ok and key then Binds.speed = key end
-end)
-
-Tabs.Settings:AddDropdown("HitboxBind", {
-    Title = "Hitbox Keybind",
-    Description = "Key to toggle hitbox expander",
-    Values = {"Q","E","R","T","Y","F","G","Z","X","C","V","B","N","M",
-              "F1","F2","F3","F4","F5","F6","F7","F8",
-              "LeftAlt","RightAlt","LeftControl","RightControl"},
-    Default = "H"
-}):OnChanged(function(v)
-    local ok, key = pcall(function() return Enum.KeyCode[v] end)
-    if ok and key then Binds.hitbox = key end
-end)
+do
+    local bindKeys = {"Q","E","R","T","Y","F","G","Z","X","C","V","B","N","M",
+                      "F1","F2","F3","F4","F5","F6","F7","F8",
+                      "LeftAlt","RightAlt","LeftControl","RightControl"}
+    local bindDefs = {
+        {"CamlockBind", "Camlock Keybind",  "Key to toggle camera lock",       "Q", "camlock"},
+        {"FlyBind",     "Fly Keybind",       "Key to toggle flying",            "F", "fly"},
+        {"DesyncBind",  "Desync Keybind",    "Key to toggle desync (anti-aim)", "V", "desync"},
+        {"StrafeBind",  "Strafe Keybind",    "Key to toggle target strafe",     "B", "strafe"},
+        {"SpeedBind",   "Speed Keybind",     "Key to toggle CFrame speed",      "C", "speed"},
+        {"HitboxBind",  "Hitbox Keybind",    "Key to toggle hitbox expander",   "H", "hitbox"},
+    }
+    for _, def in ipairs(bindDefs) do
+        local id, title, desc, default, bindField = def[1], def[2], def[3], def[4], def[5]
+        Tabs.Settings:AddDropdown(id, {
+            Title = title, Description = desc,
+            Values = bindKeys, Default = default
+        }):OnChanged(function(v)
+            local ok, key = pcall(function() return Enum.KeyCode[v] end)
+            if ok and key then Binds[bindField] = key end
+        end)
+    end
+end
 
 Tabs.Settings:AddSection("Script")
 
@@ -3571,6 +3777,16 @@ Tabs.Settings:AddButton({
         flyHoverPos = nil
         flyHoverLook = nil
         setNoclip(false)
+        -- Clean up flag watcher
+        if _G.flagMonitor then
+            for _, conn in ipairs(_G.flagMonitor.connections) do
+                pcall(function() conn:Disconnect() end)
+            end
+            if _G.flagMonitor.warningGui then
+                pcall(function() _G.flagMonitor.warningGui:Destroy() end)
+            end
+            _G.flagMonitor = nil
+        end
         espConfig.enabled = false
         stopESP()
         chinaHatConfig.enabled = false
