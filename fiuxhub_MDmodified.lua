@@ -680,7 +680,8 @@ local hitboxConnection = nil
 local speedConnection = nil
 local flyConnection = nil
 local noclipConnection = nil
-local spinbotConnection = nil
+local spinbotPhysicsConn = nil
+local spinbotRenderConn = nil
 local espConnection = nil
 local espPlayerAddedConnection = nil
 local espPlayerRemovingConnection = nil
@@ -1128,8 +1129,8 @@ end
 local cframeFlySpeed = 3
 local flyActive = false
 local flyNoclipEnabled = false
-local flyHoverPos = nil     -- locked position when no movement keys held
-local flyHoverLook = nil    -- locked look when no movement keys held
+local flyHoverPos = nil
+local flyHoverLook = nil
 
 
 
@@ -2088,33 +2089,72 @@ localPlayer.CharacterAdded:Connect(function(c)
 end)
 
 
-local function updateSpinbot()
-    if not localHrp or localHrp.Parent ~= localCharacter then return end
-    spinbotConfig.angle = (spinbotConfig.angle + spinbotConfig.speed) % 360
-    local yaw = math.rad(spinbotConfig.angle)
-    localHrp.CFrame = CFrame.new(localHrp.Position) * CFrame.Angles(0, yaw, 0)
+local originalNeckC0 = nil
+local originalRightGripC1 = nil
+
+local function restoreJoints()
+    if localCharacter then
+        local head = localCharacter:FindFirstChild("Head")
+        local torso = localCharacter:FindFirstChild("Torso") or localCharacter:FindFirstChild("UpperTorso")
+        local neck = (head and head:FindFirstChild("Neck")) or (torso and torso:FindFirstChild("Neck"))
+        if neck and neck:IsA("Motor6D") and originalNeckC0 then
+            neck.C0 = originalNeckC0
+        end
+        originalNeckC0 = nil
+        
+        local tool = localCharacter:FindFirstChildWhichIsA("Tool")
+        if tool then
+            local rightArm = localCharacter:FindFirstChild("Right Arm") or localCharacter:FindFirstChild("RightHand")
+            local rj = rightArm and rightArm:FindFirstChild("RightGrip")
+            if rj and rj:IsA("Motor6D") and originalRightGripC1 then
+                rj.C1 = originalRightGripC1
+            end
+        end
+        originalRightGripC1 = nil
+    end
+end
+
+local function updateSpinbotRender()
     if spinbotConfig.lookUp and localCharacter then
         local head = localCharacter:FindFirstChild("Head")
         local torso = localCharacter:FindFirstChild("Torso") or localCharacter:FindFirstChild("UpperTorso")
         local neck = (head and head:FindFirstChild("Neck")) or (torso and torso:FindFirstChild("Neck"))
         if neck and neck:IsA("Motor6D") then
-            neck.C0 = CFrame.new(0, 1, 0) * CFrame.Angles(math.rad(-85), math.rad(spinbotConfig.angle), 0)
+            if not originalNeckC0 then
+                originalNeckC0 = neck.C0
+            end
+            neck.C0 = CFrame.new(0, 1, 0) * CFrame.Angles(math.rad(-85), 0, 0)
         end
+        
         local tool = localCharacter:FindFirstChildWhichIsA("Tool")
         if tool then
             local rightArm = localCharacter:FindFirstChild("Right Arm") or localCharacter:FindFirstChild("RightHand")
             local rj = rightArm and rightArm:FindFirstChild("RightGrip")
             if rj and rj:IsA("Motor6D") then
+                if not originalRightGripC1 then
+                    originalRightGripC1 = rj.C1
+                end
                 rj.C1 = CFrame.Angles(math.rad(90), 0, 0)
             end
         end
     end
 end
 
+local function updateSpinbotPhysics()
+    if not localHrp or localHrp.Parent ~= localCharacter then return end
+    restoreJoints()
+    spinbotConfig.angle = (spinbotConfig.angle + spinbotConfig.speed) % 360
+    local yaw = math.rad(spinbotConfig.angle)
+    localHrp.CFrame = CFrame.new(localHrp.Position) * CFrame.Angles(0, yaw, 0)
+end
+
 local function toggleSpinbotConnection(state)
-    if spinbotConnection then spinbotConnection:Disconnect() spinbotConnection = nil end
+    if spinbotPhysicsConn then spinbotPhysicsConn:Disconnect() spinbotPhysicsConn = nil end
+    if spinbotRenderConn then spinbotRenderConn:Disconnect() spinbotRenderConn = nil end
+    restoreJoints()
     if state then
-        spinbotConnection = RunService.RenderStepped:Connect(updateSpinbot)
+        spinbotPhysicsConn = RunService.Heartbeat:Connect(updateSpinbotPhysics)
+        spinbotRenderConn = RunService.RenderStepped:Connect(updateSpinbotRender)
     end
 end
 
@@ -3789,7 +3829,9 @@ Tabs.Settings:AddButton({
         if desyncConnection then desyncConnection:Disconnect() desyncConnection = nil end
         if hitboxConnection then hitboxConnection:Disconnect() hitboxConnection = nil end
         if flyConnection then flyConnection:Disconnect() flyConnection = nil end
-        if spinbotConnection then spinbotConnection:Disconnect() spinbotConnection = nil end
+        if spinbotPhysicsConn then spinbotPhysicsConn:Disconnect() spinbotPhysicsConn = nil end
+        if spinbotRenderConn then spinbotRenderConn:Disconnect() spinbotRenderConn = nil end
+        restoreJoints()
         if rainbowConnection then rainbowConnection:Disconnect() rainbowConnection = nil end
         if speedConnection then
             speedConnection:Disconnect()
