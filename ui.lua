@@ -464,20 +464,90 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     subLabel.TextXAlignment = Enum.TextXAlignment.Left
     registerFontElement(subLabel)
     
-    -- Minimize / Restore Button
-    local minBtn = Instance.new("TextButton", header)
-    minBtn.Size = UDim2.new(0, 58, 0, 16)
-    minBtn.Position = UDim2.new(1, -66, 0, 9)
-    minBtn.BackgroundColor3 = THEME.BORDER
-    minBtn.Text = "HIDE"
-    minBtn.TextColor3 = THEME.TEXT
-    minBtn.TextSize = 7.5
-    minBtn.Font = Enum.Font.GothamBold
-    minBtn.BorderSizePixel = 0
-    Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 6)
-    addHoverAnimation(minBtn, Color3.fromRGB(70, 70, 80), THEME.BORDER)
-    registerFontElement(minBtn)
-    
+    -- ── Control Pill Container (matching MDhubV2.lua) ───────────────────
+    local controlPill = Instance.new("Frame", header)
+    controlPill.Size = UDim2.new(0, 92, 0, 25)
+    controlPill.Position = UDim2.new(1, -98, 0, 6)
+    controlPill.BackgroundColor3 = THEME.BAR
+    controlPill.BackgroundTransparency = 0.4
+    controlPill.BorderSizePixel = 0
+    controlPill.ZIndex = 20
+    Instance.new("UICorner", controlPill).CornerRadius = UDim.new(0, 7)
+
+    -- 1. Gear button -> opens MISC tab
+    local gearBtn = Instance.new("ImageButton", controlPill)
+    gearBtn.Size = UDim2.new(0, 16, 0, 16)
+    gearBtn.Position = UDim2.new(0, 8, 0.5, -8)
+    gearBtn.BackgroundTransparency = 1
+    gearBtn.Image = "rbxthumb://type=Asset&id=101671992802622&w=150&h=150"
+    gearBtn.ImageColor3 = THEME.TEXT_DIM
+    gearBtn.ZIndex = 21
+
+    gearBtn.MouseEnter:Connect(function()
+        playSound(HOVER_SOUND)
+        playTween(gearBtn, TweenInfo.new(0.12), {ImageColor3 = THEME.TEXT})
+    end)
+    gearBtn.MouseLeave:Connect(function()
+        playTween(gearBtn, TweenInfo.new(0.12), {ImageColor3 = THEME.TEXT_DIM})
+    end)
+    gearBtn.MouseButton1Click:Connect(function()
+        playSound(CLICK_SOUND)
+        if selectTab then
+            selectTab("MISC")
+        end
+    end)
+
+    -- 2. Minimize button: 22x22 hitbox with 15x3 solid visual pill line
+    local minHitbox = Instance.new("TextButton", controlPill)
+    minHitbox.Size = UDim2.new(0, 22, 0, 22)
+    minHitbox.Position = UDim2.new(0, 35, 0.5, -11)
+    minHitbox.BackgroundTransparency = 1
+    minHitbox.Text = ""
+    minHitbox.BorderSizePixel = 0
+    minHitbox.ZIndex = 21
+
+    local minVisual = Instance.new("Frame", minHitbox)
+    minVisual.Size = UDim2.new(0, 15, 0, 3)
+    minVisual.Position = UDim2.new(0.5, 0, 0.5, 0)
+    minVisual.AnchorPoint = Vector2.new(0.5, 0.5)
+    minVisual.BackgroundColor3 = THEME.TEXT_DIM
+    minVisual.BorderSizePixel = 0
+    minVisual.ZIndex = 21
+    Instance.new("UICorner", minVisual).CornerRadius = UDim.new(0, 2)
+
+    minHitbox.MouseEnter:Connect(function()
+        playSound(HOVER_SOUND)
+        playTween(minVisual, TweenInfo.new(0.12), {BackgroundColor3 = THEME.TEXT})
+    end)
+    minHitbox.MouseLeave:Connect(function()
+        playTween(minVisual, TweenInfo.new(0.12), {BackgroundColor3 = THEME.TEXT_DIM})
+    end)
+
+    -- 3. Close button -> unloads UI
+    local closeBtn = Instance.new("ImageButton", controlPill)
+    closeBtn.Size = UDim2.new(0, 13, 0, 13)
+    closeBtn.Position = UDim2.new(0, 70, 0.5, -6.5)
+    closeBtn.BackgroundTransparency = 1
+    closeBtn.Image = "rbxthumb://type=Asset&id=127825940291362&w=150&h=150"
+    closeBtn.ImageColor3 = Color3.fromRGB(235, 235, 235)
+    closeBtn.ZIndex = 21
+
+    closeBtn.MouseEnter:Connect(function()
+        playSound(HOVER_SOUND)
+        playTween(closeBtn, TweenInfo.new(0.12), {ImageColor3 = Color3.fromRGB(255, 255, 255)})
+    end)
+    closeBtn.MouseLeave:Connect(function()
+        playTween(closeBtn, TweenInfo.new(0.12), {ImageColor3 = Color3.fromRGB(235, 235, 235)})
+    end)
+    closeBtn.MouseButton1Click:Connect(function()
+        playSound(CLICK_SOUND)
+        if Library.Unload then
+            Library.Unload()
+        else
+            screenGui:Destroy()
+        end
+    end)
+
     -- Minimize Icon setup
     local miniIcon = Instance.new("ImageButton", screenGui)
     miniIcon.Size = UDim2.new(0, 40, 0, 40)
@@ -510,7 +580,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     local animInfo = TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     local isAnimating = false
     
-    minBtn.MouseButton1Click:Connect(function()
+    minHitbox.MouseButton1Click:Connect(function()
         if isAnimating then return end
         isAnimating = true
         playSound(CLICK_SOUND)
@@ -1081,6 +1151,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             searchFrame.Size = UDim2.new(1, -10, 0, 26)
             searchFrame.BackgroundColor3 = THEME.BG
             searchFrame.BorderSizePixel = 0
+            searchFrame.LayoutOrder = 1
             Instance.new("UICorner", searchFrame).CornerRadius = UDim.new(0, 6)
             
             local searchInput = Instance.new("TextBox", searchFrame)
@@ -1096,11 +1167,64 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             searchInput.ClearTextOnFocus = false
             registerFontElement(searchInput)
             
+            -- Configurable Filter Bar (A-Z, Z-A, RESET)
+            local filterBar = Instance.new("Frame", listFrame)
+            filterBar.Size = UDim2.new(1, -10, 0, 22)
+            filterBar.BackgroundColor3 = THEME.BG
+            filterBar.BackgroundTransparency = 0.5
+            filterBar.BorderSizePixel = 0
+            filterBar.LayoutOrder = 0
+            Instance.new("UICorner", filterBar).CornerRadius = UDim.new(0, 5)
+
+            local filterLayout = Instance.new("UIListLayout", filterBar)
+            filterLayout.FillDirection = Enum.FillDirection.Horizontal
+            filterLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            filterLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+            filterLayout.Padding = UDim.new(0, 4)
+
+            local currentSortMode = "ORIG"
+            local rawOptions = {}
+            local optButtons = {}
+            local renderButtons
+
+            local filterBtns = {}
+            local function makeFilterBtn(text, mode)
+                local fBtn = Instance.new("TextButton", filterBar)
+                fBtn.Size = UDim2.new(0, 44, 0, 18)
+                fBtn.BackgroundColor3 = (currentSortMode == mode) and THEME.ACCENT or THEME.BAR
+                fBtn.Text = text
+                fBtn.TextColor3 = THEME.TEXT
+                fBtn.TextSize = 7.5
+                fBtn.Font = Enum.Font.GothamBold
+                fBtn.BorderSizePixel = 0
+                Instance.new("UICorner", fBtn).CornerRadius = UDim.new(0, 4)
+                registerFontElement(fBtn)
+                table.insert(filterBtns, { btn = fBtn, mode = mode })
+                
+                fBtn.MouseButton1Click:Connect(function()
+                    playSound(CLICK_SOUND)
+                    currentSortMode = mode
+                    for _, item in ipairs(filterBtns) do
+                        item.btn.BackgroundColor3 = (item.mode == currentSortMode) and THEME.ACCENT or THEME.BAR
+                    end
+                    local sorted = {}
+                    for _, v in ipairs(rawOptions) do table.insert(sorted, v) end
+                    if currentSortMode == "A-Z" then
+                        table.sort(sorted, function(a, b) return tostring(a):lower() < tostring(b):lower() end)
+                    elseif currentSortMode == "Z-A" then
+                        table.sort(sorted, function(a, b) return tostring(a):lower() > tostring(b):lower() end)
+                    end
+                    renderButtons(sorted)
+                end)
+            end
+
+            makeFilterBtn("A-Z", "A-Z")
+            makeFilterBtn("Z-A", "Z-A")
+            makeFilterBtn("RESET", "ORIG")
+
             local currentVal = defaultVal
             local open = false
             local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-            
-            local optButtons = {}
             
             local function toggleDropdown(shouldOpen)
                 open = shouldOpen
@@ -1113,8 +1237,8 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                     for _, ob in ipairs(optButtons) do
                         if ob.Visible then numOptions = numOptions + 1 end
                     end
-                    local targetHeight = math.min((numOptions + 1) * 26 + 12, 140)
-                    listFrame.CanvasSize = UDim2.new(0, 0, 0, (numOptions + 1) * 26 + 12)
+                    local targetHeight = math.min((numOptions + 2) * 26 + 12, 160)
+                    listFrame.CanvasSize = UDim2.new(0, 0, 0, (numOptions + 2) * 26 + 12)
                     
                     playTween(btnArrow, tweenInfo, {Rotation = 180})
                     playTween(listFrame, tweenInfo, {Size = UDim2.new(1, -4, 0, targetHeight)})
@@ -1144,14 +1268,16 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 playTween(btn, ddHoverInfo, {BackgroundTransparency = 0.3})
                 playTween(btnScale, ddHoverInfo, {Scale = 1.0})
             end)
-            
-            local function updateOptions(newOptions)
+
+            renderButtons = function(optsToRender)
                 for _, ob in ipairs(optButtons) do
                     ob:Destroy()
                 end
                 table.clear(optButtons)
+
+                local query = searchInput.Text:lower()
                 
-                for _, opt in ipairs(newOptions) do
+                for idx, opt in ipairs(optsToRender) do
                     local optBtn = Instance.new("TextButton", listFrame)
                     optBtn.Size = UDim2.new(1, -10, 0, 24)
                     optBtn.BackgroundColor3 = THEME.BG
@@ -1161,6 +1287,8 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                     optBtn.TextColor3 = THEME.TEXT
                     optBtn.TextSize = 8.5
                     optBtn.ZIndex = 21
+                    optBtn.LayoutOrder = idx + 2
+                    optBtn.Visible = (query == "" or opt:lower():find(query, 1, true) ~= nil)
                     Instance.new("UICorner", optBtn).CornerRadius = UDim.new(0, 6)
                     registerFontElement(optBtn)
                     
@@ -1183,6 +1311,18 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                     
                     table.insert(optButtons, optBtn)
                 end
+            end
+            
+            local function updateOptions(newOptions)
+                rawOptions = newOptions or {}
+                local sorted = {}
+                for _, v in ipairs(rawOptions) do table.insert(sorted, v) end
+                if currentSortMode == "A-Z" then
+                    table.sort(sorted, function(a, b) return tostring(a):lower() < tostring(b):lower() end)
+                elseif currentSortMode == "Z-A" then
+                    table.sort(sorted, function(a, b) return tostring(a):lower() > tostring(b):lower() end)
+                end
+                renderButtons(sorted)
             end
             
             searchInput:GetPropertyChangedSignal("Text"):Connect(function()
