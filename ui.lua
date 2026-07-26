@@ -1883,6 +1883,10 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             Order = tabOrder
         }
         
+        if tabName == "MISC" then
+            tabBtn.Visible = false
+        end
+        
         table.insert(sortedNames, tabName)
         table.sort(sortedNames, function(a, b) return tabs[a].Order < tabs[b].Order end)
         
