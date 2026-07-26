@@ -523,7 +523,114 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         playTween(minVisual, TweenInfo.new(0.12), {BackgroundColor3 = THEME.TEXT_DIM})
     end)
 
-    -- 3. Close button -> unloads UI
+    local doUnload
+    local confirmOverlay = nil
+    local function showCloseConfirmation()
+        if confirmOverlay then return end
+        
+        confirmOverlay = Instance.new("Frame", main)
+        confirmOverlay.Size = UDim2.new(1, 0, 1, 0)
+        confirmOverlay.Position = UDim2.new(0, 0, 0, 0)
+        confirmOverlay.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+        confirmOverlay.BackgroundTransparency = 0.25
+        confirmOverlay.ZIndex = 200
+        confirmOverlay.Active = true
+        Instance.new("UICorner", confirmOverlay).CornerRadius = UDim.new(0, 14)
+
+        local confirmBox = Instance.new("Frame", confirmOverlay)
+        confirmBox.Size = UDim2.new(0, 210, 0, 120)
+        confirmBox.Position = UDim2.new(0.5, 0, 0.5, 0)
+        confirmBox.AnchorPoint = Vector2.new(0.5, 0.5)
+        confirmBox.BackgroundColor3 = THEME.BAR
+        confirmBox.BorderSizePixel = 0
+        confirmBox.ZIndex = 201
+        Instance.new("UICorner", confirmBox).CornerRadius = UDim.new(0, 10)
+
+        local boxStroke = Instance.new("UIStroke", confirmBox)
+        boxStroke.Color = THEME.BORDER
+        boxStroke.Thickness = 1.5
+
+        local msgLabel = Instance.new("TextLabel", confirmBox)
+        msgLabel.Size = UDim2.new(1, -20, 0, 44)
+        msgLabel.Position = UDim2.new(0, 10, 0, 10)
+        msgLabel.BackgroundTransparency = 1
+        msgLabel.Text = "Are you sure you want to close the script?"
+        msgLabel.TextColor3 = THEME.TEXT
+        msgLabel.TextSize = 9.5
+        msgLabel.Font = Enum.Font.GothamBold
+        msgLabel.TextWrapped = true
+        msgLabel.ZIndex = 202
+        registerFontElement(msgLabel)
+
+        -- Yes Button
+        local yesBtn = Instance.new("TextButton", confirmBox)
+        yesBtn.Size = UDim2.new(0, 80, 0, 26)
+        yesBtn.Position = UDim2.new(0.5, -88, 1, -34)
+        yesBtn.BackgroundColor3 = THEME.ACCENT
+        yesBtn.Text = "Yes"
+        yesBtn.TextColor3 = THEME.TEXT
+        yesBtn.TextSize = 9
+        yesBtn.Font = Enum.Font.GothamBold
+        yesBtn.BorderSizePixel = 0
+        yesBtn.ZIndex = 202
+        Instance.new("UICorner", yesBtn).CornerRadius = UDim.new(0, 6)
+        registerFontElement(yesBtn)
+        registerAccentColor(yesBtn)
+
+        -- No Button
+        local noBtn = Instance.new("TextButton", confirmBox)
+        noBtn.Size = UDim2.new(0, 80, 0, 26)
+        noBtn.Position = UDim2.new(0.5, 8, 1, -34)
+        noBtn.BackgroundColor3 = THEME.BG
+        noBtn.Text = "No"
+        noBtn.TextColor3 = THEME.TEXT
+        noBtn.TextSize = 9
+        noBtn.Font = Enum.Font.GothamBold
+        noBtn.BorderSizePixel = 0
+        noBtn.ZIndex = 202
+        Instance.new("UICorner", noBtn).CornerRadius = UDim.new(0, 6)
+        registerFontElement(noBtn)
+
+        local noStroke = Instance.new("UIStroke", noBtn)
+        noStroke.Color = THEME.BORDER
+        noStroke.Thickness = 1
+
+        local hoverInfo = TweenInfo.new(0.12)
+        yesBtn.MouseEnter:Connect(function()
+            playSound(HOVER_SOUND)
+            playTween(yesBtn, hoverInfo, {BackgroundTransparency = 0.2})
+        end)
+        yesBtn.MouseLeave:Connect(function()
+            playTween(yesBtn, hoverInfo, {BackgroundTransparency = 0})
+        end)
+
+        noBtn.MouseEnter:Connect(function()
+            playSound(HOVER_SOUND)
+            playTween(noBtn, hoverInfo, {BackgroundTransparency = 0.2})
+        end)
+        noBtn.MouseLeave:Connect(function()
+            playTween(noBtn, hoverInfo, {BackgroundTransparency = 0})
+        end)
+
+        yesBtn.MouseButton1Click:Connect(function()
+            playSound(CLICK_SOUND)
+            if doUnload then
+                doUnload()
+            elseif Library.Unload then
+                Library.Unload()
+            else
+                screenGui:Destroy()
+            end
+        end)
+
+        noBtn.MouseButton1Click:Connect(function()
+            playSound(CLICK_SOUND)
+            confirmOverlay:Destroy()
+            confirmOverlay = nil
+        end)
+    end
+
+    -- 3. Close button -> opens close confirmation UI
     local closeBtn = Instance.new("ImageButton", controlPill)
     closeBtn.Size = UDim2.new(0, 13, 0, 13)
     closeBtn.Position = UDim2.new(0, 70, 0.5, -6.5)
@@ -541,11 +648,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     end)
     closeBtn.MouseButton1Click:Connect(function()
         playSound(CLICK_SOUND)
-        if Library.Unload then
-            Library.Unload()
-        else
-            screenGui:Destroy()
-        end
+        showCloseConfirmation()
     end)
 
     -- Minimize Icon setup
@@ -1861,7 +1964,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     table.insert(Library.Connections, miniDragConn)
     
     -- Cleanup function
-    local function doUnload()
+    doUnload = function()
         if Library.Unloaded then return end
         Library.Unloaded = true
         
