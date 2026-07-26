@@ -989,10 +989,11 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             
             local searchFrame = Instance.new("Frame", listFrame)
             searchFrame.Size = UDim2.new(1, -10, 0, 26)
-            searchFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+            searchFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
             searchFrame.BackgroundTransparency = 0
             searchFrame.BorderSizePixel = 0
             searchFrame.LayoutOrder = 0
+            searchFrame.ZIndex = 21
             Instance.new("UICorner", searchFrame).CornerRadius = UDim.new(0, 6)
             local sfStroke = Instance.new("UIStroke", searchFrame)
             sfStroke.Color = THEME.BORDER
@@ -1003,15 +1004,16 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             searchInput.Position = UDim2.new(0, 8, 0, 0)
             searchInput.BackgroundTransparency = 1
             searchInput.Text = ""
-            searchInput.PlaceholderText = "Search..."
-            searchInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 130)
-            searchInput.TextColor3 = Color3.fromRGB(230, 230, 240)
+            searchInput.PlaceholderText = "Enter text..."
+            searchInput.PlaceholderColor3 = Color3.fromRGB(130, 130, 145)
+            searchInput.TextColor3 = Color3.fromRGB(235, 235, 245)
             searchInput.TextSize = 8.5
             searchInput.TextXAlignment = Enum.TextXAlignment.Left
             searchInput.ClearTextOnFocus = false
+            searchInput.ZIndex = 22
             registerFontElement(searchInput)
             
-            -- Single Filter Cycle Button (icon) at top-right of search box
+            -- Filter icon button (top-right of search box)
             local filterCycleBtn = Instance.new("ImageButton", searchFrame)
             filterCycleBtn.Size = UDim2.new(0, 18, 0, 18)
             filterCycleBtn.Position = UDim2.new(1, -22, 0.5, -9)
@@ -1020,6 +1022,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             filterCycleBtn.ImageColor3 = Color3.fromRGB(255, 255, 255)
             filterCycleBtn.ScaleType = Enum.ScaleType.Fit
             filterCycleBtn.BorderSizePixel = 0
+            filterCycleBtn.ZIndex = 22
 
             local rawOptions = {}
             local optButtons = {}
