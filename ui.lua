@@ -1018,11 +1018,27 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             filterCycleBtn.Size = UDim2.new(0, 18, 0, 18)
             filterCycleBtn.Position = UDim2.new(1, -22, 0.5, -9)
             filterCycleBtn.BackgroundTransparency = 1
-            filterCycleBtn.Image = "rbxassetid://94521628289852"
+            filterCycleBtn.Image = "http://www.roblox.com/asset/?id=94521628289852"
             filterCycleBtn.ImageColor3 = Color3.fromRGB(255, 255, 255)
             filterCycleBtn.ScaleType = Enum.ScaleType.Fit
             filterCycleBtn.BorderSizePixel = 0
-            filterCycleBtn.ZIndex = 22
+            filterCycleBtn.ZIndex = 25
+            
+            local filterIconLbl = Instance.new("TextLabel", filterCycleBtn)
+            filterIconLbl.Size = UDim2.new(1, 0, 1, 0)
+            filterIconLbl.BackgroundTransparency = 1
+            filterIconLbl.Text = "⚙"
+            filterIconLbl.TextColor3 = THEME.ACCENT
+            filterIconLbl.TextSize = 10
+            filterIconLbl.ZIndex = 26
+            filterIconLbl.Visible = false
+            
+            -- Show fallback icon if image hasn't loaded / fails
+            task.delay(0.5, function()
+                if not filterCycleBtn.IsLoaded then
+                    filterIconLbl.Visible = true
+                end
+            end)
 
             local rawOptions = {}
             local optButtons = {}
