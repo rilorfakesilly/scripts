@@ -995,7 +995,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             Instance.new("UICorner", searchFrame).CornerRadius = UDim.new(0, 6)
             
             local searchInput = Instance.new("TextBox", searchFrame)
-            searchInput.Size = UDim2.new(1, -54, 1, 0)
+            searchInput.Size = UDim2.new(1, -34, 1, 0)
             searchInput.Position = UDim2.new(0, 8, 0, 0)
             searchInput.BackgroundTransparency = 1
             searchInput.Text = ""
@@ -1007,19 +1007,16 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             searchInput.ClearTextOnFocus = false
             registerFontElement(searchInput)
             
-            -- Single Filter Cycle Button at top-right of search box
-            local filterCycleBtn = Instance.new("TextButton", searchFrame)
-            filterCycleBtn.Size = UDim2.new(0, 42, 0, 18)
-            filterCycleBtn.Position = UDim2.new(1, -46, 0.5, -9)
-            filterCycleBtn.BackgroundColor3 = THEME.ACCENT
-            filterCycleBtn.Text = "A-Z"
-            filterCycleBtn.TextColor3 = THEME.TEXT
-            filterCycleBtn.TextSize = 7.5
-            filterCycleBtn.Font = Enum.Font.GothamBold
+            -- Single Filter Cycle Button (icon) at top-right of search box
+            local filterCycleBtn = Instance.new("ImageButton", searchFrame)
+            filterCycleBtn.Size = UDim2.new(0, 20, 0, 20)
+            filterCycleBtn.Position = UDim2.new(1, -24, 0.5, -10)
+            filterCycleBtn.BackgroundTransparency = 1
+            filterCycleBtn.Image = "rbxassetid://94521628289852"
+            filterCycleBtn.ImageColor3 = THEME.ACCENT
+            filterCycleBtn.ScaleType = Enum.ScaleType.Fit
             filterCycleBtn.BorderSizePixel = 0
-            Instance.new("UICorner", filterCycleBtn).CornerRadius = UDim.new(0, 4)
-            registerFontElement(filterCycleBtn)
-            registerAccentColor(filterCycleBtn)
+            table.insert(accentColorElements, {inst = filterCycleBtn, prop = "ImageColor3"})
 
             local rawOptions = {}
             local optButtons = {}
@@ -1041,7 +1038,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 
                 local nextIdx = (foundIdx % #activeModes) + 1
                 currentSortMode = activeModes[nextIdx]
-                filterCycleBtn.Text = currentSortMode
+                -- icon stays the same; mode cycles silently
                 
                 local sorted = {}
                 for _, v in ipairs(rawOptions) do table.insert(sorted, v) end
@@ -1050,13 +1047,13 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                     table.sort(sorted, function(a, b) return tostring(a):lower() < tostring(b):lower() end)
                 elseif currentSortMode == "Z-A" then
                     table.sort(sorted, function(a, b) return tostring(a):lower() > tostring(b):lower() end)
-                elseif currentSortMode == "HP up" then
+                elseif currentSortMode == "HP+" then
                     table.sort(sorted, function(a, b)
                         local hpA = tonumber(tostring(a):match("%[(%d+)%s*HP%]")) or 0
                         local hpB = tonumber(tostring(b):match("%[(%d+)%s*HP%]")) or 0
                         return hpA < hpB
                     end)
-                elseif currentSortMode == "HP dn" then
+                elseif currentSortMode == "HP-" then
                     table.sort(sorted, function(a, b)
                         local hpA = tonumber(tostring(a):match("%[(%d+)%s*HP%]")) or 0
                         local hpB = tonumber(tostring(b):match("%[(%d+)%s*HP%]")) or 0
@@ -1165,13 +1162,13 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                     table.sort(sorted, function(a, b) return tostring(a):lower() < tostring(b):lower() end)
                 elseif currentSortMode == "Z-A" then
                     table.sort(sorted, function(a, b) return tostring(a):lower() > tostring(b):lower() end)
-                elseif currentSortMode == "HP up" then
+                elseif currentSortMode == "HP+" then
                     table.sort(sorted, function(a, b)
                         local hpA = tonumber(tostring(a):match("%[(%d+)%s*HP%]")) or 0
                         local hpB = tonumber(tostring(b):match("%[(%d+)%s*HP%]")) or 0
                         return hpA < hpB
                     end)
-                elseif currentSortMode == "HP dn" then
+                elseif currentSortMode == "HP-" then
                     table.sort(sorted, function(a, b)
                         local hpA = tonumber(tostring(a):match("%[(%d+)%s*HP%]")) or 0
                         local hpB = tonumber(tostring(b):match("%[(%d+)%s*HP%]")) or 0
