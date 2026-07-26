@@ -1024,39 +1024,39 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             local rawOptions = {}
             local optButtons = {}
             local renderButtons
+            local currentSortMode = "A-Z"
 
             filterCycleBtn.MouseButton1Click:Connect(function()
                 playSound(CLICK_SOUND)
                 
                 local activeModes = customFilterModes or { "A-Z", "Z-A" }
                 
-                local currentText = filterCycleBtn.Text
                 local foundIdx = 1
                 for idx, modeName in ipairs(activeModes) do
-                    if modeName == currentText then
+                    if modeName == currentSortMode then
                         foundIdx = idx
                         break
                     end
                 end
                 
                 local nextIdx = (foundIdx % #activeModes) + 1
-                local mode = activeModes[nextIdx]
-                filterCycleBtn.Text = mode
+                currentSortMode = activeModes[nextIdx]
+                filterCycleBtn.Text = currentSortMode
                 
                 local sorted = {}
                 for _, v in ipairs(rawOptions) do table.insert(sorted, v) end
                 
-                if mode == "A-Z" then
+                if currentSortMode == "A-Z" then
                     table.sort(sorted, function(a, b) return tostring(a):lower() < tostring(b):lower() end)
-                elseif mode == "Z-A" then
+                elseif currentSortMode == "Z-A" then
                     table.sort(sorted, function(a, b) return tostring(a):lower() > tostring(b):lower() end)
-                elseif mode == "HP ↑" then
+                elseif currentSortMode == "HP up" then
                     table.sort(sorted, function(a, b)
                         local hpA = tonumber(tostring(a):match("%[(%d+)%s*HP%]")) or 0
                         local hpB = tonumber(tostring(b):match("%[(%d+)%s*HP%]")) or 0
                         return hpA < hpB
                     end)
-                elseif mode == "HP ↓" then
+                elseif currentSortMode == "HP dn" then
                     table.sort(sorted, function(a, b)
                         local hpA = tonumber(tostring(a):match("%[(%d+)%s*HP%]")) or 0
                         local hpB = tonumber(tostring(b):match("%[(%d+)%s*HP%]")) or 0
@@ -1161,18 +1161,17 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 rawOptions = newOptions or {}
                 local sorted = {}
                 for _, v in ipairs(rawOptions) do table.insert(sorted, v) end
-                local mode = SORT_MODES[sortIdx]
-                if mode == "A-Z" then
+                if currentSortMode == "A-Z" then
                     table.sort(sorted, function(a, b) return tostring(a):lower() < tostring(b):lower() end)
-                elseif mode == "Z-A" then
+                elseif currentSortMode == "Z-A" then
                     table.sort(sorted, function(a, b) return tostring(a):lower() > tostring(b):lower() end)
-                elseif mode == "HP ↑" then
+                elseif currentSortMode == "HP up" then
                     table.sort(sorted, function(a, b)
                         local hpA = tonumber(tostring(a):match("%[(%d+)%s*HP%]")) or 0
                         local hpB = tonumber(tostring(b):match("%[(%d+)%s*HP%]")) or 0
                         return hpA < hpB
                     end)
-                elseif mode == "HP ↓" then
+                elseif currentSortMode == "HP dn" then
                     table.sort(sorted, function(a, b)
                         local hpA = tonumber(tostring(a):match("%[(%d+)%s*HP%]")) or 0
                         local hpB = tonumber(tostring(b):match("%[(%d+)%s*HP%]")) or 0
