@@ -1057,20 +1057,6 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             local ddHoverInfo = TweenInfo.new(0.12)
             btn.MouseEnter:Connect(function()
                 playSound(HOVER_SOUND)
-                playTween(btn, ddHoverInfo, {BackgroundTransparency = 0.1})
-                playTween(btnScale, ddHoverInfo, {Scale = 1.02})
-            end)
-            btn.MouseLeave:Connect(function()
-                playTween(btn, ddHoverInfo, {BackgroundTransparency = 0.3})
-                playTween(btnScale, ddHoverInfo, {Scale = 1.0})
-            end)
-            
-            if typeof(options) ~= "function" then
-                updateOptions(options)
-            end
-            
-            return {
-                Frame = frame,
                 SetOptions = updateOptions,
                 SetSelected = function(val)
                     currentVal = val
@@ -1151,76 +1137,80 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             searchFrame.Size = UDim2.new(1, -10, 0, 26)
             searchFrame.BackgroundColor3 = THEME.BG
             searchFrame.BorderSizePixel = 0
-            searchFrame.LayoutOrder = 1
+            searchFrame.LayoutOrder = 0
             Instance.new("UICorner", searchFrame).CornerRadius = UDim.new(0, 6)
             
             local searchInput = Instance.new("TextBox", searchFrame)
-            searchInput.Size = UDim2.new(1, -10, 1, 0)
-            searchInput.Position = UDim2.new(0.5, 0, 0.5, 0)
-            searchInput.AnchorPoint = Vector2.new(0.5, 0.5)
+            searchInput.Size = UDim2.new(1, -54, 1, 0)
+            searchInput.Position = UDim2.new(0, 8, 0, 0)
             searchInput.BackgroundTransparency = 1
             searchInput.Text = ""
             searchInput.PlaceholderText = "Search..."
             searchInput.PlaceholderColor3 = THEME.TEXT_DIM
             searchInput.TextColor3 = THEME.TEXT
             searchInput.TextSize = 8.5
+            searchInput.TextXAlignment = Enum.TextXAlignment.Left
             searchInput.ClearTextOnFocus = false
             registerFontElement(searchInput)
             
-            -- Configurable Filter Bar (A-Z, Z-A, RESET)
-            local filterBar = Instance.new("Frame", listFrame)
-            filterBar.Size = UDim2.new(1, -10, 0, 22)
-            filterBar.BackgroundColor3 = THEME.BG
-            filterBar.BackgroundTransparency = 0.5
-            filterBar.BorderSizePixel = 0
-            filterBar.LayoutOrder = 0
-            Instance.new("UICorner", filterBar).CornerRadius = UDim.new(0, 5)
+            -- Single Filter Cycle Button at top-right of search box
+            local filterCycleBtn = Instance.new("TextButton", searchFrame)
+            filterCycleBtn.Size = UDim2.new(0, 42, 0, 18)
+            filterCycleBtn.Position = UDim2.new(1, -46, 0.5, -9)
+            filterCycleBtn.BackgroundColor3 = THEME.ACCENT
+            filterCycleBtn.Text = "A-Z"
+            filterCycleBtn.TextColor3 = THEME.TEXT
+            filterCycleBtn.TextSize = 7.5
+            filterCycleBtn.Font = Enum.Font.GothamBold
+            filterCycleBtn.BorderSizePixel = 0
+            Instance.new("UICorner", filterCycleBtn).CornerRadius = UDim.new(0, 4)
+            registerFontElement(filterCycleBtn)
+            registerAccentColor(filterCycleBtn)
 
-            local filterLayout = Instance.new("UIListLayout", filterBar)
-            filterLayout.FillDirection = Enum.FillDirection.Horizontal
-            filterLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-            filterLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-            filterLayout.Padding = UDim.new(0, 4)
-
-            local currentSortMode = "ORIG"
             local rawOptions = {}
             local optButtons = {}
             local renderButtons
 
-            local filterBtns = {}
-            local function makeFilterBtn(text, mode)
-                local fBtn = Instance.new("TextButton", filterBar)
-                fBtn.Size = UDim2.new(0, 44, 0, 18)
-                fBtn.BackgroundColor3 = (currentSortMode == mode) and THEME.ACCENT or THEME.BAR
-                fBtn.Text = text
-                fBtn.TextColor3 = THEME.TEXT
-                fBtn.TextSize = 7.5
-                fBtn.Font = Enum.Font.GothamBold
-                fBtn.BorderSizePixel = 0
-                Instance.new("UICorner", fBtn).CornerRadius = UDim.new(0, 4)
-                registerFontElement(fBtn)
-                table.insert(filterBtns, { btn = fBtn, mode = mode })
+            filterCycleBtn.MouseButton1Click:Connect(function()
+                playSound(CLICK_SOUND)
                 
-                fBtn.MouseButton1Click:Connect(function()
-                    playSound(CLICK_SOUND)
-                    currentSortMode = mode
-                    for _, item in ipairs(filterBtns) do
-                        item.btn.BackgroundColor3 = (item.mode == currentSortMode) and THEME.ACCENT or THEME.BAR
+                local activeModes = customFilterModes or { "A-Z", "Z-A" }
+                
+                local currentText = filterCycleBtn.Text
+                local foundIdx = 1
+                for idx, modeName in ipairs(activeModes) do
+                    if modeName == currentText then
+                        foundIdx = idx
+                        break
                     end
-                    local sorted = {}
-                    for _, v in ipairs(rawOptions) do table.insert(sorted, v) end
-                    if currentSortMode == "A-Z" then
-                        table.sort(sorted, function(a, b) return tostring(a):lower() < tostring(b):lower() end)
-                    elseif currentSortMode == "Z-A" then
-                        table.sort(sorted, function(a, b) return tostring(a):lower() > tostring(b):lower() end)
-                    end
-                    renderButtons(sorted)
-                end)
-            end
-
-            makeFilterBtn("A-Z", "A-Z")
-            makeFilterBtn("Z-A", "Z-A")
-            makeFilterBtn("RESET", "ORIG")
+                end
+                
+                local nextIdx = (foundIdx % #activeModes) + 1
+                local mode = activeModes[nextIdx]
+                filterCycleBtn.Text = mode
+                
+                local sorted = {}
+                for _, v in ipairs(rawOptions) do table.insert(sorted, v) end
+                
+                if mode == "A-Z" then
+                    table.sort(sorted, function(a, b) return tostring(a):lower() < tostring(b):lower() end)
+                elseif mode == "Z-A" then
+                    table.sort(sorted, function(a, b) return tostring(a):lower() > tostring(b):lower() end)
+                elseif mode == "HP ↑" then
+                    table.sort(sorted, function(a, b)
+                        local hpA = tonumber(tostring(a):match("%[(%d+)%s*HP%]")) or 0
+                        local hpB = tonumber(tostring(b):match("%[(%d+)%s*HP%]")) or 0
+                        return hpA < hpB
+                    end)
+                elseif mode == "HP ↓" then
+                    table.sort(sorted, function(a, b)
+                        local hpA = tonumber(tostring(a):match("%[(%d+)%s*HP%]")) or 0
+                        local hpB = tonumber(tostring(b):match("%[(%d+)%s*HP%]")) or 0
+                        return hpA > hpB
+                    end)
+                end
+                renderButtons(sorted)
+            end)
 
             local currentVal = defaultVal
             local open = false
@@ -1237,8 +1227,8 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                     for _, ob in ipairs(optButtons) do
                         if ob.Visible then numOptions = numOptions + 1 end
                     end
-                    local targetHeight = math.min((numOptions + 2) * 26 + 12, 160)
-                    listFrame.CanvasSize = UDim2.new(0, 0, 0, (numOptions + 2) * 26 + 12)
+                    local targetHeight = math.min((numOptions + 1) * 26 + 32, 160)
+                    listFrame.CanvasSize = UDim2.new(0, 0, 0, (numOptions + 1) * 26 + 32)
                     
                     playTween(btnArrow, tweenInfo, {Rotation = 180})
                     playTween(listFrame, tweenInfo, {Size = UDim2.new(1, -4, 0, targetHeight)})
@@ -1287,7 +1277,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                     optBtn.TextColor3 = THEME.TEXT
                     optBtn.TextSize = 8.5
                     optBtn.ZIndex = 21
-                    optBtn.LayoutOrder = idx + 2
+                    optBtn.LayoutOrder = idx + 1
                     optBtn.Visible = (query == "" or opt:lower():find(query, 1, true) ~= nil)
                     Instance.new("UICorner", optBtn).CornerRadius = UDim.new(0, 6)
                     registerFontElement(optBtn)
@@ -1317,10 +1307,23 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 rawOptions = newOptions or {}
                 local sorted = {}
                 for _, v in ipairs(rawOptions) do table.insert(sorted, v) end
-                if currentSortMode == "A-Z" then
+                local mode = SORT_MODES[sortIdx]
+                if mode == "A-Z" then
                     table.sort(sorted, function(a, b) return tostring(a):lower() < tostring(b):lower() end)
-                elseif currentSortMode == "Z-A" then
+                elseif mode == "Z-A" then
                     table.sort(sorted, function(a, b) return tostring(a):lower() > tostring(b):lower() end)
+                elseif mode == "HP ↑" then
+                    table.sort(sorted, function(a, b)
+                        local hpA = tonumber(tostring(a):match("%[(%d+)%s*HP%]")) or 0
+                        local hpB = tonumber(tostring(b):match("%[(%d+)%s*HP%]")) or 0
+                        return hpA < hpB
+                    end)
+                elseif mode == "HP ↓" then
+                    table.sort(sorted, function(a, b)
+                        local hpA = tonumber(tostring(a):match("%[(%d+)%s*HP%]")) or 0
+                        local hpB = tonumber(tostring(b):match("%[(%d+)%s*HP%]")) or 0
+                        return hpA > hpB
+                    end)
                 end
                 renderButtons(sorted)
             end
