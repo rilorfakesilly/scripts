@@ -989,10 +989,14 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             
             local searchFrame = Instance.new("Frame", listFrame)
             searchFrame.Size = UDim2.new(1, -10, 0, 26)
-            searchFrame.BackgroundColor3 = THEME.BG
+            searchFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+            searchFrame.BackgroundTransparency = 0
             searchFrame.BorderSizePixel = 0
             searchFrame.LayoutOrder = 0
             Instance.new("UICorner", searchFrame).CornerRadius = UDim.new(0, 6)
+            local sfStroke = Instance.new("UIStroke", searchFrame)
+            sfStroke.Color = THEME.BORDER
+            sfStroke.Thickness = 1
             
             local searchInput = Instance.new("TextBox", searchFrame)
             searchInput.Size = UDim2.new(1, -34, 1, 0)
@@ -1000,8 +1004,8 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             searchInput.BackgroundTransparency = 1
             searchInput.Text = ""
             searchInput.PlaceholderText = "Search..."
-            searchInput.PlaceholderColor3 = THEME.TEXT_DIM
-            searchInput.TextColor3 = THEME.TEXT
+            searchInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 130)
+            searchInput.TextColor3 = Color3.fromRGB(230, 230, 240)
             searchInput.TextSize = 8.5
             searchInput.TextXAlignment = Enum.TextXAlignment.Left
             searchInput.ClearTextOnFocus = false
@@ -1009,14 +1013,13 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             
             -- Single Filter Cycle Button (icon) at top-right of search box
             local filterCycleBtn = Instance.new("ImageButton", searchFrame)
-            filterCycleBtn.Size = UDim2.new(0, 20, 0, 20)
-            filterCycleBtn.Position = UDim2.new(1, -24, 0.5, -10)
+            filterCycleBtn.Size = UDim2.new(0, 18, 0, 18)
+            filterCycleBtn.Position = UDim2.new(1, -22, 0.5, -9)
             filterCycleBtn.BackgroundTransparency = 1
             filterCycleBtn.Image = "rbxassetid://94521628289852"
-            filterCycleBtn.ImageColor3 = THEME.ACCENT
+            filterCycleBtn.ImageColor3 = Color3.fromRGB(255, 255, 255)
             filterCycleBtn.ScaleType = Enum.ScaleType.Fit
             filterCycleBtn.BorderSizePixel = 0
-            table.insert(accentColorElements, {inst = filterCycleBtn, prop = "ImageColor3"})
 
             local rawOptions = {}
             local optButtons = {}
