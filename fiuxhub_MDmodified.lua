@@ -672,19 +672,16 @@ local rapidFireToolThread = nil
 local localCharacter = nil
 local localHrp = nil
 local localHumanoid = nil
-local rapidFireConnection = nil
-local camlockConnection = nil
-local strafeConnection = nil
-local desyncConnection = nil
-local hitboxConnection = nil
-local speedConnection = nil
-local flyConnection = nil
-local noclipConnection = nil
-local spinbotPhysicsConn = nil
-local spinbotRenderConn = nil
-local espConnection = nil
-local espPlayerAddedConnection = nil
-local espPlayerRemovingConnection = nil
+-- Single table for all RunService connections — keeps us under the Lua 200-local limit
+local _conns = {
+    rapidFire = nil,   camlock = nil,       strafe = nil,
+    desync = nil,      hitbox = nil,        speed = nil,
+    fly = nil,         noclip = nil,        spinbotPhysics = nil,
+    spinbotRender = nil, rainbow = nil,     esp = nil,
+    espAdded = nil,    espRemoving = nil
+}
+-- Short named aliases used in the handful of places that reference individual names
+local function _dc(k) if _conns[k] then _conns[k]:Disconnect() _conns[k]=nil end end
 
 local function startRapidFireLoop()
     if rapidFireToolThread then task.cancel(rapidFireToolThread) rapidFireToolThread = nil end
@@ -717,8 +714,8 @@ local function updateLocalCharCache(char)
         localHrp = char:WaitForChild("HumanoidRootPart", 3) or char:FindFirstChild("HumanoidRootPart")
         localHumanoid = char:WaitForChild("Humanoid", 3) or char:FindFirstChildOfClass("Humanoid")
         
-        if rapidFireConnection then rapidFireConnection:Disconnect() end
-        rapidFireConnection = char.ChildAdded:Connect(function(child)
+        if _conns.rapidFire then _conns.rapidFire:Disconnect() end
+        _conns.rapidFire = char.ChildAdded:Connect(function(child)
             if Options.RapidFire and Options.RapidFire.Value then
                 hookTool(child)
             end
@@ -731,9 +728,9 @@ local function updateLocalCharCache(char)
     else
         localHrp = nil
         localHumanoid = nil
-        if rapidFireConnection then
-            rapidFireConnection:Disconnect()
-            rapidFireConnection = nil
+        if _conns.rapidFire then
+            _conns.rapidFire:Disconnect()
+            _conns.rapidFire = nil
         end
     end
 end
@@ -815,7 +812,7 @@ local function updateCamlock()
     local tp = camlockSettings.targetPlayer
     if not tp then
         camlockSettings.isLockedOn = false
-        if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
+        if _conns.camlock then _conns.camlock:Disconnect() _conns.camlock = nil end
         if Options.CamlockActive and Options.CamlockActive.Value then
             task.defer(function()
                 Options.CamlockActive:SetValue(false)
@@ -827,7 +824,7 @@ local function updateCamlock()
     if not char or not hum or hum.Health <= 0 then
         camlockSettings.isLockedOn = false
         camlockSettings.targetPlayer = nil
-        if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
+        if _conns.camlock then _conns.camlock:Disconnect() _conns.camlock = nil end
         if Options.CamlockActive and Options.CamlockActive.Value then
             task.defer(function()
                 Options.CamlockActive:SetValue(false)
@@ -840,7 +837,7 @@ local function updateCamlock()
     if ko and ko.Value then
         camlockSettings.isLockedOn = false
         camlockSettings.targetPlayer = nil
-        if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
+        if _conns.camlock then _conns.camlock:Disconnect() _conns.camlock = nil end
         if Options.CamlockActive and Options.CamlockActive.Value then
             task.defer(function()
                 Options.CamlockActive:SetValue(false)
@@ -858,9 +855,9 @@ local function updateCamlock()
 end
 
 local function toggleCamlockConnection(state)
-    if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
+    if _conns.camlock then _conns.camlock:Disconnect() _conns.camlock = nil end
     if state then
-        camlockConnection = RunService.RenderStepped:Connect(updateCamlock)
+        _conns.camlock = RunService.RenderStepped:Connect(updateCamlock)
     end
 end
 
@@ -914,9 +911,9 @@ local function updateStrafe(dt)
 end
 
 local function toggleStrafeConnection(state)
-    if strafeConnection then strafeConnection:Disconnect() strafeConnection = nil end
+    if _conns.strafe then _conns.strafe:Disconnect() _conns.strafe = nil end
     if state then
-        strafeConnection = RunService.RenderStepped:Connect(updateStrafe)
+        _conns.strafe = RunService.RenderStepped:Connect(updateStrafe)
     end
 end
 
@@ -981,9 +978,9 @@ local function updateDesync()
 end
 
 local function toggleDesyncConnection(state)
-    if desyncConnection then desyncConnection:Disconnect() desyncConnection = nil end
+    if _conns.desync then _conns.desync:Disconnect() _conns.desync = nil end
     if state then
-        desyncConnection = RunService.Heartbeat:Connect(updateDesync)
+        _conns.desync = RunService.Heartbeat:Connect(updateDesync)
     else
         resetCameraToPlayer()
     end
@@ -999,7 +996,6 @@ local function toggleDesync(state)
     end
 end
 
--- FOV rendering removed
 
 --------------------------------------------------
 -- HITBOX EXPANDER
@@ -1095,9 +1091,9 @@ local function runHitboxExpander()
 end
 
 local function toggleHitboxConnection(state)
-    if hitboxConnection then hitboxConnection:Disconnect() hitboxConnection = nil end
+    if _conns.hitbox then _conns.hitbox:Disconnect() _conns.hitbox = nil end
     if state then
-        hitboxConnection = RunService.RenderStepped:Connect(runHitboxExpander)
+        _conns.hitbox = RunService.RenderStepped:Connect(runHitboxExpander)
     else
         if hitboxSettings.expandedPlayer then revertHitbox(hitboxSettings.expandedPlayer) hitboxSettings.expandedPlayer = nil end
     end
@@ -1116,9 +1112,9 @@ local function updateSpeed()
 end
 
 local function toggleSpeedConnection(state)
-    if speedConnection then speedConnection:Disconnect() speedConnection = nil end
+    if _conns.speed then _conns.speed:Disconnect() _conns.speed = nil end
     if state then
-        speedConnection = RunService.Heartbeat:Connect(updateSpeed)
+        _conns.speed = RunService.Heartbeat:Connect(updateSpeed)
     end
 end
 
@@ -1153,8 +1149,8 @@ do
                     end
                 end
             end
-            if not noclipConnection then
-                noclipConnection = RunService.Heartbeat:Connect(function()
+            if not _conns.noclip then
+                _conns.noclip = RunService.Heartbeat:Connect(function()
                     local char = localPlayer.Character
                     if char then
                         for _, part in pairs(char:GetDescendants()) do
@@ -1169,9 +1165,9 @@ do
                 end)
             end
         else
-            if noclipConnection then
-                noclipConnection:Disconnect()
-                noclipConnection = nil
+            if _conns.noclip then
+                _conns.noclip:Disconnect()
+                _conns.noclip = nil
             end
             if noclipActive then
                 noclipActive = false
@@ -1255,14 +1251,14 @@ local function updateFly(dt)
 end
 
 local function toggleFlyConnection(state)
-    if flyConnection then flyConnection:Disconnect() flyConnection = nil end
+    if _conns.fly then _conns.fly:Disconnect() _conns.fly = nil end
     if state then
         flyHoverPos  = nil
         flyHoverLook = nil
         if localHumanoid then
             localHumanoid:ChangeState(Enum.HumanoidStateType.Physics)
         end
-        flyConnection = RunService.Heartbeat:Connect(updateFly)
+        _conns.fly = RunService.Heartbeat:Connect(updateFly)
         if flyNoclipEnabled then setNoclip(true) end
     else
         flyHoverPos  = nil
@@ -1510,10 +1506,7 @@ local selfVars = {
 }
 local selfHighlightEnabled = false
 local selfHighlight = nil
-local selfHighlightFillColor = selfVars.fillColor
-local selfHighlightOutlineColor = selfVars.outlineColor
-local selfHighlightFillTransparency = selfVars.fillTransparency
-local selfHighlightOutlineTransparency = selfVars.outlineTransparency
+-- Color/transparency stored directly in selfVars; aliases removed to free registers
 local selfMaterialMode = "None"
 local initialChar = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 
@@ -1732,7 +1725,7 @@ local function updateTrailColorOnly()
     end
 end
 
-local rainbowConnection = nil
+-- rainbowConnection merged into _conns.rainbow
 local function updateRainbowTrail(dt)
     rainbowHue = (rainbowHue + dt * 0.5) % 1
     if trailConfig.enabled and trailConfig.colorMode == "Rainbow" then
@@ -1744,9 +1737,9 @@ local function updateRainbowTrail(dt)
 end
 
 local function toggleRainbowConnection(state)
-    if rainbowConnection then rainbowConnection:Disconnect() rainbowConnection = nil end
+    if _conns.rainbow then _conns.rainbow:Disconnect() _conns.rainbow = nil end
     if state then
-        rainbowConnection = RunService.Heartbeat:Connect(updateRainbowTrail)
+        _conns.rainbow = RunService.Heartbeat:Connect(updateRainbowTrail)
     end
 end
 
@@ -1787,19 +1780,19 @@ local function applySelfHighlight(char)
     if selfHighlight then pcall(function() selfHighlight:Destroy() end) end
     selfHighlight = Instance.new("Highlight")
     selfHighlight.Name = "FIXZ_SelfHL"
-    selfHighlight.FillColor = selfHighlightFillColor
-    selfHighlight.OutlineColor = selfHighlightOutlineColor
-    selfHighlight.FillTransparency = selfHighlightFillTransparency
-    selfHighlight.OutlineTransparency = selfHighlightOutlineTransparency
+    selfHighlight.FillColor = selfVars.fillColor
+    selfHighlight.OutlineColor = selfVars.outlineColor
+    selfHighlight.FillTransparency = selfVars.fillTransparency
+    selfHighlight.OutlineTransparency = selfVars.outlineTransparency
     selfHighlight.Parent = char
 end
 
 local function updateSelfHighlight()
     if selfHighlightEnabled and selfHighlight and selfHighlight.Parent then
-        selfHighlight.FillColor = selfHighlightFillColor
-        selfHighlight.OutlineColor = selfHighlightOutlineColor
-        selfHighlight.FillTransparency = selfHighlightFillTransparency
-        selfHighlight.OutlineTransparency = selfHighlightOutlineTransparency
+        selfHighlight.FillColor = selfVars.fillColor
+        selfHighlight.OutlineColor = selfVars.outlineColor
+        selfHighlight.FillTransparency = selfVars.fillTransparency
+        selfHighlight.OutlineTransparency = selfVars.outlineTransparency
     else
         local char = localPlayer.Character
         if char and selfHighlightEnabled then
@@ -1879,17 +1872,12 @@ end
 
 
 local function startESP()
-    if espConnection then return end
-    
-    for _, p in pairs(Players:GetPlayers()) do
-        createESP(p)
-    end
-    
-    espPlayerAddedConnection = Players.PlayerAdded:Connect(createESP)
-    espPlayerRemovingConnection = Players.PlayerRemoving:Connect(removeESP)
-    
+    if _conns.esp then return end
+    for _, p in pairs(Players:GetPlayers()) do createESP(p) end
+    _conns.espAdded = Players.PlayerAdded:Connect(createESP)
+    _conns.espRemoving = Players.PlayerRemoving:Connect(removeESP)
     local espThrottleFrame = 0
-    espConnection = RunService.RenderStepped:Connect(function()
+    _conns.esp = RunService.RenderStepped:Connect(function()
         -- Throttle ESP to every 2 frames to halve render thread cost
         espThrottleFrame = espThrottleFrame + 1
         if espThrottleFrame % 2 ~= 0 then return end
@@ -2062,21 +2050,8 @@ local function startESP()
 end
 
 local function stopESP()
-    if espConnection then
-        espConnection:Disconnect()
-        espConnection = nil
-    end
-    if espPlayerAddedConnection then
-        espPlayerAddedConnection:Disconnect()
-        espPlayerAddedConnection = nil
-    end
-    if espPlayerRemovingConnection then
-        espPlayerRemovingConnection:Disconnect()
-        espPlayerRemovingConnection = nil
-    end
-    for p in pairs(espPlayers) do
-        removeESP(p)
-    end
+    _dc("esp") _dc("espAdded") _dc("espRemoving")
+    for p in pairs(espPlayers) do removeESP(p) end
 end
 
 localPlayer.CharacterAdded:Connect(function(c)
@@ -2149,12 +2124,11 @@ local function updateSpinbotPhysics()
 end
 
 local function toggleSpinbotConnection(state)
-    if spinbotPhysicsConn then spinbotPhysicsConn:Disconnect() spinbotPhysicsConn = nil end
-    if spinbotRenderConn then spinbotRenderConn:Disconnect() spinbotRenderConn = nil end
+    _dc("spinbotPhysics") _dc("spinbotRender")
     restoreJoints()
     if state then
-        spinbotPhysicsConn = RunService.Heartbeat:Connect(updateSpinbotPhysics)
-        spinbotRenderConn = RunService.RenderStepped:Connect(updateSpinbotRender)
+        _conns.spinbotPhysics = RunService.Heartbeat:Connect(updateSpinbotPhysics)
+        _conns.spinbotRender = RunService.RenderStepped:Connect(updateSpinbotRender)
     end
 end
 
@@ -2406,10 +2380,6 @@ Tabs.Rage:AddSlider("StrafeHeight", {
 -- BUILD UI - TARGETING SECTION
 --------------------------------------------------
 
--- Upvalue refs shared across targeting sub-blocks
-local avatarImage       = nil
-local playerInfoLabel   = nil
-local targetAvatarFrame = nil
 
 do
     --------------------------------------------------
@@ -3146,7 +3116,7 @@ Tabs.Visuals:AddColorpicker("SelfHighlightFillColor", {
     Title = "Self Fill Color",
     Default = Color3.fromRGB(0, 200, 255)
 }):OnChanged(function(v)
-    selfHighlightFillColor = v
+    selfVars.fillColor = v
     updateSelfHighlight()
 end)
 
@@ -3154,7 +3124,7 @@ Tabs.Visuals:AddSlider("SelfHighlightFillBrightness", {
     Title = "Self Fill Brightness (Opacity)",
     Default = 50, Min = 0, Max = 100, Rounding = 0
 }):OnChanged(function(v)
-    selfHighlightFillTransparency = (100 - v) / 100
+    selfVars.fillTransparency = (100 - v) / 100
     updateSelfHighlight()
 end)
 
@@ -3162,7 +3132,7 @@ Tabs.Visuals:AddColorpicker("SelfHighlightOutlineColor", {
     Title = "Self Outline Color",
     Default = Color3.fromRGB(255, 255, 255)
 }):OnChanged(function(v)
-    selfHighlightOutlineColor = v
+    selfVars.outlineColor = v
     updateSelfHighlight()
 end)
 
@@ -3170,7 +3140,7 @@ Tabs.Visuals:AddSlider("SelfHighlightOutlineBrightness", {
     Title = "Self Outline Brightness (Opacity)",
     Default = 100, Min = 0, Max = 100, Rounding = 0
 }):OnChanged(function(v)
-    selfHighlightOutlineTransparency = (100 - v) / 100
+    selfVars.outlineTransparency = (100 - v) / 100
     updateSelfHighlight()
 end)
 
@@ -3824,33 +3794,18 @@ Tabs.Settings:AddButton({
         stopESP()
         chinaHatConfig.enabled = false
         stopChinaHat()
-        if camlockConnection then camlockConnection:Disconnect() camlockConnection = nil end
-        if strafeConnection then strafeConnection:Disconnect() strafeConnection = nil end
-        if desyncConnection then desyncConnection:Disconnect() desyncConnection = nil end
-        if hitboxConnection then hitboxConnection:Disconnect() hitboxConnection = nil end
-        if flyConnection then flyConnection:Disconnect() flyConnection = nil end
-        if spinbotPhysicsConn then spinbotPhysicsConn:Disconnect() spinbotPhysicsConn = nil end
-        if spinbotRenderConn then spinbotRenderConn:Disconnect() spinbotRenderConn = nil end
+        _dc("camlock") _dc("strafe") _dc("desync")
+        _dc("hitbox") _dc("fly") _dc("spinbotPhysics") _dc("spinbotRender")
         restoreJoints()
-        if rainbowConnection then rainbowConnection:Disconnect() rainbowConnection = nil end
-        if speedConnection then
-            speedConnection:Disconnect()
-            speedConnection = nil
-        end
+        _dc("rainbow") _dc("speed")
         multiEquipSettings.enabled = false
         hyperFireEnabled = false
         if hyperFireConnection then hyperFireConnection:Disconnect() hyperFireConnection = nil end
         if toleranceDescConn then toleranceDescConn:Disconnect() toleranceDescConn = nil end
         toleranceCooldowns = {}
         rapidFireEnabled = false
-        if rapidFireToolThread then
-            task.cancel(rapidFireToolThread)
-            rapidFireToolThread = nil
-        end
-        if rapidFireConnection then
-            rapidFireConnection:Disconnect()
-            rapidFireConnection = nil
-        end
+        if rapidFireToolThread then task.cancel(rapidFireToolThread) rapidFireToolThread = nil end
+        _dc("rapidFire")
         if toolActivationConnection then
             toolActivationConnection:Disconnect()
             toolActivationConnection = nil
