@@ -493,7 +493,20 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     gearBtn.MouseButton1Click:Connect(function()
         playSound(CLICK_SOUND)
         if selectTab then
-            selectTab("MISC")
+            if currentTab == "MISC" then
+                -- Toggle back to first non-MISC visible tab
+                local firstTab = nil
+                for name, tData in pairs(tabs) do
+                    if name ~= "MISC" and tData.Button and tData.Button.Visible then
+                        if not firstTab or tData.Order < tabs[firstTab].Order then
+                            firstTab = name
+                        end
+                    end
+                end
+                if firstTab then selectTab(firstTab, true) end
+            elseif tabs["MISC"] then
+                selectTab("MISC", true)
+            end
         end
     end)
 
