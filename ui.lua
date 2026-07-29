@@ -448,7 +448,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Text = titleText:upper()
     titleLabel.TextColor3 = THEME.TEXT
-    titleLabel.TextSize = 10
+    titleLabel.TextSize = 12
     titleLabel.Font = Enum.Font.GothamBold
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
     registerFontElement(titleLabel)
@@ -459,7 +459,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     subLabel.BackgroundTransparency = 1
     subLabel.Text = subtitleText:upper()
     subLabel.TextColor3 = THEME.TEXT_DIM
-    subLabel.TextSize = 8
+    subLabel.TextSize = 10
     subLabel.Font = Enum.Font.GothamBold
     subLabel.TextXAlignment = Enum.TextXAlignment.Left
     registerFontElement(subLabel)
@@ -838,7 +838,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             lbl.BackgroundTransparency = 1
             lbl.Text = text:upper()
             lbl.TextColor3 = THEME.TEXT
-            lbl.TextSize = 8.5
+            lbl.TextSize = 11
             lbl.Font = Enum.Font.GothamBold
             lbl.TextXAlignment = Enum.TextXAlignment.Left
             registerFontElement(lbl)
@@ -1046,7 +1046,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             lbl.BackgroundTransparency = 1
             lbl.Text = label:upper()
             lbl.TextColor3 = THEME.TEXT_DIM
-            lbl.TextSize = 8
+            lbl.TextSize = 11
             lbl.Font = Enum.Font.GothamBold
             lbl.TextXAlignment = Enum.TextXAlignment.Left
             registerFontElement(lbl)
@@ -1059,7 +1059,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             btn.BackgroundTransparency = 0.3
             btn.Text = defaultVal
             btn.TextColor3 = THEME.TEXT
-            btn.TextSize = 8.5
+            btn.TextSize = 11
             btn.Font = Enum.Font.GothamBold
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
             registerFontElement(btn)
@@ -1075,7 +1075,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             btnArrow.BackgroundTransparency = 1
             btnArrow.Text = "▼"
             btnArrow.TextColor3 = THEME.TEXT
-            btnArrow.TextSize = 8
+            btnArrow.TextSize = 10
             btnArrow.Font = Enum.Font.GothamBold
             registerFontElement(btnArrow)
             
@@ -1349,7 +1349,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             textInput.PlaceholderText = placeholder
             textInput.PlaceholderColor3 = THEME.TEXT_DIM
             textInput.TextColor3 = THEME.TEXT
-            textInput.TextSize = 8.5
+            textInput.TextSize = 11
             textInput.Font = Enum.Font.GothamBold
             textInput.ClearTextOnFocus = false
             registerFontElement(textInput)
@@ -1396,7 +1396,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             btn.BackgroundColor3 = defaultColor
             btn.Text = text:upper()
             btn.TextColor3 = THEME.TEXT
-            btn.TextSize = 9
+            btn.TextSize = 11
             btn.Font = Enum.Font.GothamBold
             btn.BorderSizePixel = 0
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
@@ -1485,7 +1485,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             titleLabel.BackgroundTransparency = 1
             titleLabel.Text = title:upper()
             titleLabel.TextColor3 = THEME.TEXT
-            titleLabel.TextSize = 8.5
+            titleLabel.TextSize = 11
             titleLabel.Font = Enum.Font.GothamBold
             titleLabel.TextXAlignment = Enum.TextXAlignment.Left
             registerFontElement(titleLabel)
@@ -1847,7 +1847,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         tabBtn.Text = tabName:upper()
         tabBtn.TextColor3 = THEME.TEXT_DIM
         tabBtn.Font = Enum.Font.GothamBold
-        tabBtn.TextSize = 9
+        tabBtn.TextSize = 11
         tabBtn.BorderSizePixel = 0
         tabBtn.ZIndex = 5
         registerAccentColor(tabBtn)
