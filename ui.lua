@@ -417,28 +417,27 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         screenGui.Parent = PlayerGui
     end
     
-    -- Outer glow layer (sits behind main, slightly larger, blurred via transparency layers)
-    local glowOuter = Instance.new("Frame", screenGui)
-    glowOuter.Size = UDim2.new(0, 305, 0, 400)
-    glowOuter.Position = UDim2.new(0.5, 0, 0.5, 0)
-    glowOuter.AnchorPoint = Vector2.new(0.5, 0.5)
-    glowOuter.BackgroundColor3 = THEME.ACCENT
-    glowOuter.BackgroundTransparency = 0.82
-    glowOuter.BorderSizePixel = 0
-    glowOuter.ZIndex = 0
-    Instance.new("UICorner", glowOuter).CornerRadius = UDim.new(0, 22)
-    registerGlowFrame(glowOuter)
+    -- ── Soft bloom glow (4 concentric layers fading outward) ──────────────
+    -- Each layer is progressively larger and more transparent to simulate
+    -- a smooth radial gradient falloff around the window border.
+    local glowLayers = {}
+    local glowOffsets = {6, 16, 28, 44}         -- px added to each side vs main
+    local glowAlphas  = {0.55, 0.74, 0.87, 0.95} -- BackgroundTransparency per layer
+    local glowRadii   = {18, 20, 24, 28}          -- UICorner radius per layer
 
-    local glowInner = Instance.new("Frame", screenGui)
-    glowInner.Size = UDim2.new(0, 289, 0, 384)
-    glowInner.Position = UDim2.new(0.5, 0, 0.5, 0)
-    glowInner.AnchorPoint = Vector2.new(0.5, 0.5)
-    glowInner.BackgroundColor3 = THEME.ACCENT
-    glowInner.BackgroundTransparency = 0.91
-    glowInner.BorderSizePixel = 0
-    glowInner.ZIndex = 0
-    Instance.new("UICorner", glowInner).CornerRadius = UDim.new(0, 18)
-    registerGlowFrame(glowInner)
+    for i, offset in ipairs(glowOffsets) do
+        local g = Instance.new("Frame", screenGui)
+        g.Size = UDim2.new(0, 275 + offset * 2, 0, 370 + offset * 2)
+        g.Position = UDim2.new(0.5, 0, 0.5, 0)
+        g.AnchorPoint = Vector2.new(0.5, 0.5)
+        g.BackgroundColor3 = THEME.ACCENT
+        g.BackgroundTransparency = glowAlphas[i]
+        g.BorderSizePixel = 0
+        g.ZIndex = 0
+        Instance.new("UICorner", g).CornerRadius = UDim.new(0, glowRadii[i])
+        registerGlowFrame(g)
+        table.insert(glowLayers, {frame = g, offset = offset})
+    end
 
     local main = Instance.new("Frame", screenGui)
     main.Size = UDim2.new(0, 275, 0, 370)
@@ -461,19 +460,22 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     registerGradientColor(mainStrokeGrad)
     registerGradient(mainStrokeGrad)
 
-    -- Keep glow frames anchored to main when main moves
+    -- Keep all glow layers anchored to main when it moves/resizes/hides
     main:GetPropertyChangedSignal("Position"):Connect(function()
-        glowOuter.Position = main.Position
-        glowInner.Position = main.Position
+        for _, gl in ipairs(glowLayers) do
+            gl.frame.Position = main.Position
+        end
     end)
     main:GetPropertyChangedSignal("Size"):Connect(function()
         local s = main.AbsoluteSize
-        glowOuter.Size  = UDim2.new(0, s.X + 30, 0, s.Y + 30)
-        glowInner.Size  = UDim2.new(0, s.X + 14, 0, s.Y + 14)
+        for _, gl in ipairs(glowLayers) do
+            gl.frame.Size = UDim2.new(0, s.X + gl.offset * 2, 0, s.Y + gl.offset * 2)
+        end
     end)
     main:GetPropertyChangedSignal("Visible"):Connect(function()
-        glowOuter.Visible = main.Visible
-        glowInner.Visible = main.Visible
+        for _, gl in ipairs(glowLayers) do
+            gl.frame.Visible = main.Visible
+        end
     end)
     
     -- Header
@@ -826,6 +828,20 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         TabBar.CanvasSize = UDim2.new(0, tabBarLayout.AbsoluteContentSize.X, 1, 0)
     end)
 
+    -- Mouse-wheel scrolls the tab bar horizontally (left/right)
+    local SCROLL_STEP = 80
+    local tabBarScrollConn = TabBar.MouseWheelForward:Connect(function()
+        local target = math.max(0, TabBar.CanvasPosition.X - SCROLL_STEP)
+        playTween(TabBar, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CanvasPosition = Vector2.new(target, 0)})
+    end)
+    local tabBarScrollBackConn = TabBar.MouseWheelBackward:Connect(function()
+        local maxX = math.max(0, TabBar.CanvasSize.X.Offset - TabBar.AbsoluteSize.X)
+        local target = math.min(maxX, TabBar.CanvasPosition.X + SCROLL_STEP)
+        playTween(TabBar, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CanvasPosition = Vector2.new(target, 0)})
+    end)
+    table.insert(Library.Connections, tabBarScrollConn)
+    table.insert(Library.Connections, tabBarScrollBackConn)
+
     local indicatorBar = Instance.new("Frame", header)
     indicatorBar.Size = UDim2.new(0, 36, 0, 2.2)
     indicatorBar.Position = UDim2.new(0, 0, 0, 64)
@@ -880,7 +896,12 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
 
         for name, tabData in pairs(tabs) do
             if name == tabName then
-                playTween(tabData.Button, fadeInfo, {TextColor3 = THEME.ACCENT})
+                -- Active tab: accent text + bright pill
+                playTween(tabData.Button, fadeInfo, {
+                    TextColor3 = THEME.ACCENT,
+                    BackgroundColor3 = Color3.fromRGB(35, 35, 44),
+                    BackgroundTransparency = 0
+                })
                 playTween(tabData.Container, slideTweenInfo, {Position = UDim2.new(0, 0, 0, 66)})
 
                 -- Indicator bar: position relative to the ScrollingFrame canvas offset
@@ -899,7 +920,11 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 )
                 playTween(TabBar, slideTweenInfo, {CanvasPosition = Vector2.new(scrollTarget, 0)})
             else
-                playTween(tabData.Button, fadeInfo, {TextColor3 = THEME.TEXT_DIM})
+                -- Inactive tab: dim text + transparent pill
+                playTween(tabData.Button, fadeInfo, {
+                    TextColor3 = Color3.fromRGB(190, 190, 200),
+                    BackgroundTransparency = 0.35
+                })
                 if tabData.Order < tabs[tabName].Order then
                     playTween(tabData.Container, slideTweenInfo, {Position = UDim2.new(-1.1, 0, 0, 66)})
                 else
@@ -1965,14 +1990,23 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         end)
         
         local tabBtn = Instance.new("TextButton", TabBar)
-        tabBtn.BackgroundTransparency = 1
+        tabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 44)  -- subtle dark pill
+        tabBtn.BackgroundTransparency = 0.35
         tabBtn.Text = tabName:upper()
-        tabBtn.TextColor3 = THEME.TEXT_DIM
+        tabBtn.TextColor3 = Color3.fromRGB(190, 190, 200)     -- visible but dim
         tabBtn.Font = Enum.Font.GothamBold
         tabBtn.TextSize = 11
-        tabBtn.Size = UDim2.new(0, TAB_MIN_W, 1, 0)  -- initial size; realignTabs will correct it
+        tabBtn.Size = UDim2.new(0, TAB_MIN_W, 1, 0)
         tabBtn.BorderSizePixel = 0
         tabBtn.ZIndex = 5
+        -- Rounded pill corners on each tab button
+        Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 6)
+        -- Thin separator stroke
+        local tabStroke = Instance.new("UIStroke", tabBtn)
+        tabStroke.Color = THEME.BORDER
+        tabStroke.Thickness = 0.8
+        tabStroke.Transparency = 0.6
+        tabStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         registerAccentColor(tabBtn)
         registerFontElement(tabBtn)
         
@@ -2001,12 +2035,18 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         tabBtn.MouseEnter:Connect(function()
             if currentTab ~= tabName then
                 playSound(HOVER_SOUND)
-                playTween(tabBtn, tabHoverInfo, {TextColor3 = THEME.TEXT})
+                playTween(tabBtn, tabHoverInfo, {
+                    TextColor3 = THEME.TEXT,
+                    BackgroundTransparency = 0.15
+                })
             end
         end)
         tabBtn.MouseLeave:Connect(function()
             if currentTab ~= tabName then
-                playTween(tabBtn, tabHoverInfo, {TextColor3 = THEME.TEXT_DIM})
+                playTween(tabBtn, tabHoverInfo, {
+                    TextColor3 = Color3.fromRGB(190, 190, 200),
+                    BackgroundTransparency = 0.35
+                })
             end
         end)
         
