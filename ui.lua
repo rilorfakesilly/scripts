@@ -336,9 +336,14 @@ local function applyTheme(name)
         if inst and inst.Parent then
             local isTab = false
             for tabName, tabData in pairs(tabs) do
-                if tabData.Button == inst then
+                local btn = tabData.Button
+                local lbl = btn and btn:FindFirstChild("Label")
+                if btn == inst or lbl == inst then
                     isTab = true
-                    inst.TextColor3 = (currentTab == tabName) and THEME.ACCENT or Color3.fromRGB(185, 185, 200)
+                    local targetLbl = lbl or btn
+                    if targetLbl:IsA("TextLabel") then
+                        targetLbl.TextColor3 = (currentTab == tabName) and THEME.ACCENT or Color3.fromRGB(200, 200, 215)
+                    end
                     break
                 end
             end
@@ -885,8 +890,8 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         for idx, name in ipairs(visibleTabs) do
             local tData = tabs[name]
             local sz = TextService:GetTextSize(name:upper(), 11, Enum.Font.GothamBold, Vector2.new(1000, 1000))
-            local tabW = math.max(38, sz.X + 14)
-            tData.Button.Size = UDim2.new(0, tabW, 1, 0)
+            local tabW = math.max(48, sz.X + 18)
+            tData.Button.Size = UDim2.new(0, tabW, 0, 22)
             tData.Button.LayoutOrder = idx
             totalW = totalW + tabW + 6
         end
@@ -908,31 +913,44 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         local fadeInfo = TweenInfo.new(0.12)
 
         for name, tabData in pairs(tabs) do
+            local btn = tabData.Button
+            local lbl = btn:FindFirstChild("Label")
+            local stroke = btn:FindFirstChildOfClass("UIStroke")
+
             if name == tabName then
-                playTween(tabData.Button, fadeInfo, {
-                    TextColor3 = THEME.ACCENT
+                if lbl then playTween(lbl, fadeInfo, {TextColor3 = THEME.ACCENT}) end
+                playTween(btn, fadeInfo, {
+                    BackgroundColor3 = THEME.ACCENT,
+                    BackgroundTransparency = 0.85
                 })
+                if stroke then playTween(stroke, fadeInfo, {Color = THEME.ACCENT, Transparency = 0.3}) end
+
                 playTween(tabData.Container, slideTweenInfo, {Position = UDim2.new(0, 0, 0, 66)})
 
-                local btn = tabData.Button
-                local btnAbsX = btn.AbsolutePosition.X - TabBar.AbsolutePosition.X + TabBar.CanvasPosition.X
-                local indicatorW = math.max(16, btn.AbsoluteSize.X - 10)
-                playTween(indicatorBar, slideTweenInfo, {
-                    Position = UDim2.new(0, btnAbsX + 5, 0, 60),
-                    Size = UDim2.new(0, indicatorW, 0, 2),
-                    BackgroundColor3 = THEME.ACCENT
-                })
+                task.defer(function()
+                    local btnAbsX = btn.AbsolutePosition.X - TabBar.AbsolutePosition.X + TabBar.CanvasPosition.X
+                    local indicatorW = math.max(16, btn.AbsoluteSize.X)
+                    playTween(indicatorBar, slideTweenInfo, {
+                        Position = UDim2.new(0, btnAbsX, 0, 61),
+                        Size = UDim2.new(0, indicatorW, 0, 2),
+                        BackgroundColor3 = THEME.ACCENT
+                    })
 
-                local scrollTarget = math.clamp(
-                    btnAbsX + btn.AbsoluteSize.X / 2 - TabBar.AbsoluteSize.X / 2,
-                    0,
-                    math.max(0, TabBar.CanvasSize.X.Offset - TabBar.AbsoluteSize.X)
-                )
-                playTween(TabBar, slideTweenInfo, {CanvasPosition = Vector2.new(scrollTarget, 0)})
+                    local scrollTarget = math.clamp(
+                        btnAbsX + btn.AbsoluteSize.X / 2 - TabBar.AbsoluteSize.X / 2,
+                        0,
+                        math.max(0, TabBar.CanvasSize.X.Offset - TabBar.AbsoluteSize.X)
+                    )
+                    playTween(TabBar, slideTweenInfo, {CanvasPosition = Vector2.new(scrollTarget, 0)})
+                end)
             else
-                playTween(tabData.Button, fadeInfo, {
-                    TextColor3 = Color3.fromRGB(185, 185, 200)
+                if lbl then playTween(lbl, fadeInfo, {TextColor3 = Color3.fromRGB(200, 200, 215)}) end
+                playTween(btn, fadeInfo, {
+                    BackgroundColor3 = Color3.fromRGB(32, 32, 42),
+                    BackgroundTransparency = 0.4
                 })
+                if stroke then playTween(stroke, fadeInfo, {Color = THEME.BORDER, Transparency = 0.7}) end
+
                 if tabData.Order < tabs[tabName].Order then
                     playTween(tabData.Container, slideTweenInfo, {Position = UDim2.new(-1.1, 0, 0, 66)})
                 else
@@ -1998,16 +2016,33 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         end)
         
         local tabBtn = Instance.new("TextButton", TabBar)
-        tabBtn.BackgroundTransparency = 1   -- 100% clean background, no dark blocks
-        tabBtn.Text = tabName:upper()
-        tabBtn.TextColor3 = Color3.fromRGB(185, 185, 200)
-        tabBtn.Font = Enum.Font.GothamBold
-        tabBtn.TextSize = 11
-        tabBtn.Size = UDim2.new(0, 44, 1, 0)
+        tabBtn.Name = "Tab_" .. tabName
+        tabBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 42)
+        tabBtn.BackgroundTransparency = 0.4
+        tabBtn.Text = ""
         tabBtn.BorderSizePixel = 0
         tabBtn.ZIndex = 11
-        registerAccentColor(tabBtn)
-        registerFontElement(tabBtn)
+        tabBtn.AutoButtonColor = false
+        Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 6)
+
+        local tabStroke = Instance.new("UIStroke", tabBtn)
+        tabStroke.Color = THEME.BORDER
+        tabStroke.Thickness = 1
+        tabStroke.Transparency = 0.7
+
+        local tabLbl = Instance.new("TextLabel", tabBtn)
+        tabLbl.Name = "Label"
+        tabLbl.Size = UDim2.new(1, 0, 1, 0)
+        tabLbl.Position = UDim2.new(0, 0, 0, 0)
+        tabLbl.BackgroundTransparency = 1
+        tabLbl.Text = tabName:upper()
+        tabLbl.TextColor3 = Color3.fromRGB(200, 200, 215)
+        tabLbl.Font = Enum.Font.GothamBold
+        tabLbl.TextSize = 11
+        tabLbl.TextXAlignment = Enum.TextXAlignment.Center
+        tabLbl.TextYAlignment = Enum.TextYAlignment.Center
+        tabLbl.ZIndex = 12
+        registerFontElement(tabLbl)
         
         tabs[tabName] = {
             Container = contentFrame,
@@ -2034,15 +2069,21 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         tabBtn.MouseEnter:Connect(function()
             if currentTab ~= tabName then
                 playSound(HOVER_SOUND)
+                playTween(tabLbl, tabHoverInfo, {
+                    TextColor3 = Color3.fromRGB(245, 245, 255)
+                })
                 playTween(tabBtn, tabHoverInfo, {
-                    TextColor3 = Color3.fromRGB(240, 240, 255)
+                    BackgroundTransparency = 0.2
                 })
             end
         end)
         tabBtn.MouseLeave:Connect(function()
             if currentTab ~= tabName then
+                playTween(tabLbl, tabHoverInfo, {
+                    TextColor3 = Color3.fromRGB(200, 200, 215)
+                })
                 playTween(tabBtn, tabHoverInfo, {
-                    TextColor3 = Color3.fromRGB(185, 185, 200)
+                    BackgroundTransparency = 0.4
                 })
             end
         end)
