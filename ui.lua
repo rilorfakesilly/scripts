@@ -93,8 +93,13 @@ local themeableAccents = {}
 local themeableAccentLights = {}
 local themeableScrollBars = {}
 local themeableFonts = {}
+local themeableGlows = {}   -- tracks glow frames for accent color sync
 local currentFontName = "GothamBold"
 local currentThemeName = "Orange"
+
+local function registerGlowFrame(frame)
+    table.insert(themeableGlows, frame)
+end
 
 local function registerGradientColor(grad)
     table.insert(themeableGradients, grad)
@@ -309,6 +314,18 @@ local function applyTheme(name)
         end
     end
     
+    -- Sync glow frames to new accent color
+    i = 1
+    while i <= #themeableGlows do
+        local gf = themeableGlows[i]
+        if gf and gf.Parent then
+            gf.BackgroundColor3 = THEME.ACCENT
+            i = i + 1
+        else
+            table.remove(themeableGlows, i)
+        end
+    end
+    
     i = 1
     while i <= #themeableAccents do
         local inst = themeableAccents[i]
@@ -400,6 +417,29 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         screenGui.Parent = PlayerGui
     end
     
+    -- Outer glow layer (sits behind main, slightly larger, blurred via transparency layers)
+    local glowOuter = Instance.new("Frame", screenGui)
+    glowOuter.Size = UDim2.new(0, 305, 0, 400)
+    glowOuter.Position = UDim2.new(0.5, 0, 0.5, 0)
+    glowOuter.AnchorPoint = Vector2.new(0.5, 0.5)
+    glowOuter.BackgroundColor3 = THEME.ACCENT
+    glowOuter.BackgroundTransparency = 0.82
+    glowOuter.BorderSizePixel = 0
+    glowOuter.ZIndex = 0
+    Instance.new("UICorner", glowOuter).CornerRadius = UDim.new(0, 22)
+    registerGlowFrame(glowOuter)
+
+    local glowInner = Instance.new("Frame", screenGui)
+    glowInner.Size = UDim2.new(0, 289, 0, 384)
+    glowInner.Position = UDim2.new(0.5, 0, 0.5, 0)
+    glowInner.AnchorPoint = Vector2.new(0.5, 0.5)
+    glowInner.BackgroundColor3 = THEME.ACCENT
+    glowInner.BackgroundTransparency = 0.91
+    glowInner.BorderSizePixel = 0
+    glowInner.ZIndex = 0
+    Instance.new("UICorner", glowInner).CornerRadius = UDim.new(0, 18)
+    registerGlowFrame(glowInner)
+
     local main = Instance.new("Frame", screenGui)
     main.Size = UDim2.new(0, 275, 0, 370)
     main.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -411,7 +451,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     main.Active = true
     Instance.new("UICorner", main).CornerRadius = UDim.new(0, 14)
     
-    -- Rotating Rainbow/Accent border
+    -- Rotating accent border stroke
     local mainStroke = Instance.new("UIStroke", main)
     mainStroke.Color = Color3.new(1, 1, 1)
     mainStroke.Thickness = 1.8
@@ -420,6 +460,21 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     mainStrokeGrad.Color = ColorSequence.new(THEME.ACCENT_DARK, THEME.ACCENT_LIGHT)
     registerGradientColor(mainStrokeGrad)
     registerGradient(mainStrokeGrad)
+
+    -- Keep glow frames anchored to main when main moves
+    main:GetPropertyChangedSignal("Position"):Connect(function()
+        glowOuter.Position = main.Position
+        glowInner.Position = main.Position
+    end)
+    main:GetPropertyChangedSignal("Size"):Connect(function()
+        local s = main.AbsoluteSize
+        glowOuter.Size  = UDim2.new(0, s.X + 30, 0, s.Y + 30)
+        glowInner.Size  = UDim2.new(0, s.X + 14, 0, s.Y + 14)
+    end)
+    main:GetPropertyChangedSignal("Visible"):Connect(function()
+        glowOuter.Visible = main.Visible
+        glowInner.Visible = main.Visible
+    end)
     
     -- Header
     local header = Instance.new("Frame", main)
@@ -748,12 +803,29 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         end)
     end)
     
-    -- Tab bar layout
-    local TabBar = Instance.new("Frame", header)
+    -- Tab bar: scrollable so it handles many tabs gracefully
+    local TabBar = Instance.new("ScrollingFrame", header)
     TabBar.Size = UDim2.new(1, 0, 0, 30)
     TabBar.Position = UDim2.new(0, 0, 0, 36)
     TabBar.BackgroundTransparency = 1
-    
+    TabBar.BorderSizePixel = 0
+    TabBar.ScrollBarThickness = 0          -- hidden scrollbar; user swipes to scroll
+    TabBar.ScrollingDirection = Enum.ScrollingDirection.X
+    TabBar.CanvasSize = UDim2.new(0, 0, 1, 0)  -- auto-grows with content
+    TabBar.ClipsDescendants = true
+    TabBar.Active = true
+
+    -- Horizontal list inside the scrollable tab bar
+    local tabBarLayout = Instance.new("UIListLayout", TabBar)
+    tabBarLayout.FillDirection = Enum.FillDirection.Horizontal
+    tabBarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    tabBarLayout.Padding = UDim.new(0, 0)
+
+    -- Expand canvas as tabs are added
+    tabBarLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        TabBar.CanvasSize = UDim2.new(0, tabBarLayout.AbsoluteContentSize.X, 1, 0)
+    end)
+
     local indicatorBar = Instance.new("Frame", header)
     indicatorBar.Size = UDim2.new(0, 36, 0, 2.2)
     indicatorBar.Position = UDim2.new(0, 0, 0, 64)
@@ -765,7 +837,8 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     table.clear(tabs)
     currentTab = nil
     local sortedNames = {}
-    
+    local TAB_MIN_W = 60   -- minimum tab button width in px
+
     local function realignTabs()
         local visibleTabs = {}
         for _, name in ipairs(sortedNames) do
@@ -774,16 +847,24 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 table.insert(visibleTabs, name)
             end
         end
-        
+
         local visibleCount = #visibleTabs
         if visibleCount == 0 then return end
+
+        -- Distribute evenly up to bar width; if too many, use fixed min width (scrollable)
+        local barW = TabBar.AbsoluteSize.X > 0 and TabBar.AbsoluteSize.X or 275
+        local equalW = math.floor(barW / visibleCount)
+        local tabW = math.max(equalW, TAB_MIN_W)
+
         for idx, name in ipairs(visibleTabs) do
             local tData = tabs[name]
-            local width = 275 / visibleCount
-            tData.Button.Size = UDim2.new(0, width, 1, 0)
-            tData.Button.Position = UDim2.new(0, (idx - 1) * width, 0, 0)
+            tData.Button.Size = UDim2.new(0, tabW, 1, 0)
+            tData.Button.LayoutOrder = idx
         end
-        
+
+        -- Update canvas so the scrollframe knows the total width
+        TabBar.CanvasSize = UDim2.new(0, tabW * visibleCount, 1, 0)
+
         -- If current tab is now invisible, select the first visible one
         if currentTab and tabs[currentTab] and not tabs[currentTab].Button.Visible then
             selectTab(visibleTabs[1])
@@ -793,20 +874,30 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     selectTab = function(tabName, force)
         if currentTab == tabName and not force then return end
         currentTab = tabName
-        
+
         local slideTweenInfo = TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
         local fadeInfo = TweenInfo.new(0.12)
-        
+
         for name, tabData in pairs(tabs) do
             if name == tabName then
                 playTween(tabData.Button, fadeInfo, {TextColor3 = THEME.ACCENT})
                 playTween(tabData.Container, slideTweenInfo, {Position = UDim2.new(0, 0, 0, 66)})
-                
+
+                -- Indicator bar: position relative to the ScrollingFrame canvas offset
                 local btn = tabData.Button
+                local btnAbsX = btn.AbsolutePosition.X - TabBar.AbsolutePosition.X + TabBar.CanvasPosition.X
                 playTween(indicatorBar, slideTweenInfo, {
-                    Position = UDim2.new(0, btn.Position.X.Offset + (btn.Size.X.Offset / 2) - 18, 0, 64),
+                    Position = UDim2.new(0, btnAbsX + btn.AbsoluteSize.X / 2 - 18, 0, 64),
                     BackgroundColor3 = THEME.ACCENT
                 })
+
+                -- Scroll the tab bar to keep the selected tab in view
+                local scrollTarget = math.clamp(
+                    btnAbsX + btn.AbsoluteSize.X / 2 - TabBar.AbsoluteSize.X / 2,
+                    0,
+                    math.max(0, TabBar.CanvasSize.X.Offset - TabBar.AbsoluteSize.X)
+                )
+                playTween(TabBar, slideTweenInfo, {CanvasPosition = Vector2.new(scrollTarget, 0)})
             else
                 playTween(tabData.Button, fadeInfo, {TextColor3 = THEME.TEXT_DIM})
                 if tabData.Order < tabs[tabName].Order then
@@ -826,12 +917,12 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     local function createComponentsBuilder(container)
         local builder = {}
         
-        -- Toggle
+        -- Toggle (flat, clean — no 3D ring or shadow)
         function builder:Toggle(text, default, callback)
             local row = Instance.new("Frame", container)
             row.Size = UDim2.new(1, -16, 0, 32)
             row.BackgroundTransparency = 1
-            
+
             local lbl = Instance.new("TextLabel", row)
             lbl.Size = UDim2.new(1, -50, 1, 0)
             lbl.Position = UDim2.new(0, 4, 0, 0)
@@ -842,7 +933,8 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             lbl.Font = Enum.Font.GothamBold
             lbl.TextXAlignment = Enum.TextXAlignment.Left
             registerFontElement(lbl)
-            
+
+            -- Track
             local switch = Instance.new("TextButton", row)
             switch.Size = UDim2.new(0, 34, 0, 16)
             switch.Position = UDim2.new(1, -38, 0.5, -8)
@@ -852,74 +944,104 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             Instance.new("UICorner", switch).CornerRadius = UDim.new(1, 0)
             switch:SetAttribute("SwitchState", default)
             registerAccentColor(switch)
-            
-            -- Recessed 3D track gradient
-            local switchGrad = Instance.new("UIGradient", switch)
-            switchGrad.Rotation = 90
-            switchGrad.Color = ColorSequence.new(Color3.fromRGB(180, 180, 180), Color3.fromRGB(255, 255, 255))
-            
-            local switchStroke = Instance.new("UIStroke", switch)
-            switchStroke.Color = THEME.BORDER
-            switchStroke.Thickness = 1.2
-            switchStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            
-            -- Drop shadow behind the dot
-            local dotShadow = Instance.new("Frame", switch)
-            dotShadow.Size = UDim2.new(0, 12, 0, 12)
-            dotShadow.Position = default and UDim2.new(1, -13.5, 0.5, -5) or UDim2.new(0, 2.5, 0.5, -5)
-            dotShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            dotShadow.BackgroundTransparency = 0.5
-            dotShadow.BorderSizePixel = 0
-            Instance.new("UICorner", dotShadow).CornerRadius = UDim.new(1, 0)
-            
-            -- Raised 3D knob
+
+            -- Simple flat knob (no gradient, no shadow, no extra stroke)
             local dot = Instance.new("Frame", switch)
             dot.Size = UDim2.new(0, 12, 0, 12)
             dot.Position = default and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)
             dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             dot.BorderSizePixel = 0
             Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
-            
-            -- Sphere lighting gradient on knob
-            local dotGrad = Instance.new("UIGradient", dot)
-            dotGrad.Rotation = 90
-            dotGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(210, 210, 215))
-            
-            -- Knob stroke border
-            local dotStroke = Instance.new("UIStroke", dot)
-            dotStroke.Color = Color3.fromRGB(180, 180, 180)
-            dotStroke.Thickness = 0.8
-            dotStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            
+
             local toggleInfo = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
             local state = default
-            
+
             local function setToggleState(newState, fireCallback)
                 state = newState
                 switch:SetAttribute("SwitchState", state)
                 local targetColor = state and THEME.ACCENT or THEME.BAR
                 local targetPos = state and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)
-                local targetShadowPos = state and UDim2.new(1, -13.5, 0.5, -5) or UDim2.new(0, 2.5, 0.5, -5)
-                
                 playTween(switch, toggleInfo, {BackgroundColor3 = targetColor})
                 playTween(dot, toggleInfo, {Position = targetPos})
-                playTween(dotShadow, toggleInfo, {Position = targetShadowPos})
-                
                 if fireCallback ~= false then
                     callback(state)
                 end
             end
-            
+
             switch.MouseButton1Click:Connect(function()
                 playSound(CLICK_SOUND)
                 setToggleState(not state, true)
             end)
-            
+
             return {
                 Row = row,
                 SetState = setToggleState,
                 GetState = function() return state end
             }
+        end
+
+        -- Group: titled card that visually groups related elements
+        function builder:Group(title)
+            local card = Instance.new("Frame", container)
+            card.Size = UDim2.new(1, -16, 0, 32)   -- grows with content
+            card.BackgroundColor3 = THEME.BAR
+            card.BackgroundTransparency = 0.55
+            card.BorderSizePixel = 0
+            card.ClipsDescendants = false
+            Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+
+            local cardStroke = Instance.new("UIStroke", card)
+            cardStroke.Color = THEME.BORDER
+            cardStroke.Thickness = 1
+            cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+            -- Accent left bar
+            local accentBar = Instance.new("Frame", card)
+            accentBar.Size = UDim2.new(0, 3, 1, -12)
+            accentBar.Position = UDim2.new(0, 0, 0.5, 0)
+            accentBar.AnchorPoint = Vector2.new(0, 0.5)
+            accentBar.BackgroundColor3 = THEME.ACCENT
+            accentBar.BorderSizePixel = 0
+            Instance.new("UICorner", accentBar).CornerRadius = UDim.new(0, 3)
+            registerAccentColor(accentBar)
+
+            -- Group title label
+            local titleLbl = Instance.new("TextLabel", card)
+            titleLbl.Size = UDim2.new(1, -14, 0, 22)
+            titleLbl.Position = UDim2.new(0, 10, 0, 0)
+            titleLbl.BackgroundTransparency = 1
+            titleLbl.Text = title:upper()
+            titleLbl.TextColor3 = THEME.TEXT_DIM
+            titleLbl.TextSize = 8.5
+            titleLbl.Font = Enum.Font.GothamBold
+            titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+            registerFontElement(titleLbl)
+
+            -- Inner container for child elements
+            local body = Instance.new("Frame", card)
+            body.Size = UDim2.new(1, -6, 0, 0)
+            body.Position = UDim2.new(0, 3, 0, 22)
+            body.BackgroundTransparency = 1
+            body.ClipsDescendants = false
+
+            local bodyList = Instance.new("UIListLayout", body)
+            bodyList.Padding = UDim.new(0, 6)
+            bodyList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+            local bodyPad = Instance.new("UIPadding", body)
+            bodyPad.PaddingTop = UDim.new(0, 4)
+            bodyPad.PaddingBottom = UDim.new(0, 6)
+
+            -- Auto-resize card to match body content
+            bodyList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                local h = bodyList.AbsoluteContentSize.Y + 22 + 10  -- title + padding
+                body.Size = UDim2.new(1, -6, 0, bodyList.AbsoluteContentSize.Y + 10)
+                card.Size = UDim2.new(1, -16, 0, h)
+                accentBar.Size = UDim2.new(0, 3, 0, math.max(h - 12, 4))
+            end)
+
+            -- Return a nested builder scoped to body
+            return createComponentsBuilder(body)
         end
         
         -- Slider
@@ -1848,6 +1970,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         tabBtn.TextColor3 = THEME.TEXT_DIM
         tabBtn.Font = Enum.Font.GothamBold
         tabBtn.TextSize = 11
+        tabBtn.Size = UDim2.new(0, TAB_MIN_W, 1, 0)  -- initial size; realignTabs will correct it
         tabBtn.BorderSizePixel = 0
         tabBtn.ZIndex = 5
         registerAccentColor(tabBtn)
