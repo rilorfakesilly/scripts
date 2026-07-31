@@ -417,26 +417,56 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         screenGui.Parent = PlayerGui
     end
     
-    -- ── Soft bloom glow (4 concentric layers fading outward) ──────────────
-    -- Each layer is progressively larger and more transparent to simulate
-    -- a smooth radial gradient falloff around the window border.
-    local glowLayers = {}
-    local glowOffsets = {6, 16, 28, 44}         -- px added to each side vs main
-    local glowAlphas  = {0.55, 0.74, 0.87, 0.95} -- BackgroundTransparency per layer
-    local glowRadii   = {18, 20, 24, 28}          -- UICorner radius per layer
+    -- ── UIGradient transparency ring glow ─────────────────────────────────
+    -- Two frames (Rotation 90 and 0) each use a NumberSequence that is:
+    --   fully transparent at the outer edge
+    --   → peaks at the window border
+    --   → transparent again in the center (hidden under main)
+    -- Together they form a smooth, uniform glow on all 4 sides.
+    local MAIN_W, MAIN_H = 275, 370
+    local GLOW_PAD = 30  -- glow extends 30 px past each edge of main
 
-    for i, offset in ipairs(glowOffsets) do
+    -- Compute normalized border position for each axis
+    local bpH = GLOW_PAD / (MAIN_W + GLOW_PAD * 2)  -- 30/335 ≈ 0.090
+    local bpV = GLOW_PAD / (MAIN_H + GLOW_PAD * 2)  -- 30/430 ≈ 0.070
+
+    local function makeRingGrad(rotation, bp)
+        -- Ring NumberSequence: outer→transparent, at-border→peak, inner→transparent
+        return NumberSequence.new({
+            NumberSequenceKeypoint.new(0,                   1.0),  -- outer far edge
+            NumberSequenceKeypoint.new(bp * 0.4,           0.82), -- approaching
+            NumberSequenceKeypoint.new(bp,                 0.38), -- peak at border
+            NumberSequenceKeypoint.new(bp * 1.7,           0.88), -- fading inside
+            NumberSequenceKeypoint.new(math.min(bp*2.6, 0.499), 1.0),  -- interior
+            NumberSequenceKeypoint.new(math.max(1 - bp*2.6, 0.501), 1.0),
+            NumberSequenceKeypoint.new(1 - bp * 1.7,       0.88),
+            NumberSequenceKeypoint.new(1 - bp,             0.38), -- peak at border
+            NumberSequenceKeypoint.new(1 - bp * 0.4,       0.82),
+            NumberSequenceKeypoint.new(1,                  1.0),  -- outer far edge
+        })
+    end
+
+    local glowLayers = {}
+    for _, cfg in ipairs({
+        {rotation = 90, bp = bpV},   -- top / bottom glow
+        {rotation = 0,  bp = bpH},   -- left / right glow
+    }) do
         local g = Instance.new("Frame", screenGui)
-        g.Size = UDim2.new(0, 275 + offset * 2, 0, 370 + offset * 2)
+        g.Size = UDim2.new(0, MAIN_W + GLOW_PAD * 2, 0, MAIN_H + GLOW_PAD * 2)
         g.Position = UDim2.new(0.5, 0, 0.5, 0)
         g.AnchorPoint = Vector2.new(0.5, 0.5)
         g.BackgroundColor3 = THEME.ACCENT
-        g.BackgroundTransparency = glowAlphas[i]
+        g.BackgroundTransparency = 0  -- gradient controls all opacity
         g.BorderSizePixel = 0
         g.ZIndex = 0
-        Instance.new("UICorner", g).CornerRadius = UDim.new(0, glowRadii[i])
-        registerGlowFrame(g)
-        table.insert(glowLayers, {frame = g, offset = offset})
+        Instance.new("UICorner", g).CornerRadius = UDim.new(0, 14 + GLOW_PAD)
+
+        local grad = Instance.new("UIGradient", g)
+        grad.Rotation = cfg.rotation
+        grad.Transparency = makeRingGrad(cfg.rotation, cfg.bp)
+
+        registerGlowFrame(g)   -- so accent color updates on theme change
+        table.insert(glowLayers, {frame = g, offset = GLOW_PAD, grad = grad, bp_cfg = cfg})
     end
 
     local main = Instance.new("Frame", screenGui)
@@ -460,7 +490,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     registerGradientColor(mainStrokeGrad)
     registerGradient(mainStrokeGrad)
 
-    -- Keep all glow layers anchored to main when it moves/resizes/hides
+    -- Keep glow frames anchored to main when it moves / resizes / hides
     main:GetPropertyChangedSignal("Position"):Connect(function()
         for _, gl in ipairs(glowLayers) do
             gl.frame.Position = main.Position
@@ -469,7 +499,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     main:GetPropertyChangedSignal("Size"):Connect(function()
         local s = main.AbsoluteSize
         for _, gl in ipairs(glowLayers) do
-            gl.frame.Size = UDim2.new(0, s.X + gl.offset * 2, 0, s.Y + gl.offset * 2)
+            gl.frame.Size = UDim2.new(0, s.X + GLOW_PAD * 2, 0, s.Y + GLOW_PAD * 2)
         end
     end)
     main:GetPropertyChangedSignal("Visible"):Connect(function()
@@ -805,15 +835,15 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         end)
     end)
     
-    -- Tab bar: scrollable so it handles many tabs gracefully
+    -- Tab bar: scrollable, compact 22 px height
     local TabBar = Instance.new("ScrollingFrame", header)
-    TabBar.Size = UDim2.new(1, 0, 0, 30)
-    TabBar.Position = UDim2.new(0, 0, 0, 36)
+    TabBar.Size = UDim2.new(1, 0, 0, 22)
+    TabBar.Position = UDim2.new(0, 0, 0, 38)
     TabBar.BackgroundTransparency = 1
     TabBar.BorderSizePixel = 0
-    TabBar.ScrollBarThickness = 0          -- hidden scrollbar; user swipes to scroll
+    TabBar.ScrollBarThickness = 0
     TabBar.ScrollingDirection = Enum.ScrollingDirection.X
-    TabBar.CanvasSize = UDim2.new(0, 0, 1, 0)  -- auto-grows with content
+    TabBar.CanvasSize = UDim2.new(0, 0, 1, 0)
     TabBar.ClipsDescendants = true
     TabBar.Active = true
 
@@ -821,7 +851,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     local tabBarLayout = Instance.new("UIListLayout", TabBar)
     tabBarLayout.FillDirection = Enum.FillDirection.Horizontal
     tabBarLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    tabBarLayout.Padding = UDim.new(0, 0)
+    tabBarLayout.Padding = UDim.new(0, 2)
 
     -- Expand canvas as tabs are added
     tabBarLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -842,9 +872,10 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     table.insert(Library.Connections, tabBarScrollConn)
     table.insert(Library.Connections, tabBarScrollBackConn)
 
+    -- Accent underline indicator sits just below the tab bar
     local indicatorBar = Instance.new("Frame", header)
-    indicatorBar.Size = UDim2.new(0, 36, 0, 2.2)
-    indicatorBar.Position = UDim2.new(0, 0, 0, 64)
+    indicatorBar.Size = UDim2.new(0, 36, 0, 2)
+    indicatorBar.Position = UDim2.new(0, 0, 0, 61)
     indicatorBar.BackgroundColor3 = THEME.ACCENT
     indicatorBar.BorderSizePixel = 0
     indicatorBar.ZIndex = 6
@@ -896,23 +927,20 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
 
         for name, tabData in pairs(tabs) do
             if name == tabName then
-                -- Active tab: accent text + bright pill
+                -- Active: bright accent text, opaque pill
                 playTween(tabData.Button, fadeInfo, {
                     TextColor3 = THEME.ACCENT,
-                    BackgroundColor3 = Color3.fromRGB(35, 35, 44),
-                    BackgroundTransparency = 0
+                    BackgroundTransparency = 0.1
                 })
                 playTween(tabData.Container, slideTweenInfo, {Position = UDim2.new(0, 0, 0, 66)})
 
-                -- Indicator bar: position relative to the ScrollingFrame canvas offset
                 local btn = tabData.Button
                 local btnAbsX = btn.AbsolutePosition.X - TabBar.AbsolutePosition.X + TabBar.CanvasPosition.X
                 playTween(indicatorBar, slideTweenInfo, {
-                    Position = UDim2.new(0, btnAbsX + btn.AbsoluteSize.X / 2 - 18, 0, 64),
+                    Position = UDim2.new(0, btnAbsX + btn.AbsoluteSize.X / 2 - 18, 0, 61),
                     BackgroundColor3 = THEME.ACCENT
                 })
 
-                -- Scroll the tab bar to keep the selected tab in view
                 local scrollTarget = math.clamp(
                     btnAbsX + btn.AbsoluteSize.X / 2 - TabBar.AbsoluteSize.X / 2,
                     0,
@@ -920,10 +948,10 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 )
                 playTween(TabBar, slideTweenInfo, {CanvasPosition = Vector2.new(scrollTarget, 0)})
             else
-                -- Inactive tab: dim text + transparent pill
+                -- Inactive: bright-grey text, transparent pill
                 playTween(tabData.Button, fadeInfo, {
-                    TextColor3 = Color3.fromRGB(190, 190, 200),
-                    BackgroundTransparency = 0.35
+                    TextColor3 = Color3.fromRGB(210, 210, 220),
+                    BackgroundTransparency = 0.7
                 })
                 if tabData.Order < tabs[tabName].Order then
                     playTween(tabData.Container, slideTweenInfo, {Position = UDim2.new(-1.1, 0, 0, 66)})
@@ -1990,23 +2018,17 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         end)
         
         local tabBtn = Instance.new("TextButton", TabBar)
-        tabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 44)  -- subtle dark pill
-        tabBtn.BackgroundTransparency = 0.35
+        tabBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 52)
+        tabBtn.BackgroundTransparency = 0.7     -- mostly transparent by default
         tabBtn.Text = tabName:upper()
-        tabBtn.TextColor3 = Color3.fromRGB(190, 190, 200)     -- visible but dim
+        tabBtn.TextColor3 = Color3.fromRGB(210, 210, 220)  -- bright enough to read
         tabBtn.Font = Enum.Font.GothamBold
-        tabBtn.TextSize = 11
+        tabBtn.TextSize = 10
         tabBtn.Size = UDim2.new(0, TAB_MIN_W, 1, 0)
         tabBtn.BorderSizePixel = 0
         tabBtn.ZIndex = 5
-        -- Rounded pill corners on each tab button
-        Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 6)
-        -- Thin separator stroke
-        local tabStroke = Instance.new("UIStroke", tabBtn)
-        tabStroke.Color = THEME.BORDER
-        tabStroke.Thickness = 0.8
-        tabStroke.Transparency = 0.6
-        tabStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        -- Subtle pill corners
+        Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 4)
         registerAccentColor(tabBtn)
         registerFontElement(tabBtn)
         
@@ -2037,15 +2059,15 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 playSound(HOVER_SOUND)
                 playTween(tabBtn, tabHoverInfo, {
                     TextColor3 = THEME.TEXT,
-                    BackgroundTransparency = 0.15
+                    BackgroundTransparency = 0.35
                 })
             end
         end)
         tabBtn.MouseLeave:Connect(function()
             if currentTab ~= tabName then
                 playTween(tabBtn, tabHoverInfo, {
-                    TextColor3 = Color3.fromRGB(190, 190, 200),
-                    BackgroundTransparency = 0.35
+                    TextColor3 = Color3.fromRGB(210, 210, 220),
+                    BackgroundTransparency = 0.7
                 })
             end
         end)
