@@ -314,12 +314,16 @@ local function applyTheme(name)
         end
     end
     
-    -- Sync glow frames to new accent color
+    -- Sync glow frames/strokes to new accent color
     i = 1
     while i <= #themeableGlows do
         local gf = themeableGlows[i]
         if gf and gf.Parent then
-            gf.BackgroundColor3 = THEME.ACCENT
+            if gf:IsA("UIStroke") then
+                gf.Color = THEME.ACCENT
+            else
+                gf.BackgroundColor3 = THEME.ACCENT
+            end
             i = i + 1
         else
             table.remove(themeableGlows, i)
@@ -417,42 +421,36 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         screenGui.Parent = PlayerGui
     end
     
-    -- ── Soft border glow (single frame, UIGradient transparency) ───────────
-    -- One frame, slightly larger than main, with a UIGradient that fades from
-    -- semi-opaque at the center (where the border is) to fully transparent at
-    -- the outer edge. ZIndex=0 keeps it behind main. ClipsDescendants on the
-    -- ScreenGui is false so it renders outside the window rect naturally.
-    local MAIN_W, MAIN_H = 275, 370
-    local GLOW_PAD = 10   -- how many px the glow extends past main on each side
+    -- ── Clean Outer Glow (UIStroke concentric layers, 100% transparent interior) ──
+    -- BackgroundTransparency = 1 ensures NO color bleeds inside the semi-transparent window.
+    -- Concentric UIStroke instances emit strictly OUTWARD around the rounded corner perimeter.
+    local glowFrames = {}
+    local strokeConfigs = {
+        {thickness = 2,  transparency = 0.35},  -- crisp inner rim at border
+        {thickness = 6,  transparency = 0.60},  -- soft bloom
+        {thickness = 12, transparency = 0.82},  -- ambient diffusion
+        {thickness = 20, transparency = 0.94},  -- outer fade
+    }
 
-    local glowFrame = Instance.new("Frame", screenGui)
-    glowFrame.Size = UDim2.new(0, MAIN_W + GLOW_PAD * 2, 0, MAIN_H + GLOW_PAD * 2)
-    glowFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    glowFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    glowFrame.BackgroundColor3 = THEME.ACCENT
-    glowFrame.BackgroundTransparency = 0
-    glowFrame.BorderSizePixel = 0
-    glowFrame.ZIndex = 0
-    -- Corner radius = main's radius + pad so the shape follows the window exactly
-    Instance.new("UICorner", glowFrame).CornerRadius = UDim.new(0, 14 + GLOW_PAD)
+    for _, cfg in ipairs(strokeConfigs) do
+        local g = Instance.new("Frame", screenGui)
+        g.Size = UDim2.new(0, 275, 0, 370)
+        g.Position = UDim2.new(0.5, 0, 0.5, 0)
+        g.AnchorPoint = Vector2.new(0.5, 0.5)
+        g.BackgroundTransparency = 1            -- 100% transparent center!
+        g.BorderSizePixel = 0
+        g.ZIndex = 0
+        Instance.new("UICorner", g).CornerRadius = UDim.new(0, 14)
 
-    -- Diagonal gradient: transparent at corners/edges → semi-opaque near border
-    local glowGrad = Instance.new("UIGradient", glowFrame)
-    glowGrad.Rotation = 90
-    -- Simple two-keypoint fade: fully transparent at both ends, peek in the middle
-    -- (the middle is the border of main which sits on top, so only the outer ring shows)
-    glowGrad.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0,    1.0),   -- top outer edge: transparent
-        NumberSequenceKeypoint.new(0.08, 0.50),  -- just outside top border: glow peak
-        NumberSequenceKeypoint.new(0.18, 0.92),  -- fading toward interior
-        NumberSequenceKeypoint.new(0.50, 1.0),   -- center: fully transparent
-        NumberSequenceKeypoint.new(0.82, 0.92),
-        NumberSequenceKeypoint.new(0.92, 0.50),  -- just outside bottom border
-        NumberSequenceKeypoint.new(1.0,  1.0),   -- bottom outer edge: transparent
-    })
+        local stroke = Instance.new("UIStroke", g)
+        stroke.Color = THEME.ACCENT
+        stroke.Thickness = cfg.thickness
+        stroke.Transparency = cfg.transparency
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
-    registerGlowFrame(glowFrame)
-    local glowLayers = {{frame = glowFrame, offset = GLOW_PAD}}
+        registerGlowFrame(stroke)
+        table.insert(glowFrames, g)
+    end
 
     local main = Instance.new("Frame", screenGui)
     main.Size = UDim2.new(0, 275, 0, 370)
@@ -475,21 +473,20 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     registerGradientColor(mainStrokeGrad)
     registerGradient(mainStrokeGrad)
 
-    -- Keep glow frame anchored to main when it moves / resizes / hides
+    -- Keep glow frames anchored to main when it moves / resizes / hides
     main:GetPropertyChangedSignal("Position"):Connect(function()
-        for _, gl in ipairs(glowLayers) do
-            gl.frame.Position = main.Position
+        for _, g in ipairs(glowFrames) do
+            g.Position = main.Position
         end
     end)
     main:GetPropertyChangedSignal("Size"):Connect(function()
-        local s = main.AbsoluteSize
-        for _, gl in ipairs(glowLayers) do
-            gl.frame.Size = UDim2.new(0, s.X + GLOW_PAD * 2, 0, s.Y + GLOW_PAD * 2)
+        for _, g in ipairs(glowFrames) do
+            g.Size = main.Size
         end
     end)
     main:GetPropertyChangedSignal("Visible"):Connect(function()
-        for _, gl in ipairs(glowLayers) do
-            gl.frame.Visible = main.Visible
+        for _, g in ipairs(glowFrames) do
+            g.Visible = main.Visible
         end
     end)
     
@@ -820,10 +817,10 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         end)
     end)
     
-    -- Tab bar: scrollable, compact 22 px height
+    -- Tab bar: scrollable horizontal row of compact text tabs
     local TabBar = Instance.new("ScrollingFrame", header)
-    TabBar.Size = UDim2.new(1, 0, 0, 22)
-    TabBar.Position = UDim2.new(0, 0, 0, 38)
+    TabBar.Size = UDim2.new(1, -16, 0, 20)
+    TabBar.Position = UDim2.new(0, 8, 0, 38)
     TabBar.BackgroundTransparency = 1
     TabBar.BorderSizePixel = 0
     TabBar.ScrollBarThickness = 0
@@ -836,7 +833,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     local tabBarLayout = Instance.new("UIListLayout", TabBar)
     tabBarLayout.FillDirection = Enum.FillDirection.Horizontal
     tabBarLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    tabBarLayout.Padding = UDim.new(0, 2)
+    tabBarLayout.Padding = UDim.new(0, 6)
 
     -- Expand canvas as tabs are added
     tabBarLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -859,8 +856,8 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
 
     -- Accent underline indicator sits just below the tab bar
     local indicatorBar = Instance.new("Frame", header)
-    indicatorBar.Size = UDim2.new(0, 36, 0, 2)
-    indicatorBar.Position = UDim2.new(0, 0, 0, 61)
+    indicatorBar.Size = UDim2.new(0, 24, 0, 2)
+    indicatorBar.Position = UDim2.new(0, 0, 0, 60)
     indicatorBar.BackgroundColor3 = THEME.ACCENT
     indicatorBar.BorderSizePixel = 0
     indicatorBar.ZIndex = 6
@@ -869,8 +866,8 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     table.clear(tabs)
     currentTab = nil
     local sortedNames = {}
-    local TAB_MIN_W = 52   -- minimum tab button width in px
 
+    local TextService = game:GetService("TextService")
     local function realignTabs()
         local visibleTabs = {}
         for _, name in ipairs(sortedNames) do
@@ -883,21 +880,18 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         local visibleCount = #visibleTabs
         if visibleCount == 0 then return end
 
-        -- Distribute evenly up to bar width; if too many, use fixed min width (scrollable)
-        local barW = TabBar.AbsoluteSize.X > 0 and TabBar.AbsoluteSize.X or 275
-        local equalW = math.floor(barW / visibleCount)
-        local tabW = math.max(equalW, TAB_MIN_W)
-
+        local totalW = 0
         for idx, name in ipairs(visibleTabs) do
             local tData = tabs[name]
+            local sz = TextService:GetTextSize(name:upper(), 10, Enum.Font.GothamBold, Vector2.new(1000, 1000))
+            local tabW = math.max(32, sz.X + 10)
             tData.Button.Size = UDim2.new(0, tabW, 1, 0)
             tData.Button.LayoutOrder = idx
+            totalW = totalW + tabW + 6
         end
 
-        -- Update canvas so the scrollframe knows the total width
-        TabBar.CanvasSize = UDim2.new(0, tabW * visibleCount, 1, 0)
+        TabBar.CanvasSize = UDim2.new(0, totalW, 1, 0)
 
-        -- If current tab is now invisible, select the first visible one
         if currentTab and tabs[currentTab] and not tabs[currentTab].Button.Visible then
             selectTab(visibleTabs[1])
         end
@@ -912,17 +906,17 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
 
         for name, tabData in pairs(tabs) do
             if name == tabName then
-                -- Active: bright accent text, opaque pill
                 playTween(tabData.Button, fadeInfo, {
-                    TextColor3 = THEME.ACCENT,
-                    BackgroundTransparency = 0.1
+                    TextColor3 = THEME.ACCENT
                 })
                 playTween(tabData.Container, slideTweenInfo, {Position = UDim2.new(0, 0, 0, 66)})
 
                 local btn = tabData.Button
                 local btnAbsX = btn.AbsolutePosition.X - TabBar.AbsolutePosition.X + TabBar.CanvasPosition.X
+                local indicatorW = math.max(16, btn.AbsoluteSize.X - 10)
                 playTween(indicatorBar, slideTweenInfo, {
-                    Position = UDim2.new(0, btnAbsX + btn.AbsoluteSize.X / 2 - 18, 0, 61),
+                    Position = UDim2.new(0, btnAbsX + 5, 0, 60),
+                    Size = UDim2.new(0, indicatorW, 0, 2),
                     BackgroundColor3 = THEME.ACCENT
                 })
 
@@ -933,10 +927,8 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 )
                 playTween(TabBar, slideTweenInfo, {CanvasPosition = Vector2.new(scrollTarget, 0)})
             else
-                -- Inactive: bright-grey text, transparent pill
                 playTween(tabData.Button, fadeInfo, {
-                    TextColor3 = Color3.fromRGB(210, 210, 220),
-                    BackgroundTransparency = 0.7
+                    TextColor3 = Color3.fromRGB(150, 150, 165)
                 })
                 if tabData.Order < tabs[tabName].Order then
                     playTween(tabData.Container, slideTweenInfo, {Position = UDim2.new(-1.1, 0, 0, 66)})
@@ -2003,16 +1995,14 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         end)
         
         local tabBtn = Instance.new("TextButton", TabBar)
-        tabBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 52)
-        tabBtn.BackgroundTransparency = 0.7
+        tabBtn.BackgroundTransparency = 1   -- 100% clean background, no dark blocks
         tabBtn.Text = tabName:upper()
-        tabBtn.TextColor3 = Color3.fromRGB(215, 215, 225)
+        tabBtn.TextColor3 = Color3.fromRGB(150, 150, 165)
         tabBtn.Font = Enum.Font.GothamBold
-        tabBtn.TextSize = 11
-        tabBtn.Size = UDim2.new(0, TAB_MIN_W, 1, 0)
+        tabBtn.TextSize = 10
+        tabBtn.Size = UDim2.new(0, 42, 1, 0)
         tabBtn.BorderSizePixel = 0
         tabBtn.ZIndex = 5
-        Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 4)
         registerAccentColor(tabBtn)
         registerFontElement(tabBtn)
         
@@ -2042,16 +2032,14 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
             if currentTab ~= tabName then
                 playSound(HOVER_SOUND)
                 playTween(tabBtn, tabHoverInfo, {
-                    TextColor3 = THEME.TEXT,
-                    BackgroundTransparency = 0.35
+                    TextColor3 = Color3.fromRGB(240, 240, 255)
                 })
             end
         end)
         tabBtn.MouseLeave:Connect(function()
             if currentTab ~= tabName then
                 playTween(tabBtn, tabHoverInfo, {
-                    TextColor3 = Color3.fromRGB(210, 210, 220),
-                    BackgroundTransparency = 0.7
+                    TextColor3 = Color3.fromRGB(150, 150, 165)
                 })
             end
         end)
