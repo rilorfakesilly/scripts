@@ -338,7 +338,7 @@ local function applyTheme(name)
             for tabName, tabData in pairs(tabs) do
                 if tabData.Button == inst then
                     isTab = true
-                    inst.TextColor3 = (currentTab == tabName) and THEME.ACCENT or THEME.TEXT_DIM
+                    inst.TextColor3 = (currentTab == tabName) and THEME.ACCENT or Color3.fromRGB(185, 185, 200)
                     break
                 end
             end
@@ -828,6 +828,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     TabBar.CanvasSize = UDim2.new(0, 0, 1, 0)
     TabBar.ClipsDescendants = true
     TabBar.Active = true
+    TabBar.ZIndex = 10
 
     -- Horizontal list inside the scrollable tab bar
     local tabBarLayout = Instance.new("UIListLayout", TabBar)
@@ -883,8 +884,8 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         local totalW = 0
         for idx, name in ipairs(visibleTabs) do
             local tData = tabs[name]
-            local sz = TextService:GetTextSize(name:upper(), 10, Enum.Font.GothamBold, Vector2.new(1000, 1000))
-            local tabW = math.max(32, sz.X + 10)
+            local sz = TextService:GetTextSize(name:upper(), 11, Enum.Font.GothamBold, Vector2.new(1000, 1000))
+            local tabW = math.max(38, sz.X + 14)
             tData.Button.Size = UDim2.new(0, tabW, 1, 0)
             tData.Button.LayoutOrder = idx
             totalW = totalW + tabW + 6
@@ -892,8 +893,10 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
 
         TabBar.CanvasSize = UDim2.new(0, totalW, 1, 0)
 
-        if currentTab and tabs[currentTab] and not tabs[currentTab].Button.Visible then
-            selectTab(visibleTabs[1])
+        if not currentTab or (tabs[currentTab] and not tabs[currentTab].Button.Visible) then
+            if visibleTabs[1] then
+                selectTab(visibleTabs[1], true)
+            end
         end
     end
     
@@ -928,7 +931,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
                 playTween(TabBar, slideTweenInfo, {CanvasPosition = Vector2.new(scrollTarget, 0)})
             else
                 playTween(tabData.Button, fadeInfo, {
-                    TextColor3 = Color3.fromRGB(150, 150, 165)
+                    TextColor3 = Color3.fromRGB(185, 185, 200)
                 })
                 if tabData.Order < tabs[tabName].Order then
                     playTween(tabData.Container, slideTweenInfo, {Position = UDim2.new(-1.1, 0, 0, 66)})
@@ -1997,12 +2000,12 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         local tabBtn = Instance.new("TextButton", TabBar)
         tabBtn.BackgroundTransparency = 1   -- 100% clean background, no dark blocks
         tabBtn.Text = tabName:upper()
-        tabBtn.TextColor3 = Color3.fromRGB(150, 150, 165)
+        tabBtn.TextColor3 = Color3.fromRGB(185, 185, 200)
         tabBtn.Font = Enum.Font.GothamBold
-        tabBtn.TextSize = 10
-        tabBtn.Size = UDim2.new(0, 42, 1, 0)
+        tabBtn.TextSize = 11
+        tabBtn.Size = UDim2.new(0, 44, 1, 0)
         tabBtn.BorderSizePixel = 0
-        tabBtn.ZIndex = 5
+        tabBtn.ZIndex = 11
         registerAccentColor(tabBtn)
         registerFontElement(tabBtn)
         
@@ -2039,7 +2042,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         tabBtn.MouseLeave:Connect(function()
             if currentTab ~= tabName then
                 playTween(tabBtn, tabHoverInfo, {
-                    TextColor3 = Color3.fromRGB(150, 150, 165)
+                    TextColor3 = Color3.fromRGB(185, 185, 200)
                 })
             end
         end)
