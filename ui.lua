@@ -417,57 +417,42 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         screenGui.Parent = PlayerGui
     end
     
-    -- ── UIGradient transparency ring glow ─────────────────────────────────
-    -- Two frames (Rotation 90 and 0) each use a NumberSequence that is:
-    --   fully transparent at the outer edge
-    --   → peaks at the window border
-    --   → transparent again in the center (hidden under main)
-    -- Together they form a smooth, uniform glow on all 4 sides.
+    -- ── Soft border glow (single frame, UIGradient transparency) ───────────
+    -- One frame, slightly larger than main, with a UIGradient that fades from
+    -- semi-opaque at the center (where the border is) to fully transparent at
+    -- the outer edge. ZIndex=0 keeps it behind main. ClipsDescendants on the
+    -- ScreenGui is false so it renders outside the window rect naturally.
     local MAIN_W, MAIN_H = 275, 370
-    local GLOW_PAD = 30  -- glow extends 30 px past each edge of main
+    local GLOW_PAD = 10   -- how many px the glow extends past main on each side
 
-    -- Compute normalized border position for each axis
-    local bpH = GLOW_PAD / (MAIN_W + GLOW_PAD * 2)  -- 30/335 ≈ 0.090
-    local bpV = GLOW_PAD / (MAIN_H + GLOW_PAD * 2)  -- 30/430 ≈ 0.070
+    local glowFrame = Instance.new("Frame", screenGui)
+    glowFrame.Size = UDim2.new(0, MAIN_W + GLOW_PAD * 2, 0, MAIN_H + GLOW_PAD * 2)
+    glowFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    glowFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    glowFrame.BackgroundColor3 = THEME.ACCENT
+    glowFrame.BackgroundTransparency = 0
+    glowFrame.BorderSizePixel = 0
+    glowFrame.ZIndex = 0
+    -- Corner radius = main's radius + pad so the shape follows the window exactly
+    Instance.new("UICorner", glowFrame).CornerRadius = UDim.new(0, 14 + GLOW_PAD)
 
-    local function makeRingGrad(rotation, bp)
-        -- Ring NumberSequence: outer→transparent, at-border→peak, inner→transparent
-        return NumberSequence.new({
-            NumberSequenceKeypoint.new(0,                   1.0),  -- outer far edge
-            NumberSequenceKeypoint.new(bp * 0.4,           0.82), -- approaching
-            NumberSequenceKeypoint.new(bp,                 0.38), -- peak at border
-            NumberSequenceKeypoint.new(bp * 1.7,           0.88), -- fading inside
-            NumberSequenceKeypoint.new(math.min(bp*2.6, 0.499), 1.0),  -- interior
-            NumberSequenceKeypoint.new(math.max(1 - bp*2.6, 0.501), 1.0),
-            NumberSequenceKeypoint.new(1 - bp * 1.7,       0.88),
-            NumberSequenceKeypoint.new(1 - bp,             0.38), -- peak at border
-            NumberSequenceKeypoint.new(1 - bp * 0.4,       0.82),
-            NumberSequenceKeypoint.new(1,                  1.0),  -- outer far edge
-        })
-    end
+    -- Diagonal gradient: transparent at corners/edges → semi-opaque near border
+    local glowGrad = Instance.new("UIGradient", glowFrame)
+    glowGrad.Rotation = 90
+    -- Simple two-keypoint fade: fully transparent at both ends, peek in the middle
+    -- (the middle is the border of main which sits on top, so only the outer ring shows)
+    glowGrad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0,    1.0),   -- top outer edge: transparent
+        NumberSequenceKeypoint.new(0.08, 0.50),  -- just outside top border: glow peak
+        NumberSequenceKeypoint.new(0.18, 0.92),  -- fading toward interior
+        NumberSequenceKeypoint.new(0.50, 1.0),   -- center: fully transparent
+        NumberSequenceKeypoint.new(0.82, 0.92),
+        NumberSequenceKeypoint.new(0.92, 0.50),  -- just outside bottom border
+        NumberSequenceKeypoint.new(1.0,  1.0),   -- bottom outer edge: transparent
+    })
 
-    local glowLayers = {}
-    for _, cfg in ipairs({
-        {rotation = 90, bp = bpV},   -- top / bottom glow
-        {rotation = 0,  bp = bpH},   -- left / right glow
-    }) do
-        local g = Instance.new("Frame", screenGui)
-        g.Size = UDim2.new(0, MAIN_W + GLOW_PAD * 2, 0, MAIN_H + GLOW_PAD * 2)
-        g.Position = UDim2.new(0.5, 0, 0.5, 0)
-        g.AnchorPoint = Vector2.new(0.5, 0.5)
-        g.BackgroundColor3 = THEME.ACCENT
-        g.BackgroundTransparency = 0  -- gradient controls all opacity
-        g.BorderSizePixel = 0
-        g.ZIndex = 0
-        Instance.new("UICorner", g).CornerRadius = UDim.new(0, 14 + GLOW_PAD)
-
-        local grad = Instance.new("UIGradient", g)
-        grad.Rotation = cfg.rotation
-        grad.Transparency = makeRingGrad(cfg.rotation, cfg.bp)
-
-        registerGlowFrame(g)   -- so accent color updates on theme change
-        table.insert(glowLayers, {frame = g, offset = GLOW_PAD, grad = grad, bp_cfg = cfg})
-    end
+    registerGlowFrame(glowFrame)
+    local glowLayers = {{frame = glowFrame, offset = GLOW_PAD}}
 
     local main = Instance.new("Frame", screenGui)
     main.Size = UDim2.new(0, 275, 0, 370)
@@ -490,7 +475,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     registerGradientColor(mainStrokeGrad)
     registerGradient(mainStrokeGrad)
 
-    -- Keep glow frames anchored to main when it moves / resizes / hides
+    -- Keep glow frame anchored to main when it moves / resizes / hides
     main:GetPropertyChangedSignal("Position"):Connect(function()
         for _, gl in ipairs(glowLayers) do
             gl.frame.Position = main.Position
@@ -884,7 +869,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     table.clear(tabs)
     currentTab = nil
     local sortedNames = {}
-    local TAB_MIN_W = 60   -- minimum tab button width in px
+    local TAB_MIN_W = 52   -- minimum tab button width in px
 
     local function realignTabs()
         local visibleTabs = {}
@@ -2019,15 +2004,14 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         
         local tabBtn = Instance.new("TextButton", TabBar)
         tabBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 52)
-        tabBtn.BackgroundTransparency = 0.7     -- mostly transparent by default
+        tabBtn.BackgroundTransparency = 0.7
         tabBtn.Text = tabName:upper()
-        tabBtn.TextColor3 = Color3.fromRGB(210, 210, 220)  -- bright enough to read
+        tabBtn.TextColor3 = Color3.fromRGB(215, 215, 225)
         tabBtn.Font = Enum.Font.GothamBold
-        tabBtn.TextSize = 10
+        tabBtn.TextSize = 11
         tabBtn.Size = UDim2.new(0, TAB_MIN_W, 1, 0)
         tabBtn.BorderSizePixel = 0
         tabBtn.ZIndex = 5
-        -- Subtle pill corners
         Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 4)
         registerAccentColor(tabBtn)
         registerFontElement(tabBtn)
