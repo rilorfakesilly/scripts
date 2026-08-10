@@ -179,9 +179,7 @@ local Tabs = {
 
 local Options = Fluent.Options
 
---------------------------------------------------
--- SHARED STATE
---------------------------------------------------
+--shared state
 
 local camlockSettings = {
     isLockedOn      = false,
@@ -441,10 +439,10 @@ local function applyLightingSettings()
 end
 
 local lightingConnection = nil
--- lightingConnection removed to prevent heavy rendering lag from setting properties every frame
---------------------------------------------------
--- FLAG MONITORING & WARNING SYSTEM
---------------------------------------------------
+
+
+-- flag monitor
+
 do
     _G.flagMonitor = {
         connections = {},
@@ -599,9 +597,10 @@ do
     
     setupFlagWatcher()
 end
---------------------------------------------------
--- GLOBAL PLAYER CACHE & UTILITIES (OPTIMIZATION)
---------------------------------------------------
+
+
+-- player cache n stuff
+
 local espPlayers = {}
 local playerCache = {}
 
@@ -672,7 +671,6 @@ local rapidFireToolThread = nil
 local localCharacter = nil
 local localHrp = nil
 local localHumanoid = nil
--- Single table for all RunService connections — keeps us under the Lua 200-local limit
 local _conns = {
     rapidFire = nil,   camlock = nil,       strafe = nil,
     desync = nil,      hitbox = nil,        speed = nil,
@@ -680,7 +678,6 @@ local _conns = {
     spinbotRender = nil, rainbow = nil,     esp = nil,
     espAdded = nil,    espRemoving = nil
 }
--- Short named aliases used in the handful of places that reference individual names
 local function _dc(k) if _conns[k] then _conns[k]:Disconnect() _conns[k]=nil end end
 
 local function startRapidFireLoop()
@@ -702,7 +699,6 @@ local function startRapidFireLoop()
 end
 
 local function hookTool(tool)
-    -- No-op placeholder kept for compatibility; rapid fire is handled by startRapidFireLoop
 end
 
 
@@ -749,9 +745,7 @@ local function setDrawProp(drawings, objName, prop, val)
     end
 end
 
---------------------------------------------------
--- HELPER FUNCTIONS
---------------------------------------------------
+--helper funcs
 
 local function checkTeam(player)
     return not camlockSettings.teamCheckEnabled or player.Team ~= localPlayer.Team
@@ -775,15 +769,7 @@ local function notify(title, content, duration)
     Fluent:Notify({ Title = title, Content = content, Duration = duration or 3 })
 end
 
---------------------------------------------------
--- SILENT AIM (mt hook)
---------------------------------------------------
-
--- Metamethod Silent Aim hooks removed
-
---------------------------------------------------
--- CAMLOCK
---------------------------------------------------
+-- lock
 
 local function getCamlockTarget()
     if not camlockSettings.aimLockEnabled then return nil end
@@ -868,9 +854,7 @@ local function toggleCamlock()
     end
 end
 
---------------------------------------------------
--- TARGET STRAFE
---------------------------------------------------
+-- the orbiting thing
 
 local isStrafing = false
 local strafeTargetPlayer = nil
@@ -934,9 +918,7 @@ local function toggleStrafe()
     end
 end
 
---------------------------------------------------
--- DESYNC (Anti-Aim)
---------------------------------------------------
+--desync
 
 local desyncPart = Instance.new("Part")
 desyncPart.Name = "DesyncPart"
@@ -997,9 +979,7 @@ local function toggleDesync(state)
 end
 
 
---------------------------------------------------
--- HITBOX EXPANDER
---------------------------------------------------
+--hitbox expander
 
 local function getHitboxTarget()
     local shortest = math.huge
@@ -1099,9 +1079,7 @@ local function toggleHitboxConnection(state)
     end
 end
 
---------------------------------------------------
--- CFRAME SPEED
---------------------------------------------------
+-- speed uhh
 
 
 local function updateSpeed()
@@ -1118,9 +1096,7 @@ local function toggleSpeedConnection(state)
     end
 end
 
---------------------------------------------------
--- FLY
---------------------------------------------------
+-- flight
 
 local cframeFlySpeed = 3
 local flyActive = false
@@ -1238,11 +1214,9 @@ local function updateFly(dt)
         flyHoverLook = flatLook
         localHrp.CFrame = CFrame.new(targetPos, targetPos + flatLook)
     else
-        -- No input: lock to hoverPos so gravity cannot drift the character down
         if flyHoverPos then
             localHrp.CFrame = CFrame.new(flyHoverPos, flyHoverPos + (flyHoverLook or flatLook))
         else
-            -- First frame: capture current position as hover anchor
             flyHoverPos  = localHrp.Position
             flyHoverLook = flatLook
             localHrp.CFrame = CFrame.new(flyHoverPos, flyHoverPos + flyHoverLook)
@@ -1276,9 +1250,7 @@ local function toggleFlyConnection(state)
     end
 end
 
---------------------------------------------------
--- SHOP & PLAYER ACTIONS
---------------------------------------------------
+--shop+plr actions
 
 local shopFolder = nil
 local shopAvailable = false
@@ -1290,7 +1262,7 @@ local function getLocalRoot()
     return localHrp
 end
 
-local shopItemsCache = {} -- itemName -> list of { position = Vector3, cd = ClickDetector, part = BasePart }
+local shopItemsCache = {}
 local cachedShopItemNames = {}
 local cachedLowerShopItemNames = {}
 
@@ -1329,7 +1301,7 @@ local function updateShopCache()
     cachedLowerShopItemNames = lowerNames
 end
 
--- Initial population (deferred — shop may not exist in all games)
+-- Init population
 task.spawn(function()
     local ok, result = pcall(function()
         return Workspace:WaitForChild("Ignored", 10):WaitForChild("Shop", 10)
@@ -1420,7 +1392,6 @@ local function shootAtHead(tool, targetChar, bursts)
     local head = targetChar:FindFirstChild("Head")
     local handle = tool and tool:FindFirstChild("Handle")
     if not head or not handle or not tool:FindFirstChild("Ammo") then return end
-    -- Use local HRP as origin (matches server-side validation) and predict head position
     local origin = localHrp and localHrp.Position or handle.CFrame.Position
     local vel = head.AssemblyLinearVelocity or Vector3.zero
     local predicted = head.Position + vel * 0.083 -- ~1 server tick ahead
@@ -1801,9 +1772,9 @@ local function updateSelfHighlight()
     end
 end
 
--- ==================================================
--- ESP (Drawing & Highlights) System
--- ==================================================
+
+-- ESP
+
 
 local function createESP(player)
     if player == localPlayer then return end
@@ -2184,9 +2155,9 @@ local function isKO(player)
     return ko and ko.Value or false
 end
 
---------------------------------------------------
--- CUSTOM SHOOT SOUND
---------------------------------------------------
+
+--cusom shooting sounds
+
 
 local customSoundId = ""
 local customSoundEnabled = false
@@ -2251,9 +2222,8 @@ local function applyCustomSounds()
     table.insert(soundConnections, respawnConn)
 end
 
---------------------------------------------------
--- BUILD UI - RAGE TAB
---------------------------------------------------
+-- rage tab
+
 
 local playerListState = {
     addedConn = nil,
@@ -2312,8 +2282,6 @@ playerListState.removingConn = Players.PlayerRemoving:Connect(function(p)
         end
     end)
 end)
-
--- Silent Aim UI section removed
 
 do
 Tabs.Rage:AddSection("Anti-Aim (Desync)")
@@ -2376,16 +2344,15 @@ Tabs.Rage:AddSlider("StrafeHeight", {
     Default = 5, Min = 0, Max = 20, Rounding = 1
 }):OnChanged(function(v) strafeSettings.strafeHeight = v end)
 
---------------------------------------------------
--- BUILD UI - TARGETING SECTION
---------------------------------------------------
+
+-- target section thing
+
 
 
 do
-    --------------------------------------------------
-    -- CLICK TO TARGET STATE & FUNCTIONS
-    --------------------------------------------------
-    -- Grouping all targeting state in a single table to minimize local variables (Lua 200 local limit)
+
+    -- CLICK TO
+
     local state = {
         pickingTarget = false,
         pickConnection = nil,
@@ -2683,9 +2650,9 @@ end
 
 end
 
---------------------------------------------------
--- BUILD UI - LEGIT TAB
---------------------------------------------------
+
+-- legit tab
+
 do
 
 Tabs.Legit:AddSection("Camlock")
@@ -2799,10 +2766,10 @@ Tabs.Legit:AddSlider("HitboxTransparency", {
     Default = 50, Min = 0, Max = 100, Rounding = 0
 }):OnChanged(function(v) hitboxSettings.transparency = v / 100 end)
 
-end -- close Legit do block
---------------------------------------------------
--- BUILD UI - GAME TAB
---------------------------------------------------
+end
+
+-- game tab
+
 do
 Tabs.Game:AddSection("Movement")
 
@@ -2964,7 +2931,7 @@ local function startHyperFireConnection()
                 pcall(function() tool:Activate() end)
             end
         end
-        -- Zero all cooldown values every frame (semi-auto → full-auto)
+        -- Zero all cooldown values every frame
         for _, d in ipairs(toleranceCooldowns) do
             if d.Parent and d.Value ~= 0 then d.Value = 0 end
         end
@@ -3077,10 +3044,10 @@ Tabs.Game:AddButton({
 })
 
 
-end -- close Game do block
---------------------------------------------------
--- BUILD UI - VISUALS TAB
---------------------------------------------------
+end 
+
+-- visuals tab
+
 do
 Tabs.Visuals:AddSection("Self Chams")
 
@@ -3559,9 +3526,8 @@ end)
 
 end
 
---------------------------------------------------
--- BUILD UI - LIGHTING TAB
---------------------------------------------------
+-- lights
+
 do
 Tabs.Lighting:AddSection("Lighting")
 
@@ -3677,9 +3643,7 @@ end)
 
 end
 
---------------------------------------------------
--- KEYBINDS
---------------------------------------------------
+-- nindfs
 
 local Binds = {
     camlock = Enum.KeyCode.Q,
@@ -3709,9 +3673,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
---------------------------------------------------
--- SETTINGS TAB
---------------------------------------------------
+--settings
 
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
