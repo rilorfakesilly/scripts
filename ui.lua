@@ -12,7 +12,7 @@ Library.Connections = {}
 Library.Threads = {}
 Library.Unloaded = false
 
--- ── sound ids ───────────────────────────────────────────
+--    sound ids                                            
 local HOVER_SOUND = 139719503904449
 local CLICK_SOUND = 88442833509532
 
@@ -31,7 +31,7 @@ local function playSound(soundId)
     end)
 end
 
--- ── UI Colors & Theme ───────────────────────────────────
+--    UI Colors & Theme                                    
 local THEME = {
     BG = Color3.fromRGB(16, 16, 20),              -- Deep glass dark background
     BAR = Color3.fromRGB(24, 24, 30),             -- Header/containers
@@ -197,7 +197,7 @@ local function registerScrollBar(scrollFrame)
     end)
 end
 
--- ── Animation Engine ─────────────────────────────────────────────────────────
+--    Animation Engine                                                          
 local tweenCache = setmetatable({}, {__mode = "k"})
 
 local function safeCancelAndDestroy(tween)
@@ -390,7 +390,7 @@ local function applyTheme(name)
     end
 end
 
--- ── CreateWindow ─────────────────────────────────────────────────────────────
+--    CreateWindow                                                              
 function Library.CreateWindow(titleText, subtitleText, hubIconId)
     -- Accept either a config table {title, subtitle, icon} or positional args
     if type(titleText) == "table" then
@@ -426,7 +426,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
         screenGui.Parent = PlayerGui
     end
     
-    -- ── Clean Outer Glow (UIStroke concentric layers, 100% transparent interior) ──
+    --    Clean Outer Glow (UIStroke concentric layers, 100% transparent interior)   
     -- BackgroundTransparency = 1 ensures NO color bleeds inside the semi-transparent window.
     -- Concentric UIStroke instances emit strictly OUTWARD around the rounded corner perimeter.
     local glowFrames = {}
@@ -538,7 +538,7 @@ function Library.CreateWindow(titleText, subtitleText, hubIconId)
     subLabel.TextXAlignment = Enum.TextXAlignment.Left
     registerFontElement(subLabel)
     
-    -- ── Control Pill Container (matching MDhubV2.lua) ───────────────────
+    --    Control Pill Container (matching MDhubV2.lua)                    
     local controlPill = Instance.new("Frame", header)
     controlPill.Size = UDim2.new(0, 92, 0, 25)
     controlPill.Position = UDim2.new(1, -98, 0, 6)
