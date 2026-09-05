@@ -259,30 +259,54 @@ function Library:CreateWindow(hubTitle, scriptName)
         return conn
     end
 
-    local PlayHoverSFX = function()
-        if not Window or not Window.UISoundsEnabled then return end
+    -- Audio SFX Controller (Parented to SoundService for guaranteed playback across all executors)
+    local SoundService = game:GetService("SoundService")
+    local SoundFolder = Instance.new("Folder")
+    SoundFolder.Name = "MDSounds"
+    pcall(function() SoundFolder.Parent = SoundService end)
+    if not SoundFolder.Parent then pcall(function() SoundFolder.Parent = workspace end) end
+    if not SoundFolder.Parent then SoundFolder.Parent = ParentGui end
+
+    local HoverSoundTemplate = Instance.new("Sound")
+    HoverSoundTemplate.Name = "HoverSoundTemplate"
+    HoverSoundTemplate.SoundId = "rbxassetid://6895079683"
+    HoverSoundTemplate.Volume = 0.5
+    HoverSoundTemplate.Parent = SoundFolder
+
+    local ClickSoundTemplate = Instance.new("Sound")
+    ClickSoundTemplate.Name = "ClickSoundTemplate"
+    ClickSoundTemplate.SoundId = "rbxassetid://6895079853"
+    ClickSoundTemplate.Volume = 0.6
+    ClickSoundTemplate.Parent = SoundFolder
+
+    local function PlayLocalSFX(sndTemplate, baseVolume)
+        if not Window or not Window.UISoundsEnabled or not sndTemplate then return end
+        local volFactor = (Window.SoundVolume ~= nil) and Window.SoundVolume or 0.8
+        local finalVol = math.clamp(baseVolume * volFactor, 0.05, 1)
+
         pcall(function()
-            if HoverSoundTemplate and SoundFolder then
-                local snd = HoverSoundTemplate:Clone()
-                snd.Volume = 0.5 * math.max(0.01, Window.SoundVolume ~= nil and Window.SoundVolume or 0.8)
+            if SoundService and SoundService.PlayLocalSound then
+                local snd = sndTemplate:Clone()
+                snd.Volume = finalVol
+                snd.Parent = SoundFolder
+                SoundService:PlayLocalSound(snd)
+                Debris:AddItem(snd, 1.2)
+            else
+                local snd = sndTemplate:Clone()
+                snd.Volume = finalVol
                 snd.Parent = SoundFolder
                 snd:Play()
-                Debris:AddItem(snd, 1.5)
+                Debris:AddItem(snd, 1.2)
             end
         end)
     end
 
+    local PlayHoverSFX = function()
+        PlayLocalSFX(HoverSoundTemplate, 0.45)
+    end
+
     local PlayClickSFX = function()
-        if not Window or not Window.UISoundsEnabled then return end
-        pcall(function()
-            if ClickSoundTemplate and SoundFolder then
-                local snd = ClickSoundTemplate:Clone()
-                snd.Volume = 0.6 * math.max(0.01, Window.SoundVolume ~= nil and Window.SoundVolume or 0.8)
-                snd.Parent = SoundFolder
-                snd:Play()
-                Debris:AddItem(snd, 1.5)
-            end
-        end)
+        PlayLocalSFX(ClickSoundTemplate, 0.60)
     end
 
     -- =========================================================================
@@ -960,32 +984,6 @@ function Library:CreateWindow(hubTitle, scriptName)
 
 
 
-    -- Audio SFX Controller (Parented to SoundService for guaranteed playback across all executors)
-    local SoundService = game:GetService("SoundService")
-    local SoundFolder = Instance.new("Folder")
-    SoundFolder.Name = "MDSounds"
-    pcall(function()
-        SoundFolder.Parent = SoundService
-    end)
-    if not SoundFolder.Parent then
-        pcall(function() SoundFolder.Parent = workspace end)
-    end
-    if not SoundFolder.Parent then
-        SoundFolder.Parent = ParentGui
-    end
-
-    local HoverSoundTemplate = Instance.new("Sound")
-    HoverSoundTemplate.Name = "HoverSoundTemplate"
-    HoverSoundTemplate.SoundId = "rbxassetid://5852311399"
-    HoverSoundTemplate.Volume = 0.4
-    HoverSoundTemplate.Parent = SoundFolder
-
-    local ClickSoundTemplate = Instance.new("Sound")
-    ClickSoundTemplate.Name = "ClickSoundTemplate"
-    ClickSoundTemplate.SoundId = "rbxassetid://5852311745"
-    ClickSoundTemplate.Volume = 0.5
-    ClickSoundTemplate.Parent = SoundFolder
-
     -- =========================================================================
     -- LOADING SCREEN ENGINE (Centered on screen, progress bar, shrink tween & destroy)
     -- =========================================================================
@@ -1101,14 +1099,9 @@ function Library:CreateWindow(hubTitle, scriptName)
         if ScriptUi then
             ScriptUi.Enabled = true
         end
-        task.delay(2.5, function()
-            if Window and Window.BackgroundBlurEnabled and ScriptUi and ScriptUi.Enabled then
-                if BackgroundDOF and BackgroundDOF.Parent then
-                    BackgroundDOF.Enabled = true
-                end
-                if LocalUIBlurPart and LocalUIBlurPart.Parent then
-                    LocalUIBlurPart.Transparency = 0.98
-                end
+        task.delay(2.0, function()
+            if Window and ScriptUi and ScriptUi.Enabled then
+                Window:SetBackgroundBlur(Window.BackgroundBlurEnabled)
             end
         end)
     end
@@ -2055,7 +2048,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     TopFrame.BackgroundColor3 = Window.CurrentTheme.TopBG
     TopFrame.BackgroundTransparency = Window.CurrentTheme.TopTrans
     TopFrame.BorderSizePixel = 0
-    TopFrame.ZIndex = 2
+    TopFrame.ZIndex = 4
     TopFrame.Parent = MainContainer
 
     local TopCorner = Instance.new("UICorner")
@@ -2078,7 +2071,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     MDHUBNAME.TextColor3 = Window.CurrentTheme.Text
     MDHUBNAME.TextSize = 15
     MDHUBNAME.TextXAlignment = Enum.TextXAlignment.Left
-    MDHUBNAME.ZIndex = 3
+    MDHUBNAME.ZIndex = 5
     MDHUBNAME.Parent = MDTextFolder
 
     local TopRightFolder = Instance.new("Folder")
@@ -2089,13 +2082,13 @@ function Library:CreateWindow(hubTitle, scriptName)
     MinimiseBtnFrame.Size = UDim2.new(0, 30, 0, 30)
     MinimiseBtnFrame.Position = UDim2.new(0.877, 0, 0.14, 0)
     MinimiseBtnFrame.BackgroundTransparency = 1
-    MinimiseBtnFrame.ZIndex = 3
+    MinimiseBtnFrame.ZIndex = 5
     MinimiseBtnFrame.Parent = TopRightFolder
 
     local MinimiseBtn = Instance.new("ImageButton")
     MinimiseBtn.Size = UDim2.new(1, 0, 1, 0)
     MinimiseBtn.BackgroundTransparency = 1
-    MinimiseBtn.ZIndex = 3
+    MinimiseBtn.ZIndex = 5
     MinimiseBtn.Parent = MinimiseBtnFrame
 
     local MinimiseIcon = Instance.new("ImageLabel")
@@ -2103,7 +2096,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     MinimiseIcon.Position = UDim2.new(0.168, 0, 0.168, 0)
     MinimiseIcon.BackgroundTransparency = 1
     MinimiseIcon.Image = "rbxassetid://15396333997"
-    MinimiseIcon.ZIndex = 4
+    MinimiseIcon.ZIndex = 6
     MinimiseIcon.Parent = MinimiseBtn
 
     TrackConn(MinimiseBtn.MouseEnter:Connect(PlayHoverSFX))
@@ -2112,13 +2105,13 @@ function Library:CreateWindow(hubTitle, scriptName)
     CloseBtnFrame.Size = UDim2.new(0, 30, 0, 30)
     CloseBtnFrame.Position = UDim2.new(0.939, 0, 0.14, 0)
     CloseBtnFrame.BackgroundTransparency = 1
-    CloseBtnFrame.ZIndex = 3
+    CloseBtnFrame.ZIndex = 5
     CloseBtnFrame.Parent = TopRightFolder
 
     local CloseBtn = Instance.new("ImageButton")
     CloseBtn.Size = UDim2.new(1, 0, 1, 0)
     CloseBtn.BackgroundTransparency = 1
-    CloseBtn.ZIndex = 3
+    CloseBtn.ZIndex = 5
     CloseBtn.Parent = CloseBtnFrame
 
     local CloseIcon = Instance.new("ImageLabel")
@@ -2126,7 +2119,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     CloseIcon.Position = UDim2.new(0.05, 0, 0.05, 0)
     CloseIcon.BackgroundTransparency = 1
     CloseIcon.Image = "rbxassetid://132261474823036"
-    CloseIcon.ZIndex = 4
+    CloseIcon.ZIndex = 6
     CloseIcon.Parent = CloseBtn
 
     TrackConn(CloseBtn.MouseEnter:Connect(PlayHoverSFX))
@@ -3580,8 +3573,41 @@ function Library:CreateWindow(hubTitle, scriptName)
 
     function Window:SetBackgroundBlur(enabled)
         Window.BackgroundBlurEnabled = enabled
-        if BackgroundDOF and BackgroundDOF.Parent then BackgroundDOF.Enabled = enabled end
-        if LocalUIBlurPart and LocalUIBlurPart.Parent then LocalUIBlurPart.Transparency = enabled and 0.98 or 1 end
+        if BackgroundDOF and BackgroundDOF.Parent then
+            BackgroundDOF.Enabled = enabled
+        elseif enabled then
+            BackgroundDOF = Instance.new("DepthOfFieldEffect")
+            BackgroundDOF.Name = "MDScriptHubDOF"
+            BackgroundDOF.FocusDistance = 2.5
+            BackgroundDOF.InFocusRadius = 0
+            BackgroundDOF.NearIntensity = 1.0
+            BackgroundDOF.FarIntensity = 0.0
+            BackgroundDOF.Enabled = true
+            BackgroundDOF.Parent = Lighting
+            Window.BackgroundDOF = BackgroundDOF
+        end
+
+        if LocalUIBlurPart and LocalUIBlurPart.Parent then
+            LocalUIBlurPart.Transparency = enabled and 0.98 or 1
+        elseif enabled then
+            LocalUIBlurPart = Instance.new("Part")
+            LocalUIBlurPart.Name = "MD_LocalUIBlurPart"
+            LocalUIBlurPart.Material = Enum.Material.Glass
+            LocalUIBlurPart.Transparency = 0.98
+            LocalUIBlurPart.Color = Color3.fromRGB(255, 255, 255)
+            LocalUIBlurPart.CastShadow = false
+            LocalUIBlurPart.CanCollide = false
+            LocalUIBlurPart.CanTouch = false
+            LocalUIBlurPart.CanQuery = false
+            LocalUIBlurPart.Anchored = true
+            LocalUIBlurPart.Size = Vector3.new(1, 1, 0.01)
+            LocalUIBlurPart.Parent = workspace
+            Window.LocalUIBlurPart = LocalUIBlurPart
+        end
+
+        if enabled and UpdateLocalUIBlur then
+            pcall(UpdateLocalUIBlur)
+        end
     end
 
     function Window:SetSpiderwebBackground(enabled)
