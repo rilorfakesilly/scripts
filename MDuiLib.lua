@@ -245,6 +245,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     local MinimisedUI = nil
     local NotificationUI = nil
     local MainContainer = nil
+    local MainContentFrame = nil
     local UIScaleConstraint = nil
 
     local function TrackConn(conn)
@@ -1430,13 +1431,12 @@ function Library:CreateWindow(hubTitle, scriptName)
 
     -- Long Button Generator (Half-Side / Full-Row)
     function Window:CreateMDButtonLong(parent, position, size, text, onClick)
-        size = size or UDim2.new(0, 260, 0, 62)
+        size = size or UDim2.new(0, 260, 0, 44)
         position = position or UDim2.new(0, 0, 0, 0)
 
         local BtnFrame = Instance.new("Frame")
         BtnFrame.Name = "TopFrame"
-        BtnFrame.Size = size or UDim2.new(0, 260, 0, 62)
-        BtnFrame.AutomaticSize = Enum.AutomaticSize.Y
+        BtnFrame.Size = size
         BtnFrame.Position = position
         BtnFrame.BackgroundColor3 = Window.CurrentTheme.ButtonBG
         BtnFrame.BackgroundTransparency = 0.05
@@ -1445,7 +1445,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         BtnFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 36)
+        Corner.CornerRadius = UDim.new(0, 22)
         Corner.Parent = BtnFrame
 
         AddUIShadow(BtnFrame, 20, 0.5)
@@ -1463,14 +1463,14 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local BtnText = Instance.new("TextLabel")
         BtnText.Name = "btntext"
-        BtnText.Size = UDim2.new(1, -24, 0, 39)
-        BtnText.Position = UDim2.new(0, 12, 0.5, -19)
+        BtnText.Size = UDim2.new(1, -20, 1, 0)
+        BtnText.Position = UDim2.new(0, 10, 0, 0)
         BtnText.BackgroundTransparency = 1
         BtnText.FontFace = FontMichromaRegular
         BtnText.RichText = true
         BtnText.Text = text or "Function"
         BtnText.TextColor3 = Window.CurrentTheme.Text
-        BtnText.TextScaled = true
+        BtnText.TextSize = 13
         BtnText.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
         BtnText.TextStrokeTransparency = 0.77
         BtnText.TextWrapped = true
@@ -1527,13 +1527,12 @@ function Library:CreateWindow(hubTitle, scriptName)
 
     -- Half-Side Embedded Toggle Generator
     function Window:CreateMDToggleHalf(parent, position, size, text, initialState, onToggle)
-        size = size or UDim2.new(0, 260, 0, 62)
+        size = size or UDim2.new(0, 260, 0, 44)
         position = position or UDim2.new(0, 0, 0, 0)
 
         local CardFrame = Instance.new("Frame")
         CardFrame.Name = "TopFrame"
-        CardFrame.Size = size or UDim2.new(0, 260, 0, 62)
-        CardFrame.AutomaticSize = Enum.AutomaticSize.Y
+        CardFrame.Size = size
         CardFrame.Position = position
         CardFrame.BackgroundColor3 = Window.CurrentTheme.ButtonBG
         CardFrame.BackgroundTransparency = 0.05
@@ -1542,7 +1541,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         CardFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 36)
+        Corner.CornerRadius = UDim.new(0, 22)
         Corner.Parent = CardFrame
 
         AddUIShadow(CardFrame, 20, 0.5)
@@ -1560,14 +1559,14 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local TitleText = Instance.new("TextLabel")
         TitleText.Name = "btntext"
-        TitleText.Size = UDim2.new(0, 131, 0, 39)
-        TitleText.Position = UDim2.new(0.0616, 0, 0.1738, 0)
+        TitleText.Size = UDim2.new(1, -65, 1, 0)
+        TitleText.Position = UDim2.new(0, 14, 0, 0)
         TitleText.BackgroundTransparency = 1
         TitleText.FontFace = FontMichromaRegular
         TitleText.RichText = true
         TitleText.Text = text or "Function"
         TitleText.TextColor3 = Window.CurrentTheme.Text
-        TitleText.TextScaled = true
+        TitleText.TextSize = 13
         TitleText.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
         TitleText.TextStrokeTransparency = 0.77
         TitleText.TextWrapped = true
@@ -1577,18 +1576,18 @@ function Library:CreateWindow(hubTitle, scriptName)
         TitleText.Parent = MDTextFolder
 
         local ToggleFrame = Instance.new("Frame")
-        ToggleFrame.Name = "TopFrame"
-        ToggleFrame.Size = UDim2.new(0, 89, 0, 36)
-        ToggleFrame.Position = UDim2.new(0.6025, 0, 0.2271, 0)
+        ToggleFrame.Name = "TogglePill"
+        ToggleFrame.Size = UDim2.new(0, 44, 0, 24)
+        ToggleFrame.Position = UDim2.new(1, -54, 0.5, -12)
         ToggleFrame.BackgroundColor3 = initialState and Window.CurrentTheme.ButtonBG or Color3.fromRGB(35, 38, 48)
         ToggleFrame.BackgroundTransparency = 0.05
         ToggleFrame.BorderSizePixel = 0
-        ToggleFrame.ClipsDescendants = false
+        ToggleFrame.ClipsDescendants = true
         ToggleFrame.ZIndex = 11
         ToggleFrame.Parent = CardFrame
 
         local ToggleCorner = Instance.new("UICorner")
-        ToggleCorner.CornerRadius = UDim.new(0, 33)
+        ToggleCorner.CornerRadius = UDim.new(0, 12)
         ToggleCorner.Parent = ToggleFrame
 
         AddUIShadow(ToggleFrame, 20, 0.5)
@@ -1601,8 +1600,8 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local BaseCircle = Instance.new("ImageLabel")
         BaseCircle.Name = "ToggleThingLikeCircle"
-        BaseCircle.Size = UDim2.new(0, 44, 0, 44)
-        BaseCircle.Position = isToggled and UDim2.new(1, -45, 0.5, -22) or UDim2.new(0, 1, 0.5, -22)
+        BaseCircle.Size = UDim2.new(0, 18, 0, 18)
+        BaseCircle.Position = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
         BaseCircle.BackgroundTransparency = 1
         BaseCircle.Image = "rbxassetid://118376432250064"
         BaseCircle.ZIndex = 12
@@ -1610,8 +1609,8 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local OverlayCircle = Instance.new("ImageLabel")
         OverlayCircle.Name = "ThethingOnTopThatMatchesBGofIt"
-        OverlayCircle.Size = UDim2.new(0, 45, 0, 45)
-        OverlayCircle.Position = isToggled and UDim2.new(1, -46, 0.5, -22) or UDim2.new(0, 0, 0.5, -22)
+        OverlayCircle.Size = UDim2.new(0, 19, 0, 19)
+        OverlayCircle.Position = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
         OverlayCircle.BackgroundTransparency = 1
         OverlayCircle.Image = "rbxassetid://100354746235648"
         OverlayCircle.ImageColor3 = Window.CurrentTheme.ButtonBG
@@ -1630,8 +1629,8 @@ function Library:CreateWindow(hubTitle, scriptName)
             PlayClickSFX()
             isToggled = not isToggled
 
-            local targetKnobPosBase = isToggled and UDim2.new(1, -45, 0.5, -22) or UDim2.new(0, 1, 0.5, -22)
-            local targetKnobPosOver = isToggled and UDim2.new(1, -46, 0.5, -22) or UDim2.new(0, 0, 0.5, -22)
+            local targetKnobPosBase = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
+            local targetKnobPosOver = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
             local targetBG = isToggled and Window.CurrentTheme.ButtonBG or Color3.fromRGB(35, 38, 48)
 
             TweenService:Create(BaseCircle, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetKnobPosBase}):Play()
@@ -1652,8 +1651,8 @@ function Library:CreateWindow(hubTitle, scriptName)
             GetState = function() return isToggled end,
             SetState = function(state)
                 isToggled = state
-                BaseCircle.Position = isToggled and UDim2.new(1, -45, 0.5, -22) or UDim2.new(0, 1, 0.5, -22)
-                OverlayCircle.Position = isToggled and UDim2.new(1, -46, 0.5, -22) or UDim2.new(0, 0, 0.5, -22)
+                BaseCircle.Position = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
+                OverlayCircle.Position = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
                 ToggleFrame.BackgroundColor3 = isToggled and Window.CurrentTheme.ButtonBG or Color3.fromRGB(35, 38, 48)
             end
         }
@@ -2065,7 +2064,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
     TrackConn(CloseBtn.MouseEnter:Connect(PlayHoverSFX))
 
-    -- Left Sidebar Frame
+    -- Left Sidebar Background Panel (ZIndex 1)
     local LeftFrame = Instance.new("Frame")
     LeftFrame.Name = "LeftFrame"
     LeftFrame.Size = UDim2.new(0, 175, 1, -94)
@@ -2076,24 +2075,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     LeftFrame.ZIndex = 1
     LeftFrame.Parent = MainContainer
 
-    local SidebarScroll = Instance.new("ScrollingFrame")
-    SidebarScroll.Name = "ScrollingFrame"
-    SidebarScroll.Size = UDim2.new(0, 174, 1, 0)
-    SidebarScroll.BackgroundTransparency = 1
-    SidebarScroll.BorderSizePixel = 0
-    SidebarScroll.ScrollBarThickness = 0
-    SidebarScroll.Parent = LeftFrame
-
-    local SidebarLayout = Instance.new("UIListLayout")
-    SidebarLayout.Name = "UIListLayout"
-    SidebarLayout.FillDirection = Enum.FillDirection.Vertical
-    SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    SidebarLayout.VerticalAlignment = Enum.VerticalAlignment.Top
-    SidebarLayout.Padding = UDim.new(0, 3)
-    SidebarLayout.Parent = SidebarScroll
-
-    -- Main Content Frame
+    -- Main Content Background Panel (ZIndex 1)
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
     MainFrame.Size = UDim2.new(1, -175, 1, -94)
@@ -2106,6 +2088,48 @@ function Library:CreateWindow(hubTitle, scriptName)
     MainFrame.Parent = MainContainer
 
     AddUIShadow(MainFrame, 20, 0.5)
+
+    -- Init Spiderweb Background at ZIndex 2 (Above LeftFrame & MainFrame panel backgrounds, below UI contents)
+    InitSpiderwebBackground(MainContainer, ScriptUi)
+
+    -- Content Overlay Layer (ZIndex 3 for all UI controls, cards, tab buttons, dividers, and text)
+    local ContentOverlay = Instance.new("Frame")
+    ContentOverlay.Name = "ContentOverlay"
+    ContentOverlay.Size = UDim2.new(1, 0, 1, -94)
+    ContentOverlay.Position = UDim2.new(0, 0, 0, 42)
+    ContentOverlay.BackgroundTransparency = 1
+    ContentOverlay.BorderSizePixel = 0
+    ContentOverlay.ZIndex = 3
+    ContentOverlay.Parent = MainContainer
+
+    local SidebarScroll = Instance.new("ScrollingFrame")
+    SidebarScroll.Name = "ScrollingFrame"
+    SidebarScroll.Size = UDim2.new(0, 174, 1, 0)
+    SidebarScroll.Position = UDim2.new(0, 0, 0, 0)
+    SidebarScroll.BackgroundTransparency = 1
+    SidebarScroll.BorderSizePixel = 0
+    SidebarScroll.ScrollBarThickness = 0
+    SidebarScroll.ZIndex = 3
+    SidebarScroll.Parent = ContentOverlay
+
+    local SidebarLayout = Instance.new("UIListLayout")
+    SidebarLayout.Name = "UIListLayout"
+    SidebarLayout.FillDirection = Enum.FillDirection.Vertical
+    SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    SidebarLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+    SidebarLayout.Padding = UDim.new(0, 3)
+    SidebarLayout.Parent = SidebarScroll
+
+    MainContentFrame = Instance.new("Frame")
+    MainContentFrame.Name = "MainContentFrame"
+    MainContentFrame.Size = UDim2.new(1, -175, 1, 0)
+    MainContentFrame.Position = UDim2.new(0, 175, 0, 0)
+    MainContentFrame.BackgroundTransparency = 1
+    MainContentFrame.BorderSizePixel = 0
+    MainContentFrame.ClipsDescendants = true
+    MainContentFrame.ZIndex = 3
+    MainContentFrame.Parent = ContentOverlay
 
     -- Bottom Frame
     local BottomFrame = Instance.new("Frame")
@@ -2130,8 +2154,6 @@ function Library:CreateWindow(hubTitle, scriptName)
         ColorSequenceKeypoint.new(1, Window.CurrentTheme.BottomGradient[3])
     })
     BottomGradient.Parent = BottomFrame
-
-    InitSpiderwebBackground(MainContainer, ScriptUi)
 
     local MDicon = Instance.new("ImageLabel")
     MDicon.Size = UDim2.new(0, 35, 0, 35)
@@ -2568,7 +2590,8 @@ function Library:CreateWindow(hubTitle, scriptName)
         ContentFrame.ScrollBarThickness = 4
         ContentFrame.ScrollBarImageColor3 = Window.CurrentTheme.Divider
         ContentFrame.Visible = false
-        ContentFrame.Parent = MainFrame
+        ContentFrame.ZIndex = 3
+        ContentFrame.Parent = MainContentFrame or MainFrame
 
         local ContentLayout = Instance.new("UIListLayout")
         ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -2645,7 +2668,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         function TabObj:AddRow()
             local RowFrame = Instance.new("Frame")
             RowFrame.Name = "RowFrame"
-            RowFrame.Size = UDim2.new(1, -10, 0, 62)
+            RowFrame.Size = UDim2.new(1, -10, 0, 44)
             RowFrame.BackgroundTransparency = 1
             RowFrame.BorderSizePixel = 0
             RowFrame.ZIndex = 3
@@ -2656,7 +2679,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         function TabObj:AddLongButton(text, callback, parentRow, position)
             local targetParent = parentRow or ContentFrame
-            local size = parentRow and UDim2.new(0.485, -4, 0, 62) or UDim2.new(1, -10, 0, 62)
+            local size = parentRow and UDim2.new(0.485, -4, 0, 44) or UDim2.new(1, -10, 0, 44)
             local pos = position or UDim2.new(0, 0, 0, 0)
 
             local btnData = Window:CreateMDButtonLong(targetParent, pos, size, text, callback)
@@ -2667,7 +2690,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         function TabObj:AddDropdown(title, options, defaultOption, onSelect, parentRow, position)
             local targetParent = parentRow or ContentFrame
-            local size = parentRow and UDim2.new(0.485, -4, 0, 62) or UDim2.new(1, -10, 0, 62)
+            local size = parentRow and UDim2.new(0.485, -4, 0, 44) or UDim2.new(1, -10, 0, 44)
             local pos = position or UDim2.new(0, 0, 0, 0)
             local dropObj = Window:CreateMDDropdown(targetParent, pos, size, title, options, defaultOption, onSelect)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
@@ -2676,7 +2699,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         function TabObj:AddTextbox(title, placeholder, defaultText, onSubmit, parentRow, position)
             local targetParent = parentRow or ContentFrame
-            local size = parentRow and UDim2.new(0.485, -4, 0, 50) or UDim2.new(1, -10, 0, 50)
+            local size = parentRow and UDim2.new(0.485, -4, 0, 44) or UDim2.new(1, -10, 0, 44)
             local pos = position or UDim2.new(0, 0, 0, 0)
             local boxObj = Window:CreateMDTextbox(targetParent, pos, size, title, placeholder, defaultText, onSubmit)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
@@ -2689,7 +2712,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         function TabObj:AddHalfToggle(text, initialState, onToggle, parentRow, position)
             local targetParent = parentRow or ContentFrame
-            local size = parentRow and UDim2.new(0.485, -4, 0, 62) or UDim2.new(1, -10, 0, 62)
+            local size = parentRow and UDim2.new(0.485, -4, 0, 44) or UDim2.new(1, -10, 0, 44)
             local pos = position or UDim2.new(0, 0, 0, 0)
 
             local toggleData = Window:CreateMDToggleHalf(targetParent, pos, size, text, initialState, onToggle)
@@ -2874,6 +2897,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     Window.TopFrame = TopFrame
     Window.LeftFrame = LeftFrame
     Window.MainFrame = MainFrame
+    Window.MainContentFrame = MainContentFrame
     Window.BottomFrame = BottomFrame
     Window.SidebarScroll = SidebarScroll
     Window.UIScaleConstraint = UIScaleConstraint
