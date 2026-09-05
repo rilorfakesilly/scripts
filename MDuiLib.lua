@@ -255,6 +255,30 @@ function Library:CreateWindow(hubTitle, scriptName)
         return conn
     end
 
+    local PlayHoverSFX = function()
+        if not Window or not Window.UISoundsEnabled then return end
+        pcall(function()
+            if HoverSoundTemplate and SoundFolder then
+                local snd = HoverSoundTemplate:Clone()
+                snd.Parent = SoundFolder
+                snd:Play()
+                Debris:AddItem(snd, 1.5)
+            end
+        end)
+    end
+
+    local PlayClickSFX = function()
+        if not Window or not Window.UISoundsEnabled then return end
+        pcall(function()
+            if ClickSoundTemplate and SoundFolder then
+                local snd = ClickSoundTemplate:Clone()
+                snd.Parent = SoundFolder
+                snd:Play()
+                Debris:AddItem(snd, 1.5)
+            end
+        end)
+    end
+
     -- =========================================================================
     -- CONTROL REGISTRIES & CONFIG PERSISTENCE ENGINE
     -- =========================================================================
@@ -292,6 +316,13 @@ function Library:CreateWindow(hubTitle, scriptName)
 
     function Window:GetConfigSaveData()
         local data = {
+            Theme = Window.CurrentThemeKey or "Dark",
+            Settings = {
+                Spiderweb = Window.SpiderwebEnabled,
+                Blur = Window.BackgroundBlurEnabled,
+                Sounds = Window.UISoundsEnabled,
+                SoundVolume = Window.SoundVolume
+            },
             Toggles = {},
             Sliders = {},
             Textboxes = {},
@@ -344,6 +375,28 @@ function Library:CreateWindow(hubTitle, scriptName)
                 if drop and drop.SetSelected then
                     pcall(function() drop.SetSelected(selected, true) end)
                 end
+            end
+        end
+        if data.Theme then
+            if Window.ApplyTheme then
+                pcall(function() Window.ApplyTheme(data.Theme) end)
+            elseif Library.ThemePresets[data.Theme] then
+                Window.CurrentTheme = Library.ThemePresets[data.Theme]
+                Window.CurrentThemeKey = data.Theme
+            end
+        end
+        if data.Settings then
+            if data.Settings.Spiderweb ~= nil and Window.SetSpiderwebBackground then
+                pcall(function() Window:SetSpiderwebBackground(data.Settings.Spiderweb) end)
+            end
+            if data.Settings.Blur ~= nil and Window.SetBackgroundBlur then
+                pcall(function() Window:SetBackgroundBlur(data.Settings.Blur) end)
+            end
+            if data.Settings.Sounds ~= nil and Window.SetUISounds then
+                pcall(function() Window:SetUISounds(data.Settings.Sounds) end)
+            end
+            if data.Settings.SoundVolume ~= nil and Window.SetSoundVolume then
+                pcall(function() Window:SetSoundVolume(data.Settings.SoundVolume) end)
             end
         end
     end
@@ -616,7 +669,9 @@ function Library:CreateWindow(hubTitle, scriptName)
         TitleText.RichText = true
         TitleText.Text = title .. ": " .. defaultOption
         TitleText.TextColor3 = Window.CurrentTheme.Text
-        TitleText.TextScaled = true
+        TitleText.TextScaled = false
+        TitleText.TextSize = 12
+        TitleText.TextWrapped = true
         TitleText.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
         TitleText.TextStrokeTransparency = 0.77
         TitleText.TextXAlignment = Enum.TextXAlignment.Left
@@ -826,8 +881,16 @@ function Library:CreateWindow(hubTitle, scriptName)
         -- 2. Config Selector Dropdown
         local configDropdownObj = Window:CreateMDDropdown(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 52), "Selected Config", GetConfigList(), "DEFAULT", nil)
 
-        -- 3. Column of Action Long Buttons (Create, Rewrite, Delete, Load)
-        Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 62), "CREATE CONFIG", function()
+        -- 3. Row 1: Left = CREATE CONFIG, Right = DELETE CONFIG
+        local Row1 = Instance.new("Frame")
+        Row1.Name = "ConfigRow1"
+        Row1.Size = UDim2.new(1, 0, 0, 44)
+        Row1.BackgroundTransparency = 1
+        Row1.BorderSizePixel = 0
+        Row1.ZIndex = 4
+        Row1.Parent = SectionFrame
+
+        Window:CreateMDButtonLong(Row1, UDim2.new(0, 0, 0, 0), UDim2.new(0.485, -4, 1, 0), "CREATE CONFIG", function()
             local requested = nameBoxObj.GetText()
             local savedName = Window:SaveConfig(requested)
             if savedName then
@@ -836,12 +899,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
         end)
 
-        Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 62), "REWRITE CONFIG", function()
-            local current = configDropdownObj.GetSelected()
-            Window:RewriteConfig(current)
-        end)
-
-        Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 62), "DELETE CONFIG", function()
+        Window:CreateMDButtonLong(Row1, UDim2.new(0.515, 4, 0, 0), UDim2.new(0.485, -4, 1, 0), "DELETE CONFIG", function()
             local current = configDropdownObj.GetSelected()
             if Window:DeleteConfig(current) then
                 configDropdownObj.RefreshOptions(GetConfigList())
@@ -849,7 +907,21 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
         end)
 
-        Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 62), "LOAD CONFIG", function()
+        -- 4. Row 2: Left = OVERWRITE CONFIG, Right = LOAD CONFIG
+        local Row2 = Instance.new("Frame")
+        Row2.Name = "ConfigRow2"
+        Row2.Size = UDim2.new(1, 0, 0, 44)
+        Row2.BackgroundTransparency = 1
+        Row2.BorderSizePixel = 0
+        Row2.ZIndex = 4
+        Row2.Parent = SectionFrame
+
+        Window:CreateMDButtonLong(Row2, UDim2.new(0, 0, 0, 0), UDim2.new(0.485, -4, 1, 0), "OVERWRITE CONFIG", function()
+            local current = configDropdownObj.GetSelected()
+            Window:RewriteConfig(current)
+        end)
+
+        Window:CreateMDButtonLong(Row2, UDim2.new(0.515, 4, 0, 0), UDim2.new(0.485, -4, 1, 0), "LOAD CONFIG", function()
             local current = configDropdownObj.GetSelected()
             Window:LoadConfig(current)
         end)
@@ -1003,25 +1075,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     end
 
 
-    local function PlayHoverSFX()
-        if not Window.UISoundsEnabled then return end
-        pcall(function()
-            local snd = HoverSoundTemplate:Clone()
-            snd.Parent = SoundFolder
-            snd:Play()
-            Debris:AddItem(snd, 1.5)
-        end)
-    end
-
-    local function PlayClickSFX()
-        if not Window.UISoundsEnabled then return end
-        pcall(function()
-            local snd = ClickSoundTemplate:Clone()
-            snd.Parent = SoundFolder
-            snd:Play()
-            Debris:AddItem(snd, 1.5)
-        end)
-    end
+    -- (SFX functions declared at top of CreateWindow)
 
     local function AttachUniversalDrag(dragHandleFrame, targetContainer)
         local isDragging = false
@@ -1402,7 +1456,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
     -- Long Button Generator (Half-Side / Full-Row)
     function Window:CreateMDButtonLong(parent, position, size, text, onClick)
-        size = size or UDim2.new(1, 0, 0, 62)
+        size = size or UDim2.new(1, 0, 0, 44)
         position = position or UDim2.new(0, 0, 0, 0)
 
         local BtnFrame = Instance.new("Frame")
@@ -1416,7 +1470,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         BtnFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 36)
+        Corner.CornerRadius = UDim.new(0, 22)
         Corner.Parent = BtnFrame
 
         AddUIShadow(BtnFrame, 20, 0.5)
@@ -1434,14 +1488,16 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local BtnText = Instance.new("TextLabel")
         BtnText.Name = "btntext"
-        BtnText.Size = UDim2.new(0, 131, 0, 39)
-        BtnText.Position = UDim2.new(0.5, -65.5, 0.5, -19.5)
+        BtnText.Size = UDim2.new(1, -12, 1, 0)
+        BtnText.Position = UDim2.new(0, 6, 0, 0)
         BtnText.BackgroundTransparency = 1
         BtnText.FontFace = FontMichromaRegular
         BtnText.RichText = true
         BtnText.Text = text or "Function"
         BtnText.TextColor3 = Window.CurrentTheme.Text
-        BtnText.TextScaled = true
+        BtnText.TextScaled = false
+        BtnText.TextSize = 11
+        BtnText.TextWrapped = true
         BtnText.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
         BtnText.TextStrokeTransparency = 0.77
         BtnText.TextWrapped = true
@@ -2079,7 +2135,10 @@ function Library:CreateWindow(hubTitle, scriptName)
     SidebarScroll.Position = UDim2.new(0, 0, 0, 0)
     SidebarScroll.BackgroundTransparency = 1
     SidebarScroll.BorderSizePixel = 0
-    SidebarScroll.ScrollBarThickness = 0
+    SidebarScroll.ScrollBarThickness = 2
+    SidebarScroll.ScrollBarImageColor3 = Window.CurrentTheme.Divider
+    SidebarScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    SidebarScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     SidebarScroll.ZIndex = 3
     SidebarScroll.Parent = ContentOverlay
 
@@ -2091,6 +2150,10 @@ function Library:CreateWindow(hubTitle, scriptName)
     SidebarLayout.VerticalAlignment = Enum.VerticalAlignment.Top
     SidebarLayout.Padding = UDim.new(0, 3)
     SidebarLayout.Parent = SidebarScroll
+
+    SidebarLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        SidebarScroll.CanvasSize = UDim2.new(0, 0, 0, SidebarLayout.AbsoluteContentSize.Y + 20)
+    end)
 
     MainContentFrame = Instance.new("Frame")
     MainContentFrame.Name = "MainContentFrame"
@@ -2560,6 +2623,8 @@ function Library:CreateWindow(hubTitle, scriptName)
         ContentFrame.BorderSizePixel = 0
         ContentFrame.ScrollBarThickness = 4
         ContentFrame.ScrollBarImageColor3 = Window.CurrentTheme.Divider
+        ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
         ContentFrame.Visible = false
         ContentFrame.ZIndex = 3
         ContentFrame.Parent = MainContentFrame or MainFrame
@@ -2568,6 +2633,10 @@ function Library:CreateWindow(hubTitle, scriptName)
         ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ContentLayout.Padding = UDim.new(0, 10)
         ContentLayout.Parent = ContentFrame
+
+        ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 40)
+        end)
 
         local TabObj = {
             Name = tabName,
