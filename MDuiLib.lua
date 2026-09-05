@@ -235,7 +235,9 @@ function Library:CreateWindow(hubTitle, scriptName)
         RegisteredToggles = {},
         RegisteredSliders = {},
         RegisteredTextboxes = {},
+        RegisteredTextboxesList = {},
         RegisteredDropdowns = {},
+        RegisteredDropdownsList = {},
         ThemePresetBtnMap = {},
         Tabs = {},
         ActiveTab = nil
@@ -611,11 +613,19 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local boxObj = {
             Frame = BoxFrame,
+            TitleLabel = TitleLabel,
             InputBox = InputBox,
             GetText = function() return InputBox.Text end,
             SetText = function(txt, triggerCallback)
                 InputBox.Text = txt or ""
                 if triggerCallback and onSubmit then onSubmit(InputBox.Text) end
+            end,
+            RefreshTheme = function(theme)
+                BoxFrame.BackgroundColor3 = theme.CardBG
+                TitleLabel.TextColor3 = theme.Text
+                InputBox.TextColor3 = theme.Text
+                InputBox.PlaceholderColor3 = theme.SubText
+                InputBox.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(230, 234, 242) or Color3.fromRGB(20, 22, 28)
             end
         }
 
@@ -627,6 +637,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         if title and title ~= "" then
             Window.RegisteredTextboxes[title] = boxObj
         end
+        table.insert(Window.RegisteredTextboxesList, boxObj)
 
         return boxObj
     end
@@ -673,8 +684,6 @@ function Library:CreateWindow(hubTitle, scriptName)
         TitleText.TextScaled = false
         TitleText.TextSize = 12
         TitleText.TextWrapped = true
-        TitleText.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
-        TitleText.TextStrokeTransparency = 0.77
         TitleText.TextXAlignment = Enum.TextXAlignment.Left
         TitleText.TextYAlignment = Enum.TextYAlignment.Center
         TitleText.ZIndex = 16
@@ -752,8 +761,6 @@ function Library:CreateWindow(hubTitle, scriptName)
                 ItemBtn.Text = opt
                 ItemBtn.TextColor3 = Window.CurrentTheme.Text
                 ItemBtn.TextSize = 12
-                ItemBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
-                ItemBtn.TextStrokeTransparency = 0.77
                 ItemBtn.ZIndex = 52
                 ItemBtn.Parent = InnerScroll
 
@@ -814,6 +821,9 @@ function Library:CreateWindow(hubTitle, scriptName)
         local dropObj = {
             Frame = DropdownFrame,
             Content = DropdownContent,
+            InnerScroll = InnerScroll,
+            TitleText = TitleText,
+            ArrowIcon = ArrowIcon,
             GetSelected = function() return selectedOption end,
             SetSelected = function(opt, triggerCallback)
                 selectedOption = opt
@@ -822,12 +832,21 @@ function Library:CreateWindow(hubTitle, scriptName)
                 RefreshOptions(options)
                 if triggerCallback and onSelect then onSelect(selectedOption) end
             end,
-            RefreshOptions = RefreshOptions
+            RefreshOptions = RefreshOptions,
+            RefreshTheme = function(theme)
+                DropdownFrame.BackgroundColor3 = theme.CardBG
+                TitleText.TextColor3 = theme.Text
+                ArrowIcon.ImageColor3 = theme.Text
+                DropdownContent.BackgroundColor3 = theme.CardBG
+                InnerScroll.ScrollBarImageColor3 = theme.Divider
+                RefreshOptions(options)
+            end
         }
 
         if title and title ~= "" then
             Window.RegisteredDropdowns[title] = dropObj
         end
+        table.insert(Window.RegisteredDropdownsList, dropObj)
 
         return dropObj
     end
@@ -1148,8 +1167,6 @@ function Library:CreateWindow(hubTitle, scriptName)
         BtnText.Text = text or "Button"
         BtnText.TextColor3 = Window.CurrentTheme.Text
         BtnText.TextScaled = true
-        BtnText.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
-        BtnText.TextStrokeTransparency = 0.92
         BtnText.TextWrapped = true
         BtnText.ZIndex = 11
         BtnText.Parent = MDTextFolder
@@ -1503,8 +1520,6 @@ function Library:CreateWindow(hubTitle, scriptName)
         BtnText.TextScaled = false
         BtnText.TextSize = 11
         BtnText.TextWrapped = true
-        BtnText.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
-        BtnText.TextStrokeTransparency = 0.77
         BtnText.TextWrapped = true
         BtnText.TextXAlignment = Enum.TextXAlignment.Center
         BtnText.TextYAlignment = Enum.TextYAlignment.Center
@@ -1599,8 +1614,6 @@ function Library:CreateWindow(hubTitle, scriptName)
         TitleText.Text = text or "Function"
         TitleText.TextColor3 = Window.CurrentTheme.Text
         TitleText.TextSize = 13
-        TitleText.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
-        TitleText.TextStrokeTransparency = 0.77
         TitleText.TextWrapped = true
         TitleText.TextXAlignment = Enum.TextXAlignment.Left
         TitleText.TextYAlignment = Enum.TextYAlignment.Center
@@ -2036,12 +2049,10 @@ function Library:CreateWindow(hubTitle, scriptName)
     MDHUBNAME.Size = UDim2.new(0, 153, 0, 46)
     MDHUBNAME.Position = UDim2.new(0.0259, 0, -0.052, 0)
     MDHUBNAME.BackgroundTransparency = 1
-    MDHUBNAME.FontFace = FontMichromaRegular
+    MDHUBNAME.FontFace = FontMichromaBold
     MDHUBNAME.Text = hubTitle
     MDHUBNAME.TextColor3 = Window.CurrentTheme.Text
     MDHUBNAME.TextSize = 15
-    MDHUBNAME.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
-    MDHUBNAME.TextStrokeTransparency = 0.77
     MDHUBNAME.TextXAlignment = Enum.TextXAlignment.Left
     MDHUBNAME.ZIndex = 3
     MDHUBNAME.Parent = MDTextFolder
@@ -2396,8 +2407,6 @@ function Library:CreateWindow(hubTitle, scriptName)
         NotifTitle.Text = titleText or "MD Notification"
         NotifTitle.TextColor3 = Window.CurrentTheme.Text
         NotifTitle.TextSize = 15
-        NotifTitle.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
-        NotifTitle.TextStrokeTransparency = 0.77
         NotifTitle.TextXAlignment = Enum.TextXAlignment.Left
         NotifTitle.ZIndex = 32
         NotifTitle.Parent = NotifTextFolder
@@ -2980,6 +2989,10 @@ function Library:CreateWindow(hubTitle, scriptName)
             Window.BottomFrame.BackgroundTransparency = newTheme.BottomTrans
         end
 
+        if Window.SidebarScroll then
+            Window.SidebarScroll.ScrollBarImageColor3 = newTheme.Divider
+        end
+
         if Window.BottomGradient then
             Window.BottomGradient.Color = ColorSequence.new({
                 ColorSequenceKeypoint.new(0, newTheme.BottomGradient[1]),
@@ -3010,7 +3023,6 @@ function Library:CreateWindow(hubTitle, scriptName)
                 btnData.Frame.BackgroundColor3 = newTheme.ButtonBG
                 if btnData.TextLabel then
                     btnData.TextLabel.TextColor3 = newTheme.Text
-                    btnData.TextLabel.TextStrokeColor3 = newTheme.Text
                 end
                 if btnData.Stroke then
                     btnData.Stroke.Color = Color3.fromRGB(255, 255, 255)
@@ -3025,43 +3037,31 @@ function Library:CreateWindow(hubTitle, scriptName)
         for _, toggle in ipairs(Window.RegisteredMDToggles) do
             if toggle and toggle.Frame and toggle.Frame.Parent then
                 if toggle.Overlay then toggle.Overlay.ImageColor3 = newTheme.ButtonBG end
-                if toggle.GetState and toggle.GetState() then
-                    toggle.Frame.BackgroundColor3 = newTheme.ButtonBG
-                end
+                local isToggled = (toggle.GetState and toggle.GetState())
+                toggle.Frame.BackgroundColor3 = isToggled and newTheme.ButtonBG or ((newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
             end
         end
 
         for _, slider in ipairs(Window.RegisteredMDSliders) do
             if slider and slider.Track and slider.Track.Parent then
+                slider.Track.BackgroundColor3 = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(20, 22, 28)
                 if slider.FilledPart then slider.FilledPart.BackgroundColor3 = newTheme.ButtonBG end
                 if slider.Overlay then slider.Overlay.ImageColor3 = newTheme.ButtonBG end
             end
         end
 
-        for _, box in pairs(Window.RegisteredTextboxes) do
-            if box and box.Frame and box.Frame.Parent then
-                box.Frame.BackgroundColor3 = newTheme.CardBG
-                local label = box.Frame:FindFirstChild("TitleLabel")
-                if label then label.TextColor3 = newTheme.Text end
-                if box.InputBox then
-                    box.InputBox.TextColor3 = newTheme.Text
-                    box.InputBox.PlaceholderColor3 = newTheme.SubText
+        if Window.RegisteredTextboxesList then
+            for _, box in ipairs(Window.RegisteredTextboxesList) do
+                if box and box.RefreshTheme then
+                    pcall(function() box.RefreshTheme(newTheme) end)
                 end
             end
         end
 
-        for _, drop in pairs(Window.RegisteredDropdowns) do
-            if drop and drop.Frame and drop.Frame.Parent then
-                drop.Frame.BackgroundColor3 = newTheme.CardBG
-                local mdtext = drop.Frame:FindFirstChild("MDText")
-                if mdtext then
-                    local lbl = mdtext:FindFirstChild("drpdwntext")
-                    if lbl then lbl.TextColor3 = newTheme.Text end
-                end
-                local arrow = drop.Frame:FindFirstChild("ImageLabel")
-                if arrow then arrow.ImageColor3 = newTheme.Text end
-                if drop.Content and drop.Content.Parent then
-                    drop.Content.BackgroundColor3 = newTheme.CardBG
+        if Window.RegisteredDropdownsList then
+            for _, drop in ipairs(Window.RegisteredDropdownsList) do
+                if drop and drop.RefreshTheme then
+                    pcall(function() drop.RefreshTheme(newTheme) end)
                 end
             end
         end
@@ -3088,7 +3088,7 @@ function Library:CreateWindow(hubTitle, scriptName)
                 if tabData.ContentFrame then
                     tabData.ContentFrame.ScrollBarImageColor3 = newTheme.Divider
                     for _, card in ipairs(tabData.ContentFrame:GetChildren()) do
-                        if card:IsA("Frame") and card.Name ~= "TopFrame" and card.Name ~= "MainHeaderFrame" then
+                        if card:IsA("Frame") and card.Name ~= "TopFrame" and card.Name ~= "MainHeaderFrame" and card.Name ~= "ConfigRow1" and card.Name ~= "ConfigRow2" then
                             if card.Name == "RowContainer" then
                                 card.BackgroundTransparency = 1
                                 for _, subCard in ipairs(card:GetChildren()) do
