@@ -263,8 +263,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         pcall(function()
             if HoverSoundTemplate and SoundFolder then
                 local snd = HoverSoundTemplate:Clone()
-                local volFactor = (Window.SoundVolume ~= nil) and Window.SoundVolume or 0.8
-                snd.Volume = 0.5 * volFactor
+                snd.Volume = 0.5 * math.max(0.01, Window.SoundVolume ~= nil and Window.SoundVolume or 0.8)
                 snd.Parent = SoundFolder
                 snd:Play()
                 Debris:AddItem(snd, 1.5)
@@ -277,8 +276,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         pcall(function()
             if ClickSoundTemplate and SoundFolder then
                 local snd = ClickSoundTemplate:Clone()
-                local volFactor = (Window.SoundVolume ~= nil) and Window.SoundVolume or 0.8
-                snd.Volume = 0.6 * volFactor
+                snd.Volume = 0.6 * math.max(0.01, Window.SoundVolume ~= nil and Window.SoundVolume or 0.8)
                 snd.Parent = SoundFolder
                 snd:Play()
                 Debris:AddItem(snd, 1.5)
@@ -1102,7 +1100,12 @@ function Library:CreateWindow(hubTitle, scriptName)
         if ScriptUi then
             ScriptUi.Enabled = true
         end
-        Window:SetBackgroundBlur(Window.BackgroundBlurEnabled)
+        if BackgroundDOF and BackgroundDOF.Parent then
+            BackgroundDOF.Enabled = Window.BackgroundBlurEnabled
+        end
+        if LocalUIBlurPart and LocalUIBlurPart.Parent then
+            LocalUIBlurPart.Transparency = Window.BackgroundBlurEnabled and 0.98 or 1
+        end
     end
 
 
@@ -1771,19 +1774,13 @@ function Library:CreateWindow(hubTitle, scriptName)
         end
     end
 
-    local BackgroundBlur = Instance.new("BlurEffect")
-    BackgroundBlur.Name = "MDScriptHubBlur"
-    BackgroundBlur.Size = 14
-    BackgroundBlur.Enabled = false -- Enabled after FinishLoading
-    BackgroundBlur.Parent = Lighting
-
     local BackgroundDOF = Instance.new("DepthOfFieldEffect")
     BackgroundDOF.Name = "MDScriptHubDOF"
     BackgroundDOF.FocusDistance = 2.5
     BackgroundDOF.InFocusRadius = 0
     BackgroundDOF.NearIntensity = 1.0
     BackgroundDOF.FarIntensity = 0.0
-    BackgroundDOF.Enabled = false -- Enabled after FinishLoading
+    BackgroundDOF.Enabled = false -- Disabled during loading screen
     BackgroundDOF.Parent = Lighting
 
     local LocalUIBlurPart = Instance.new("Part")
@@ -1799,7 +1796,6 @@ function Library:CreateWindow(hubTitle, scriptName)
     LocalUIBlurPart.Size = Vector3.new(1, 1, 0.01)
     LocalUIBlurPart.Parent = workspace
 
-    Window.BackgroundBlur = BackgroundBlur
     Window.BackgroundDOF = BackgroundDOF
     Window.LocalUIBlurPart = LocalUIBlurPart
 
@@ -3021,7 +3017,6 @@ function Library:CreateWindow(hubTitle, scriptName)
         end
         if LocalUIBlurPart and LocalUIBlurPart.Parent then LocalUIBlurPart:Destroy() end
         if BackgroundDOF and BackgroundDOF.Parent then BackgroundDOF:Destroy() end
-        if BackgroundBlur and BackgroundBlur.Parent then BackgroundBlur:Destroy() end
         if ScriptUi then ScriptUi:Destroy() end
         if MinimisedUI.Parent then MinimisedUI:Destroy() end
         if NotificationUI.Parent then NotificationUI:Destroy() end
@@ -3073,15 +3068,15 @@ function Library:CreateWindow(hubTitle, scriptName)
         local themeKey = Window.CurrentThemeKey or "Dark"
 
         if themeKey == "Nature" then
-            -- 1. GREEN THEME: 8x8 Animated Flipbook Falling Leaves (109451333999691)
-            local count = math.random(7, 11)
+            -- GREEN THEME: 8x8 Animated Flipbook Falling Leaves (109451333999691)
+            local count = math.random(9, 14)
             for _ = 1, count do
                 local size = math.random(20, 28)
                 local greenColor = Color3.fromRGB(math.random(45, 80), math.random(190, 245), math.random(75, 115))
-                local lifeT = 0.8 + math.random() * 0.4
-                local vx = math.random(-35, 35)
-                local vy = math.random(60, 95)
-                local rotSpeed = math.random(-90, 90)
+                local lifeT = 0.9 + math.random() * 0.5
+                local vx = math.random(-70, 70)   -- wider horizontal spread
+                local vy = math.random(55, 90)
+                local rotSpeed = math.random(-110, 110)
                 local swaySeed = math.random() * 10
                 local flipFrame = math.random(0, 63)
 
@@ -3098,6 +3093,8 @@ function Library:CreateWindow(hubTitle, scriptName)
                 p.Parent = ParticleLayer
 
                 local elapsed = 0
+                local flipAccum = 0          -- accumulator for 30 fps flipbook
+                local flipInterval = 1 / 30  -- advance frame every 1/30 s
                 local startX = screenX - size / 2
                 local startY = screenY - size / 2
                 local conn
@@ -3113,6 +3110,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
                 conn = RunService.RenderStepped:Connect(function(dt)
                     elapsed = elapsed + dt
+                    flipAccum = flipAccum + dt
                     if not p or not p.Parent then
                         if conn then conn:Disconnect() end
                         removeFromActive()
@@ -3125,12 +3123,16 @@ function Library:CreateWindow(hubTitle, scriptName)
                         return
                     end
 
-                    flipFrame = (flipFrame + 1) % 64
-                    p.ImageRectOffset = Vector2.new((flipFrame % 8) * 128, math.floor(flipFrame / 8) * 128)
-                    p.Rotation = p.Rotation + rotSpeed * dt
+                    -- Advance flipbook at 30 fps
+                    if flipAccum >= flipInterval then
+                        flipAccum = flipAccum - flipInterval
+                        flipFrame = (flipFrame + 1) % 64
+                        p.ImageRectOffset = Vector2.new((flipFrame % 8) * 128, math.floor(flipFrame / 8) * 128)
+                    end
 
+                    p.Rotation = p.Rotation + rotSpeed * dt
                     local t = elapsed / lifeT
-                    local cx = startX + vx * elapsed + math.sin(elapsed * 4 + swaySeed) * 12
+                    local cx = startX + vx * elapsed + math.sin(elapsed * 3.5 + swaySeed) * 18
                     local cy = startY + vy * elapsed
                     p.Position = UDim2.new(0, cx, 0, cy)
                     p.ImageTransparency = math.clamp(t * 1.2, 0, 1)
@@ -3139,15 +3141,15 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
 
         elseif themeKey == "Amethyst" then
-            -- 2. PURPLE THEME: Falling Gem Particles (138774461279155)
-            local count = math.random(7, 11)
+            -- PURPLE THEME: Falling Gem Particles (138774461279155) — smaller
+            local count = math.random(9, 13)
             for _ = 1, count do
-                local size = math.random(18, 26)
+                local size = math.random(10, 16)   -- smaller gems
                 local purpleColor = Color3.fromRGB(math.random(180, 220), math.random(90, 140), 255)
-                local lifeT = 0.8 + math.random() * 0.4
-                local vx = math.random(-30, 30)
-                local vy = math.random(60, 95)
-                local rotSpeed = math.random(-80, 80)
+                local lifeT = 0.75 + math.random() * 0.4
+                local vx = math.random(-40, 40)
+                local vy = math.random(55, 90)
+                local rotSpeed = math.random(-100, 100)
                 local swaySeed = math.random() * 10
 
                 local p = Instance.new("ImageLabel")
@@ -3199,15 +3201,16 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
 
         elseif themeKey == "Original" then
-            -- 3. ORANGE THEME: Falling Light Orange Particles (80640700930724)
-            local count = math.random(7, 11)
+            -- ORANGE THEME: Launch up then arc down with gravity (80640700930724)
+            local count = math.random(8, 12)
+            local gravity = 480  -- pixels/s² pulling down
             for _ = 1, count do
                 local size = math.random(18, 26)
-                local orangeColor = Color3.fromRGB(255, math.random(165, 195), math.random(50, 85))
-                local lifeT = 0.8 + math.random() * 0.4
-                local vx = math.random(-30, 30)
-                local vy = math.random(60, 95)
-                local rotSpeed = math.random(-80, 80)
+                local orangeColor = Color3.fromRGB(255, math.random(155, 200), math.random(40, 90))
+                local lifeT = 0.9 + math.random() * 0.45
+                local vx = math.random(-55, 55)
+                local vy = -(math.random(80, 150))  -- negative = upward initial velocity
+                local rotSpeed = math.random(-100, 100)
                 local swaySeed = math.random() * 10
 
                 local p = Instance.new("ImageLabel")
@@ -3250,55 +3253,46 @@ function Library:CreateWindow(hubTitle, scriptName)
 
                     p.Rotation = p.Rotation + rotSpeed * dt
                     local t = elapsed / lifeT
-                    local cx = startX + vx * elapsed + math.sin(elapsed * 4 + swaySeed) * 10
-                    local cy = startY + vy * elapsed
+                    -- arc: y = vy*t + 0.5*gravity*t² (goes up first, then falls)
+                    local cx = startX + vx * elapsed + math.sin(elapsed * 3.5 + swaySeed) * 8
+                    local cy = startY + vy * elapsed + 0.5 * gravity * elapsed * elapsed
                     p.Position = UDim2.new(0, cx, 0, cy)
-                    p.ImageTransparency = math.clamp(t * 1.2, 0, 1)
+                    p.ImageTransparency = math.clamp(t * 1.1, 0, 1)
                 end)
                 table.insert(ActiveParticleConns, conn)
             end
 
         else
-            -- 4. DARK, VERY DARK, WHITE: Geometric debris burst matching theme colors
-            local count = math.random(8, 14)
+            -- DARK / VERY DARK / WHITE: 4x4 flipbook burst (rbxassetid://8733226116), 15 fps
+            local count = math.random(8, 13)
             for _ = 1, count do
-                local shape = math.random(1, 3)
-                local size = math.random(5, 14)
+                local size = math.random(22, 34)
                 local color = VaryBrightness(SampleThemeColor())
+                local lifeT = 0.6 + math.random() * 0.35
 
                 local angle = math.random() * math.pi * 2
-                local speed = math.random(55, 160)
+                local speed = math.random(60, 160)
                 local vx = math.cos(angle) * speed
-                local vy = math.sin(angle) * speed + math.random(20, 60)
-                local lifeT = 0.35 + math.random() * 0.35
-                local gravity = math.random(350, 600)
+                local vy = math.sin(angle) * speed + math.random(15, 50)
+                local gravity = math.random(300, 520)
+                local swaySeed = math.random() * 10
+                local flipFrame = math.random(0, 15)   -- 16 frames total (4x4)
 
-                local p = Instance.new("Frame")
-                p.Name = "Particle"
+                local p = Instance.new("ImageLabel")
+                p.Name = "FlipParticle"
                 p.Size = UDim2.new(0, size, 0, size)
                 p.Position = UDim2.new(0, screenX - size / 2, 0, screenY - size / 2)
-                p.BackgroundColor3 = color
-                p.BackgroundTransparency = 0
-                p.BorderSizePixel = 0
+                p.BackgroundTransparency = 1
+                p.Image = "rbxassetid://8733226116"
+                p.ImageColor3 = color
+                p.ImageRectSize = Vector2.new(256, 256)   -- each cell is 256x256 in the 4x4 sheet
+                p.ImageRectOffset = Vector2.new((flipFrame % 4) * 256, math.floor(flipFrame / 4) * 256)
                 p.ZIndex = 61
                 p.Parent = ParticleLayer
 
-                if shape == 2 then
-                    local c = Instance.new("UICorner")
-                    c.CornerRadius = UDim.new(1, 0)
-                    c.Parent = p
-                elseif shape == 3 then
-                    p.Rotation = 45
-                    local c = Instance.new("UICorner")
-                    c.CornerRadius = UDim.new(0, 2)
-                    c.Parent = p
-                else
-                    local c = Instance.new("UICorner")
-                    c.CornerRadius = UDim.new(0, 3)
-                    c.Parent = p
-                end
-
                 local elapsed = 0
+                local flipAccum = 0
+                local flipInterval = 1 / 15   -- 15 fps
                 local startX = screenX - size / 2
                 local startY = screenY - size / 2
                 local conn
@@ -3314,6 +3308,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
                 conn = RunService.RenderStepped:Connect(function(dt)
                     elapsed = elapsed + dt
+                    flipAccum = flipAccum + dt
                     if not p or not p.Parent then
                         if conn then conn:Disconnect() end
                         removeFromActive()
@@ -3325,14 +3320,19 @@ function Library:CreateWindow(hubTitle, scriptName)
                         removeFromActive()
                         return
                     end
+
+                    -- Advance flipbook at 15 fps
+                    if flipAccum >= flipInterval then
+                        flipAccum = flipAccum - flipInterval
+                        flipFrame = (flipFrame + 1) % 16
+                        p.ImageRectOffset = Vector2.new((flipFrame % 4) * 256, math.floor(flipFrame / 4) * 256)
+                    end
+
                     local t = elapsed / lifeT
-                    local cx = startX + vx * elapsed
+                    local cx = startX + vx * elapsed + math.sin(elapsed * 3 + swaySeed) * 10
                     local cy = startY + vy * elapsed + 0.5 * gravity * elapsed * elapsed
-                    local alpha = math.clamp(1 - (t * t), 0, 1)
-                    local sz = size * (1 - t * 0.5)
                     p.Position = UDim2.new(0, cx, 0, cy)
-                    p.Size = UDim2.new(0, sz, 0, sz)
-                    p.BackgroundTransparency = 1 - alpha
+                    p.ImageTransparency = math.clamp(t * 1.15, 0, 1)
                 end)
                 table.insert(ActiveParticleConns, conn)
             end
@@ -3550,9 +3550,8 @@ function Library:CreateWindow(hubTitle, scriptName)
 
     function Window:SetBackgroundBlur(enabled)
         Window.BackgroundBlurEnabled = enabled
-        if BackgroundBlur and BackgroundBlur.Parent then BackgroundBlur.Enabled = enabled end
         if BackgroundDOF and BackgroundDOF.Parent then BackgroundDOF.Enabled = enabled end
-        if LocalUIBlurPart and LocalUIBlurPart.Parent then LocalUIBlurPart.Transparency = enabled and 0.96 or 1 end
+        if LocalUIBlurPart and LocalUIBlurPart.Parent then LocalUIBlurPart.Transparency = enabled and 0.98 or 1 end
     end
 
     function Window:SetSpiderwebBackground(enabled)
