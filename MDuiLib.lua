@@ -1,5 +1,3 @@
--- I made the UI completely on my own, used AI only to assit the implimintation of it into script form
-
 local Library = {}
 Library.Version = "2.5"
 
@@ -220,15 +218,33 @@ function Library:CreateWindow(hubTitle, scriptName)
     if ParentGui:FindFirstChild("MinimisedUI") then ParentGui:FindFirstChild("MinimisedUI"):Destroy() end
     if ParentGui:FindFirstChild("NotificationUI") then ParentGui:FindFirstChild("NotificationUI"):Destroy() end
 
+    local Window = {
+        ScriptName = scriptName or hubTitle or "MD_Script",
+        CurrentTheme = Library.ThemePresets.Dark,
+        CurrentThemeKey = "Dark",
+        NotificationsEnabled = true,
+        UISoundsEnabled = true,
+        BackgroundBlurEnabled = true,
+        SpiderwebBGEnabled = true,
+        Connections = {},
+        ActiveNotifications = {},
+        SidebarDividers = {},
+        RegisteredMDButtons = {},
+        RegisteredMDToggles = {},
+        RegisteredMDSliders = {},
+        RegisteredToggles = {},
+        RegisteredSliders = {},
+        RegisteredTextboxes = {},
+        RegisteredDropdowns = {},
+        ThemePresetBtnMap = {},
+        Tabs = {},
+        ActiveTab = nil
+    }
 
     -- =========================================================================
     -- CONTROL REGISTRIES & CONFIG PERSISTENCE ENGINE
     -- =========================================================================
-    Window.ScriptName = scriptName or hubTitle or "MD_Script"
-    Window.RegisteredToggles = {}
-    Window.RegisteredSliders = {}
-    Window.RegisteredTextboxes = {}
-    Window.RegisteredDropdowns = {}
+
 
     local HttpService = game:GetService("HttpService")
     local SanitizedScriptName = (Window.ScriptName:gsub("[^%w_%-]", "_"))
@@ -857,21 +873,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         return SectionFrame
     end
 
-    local Window = {
-        CurrentTheme = Library.ThemePresets.Dark,
-        CurrentThemeKey = "Dark",
-        NotificationsEnabled = true,
-        UISoundsEnabled = true,
-        BackgroundBlurEnabled = true,
-        SpiderwebBGEnabled = true,
-        Connections = {},
-        ActiveNotifications = {},
-        SidebarDividers = {},
-        RegisteredMDButtons = {},
-        ThemePresetBtnMap = {},
-        Tabs = {},
-        ActiveTab = nil
-    }
+
 
     local function TrackConn(conn)
         table.insert(Window.Connections, conn)
