@@ -508,7 +508,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         BoxFrame.Name = "MDTextboxFrame"
         BoxFrame.Size = size
         BoxFrame.Position = position
-        BoxFrame.BackgroundColor3 = Window.CurrentTheme.ButtonBG
+        BoxFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
         BoxFrame.BackgroundTransparency = 0.05
         BoxFrame.BorderSizePixel = 0
         BoxFrame.ZIndex = 10
@@ -520,16 +520,9 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         AddUIShadow(BoxFrame, 20, 0.5)
 
-        local Stroke = Instance.new("UIStroke")
-        Stroke.Name = "UIStroke"
-        Stroke.Color = Color3.fromRGB(255, 255, 255)
-        Stroke.Thickness = 1.2
-        Stroke.Transparency = 0
-        Stroke.Parent = BoxFrame
-
         local TitleLabel = Instance.new("TextLabel")
         TitleLabel.Name = "TitleLabel"
-        TitleLabel.Size = UDim2.new(0, 160, 1, 0)
+        TitleLabel.Size = UDim2.new(0, 140, 1, 0)
         TitleLabel.Position = UDim2.new(0, 12, 0, 0)
         TitleLabel.BackgroundTransparency = 1
         TitleLabel.FontFace = FontMichromaBold
@@ -542,8 +535,8 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local InputBox = Instance.new("TextBox")
         InputBox.Name = "InputBox"
-        InputBox.Size = UDim2.new(1, -180, 0, 32)
-        InputBox.Position = UDim2.new(1, -170, 0.5, -16)
+        InputBox.Size = UDim2.new(1, -165, 0, 30)
+        InputBox.Position = UDim2.new(0, 150, 0.5, -15)
         InputBox.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
         InputBox.BackgroundTransparency = 0.2
         InputBox.BorderSizePixel = 0
@@ -554,6 +547,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         InputBox.TextColor3 = Window.CurrentTheme.Text
         InputBox.TextSize = 12
         InputBox.TextWrapped = true
+        InputBox.ClipsDescendants = true
         InputBox.ClearTextOnFocus = false
         InputBox.ZIndex = 12
         InputBox.Parent = BoxFrame
@@ -597,7 +591,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         DropdownFrame.Name = "DropdownExample"
         DropdownFrame.Size = size
         DropdownFrame.Position = position
-        DropdownFrame.BackgroundColor3 = Window.CurrentTheme.ButtonBG
+        DropdownFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
         DropdownFrame.BackgroundTransparency = 0.05
         DropdownFrame.BorderSizePixel = 0
         DropdownFrame.ZIndex = 15
@@ -608,13 +602,6 @@ function Library:CreateWindow(hubTitle, scriptName)
         Corner.Parent = DropdownFrame
 
         AddUIShadow(DropdownFrame, 20, 0.5)
-
-        local Stroke = Instance.new("UIStroke")
-        Stroke.Name = "UIStroke"
-        Stroke.Color = Color3.fromRGB(255, 255, 255)
-        Stroke.Thickness = 1.5
-        Stroke.Transparency = 0
-        Stroke.Parent = DropdownFrame
 
         local MDTextFolder = Instance.new("Folder")
         MDTextFolder.Name = "MDText"
@@ -665,18 +652,12 @@ function Library:CreateWindow(hubTitle, scriptName)
         DropdownContent.BorderSizePixel = 0
         DropdownContent.ClipsDescendants = true
         DropdownContent.Visible = false
-        DropdownContent.ZIndex = 25
+        DropdownContent.ZIndex = 50
         DropdownContent.Parent = DropdownFrame
 
         local ContentCorner = Instance.new("UICorner")
         ContentCorner.CornerRadius = UDim.new(0, 8)
         ContentCorner.Parent = DropdownContent
-
-        local ContentStroke = Instance.new("UIStroke")
-        ContentStroke.Name = "UIStroke"
-        ContentStroke.Color = Color3.fromRGB(255, 255, 255)
-        ContentStroke.Thickness = 1.2
-        ContentStroke.Parent = DropdownContent
 
         AddUIShadow(DropdownContent, 20, 0.5)
 
@@ -687,7 +668,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         InnerScroll.BackgroundTransparency = 1
         InnerScroll.BorderSizePixel = 0
         InnerScroll.ScrollBarThickness = 3
-        InnerScroll.ZIndex = 26
+        InnerScroll.ZIndex = 51
         InnerScroll.Parent = DropdownContent
 
         local ListLayout = Instance.new("UIListLayout")
@@ -717,7 +698,7 @@ function Library:CreateWindow(hubTitle, scriptName)
                 ItemBtn.TextSize = 12
                 ItemBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
                 ItemBtn.TextStrokeTransparency = 0.77
-                ItemBtn.ZIndex = 27
+                ItemBtn.ZIndex = 52
                 ItemBtn.Parent = InnerScroll
 
                 local ItemCorner = Instance.new("UICorner")
@@ -730,6 +711,7 @@ function Library:CreateWindow(hubTitle, scriptName)
                     TitleText.Text = title .. ": " .. selectedOption
                     
                     isExpanded = false
+                    DropdownFrame.ZIndex = 15
                     TweenService:Create(ArrowIcon, TweenInfo.new(0.25), {Rotation = 0}):Play()
                     TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                         Size = UDim2.new(1, 0, 0, 0)
@@ -750,6 +732,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             local targetRotation = isExpanded and 180 or 0
             local targetHeight = isExpanded and math.clamp(#options * 39 + 15, 45, 220) or 0
 
+            DropdownFrame.ZIndex = isExpanded and 45 or 15
             TweenService:Create(ArrowIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = targetRotation}):Play()
 
             if isExpanded then
@@ -763,7 +746,10 @@ function Library:CreateWindow(hubTitle, scriptName)
                 })
                 t:Play()
                 t.Completed:Connect(function()
-                    if not isExpanded then DropdownContent.Visible = false end
+                    if not isExpanded then
+                        DropdownContent.Visible = false
+                        DropdownFrame.ZIndex = 15
+                    end
                 end)
             end
         end))
@@ -840,20 +826,8 @@ function Library:CreateWindow(hubTitle, scriptName)
         -- 2. Config Selector Dropdown
         local configDropdownObj = Window:CreateMDDropdown(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 52), "Selected Config", GetConfigList(), "DEFAULT", nil)
 
-        -- 3. Row of Action Buttons (Create, Rewrite, Delete, Load)
-        local ActionRow = Instance.new("Frame")
-        ActionRow.Size = UDim2.new(1, 0, 0, 42)
-        ActionRow.BackgroundTransparency = 1
-        ActionRow.ZIndex = 4
-        ActionRow.Parent = SectionFrame
-
-        local ActionLayout = Instance.new("UIGridLayout")
-        ActionLayout.CellSize = UDim2.new(0.235, 0, 1, 0)
-        ActionLayout.CellPadding = UDim2.new(0.02, 0, 0, 0)
-        ActionLayout.Parent = ActionRow
-
-        -- Create Config Button
-        Window:CreateMDButton(ActionRow, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), "CREATE", function()
+        -- 3. Column of Action Long Buttons (Create, Rewrite, Delete, Load)
+        Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 62), "CREATE CONFIG", function()
             local requested = nameBoxObj.GetText()
             local savedName = Window:SaveConfig(requested)
             if savedName then
@@ -862,14 +836,12 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
         end)
 
-        -- Rewrite Config Button
-        Window:CreateMDButton(ActionRow, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), "REWRITE", function()
+        Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 62), "REWRITE CONFIG", function()
             local current = configDropdownObj.GetSelected()
             Window:RewriteConfig(current)
         end)
 
-        -- Delete Config Button
-        Window:CreateMDButton(ActionRow, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), "DELETE", function()
+        Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 62), "DELETE CONFIG", function()
             local current = configDropdownObj.GetSelected()
             if Window:DeleteConfig(current) then
                 configDropdownObj.RefreshOptions(GetConfigList())
@@ -877,8 +849,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
         end)
 
-        -- Load Config Button
-        Window:CreateMDButton(ActionRow, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), "LOAD", function()
+        Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 62), "LOAD CONFIG", function()
             local current = configDropdownObj.GetSelected()
             Window:LoadConfig(current)
         end)
@@ -1431,7 +1402,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
     -- Long Button Generator (Half-Side / Full-Row)
     function Window:CreateMDButtonLong(parent, position, size, text, onClick)
-        size = size or UDim2.new(0, 260, 0, 44)
+        size = size or UDim2.new(1, 0, 0, 62)
         position = position or UDim2.new(0, 0, 0, 0)
 
         local BtnFrame = Instance.new("Frame")
@@ -1445,7 +1416,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         BtnFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 22)
+        Corner.CornerRadius = UDim.new(0, 36)
         Corner.Parent = BtnFrame
 
         AddUIShadow(BtnFrame, 20, 0.5)
@@ -1463,14 +1434,14 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local BtnText = Instance.new("TextLabel")
         BtnText.Name = "btntext"
-        BtnText.Size = UDim2.new(1, -20, 1, 0)
-        BtnText.Position = UDim2.new(0, 10, 0, 0)
+        BtnText.Size = UDim2.new(0, 131, 0, 39)
+        BtnText.Position = UDim2.new(0.5, -65.5, 0.5, -19.5)
         BtnText.BackgroundTransparency = 1
         BtnText.FontFace = FontMichromaRegular
         BtnText.RichText = true
         BtnText.Text = text or "Function"
         BtnText.TextColor3 = Window.CurrentTheme.Text
-        BtnText.TextSize = 13
+        BtnText.TextScaled = true
         BtnText.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
         BtnText.TextStrokeTransparency = 0.77
         BtnText.TextWrapped = true
