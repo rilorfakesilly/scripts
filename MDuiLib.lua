@@ -241,6 +241,13 @@ function Library:CreateWindow(hubTitle, scriptName)
         ActiveTab = nil
     }
 
+    local function TrackConn(conn)
+        if conn then
+            table.insert(Window.Connections, conn)
+        end
+        return conn
+    end
+
     -- =========================================================================
     -- CONTROL REGISTRIES & CONFIG PERSISTENCE ENGINE
     -- =========================================================================
@@ -875,10 +882,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
 
 
-    local function TrackConn(conn)
-        table.insert(Window.Connections, conn)
-        return conn
-    end
+
 
     -- Audio SFX Controller
     local SoundFolder = Instance.new("Folder")
@@ -1008,6 +1012,9 @@ function Library:CreateWindow(hubTitle, scriptName)
         shrinkTween.Completed:Wait()
         if LoadingUI and LoadingUI.Parent then
             LoadingUI:Destroy()
+        end
+        if ScriptUi then
+            ScriptUi.Enabled = true
         end
     end
 
@@ -1354,6 +1361,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         Trigger.Parent = TrackFrame
 
         local isDragging = false
+        local currentVal = defaultVal
 
         local function UpdateSlider(inputPos)
             local trackAbsPos = TrackFrame.AbsolutePosition.X
@@ -1364,7 +1372,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             FilledPart.Size = UDim2.new(pct, 0, 1, 0)
             HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
 
-            local currentVal = math.floor(minVal + (pct * (maxVal - minVal)))
+            currentVal = math.floor(minVal + (pct * (maxVal - minVal)))
             if onValueChange then
                 onValueChange(currentVal, pct)
             end
@@ -1389,7 +1397,6 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
         end))
 
-        local currentVal = defaultVal
         return {
             Track = TrackFrame,
             FilledPart = FilledPart,
@@ -1647,6 +1654,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     local ScriptUi = Instance.new("ScreenGui")
     ScriptUi.Name = "ScriptUi"
     ScriptUi.ResetOnSpawn = false
+    ScriptUi.Enabled = false
     ScriptUi.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScriptUi.DisplayOrder = 10
     ScriptUi.Parent = ParentGui
