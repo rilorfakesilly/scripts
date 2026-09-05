@@ -259,54 +259,43 @@ function Library:CreateWindow(hubTitle, scriptName)
         return conn
     end
 
-    -- Audio SFX Controller (Parented to SoundService for guaranteed playback across all executors)
-    local SoundService = game:GetService("SoundService")
+    -- =========================================================================
+    -- AUDIO SFX CONTROLLER (Cloned Overlay Engine)
+    -- =========================================================================
     local SoundFolder = Instance.new("Folder")
     SoundFolder.Name = "MDSounds"
-    pcall(function() SoundFolder.Parent = SoundService end)
-    if not SoundFolder.Parent then pcall(function() SoundFolder.Parent = workspace end) end
-    if not SoundFolder.Parent then SoundFolder.Parent = ParentGui end
+    SoundFolder.Parent = ParentGui
 
     local HoverSoundTemplate = Instance.new("Sound")
     HoverSoundTemplate.Name = "HoverSoundTemplate"
-    HoverSoundTemplate.SoundId = "rbxassetid://6895079683"
-    HoverSoundTemplate.Volume = 0.5
+    HoverSoundTemplate.SoundId = "rbxassetid://5852311399"
+    HoverSoundTemplate.Volume = 0.4
     HoverSoundTemplate.Parent = SoundFolder
 
     local ClickSoundTemplate = Instance.new("Sound")
     ClickSoundTemplate.Name = "ClickSoundTemplate"
-    ClickSoundTemplate.SoundId = "rbxassetid://6895079853"
-    ClickSoundTemplate.Volume = 0.6
+    ClickSoundTemplate.SoundId = "rbxassetid://5852311745"
+    ClickSoundTemplate.Volume = 0.5
     ClickSoundTemplate.Parent = SoundFolder
 
-    local function PlayLocalSFX(sndTemplate, baseVolume)
-        if not Window or not Window.UISoundsEnabled or not sndTemplate then return end
-        local volFactor = (Window.SoundVolume ~= nil) and Window.SoundVolume or 0.8
-        local finalVol = math.clamp(baseVolume * volFactor, 0.05, 1)
-
+    local function PlayHoverSFX()
+        if not Window or not Window.UISoundsEnabled then return end
         pcall(function()
-            if SoundService and SoundService.PlayLocalSound then
-                local snd = sndTemplate:Clone()
-                snd.Volume = finalVol
-                snd.Parent = SoundFolder
-                SoundService:PlayLocalSound(snd)
-                Debris:AddItem(snd, 1.2)
-            else
-                local snd = sndTemplate:Clone()
-                snd.Volume = finalVol
-                snd.Parent = SoundFolder
-                snd:Play()
-                Debris:AddItem(snd, 1.2)
-            end
+            local snd = HoverSoundTemplate:Clone()
+            snd.Parent = SoundFolder
+            snd:Play()
+            Debris:AddItem(snd, 1.5)
         end)
     end
 
-    local PlayHoverSFX = function()
-        PlayLocalSFX(HoverSoundTemplate, 0.45)
-    end
-
-    local PlayClickSFX = function()
-        PlayLocalSFX(ClickSoundTemplate, 0.60)
+    local function PlayClickSFX()
+        if not Window or not Window.UISoundsEnabled then return end
+        pcall(function()
+            local snd = ClickSoundTemplate:Clone()
+            snd.Parent = SoundFolder
+            snd:Play()
+            Debris:AddItem(snd, 1.5)
+        end)
     end
 
     -- =========================================================================
@@ -334,7 +323,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             if listfiles and isfolder and isfolder(ConfigFolderPath) then
                 local files = listfiles(ConfigFolderPath)
                 for _, filePath in ipairs(files) do
-                    local fileName = filePath:match("([^/]+)%.json$") or filePath:match("([^\]+)%.json$")
+                    local fileName = filePath:match("([^/\\]+)%.json$")
                     if fileName and fileName ~= "DEFAULT" then
                         table.insert(list, fileName)
                     end
@@ -782,7 +771,7 @@ function Library:CreateWindow(hubTitle, scriptName)
                 local ItemBtn = Instance.new("TextButton")
                 ItemBtn.Name = "drpdwncntnts"
                 ItemBtn.Size = UDim2.new(1, -6, 0, 34)
-                ItemBtn.BackgroundColor3 = (opt == selectedOption) and Window.CurrentTheme.ButtonBG or Color3.fromRGB(30, 32, 42)
+                ItemBtn.BackgroundColor3 = (opt == selectedOption) and Window.CurrentTheme.ButtonBG or Window.CurrentTheme.AccentBG
                 ItemBtn.BackgroundTransparency = 0.1
                 ItemBtn.FontFace = FontMichromaRegular
                 ItemBtn.RichText = true
@@ -3568,7 +3557,10 @@ function Library:CreateWindow(hubTitle, scriptName)
     end
 
     function Window:SetSoundVolume(volume)
-        Window.SoundVolume = math.clamp(volume or 0.8, 0, 1)
+        local pct = math.clamp(volume or 0.8, 0, 1)
+        Window.SoundVolume = pct
+        if HoverSoundTemplate then HoverSoundTemplate.Volume = pct * 0.4 end
+        if ClickSoundTemplate then ClickSoundTemplate.Volume = pct * 0.5 end
     end
 
     function Window:SetBackgroundBlur(enabled)
