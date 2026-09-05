@@ -667,7 +667,8 @@ function Library:CreateWindow(hubTitle, scriptName)
         TitleText.BackgroundTransparency = 1
         TitleText.FontFace = FontMichromaRegular
         TitleText.RichText = true
-        TitleText.Text = title .. ": " .. defaultOption
+        local displayTitle = (title and title ~= "") and (title .. ": " .. defaultOption) or defaultOption
+        TitleText.Text = displayTitle
         TitleText.TextColor3 = Window.CurrentTheme.Text
         TitleText.TextScaled = false
         TitleText.TextSize = 12
@@ -763,7 +764,8 @@ function Library:CreateWindow(hubTitle, scriptName)
                 TrackConn(ItemBtn.MouseButton1Click:Connect(function()
                     PlayClickSFX()
                     selectedOption = opt
-                    TitleText.Text = title .. ": " .. selectedOption
+                    local newDisplay = (title and title ~= "") and (title .. ": " .. selectedOption) or selectedOption
+                    TitleText.Text = newDisplay
                     
                     isExpanded = false
                     DropdownFrame.ZIndex = 15
@@ -815,7 +817,8 @@ function Library:CreateWindow(hubTitle, scriptName)
             GetSelected = function() return selectedOption end,
             SetSelected = function(opt, triggerCallback)
                 selectedOption = opt
-                TitleText.Text = title .. ": " .. selectedOption
+                local newDisplay = (title and title ~= "") and (title .. ": " .. selectedOption) or selectedOption
+                TitleText.Text = newDisplay
                 RefreshOptions(options)
                 if triggerCallback and onSelect then onSelect(selectedOption) end
             end,
@@ -868,7 +871,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         SectionTitle.Size = UDim2.new(1, 0, 0, 24)
         SectionTitle.BackgroundTransparency = 1
         SectionTitle.FontFace = FontMichromaBold
-        SectionTitle.Text = "Configuration Manager (" .. Window.ScriptName .. ")"
+        SectionTitle.Text = "Configurations"
         SectionTitle.TextColor3 = Window.CurrentTheme.Text
         SectionTitle.TextSize = 15
         SectionTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -879,7 +882,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         local nameBoxObj = Window:CreateMDTextbox(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 48), "Config Name", "MyConfig", nil)
 
         -- 2. Config Selector Dropdown
-        local configDropdownObj = Window:CreateMDDropdown(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 52), "Selected Config", GetConfigList(), "DEFAULT", nil)
+        local configDropdownObj = Window:CreateMDDropdown(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 48), "", GetConfigList(), "DEFAULT", nil)
 
         -- 3. Row 1: Left = CREATE CONFIG, Right = DELETE CONFIG
         local Row1 = Instance.new("Frame")
@@ -1303,7 +1306,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
         end))
 
-        return {
+        local toggleData = {
             Frame = ToggleFrame,
             Knob = KnobFrame,
             Overlay = OverlayCircle,
@@ -1319,6 +1322,8 @@ function Library:CreateWindow(hubTitle, scriptName)
                 end
             end
         }
+        table.insert(Window.RegisteredMDToggles, toggleData)
+        return toggleData
     end
 
     function Window:CreateMDSlider(parent, position, size, minVal, maxVal, defaultVal, onValueChange)
@@ -2939,12 +2944,183 @@ function Library:CreateWindow(hubTitle, scriptName)
     Window.MainFrame = MainFrame
     Window.MainContentFrame = MainContentFrame
     Window.BottomFrame = BottomFrame
+    Window.BottomGradient = BottomGradient
+    Window.MinimizedGradient = MinimizedGradient
+    Window.MDHUBNAME = MDHUBNAME
+    Window.MadebyText = MadebyText
+    Window.DiscordBtn = DiscordBtn
+    Window.LocalTime = LocalTime
     Window.SidebarScroll = SidebarScroll
     Window.UIScaleConstraint = UIScaleConstraint
     Window.PlayHoverSFX = PlayHoverSFX
     Window.PlayClickSFX = PlayClickSFX
     Window.ApplyCornerRadii = ApplyCornerRadii
     Window.AddUIShadow = AddUIShadow
+
+    function Window:ApplyTheme(themeKey)
+        local newTheme = Library.ThemePresets[themeKey]
+        if not newTheme then return end
+        Window.CurrentTheme = newTheme
+        Window.CurrentThemeKey = themeKey
+
+        if Window.MainFrame then
+            Window.MainFrame.BackgroundColor3 = newTheme.MainBG
+            Window.MainFrame.BackgroundTransparency = newTheme.MainTrans
+        end
+        if Window.LeftFrame then
+            Window.LeftFrame.BackgroundColor3 = newTheme.AccentBG
+            Window.LeftFrame.BackgroundTransparency = newTheme.AccentTrans
+        end
+        if Window.TopFrame then
+            Window.TopFrame.BackgroundColor3 = newTheme.TopBG
+            Window.TopFrame.BackgroundTransparency = newTheme.TopTrans
+        end
+        if Window.BottomFrame then
+            Window.BottomFrame.BackgroundColor3 = newTheme.BottomBG
+            Window.BottomFrame.BackgroundTransparency = newTheme.BottomTrans
+        end
+
+        if Window.BottomGradient then
+            Window.BottomGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, newTheme.BottomGradient[1]),
+                ColorSequenceKeypoint.new(0.496, newTheme.BottomGradient[2]),
+                ColorSequenceKeypoint.new(1, newTheme.BottomGradient[3])
+            })
+        end
+
+        if Window.MinimizedGradient then
+            Window.MinimizedGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, newTheme.MinGradient[1]),
+                ColorSequenceKeypoint.new(0.5, newTheme.MinGradient[2]),
+                ColorSequenceKeypoint.new(1, newTheme.MinGradient[3])
+            })
+        end
+
+        if Window.SidebarDividers then
+            for _, div in ipairs(Window.SidebarDividers) do
+                if div and div.Parent then
+                    div.BackgroundColor3 = newTheme.Divider
+                    div.BackgroundTransparency = 0
+                end
+            end
+        end
+
+        for _, btnData in ipairs(Window.RegisteredMDButtons) do
+            if btnData and btnData.Frame and btnData.Frame.Parent then
+                btnData.Frame.BackgroundColor3 = newTheme.ButtonBG
+                if btnData.TextLabel then
+                    btnData.TextLabel.TextColor3 = newTheme.Text
+                    btnData.TextLabel.TextStrokeColor3 = newTheme.Text
+                end
+                if btnData.Stroke then
+                    btnData.Stroke.Color = Color3.fromRGB(255, 255, 255)
+                    btnData.Stroke.Thickness = 1.2
+                end
+                if btnData.ArrowIcon then
+                    btnData.ArrowIcon.ImageColor3 = newTheme.Text
+                end
+            end
+        end
+
+        for _, toggle in ipairs(Window.RegisteredMDToggles) do
+            if toggle and toggle.Frame and toggle.Frame.Parent then
+                if toggle.Overlay then toggle.Overlay.ImageColor3 = newTheme.ButtonBG end
+                if toggle.GetState and toggle.GetState() then
+                    toggle.Frame.BackgroundColor3 = newTheme.ButtonBG
+                end
+            end
+        end
+
+        for _, slider in ipairs(Window.RegisteredMDSliders) do
+            if slider and slider.Track and slider.Track.Parent then
+                if slider.FilledPart then slider.FilledPart.BackgroundColor3 = newTheme.ButtonBG end
+                if slider.Overlay then slider.Overlay.ImageColor3 = newTheme.ButtonBG end
+            end
+        end
+
+        for _, box in pairs(Window.RegisteredTextboxes) do
+            if box and box.Frame and box.Frame.Parent then
+                box.Frame.BackgroundColor3 = newTheme.CardBG
+                local label = box.Frame:FindFirstChild("TitleLabel")
+                if label then label.TextColor3 = newTheme.Text end
+                if box.InputBox then
+                    box.InputBox.TextColor3 = newTheme.Text
+                    box.InputBox.PlaceholderColor3 = newTheme.SubText
+                end
+            end
+        end
+
+        for _, drop in pairs(Window.RegisteredDropdowns) do
+            if drop and drop.Frame and drop.Frame.Parent then
+                drop.Frame.BackgroundColor3 = newTheme.CardBG
+                local mdtext = drop.Frame:FindFirstChild("MDText")
+                if mdtext then
+                    local lbl = mdtext:FindFirstChild("drpdwntext")
+                    if lbl then lbl.TextColor3 = newTheme.Text end
+                end
+                local arrow = drop.Frame:FindFirstChild("ImageLabel")
+                if arrow then arrow.ImageColor3 = newTheme.Text end
+                if drop.Content and drop.Content.Parent then
+                    drop.Content.BackgroundColor3 = newTheme.CardBG
+                end
+            end
+        end
+
+        if Window.ThemePresetBtnMap then
+            for k, btnData in pairs(Window.ThemePresetBtnMap) do
+                if btnData and btnData.Stroke then
+                    btnData.Stroke.Thickness = (k == themeKey) and 2.2 or 1.2
+                end
+            end
+        end
+
+        if Window.MDHUBNAME then Window.MDHUBNAME.TextColor3 = newTheme.Text end
+        if Window.MadebyText then Window.MadebyText.TextColor3 = newTheme.Text end
+        if Window.DiscordBtn then Window.DiscordBtn.TextColor3 = newTheme.SubText end
+        if Window.LocalTime then Window.LocalTime.TextColor3 = newTheme.Text end
+
+        if Window.Tabs then
+            for name, tabData in pairs(Window.Tabs) do
+                if tabData.Button then
+                    tabData.Button.TextColor3 = (name == Window.ActiveTab) and newTheme.Text or newTheme.SubText
+                end
+
+                if tabData.ContentFrame then
+                    tabData.ContentFrame.ScrollBarImageColor3 = newTheme.Divider
+                    for _, card in ipairs(tabData.ContentFrame:GetChildren()) do
+                        if card:IsA("Frame") and card.Name ~= "TopFrame" and card.Name ~= "MainHeaderFrame" then
+                            if card.Name == "RowContainer" then
+                                card.BackgroundTransparency = 1
+                                for _, subCard in ipairs(card:GetChildren()) do
+                                    if subCard:IsA("Frame") then
+                                        subCard.BackgroundColor3 = newTheme.CardBG
+                                        subCard.BackgroundTransparency = 0
+                                        for _, child in ipairs(subCard:GetChildren()) do
+                                            if child:IsA("TextLabel") then
+                                                child.TextColor3 = (child.Name == "CardTitle" and newTheme.Text) or newTheme.SubText
+                                            elseif child.Name == "CardDividerLine" then
+                                                child.BackgroundTransparency = 1
+                                            end
+                                        end
+                                    end
+                                end
+                            else
+                                card.BackgroundColor3 = newTheme.CardBG
+                                card.BackgroundTransparency = 0
+                                for _, child in ipairs(card:GetChildren()) do
+                                    if child:IsA("TextLabel") and child.Name ~= "Welcomemsg" then
+                                        child.TextColor3 = (child.TextSize > 11 and newTheme.Text) or newTheme.SubText
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        Window:Notify("Theme Updated", "Applied " .. newTheme.Name .. " theme!", 2.5)
+    end
 
     function Window:SetBackgroundBlur(enabled)
         Window.BackgroundBlurEnabled = enabled
