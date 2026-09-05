@@ -3264,17 +3264,18 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         else
             -- DARK / VERY DARK / WHITE: 4x4 flipbook burst (rbxassetid://8733226116), 15 fps
-            local count = math.random(8, 13)
+            local count = math.random(4, 5)
+            local baseSize = math.random(20, 26)        -- anchor size, small variance per particle
             for _ = 1, count do
-                local size = math.random(22, 34)
+                local size = baseSize + math.random(-3, 3)  -- tight range, not too different
                 local color = VaryBrightness(SampleThemeColor())
-                local lifeT = 0.6 + math.random() * 0.35
+                local lifeT = 0.85 + math.random() * 0.4
 
                 local angle = math.random() * math.pi * 2
-                local speed = math.random(60, 160)
+                local speed = math.random(35, 75)           -- gentle scatter speed
                 local vx = math.cos(angle) * speed
-                local vy = math.sin(angle) * speed + math.random(15, 50)
-                local gravity = math.random(300, 520)
+                local vy = math.sin(angle) * speed + math.random(5, 20)  -- small downward bias
+                local gravity = math.random(60, 100)        -- slow fall
                 local swaySeed = math.random() * 10
                 local flipFrame = math.random(0, 15)   -- 16 frames total (4x4)
 
