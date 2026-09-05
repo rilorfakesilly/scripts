@@ -20,7 +20,7 @@ elseif syn and syn.protect_gui then
     ParentGui.Parent = CoreGui
 end
 
-local FontMichromaBold = Font.new("rbxasset://fonts/families/Michroma.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+local FontMichromaBold = Font.new("rbxasset://fonts/families/Michroma.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
 local FontMichromaRegular = Font.new("rbxasset://fonts/families/Michroma.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
 local FontMichromaHeavy = Font.new("rbxasset://fonts/families/Michroma.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
 
@@ -224,6 +224,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         CurrentThemeKey = "Dark",
         NotificationsEnabled = true,
         UISoundsEnabled = true,
+        SoundVolume = 0.8,
         BackgroundBlurEnabled = true,
         SpiderwebBGEnabled = true,
         Connections = {},
@@ -262,6 +263,8 @@ function Library:CreateWindow(hubTitle, scriptName)
         pcall(function()
             if HoverSoundTemplate and SoundFolder then
                 local snd = HoverSoundTemplate:Clone()
+                local volFactor = (Window.SoundVolume ~= nil) and Window.SoundVolume or 0.8
+                snd.Volume = 0.5 * volFactor
                 snd.Parent = SoundFolder
                 snd:Play()
                 Debris:AddItem(snd, 1.5)
@@ -274,6 +277,8 @@ function Library:CreateWindow(hubTitle, scriptName)
         pcall(function()
             if ClickSoundTemplate and SoundFolder then
                 local snd = ClickSoundTemplate:Clone()
+                local volFactor = (Window.SoundVolume ~= nil) and Window.SoundVolume or 0.8
+                snd.Volume = 0.6 * volFactor
                 snd.Parent = SoundFolder
                 snd:Play()
                 Debris:AddItem(snd, 1.5)
@@ -956,10 +961,19 @@ function Library:CreateWindow(hubTitle, scriptName)
 
 
 
-    -- Audio SFX Controller
+    -- Audio SFX Controller (Parented to SoundService for guaranteed playback across all executors)
+    local SoundService = game:GetService("SoundService")
     local SoundFolder = Instance.new("Folder")
     SoundFolder.Name = "MDSounds"
-    SoundFolder.Parent = ParentGui
+    pcall(function()
+        SoundFolder.Parent = SoundService
+    end)
+    if not SoundFolder.Parent then
+        pcall(function() SoundFolder.Parent = workspace end)
+    end
+    if not SoundFolder.Parent then
+        SoundFolder.Parent = ParentGui
+    end
 
     local HoverSoundTemplate = Instance.new("Sound")
     HoverSoundTemplate.Name = "HoverSoundTemplate"
@@ -2046,10 +2060,10 @@ function Library:CreateWindow(hubTitle, scriptName)
 
     local MDHUBNAME = Instance.new("TextLabel")
     MDHUBNAME.Name = "MDHUBNAME"
-    MDHUBNAME.Size = UDim2.new(0, 153, 0, 46)
+    MDHUBNAME.Size = UDim2.new(0, 190, 0, 46)
     MDHUBNAME.Position = UDim2.new(0.0259, 0, -0.052, 0)
     MDHUBNAME.BackgroundTransparency = 1
-    MDHUBNAME.FontFace = FontMichromaBold
+    MDHUBNAME.FontFace = FontMichromaHeavy
     MDHUBNAME.Text = hubTitle
     MDHUBNAME.TextColor3 = Window.CurrentTheme.Text
     MDHUBNAME.TextSize = 15
@@ -2126,7 +2140,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     MainFrame.BackgroundColor3 = Window.CurrentTheme.MainBG
     MainFrame.BackgroundTransparency = Window.CurrentTheme.MainTrans
     MainFrame.BorderSizePixel = 0
-    MainFrame.ClipsDescendants = true
+    MainFrame.ClipsDescendants = false
     MainFrame.ZIndex = 1
     MainFrame.Parent = MainContainer
 
@@ -2151,10 +2165,11 @@ function Library:CreateWindow(hubTitle, scriptName)
     SidebarScroll.Position = UDim2.new(0, 0, 0, 0)
     SidebarScroll.BackgroundTransparency = 1
     SidebarScroll.BorderSizePixel = 0
-    SidebarScroll.ScrollBarThickness = 2
-    SidebarScroll.ScrollBarImageColor3 = Window.CurrentTheme.Divider
+    SidebarScroll.ScrollBarThickness = 0
+    SidebarScroll.ScrollBarImageTransparency = 1
     SidebarScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     SidebarScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    SidebarScroll.ClipsDescendants = false
     SidebarScroll.ZIndex = 3
     SidebarScroll.Parent = ContentOverlay
 
@@ -2177,7 +2192,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     MainContentFrame.Position = UDim2.new(0, 175, 0, 0)
     MainContentFrame.BackgroundTransparency = 1
     MainContentFrame.BorderSizePixel = 0
-    MainContentFrame.ClipsDescendants = true
+    MainContentFrame.ClipsDescendants = false
     MainContentFrame.ZIndex = 3
     MainContentFrame.Parent = ContentOverlay
 
@@ -2631,17 +2646,25 @@ function Library:CreateWindow(hubTitle, scriptName)
         TabButton.Parent = TabContainer
 
         local ContentFrame = Instance.new("ScrollingFrame")
-        ContentFrame.Size = UDim2.new(1, -20, 1, -20)
-        ContentFrame.Position = UDim2.new(0, 10, 0, 10)
+        ContentFrame.Size = UDim2.new(1, -24, 1, -20)
+        ContentFrame.Position = UDim2.new(0, 12, 0, 10)
         ContentFrame.BackgroundTransparency = 1
         ContentFrame.BorderSizePixel = 0
-        ContentFrame.ScrollBarThickness = 4
-        ContentFrame.ScrollBarImageColor3 = Window.CurrentTheme.Divider
+        ContentFrame.ScrollBarThickness = 0
+        ContentFrame.ScrollBarImageTransparency = 1
         ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+        ContentFrame.ClipsDescendants = false
         ContentFrame.Visible = false
         ContentFrame.ZIndex = 3
         ContentFrame.Parent = MainContentFrame or MainFrame
+
+        local ContentPadding = Instance.new("UIPadding")
+        ContentPadding.PaddingLeft = UDim.new(0, 4)
+        ContentPadding.PaddingRight = UDim.new(0, 4)
+        ContentPadding.PaddingTop = UDim.new(0, 4)
+        ContentPadding.PaddingBottom = UDim.new(0, 12)
+        ContentPadding.Parent = ContentFrame
 
         local ContentLayout = Instance.new("UIListLayout")
         ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -2659,6 +2682,69 @@ function Library:CreateWindow(hubTitle, scriptName)
             ContentFrame = ContentFrame,
             Layout = ContentLayout
         }
+
+        function TabObj:AddWelcomeHeader()
+            local MainHeaderFrame = Instance.new("Frame")
+            MainHeaderFrame.Name = "MainHeaderFrame"
+            MainHeaderFrame.Size = UDim2.new(1, -10, 0, 90)
+            MainHeaderFrame.BackgroundTransparency = 1
+            MainHeaderFrame.BorderSizePixel = 0
+            MainHeaderFrame.ZIndex = 3
+            MainHeaderFrame.Parent = ContentFrame
+
+            local UserAvatar = Instance.new("ImageLabel")
+            UserAvatar.Name = "USERCHARACTERIMAGE"
+            UserAvatar.Size = UDim2.new(0, 68, 0, 68)
+            UserAvatar.Position = UDim2.new(0.0217, 0, 0.0286, 0)
+            UserAvatar.BackgroundTransparency = 1
+            UserAvatar.BorderSizePixel = 0
+            local Players = game:GetService("Players")
+            local LocalPlayer = Players.LocalPlayer
+            if LocalPlayer then
+                UserAvatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. LocalPlayer.UserId .. "&w=420&h=420"
+            end
+            UserAvatar.ZIndex = 4
+            UserAvatar.Parent = MainHeaderFrame
+
+            local AvatarCorner = Instance.new("UICorner")
+            AvatarCorner.CornerRadius = UDim.new(0, 11)
+            AvatarCorner.Parent = UserAvatar
+            AddUIShadow(UserAvatar, 20, 0.5)
+
+            local function GetGreeting()
+                local hour = tonumber(os.date("%H"))
+                if hour >= 5 and hour < 12 then
+                    return "Good morning"
+                elseif hour >= 12 and hour < 17 then
+                    return "Good afternoon"
+                elseif hour >= 17 and hour < 21 then
+                    return "Good evening"
+                else
+                    return "Night"
+                end
+            end
+
+            local pName = (LocalPlayer and (LocalPlayer.DisplayName or LocalPlayer.Name)) or "User"
+            local WelcomeMsg = Instance.new("TextLabel")
+            WelcomeMsg.Name = "Welcomemsg"
+            WelcomeMsg.Size = UDim2.new(0, 360, 0, 45)
+            WelcomeMsg.Position = UDim2.new(0.2, 0, 0.11198, 0)
+            WelcomeMsg.BackgroundTransparency = 1
+            WelcomeMsg.BorderSizePixel = 0
+            WelcomeMsg.FontFace = FontMichromaBold
+            WelcomeMsg.Text = GetGreeting() .. ", " .. pName
+            WelcomeMsg.TextColor3 = Window.CurrentTheme.Text
+            WelcomeMsg.TextSize = 28
+            WelcomeMsg.TextWrapped = true
+            WelcomeMsg.TextXAlignment = Enum.TextXAlignment.Left
+            WelcomeMsg.TextYAlignment = Enum.TextYAlignment.Center
+            WelcomeMsg.ZIndex = 4
+            WelcomeMsg.Parent = MainHeaderFrame
+
+            Window.WelcomeMsg = WelcomeMsg
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            return MainHeaderFrame
+        end
 
         function TabObj:AddButton(title, desc, callback)
             local CardFrame = Instance.new("Frame")
@@ -3078,6 +3164,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         if Window.MadebyText then Window.MadebyText.TextColor3 = newTheme.Text end
         if Window.DiscordBtn then Window.DiscordBtn.TextColor3 = newTheme.SubText end
         if Window.LocalTime then Window.LocalTime.TextColor3 = newTheme.Text end
+        if Window.WelcomeMsg then Window.WelcomeMsg.TextColor3 = newTheme.Text end
 
         if Window.Tabs then
             for name, tabData in pairs(Window.Tabs) do
@@ -3108,8 +3195,14 @@ function Library:CreateWindow(hubTitle, scriptName)
                                 card.BackgroundColor3 = newTheme.CardBG
                                 card.BackgroundTransparency = 0
                                 for _, child in ipairs(card:GetChildren()) do
-                                    if child:IsA("TextLabel") and child.Name ~= "Welcomemsg" then
-                                        child.TextColor3 = (child.TextSize > 11 and newTheme.Text) or newTheme.SubText
+                                    if child:IsA("TextLabel") then
+                                        if child.Name == "CardTitle" or child.Name == "TitleLabel" or child.Name == "ThemeTitle" or child.Name == "SectionTitle" or child.Name == "NotifLabel" or child.Name == "SoundLabel" or child.Name == "VolumeLabel" or child.Name == "WebTitle" or child.Name == "BlurTitle" or child.Name == "Welcomemsg" then
+                                            child.TextColor3 = newTheme.Text
+                                        elseif child.Name == "CardBody" or child.Name == "DescLabel" or child.Name == "WebDesc" or child.Name == "BlurDesc" then
+                                            child.TextColor3 = newTheme.SubText
+                                        elseif child.Name ~= "LocalTime" and child.Name ~= "btntext" and child.Name ~= "drpdwntext" then
+                                            child.TextColor3 = newTheme.Text
+                                        end
                                     end
                                 end
                             end
@@ -3120,6 +3213,14 @@ function Library:CreateWindow(hubTitle, scriptName)
         end
 
         Window:Notify("Theme Updated", "Applied " .. newTheme.Name .. " theme!", 2.5)
+    end
+
+    function Window:SetUISounds(enabled)
+        Window.UISoundsEnabled = enabled
+    end
+
+    function Window:SetSoundVolume(volume)
+        Window.SoundVolume = math.clamp(volume or 0.8, 0, 1)
     end
 
     function Window:SetBackgroundBlur(enabled)
