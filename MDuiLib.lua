@@ -241,6 +241,12 @@ function Library:CreateWindow(hubTitle, scriptName)
         ActiveTab = nil
     }
 
+    local ScriptUi = nil
+    local MinimisedUI = nil
+    local NotificationUI = nil
+    local MainContainer = nil
+    local UIScaleConstraint = nil
+
     local function TrackConn(conn)
         if conn then
             table.insert(Window.Connections, conn)
@@ -1651,7 +1657,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     end
 
 
-    local ScriptUi = Instance.new("ScreenGui")
+    ScriptUi = Instance.new("ScreenGui")
     ScriptUi.Name = "ScriptUi"
     ScriptUi.ResetOnSpawn = false
     ScriptUi.Enabled = false
@@ -1659,7 +1665,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     ScriptUi.DisplayOrder = 10
     ScriptUi.Parent = ParentGui
 
-    local MinimisedUI = Instance.new("ScreenGui")
+    MinimisedUI = Instance.new("ScreenGui")
     MinimisedUI.Name = "MinimisedUI"
     MinimisedUI.ResetOnSpawn = false
     MinimisedUI.Enabled = false
@@ -1667,14 +1673,14 @@ function Library:CreateWindow(hubTitle, scriptName)
     MinimisedUI.DisplayOrder = 25
     MinimisedUI.Parent = ParentGui
 
-    local NotificationUI = Instance.new("ScreenGui")
+    NotificationUI = Instance.new("ScreenGui")
     NotificationUI.Name = "NotificationUI"
     NotificationUI.ResetOnSpawn = false
     NotificationUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     NotificationUI.DisplayOrder = 30
     NotificationUI.Parent = ParentGui
 
-    local MainContainer = Instance.new("Frame")
+    MainContainer = Instance.new("Frame")
     MainContainer.Name = "MainContainer"
     MainContainer.Size = UDim2.new(0, 660, 0, 430)
     MainContainer.Position = UDim2.new(0.5, -330, 0.5, -215)
@@ -1682,7 +1688,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     MainContainer.ClipsDescendants = false
     MainContainer.Parent = ScriptUi
 
-    local UIScaleConstraint = Instance.new("UIScale")
+    UIScaleConstraint = Instance.new("UIScale")
     UIScaleConstraint.Name = "MainUIScale"
     UIScaleConstraint.Parent = MainContainer
 
