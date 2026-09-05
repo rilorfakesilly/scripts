@@ -1022,6 +1022,12 @@ function Library:CreateWindow(hubTitle, scriptName)
         if ScriptUi then
             ScriptUi.Enabled = true
         end
+        if BackgroundDOF and BackgroundDOF.Parent then
+            BackgroundDOF.Enabled = Window.BackgroundBlurEnabled
+        end
+        if LocalUIBlurPart and LocalUIBlurPart.Parent then
+            LocalUIBlurPart.Transparency = Window.BackgroundBlurEnabled and 0.98 or 1
+        end
     end
 
 
@@ -1718,13 +1724,13 @@ function Library:CreateWindow(hubTitle, scriptName)
     BackgroundDOF.InFocusRadius = 0
     BackgroundDOF.NearIntensity = 1.0
     BackgroundDOF.FarIntensity = 0.0
-    BackgroundDOF.Enabled = Window.BackgroundBlurEnabled
+    BackgroundDOF.Enabled = false -- Disabled during loading screen
     BackgroundDOF.Parent = Lighting
 
     local LocalUIBlurPart = Instance.new("Part")
     LocalUIBlurPart.Name = "MD_LocalUIBlurPart"
     LocalUIBlurPart.Material = Enum.Material.Glass
-    LocalUIBlurPart.Transparency = Window.BackgroundBlurEnabled and 0.98 or 1
+    LocalUIBlurPart.Transparency = 1 -- Fully transparent during loading screen
     LocalUIBlurPart.Color = Color3.fromRGB(255, 255, 255)
     LocalUIBlurPart.CastShadow = false
     LocalUIBlurPart.CanCollide = false
@@ -1739,6 +1745,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
     local function UpdateLocalUIBlur()
         if not Window.BackgroundBlurEnabled then return end
+        if not ScriptUi or not ScriptUi.Enabled then return end
         if not MainContainer or not MainContainer.Parent then return end
 
         local Camera = workspace.CurrentCamera
@@ -2712,15 +2719,19 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         Window.Tabs[tabName] = TabObj
         if not Window.ActiveTab then
-            task.spawn(function()
-                task.wait(0.05)
-                ContentFrame.Visible = true
-                TabButton.TextColor3 = Window.CurrentTheme.Text
-                TabButton.TextSize = 18
-                TabButton.FontFace = FontMichromaBold
-                HoverGlow.BackgroundTransparency = 0.85
-                Window.ActiveTab = tabName
-            end)
+            Window.ActiveTab = tabName
+            ContentFrame.Visible = true
+            ContentFrame.Position = UDim2.new(0, 10, 0, 10)
+            TabButton.TextColor3 = Window.CurrentTheme.Text
+            TabButton.TextSize = 18
+            TabButton.FontFace = FontMichromaBold
+            HoverGlow.BackgroundTransparency = 0.85
+        else
+            ContentFrame.Visible = false
+            TabButton.TextColor3 = Window.CurrentTheme.SubText
+            TabButton.TextSize = 15
+            TabButton.FontFace = FontMichromaRegular
+            HoverGlow.BackgroundTransparency = 1
         end
 
         return TabObj
