@@ -217,6 +217,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     if ParentGui:FindFirstChild("ScriptUi") then ParentGui:FindFirstChild("ScriptUi"):Destroy() end
     if ParentGui:FindFirstChild("MinimisedUI") then ParentGui:FindFirstChild("MinimisedUI"):Destroy() end
     if ParentGui:FindFirstChild("NotificationUI") then ParentGui:FindFirstChild("NotificationUI"):Destroy() end
+    if ParentGui:FindFirstChild("ParticleLayer") then ParentGui:FindFirstChild("ParticleLayer"):Destroy() end
 
     local Window = {
         ScriptName = scriptName or hubTitle or "MD_Script",
@@ -1100,12 +1101,16 @@ function Library:CreateWindow(hubTitle, scriptName)
         if ScriptUi then
             ScriptUi.Enabled = true
         end
-        if BackgroundDOF and BackgroundDOF.Parent then
-            BackgroundDOF.Enabled = Window.BackgroundBlurEnabled
-        end
-        if LocalUIBlurPart and LocalUIBlurPart.Parent then
-            LocalUIBlurPart.Transparency = Window.BackgroundBlurEnabled and 0.98 or 1
-        end
+        task.delay(2.5, function()
+            if Window and Window.BackgroundBlurEnabled and ScriptUi and ScriptUi.Enabled then
+                if BackgroundDOF and BackgroundDOF.Parent then
+                    BackgroundDOF.Enabled = true
+                end
+                if LocalUIBlurPart and LocalUIBlurPart.Parent then
+                    LocalUIBlurPart.Transparency = 0.98
+                end
+            end
+        end)
     end
 
 
@@ -1469,7 +1474,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
         end))
 
-        return {
+        local sliderData = {
             Track = TrackFrame,
             FilledPart = FilledPart,
             Overlay = OverlayCircle,
@@ -1484,8 +1489,15 @@ function Library:CreateWindow(hubTitle, scriptName)
                 if triggerCallback and onValueChange then
                     onValueChange(currentVal, pct)
                 end
+            end,
+            RefreshTheme = function(theme)
+                TrackFrame.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(20, 22, 28)
+                FilledPart.BackgroundColor3 = theme.ButtonBG
+                OverlayCircle.ImageColor3 = theme.ButtonBG
             end
         }
+        table.insert(Window.RegisteredMDSliders, sliderData)
+        return sliderData
     end
 
     -- Long Button Generator (Half-Side / Full-Row)
@@ -2859,6 +2871,16 @@ function Library:CreateWindow(hubTitle, scriptName)
             return toggleData
         end
 
+        function TabObj:AddSlider(minVal, maxVal, defaultVal, onValueChange, parentRow, position)
+            local targetParent = parentRow or ContentFrame
+            local size = parentRow and UDim2.new(0.485, -4, 0, 14) or UDim2.new(1, -10, 0, 14)
+            local pos = position or UDim2.new(0, 0, 0, 0)
+
+            local sliderData = Window:CreateMDSlider(targetParent, pos, size, minVal, maxVal, defaultVal, onValueChange)
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            return sliderData
+        end
+
         TrackConn(TabButton.MouseEnter:Connect(function()
             PlayHoverSFX()
             if Window.ActiveTab ~= tabName then
@@ -3008,13 +3030,31 @@ function Library:CreateWindow(hubTitle, scriptName)
         end
     end))
 
+    -- =========================================================================
+    -- UI CLICK THEME-SPECIFIC PARTICLE ENGINE (Built into library)
+    -- =========================================================================
+    local ParticleLayer = Instance.new("Frame")
+    ParticleLayer.Name = "ParticleLayer"
+    ParticleLayer.Size = UDim2.new(1, 0, 1, 0)
+    ParticleLayer.BackgroundTransparency = 1
+    ParticleLayer.ZIndex = 60
+    ParticleLayer.ClipsDescendants = false
+    ParticleLayer.Parent = ScriptUi
+
+    local ActiveParticleConns = {}
+
     TrackConn(CloseBtn.MouseButton1Click:Connect(function()
         PlayClickSFX()
         Window:Notify("Unloading", "Script hub closed.", 1.5)
         task.wait(0.5)
+        for _, conn in ipairs(ActiveParticleConns) do
+            if conn and conn.Connected then conn:Disconnect() end
+        end
+        table.clear(ActiveParticleConns)
         for _, conn in ipairs(Window.Connections) do
             if conn and conn.Connected then conn:Disconnect() end
         end
+        if ParticleLayer and ParticleLayer.Parent then ParticleLayer:Destroy() end
         if LocalUIBlurPart and LocalUIBlurPart.Parent then LocalUIBlurPart:Destroy() end
         if BackgroundDOF and BackgroundDOF.Parent then BackgroundDOF:Destroy() end
         if ScriptUi then ScriptUi:Destroy() end
@@ -3028,19 +3068,6 @@ function Library:CreateWindow(hubTitle, scriptName)
             LocalTime.Text = "Local time: " .. os.date("%I:%M:%S %p")
         end
     end))
-
-    -- =========================================================================
-    -- UI CLICK THEME-SPECIFIC PARTICLE ENGINE (Built into library)
-    -- =========================================================================
-    local ParticleLayer = Instance.new("Frame")
-    ParticleLayer.Name = "ParticleLayer"
-    ParticleLayer.Size = UDim2.new(1, 0, 1, 0)
-    ParticleLayer.BackgroundTransparency = 1
-    ParticleLayer.ZIndex = 60
-    ParticleLayer.ClipsDescendants = false
-    ParticleLayer.Parent = ScriptUi
-
-    local ActiveParticleConns = {}
 
     local function SampleThemeColor()
         local cur = Window.CurrentTheme or Library.ThemePresets.Dark
@@ -3355,6 +3382,8 @@ function Library:CreateWindow(hubTitle, scriptName)
     end))
 
     Window.SpawnClickParticles = SpawnClickParticles
+    Window.ParticleLayer = ParticleLayer
+    Window.ActiveParticleConns = ActiveParticleConns
 
     Window.ScriptUi = ScriptUi
     Window.MinimisedUI = MinimisedUI
