@@ -1102,12 +1102,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         if ScriptUi then
             ScriptUi.Enabled = true
         end
-        if BackgroundDOF and BackgroundDOF.Parent then
-            BackgroundDOF.Enabled = Window.BackgroundBlurEnabled
-        end
-        if LocalUIBlurPart and LocalUIBlurPart.Parent then
-            LocalUIBlurPart.Transparency = Window.BackgroundBlurEnabled and 0.98 or 1
-        end
+        Window:SetBackgroundBlur(Window.BackgroundBlurEnabled)
     end
 
 
@@ -1776,13 +1771,19 @@ function Library:CreateWindow(hubTitle, scriptName)
         end
     end
 
+    local BackgroundBlur = Instance.new("BlurEffect")
+    BackgroundBlur.Name = "MDScriptHubBlur"
+    BackgroundBlur.Size = 14
+    BackgroundBlur.Enabled = false -- Enabled after FinishLoading
+    BackgroundBlur.Parent = Lighting
+
     local BackgroundDOF = Instance.new("DepthOfFieldEffect")
     BackgroundDOF.Name = "MDScriptHubDOF"
     BackgroundDOF.FocusDistance = 2.5
     BackgroundDOF.InFocusRadius = 0
     BackgroundDOF.NearIntensity = 1.0
     BackgroundDOF.FarIntensity = 0.0
-    BackgroundDOF.Enabled = false -- Disabled during loading screen
+    BackgroundDOF.Enabled = false -- Enabled after FinishLoading
     BackgroundDOF.Parent = Lighting
 
     local LocalUIBlurPart = Instance.new("Part")
@@ -1798,6 +1799,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     LocalUIBlurPart.Size = Vector3.new(1, 1, 0.01)
     LocalUIBlurPart.Parent = workspace
 
+    Window.BackgroundBlur = BackgroundBlur
     Window.BackgroundDOF = BackgroundDOF
     Window.LocalUIBlurPart = LocalUIBlurPart
 
@@ -2156,12 +2158,13 @@ function Library:CreateWindow(hubTitle, scriptName)
     ContentOverlay.Position = UDim2.new(0, 0, 0, 42)
     ContentOverlay.BackgroundTransparency = 1
     ContentOverlay.BorderSizePixel = 0
+    ContentOverlay.ClipsDescendants = true
     ContentOverlay.ZIndex = 3
     ContentOverlay.Parent = MainContainer
 
     local SidebarScroll = Instance.new("ScrollingFrame")
     SidebarScroll.Name = "ScrollingFrame"
-    SidebarScroll.Size = UDim2.new(0, 174, 1, 0)
+    SidebarScroll.Size = UDim2.new(0, 175, 1, 0)
     SidebarScroll.Position = UDim2.new(0, 0, 0, 0)
     SidebarScroll.BackgroundTransparency = 1
     SidebarScroll.BorderSizePixel = 0
@@ -2169,7 +2172,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     SidebarScroll.ScrollBarImageTransparency = 1
     SidebarScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     SidebarScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    SidebarScroll.ClipsDescendants = false
+    SidebarScroll.ClipsDescendants = true
     SidebarScroll.ZIndex = 3
     SidebarScroll.Parent = ContentOverlay
 
@@ -2192,7 +2195,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     MainContentFrame.Position = UDim2.new(0, 175, 0, 0)
     MainContentFrame.BackgroundTransparency = 1
     MainContentFrame.BorderSizePixel = 0
-    MainContentFrame.ClipsDescendants = false
+    MainContentFrame.ClipsDescendants = true
     MainContentFrame.ZIndex = 3
     MainContentFrame.Parent = ContentOverlay
 
@@ -2646,24 +2649,24 @@ function Library:CreateWindow(hubTitle, scriptName)
         TabButton.Parent = TabContainer
 
         local ContentFrame = Instance.new("ScrollingFrame")
-        ContentFrame.Size = UDim2.new(1, -24, 1, -20)
-        ContentFrame.Position = UDim2.new(0, 12, 0, 10)
+        ContentFrame.Size = UDim2.new(1, 0, 1, 0)
+        ContentFrame.Position = UDim2.new(0, 0, 0, 0)
         ContentFrame.BackgroundTransparency = 1
         ContentFrame.BorderSizePixel = 0
         ContentFrame.ScrollBarThickness = 0
         ContentFrame.ScrollBarImageTransparency = 1
         ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-        ContentFrame.ClipsDescendants = false
+        ContentFrame.ClipsDescendants = true
         ContentFrame.Visible = false
         ContentFrame.ZIndex = 3
         ContentFrame.Parent = MainContentFrame or MainFrame
 
         local ContentPadding = Instance.new("UIPadding")
-        ContentPadding.PaddingLeft = UDim.new(0, 4)
-        ContentPadding.PaddingRight = UDim.new(0, 4)
-        ContentPadding.PaddingTop = UDim.new(0, 4)
-        ContentPadding.PaddingBottom = UDim.new(0, 12)
+        ContentPadding.PaddingLeft = UDim.new(0, 10)
+        ContentPadding.PaddingRight = UDim.new(0, 10)
+        ContentPadding.PaddingTop = UDim.new(0, 8)
+        ContentPadding.PaddingBottom = UDim.new(0, 14)
         ContentPadding.Parent = ContentFrame
 
         local ContentLayout = Instance.new("UIListLayout")
@@ -3018,6 +3021,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         end
         if LocalUIBlurPart and LocalUIBlurPart.Parent then LocalUIBlurPart:Destroy() end
         if BackgroundDOF and BackgroundDOF.Parent then BackgroundDOF:Destroy() end
+        if BackgroundBlur and BackgroundBlur.Parent then BackgroundBlur:Destroy() end
         if ScriptUi then ScriptUi:Destroy() end
         if MinimisedUI.Parent then MinimisedUI:Destroy() end
         if NotificationUI.Parent then NotificationUI:Destroy() end
@@ -3029,6 +3033,327 @@ function Library:CreateWindow(hubTitle, scriptName)
             LocalTime.Text = "Local time: " .. os.date("%I:%M:%S %p")
         end
     end))
+
+    -- =========================================================================
+    -- UI CLICK THEME-SPECIFIC PARTICLE ENGINE (Built into library)
+    -- =========================================================================
+    local ParticleLayer = Instance.new("Frame")
+    ParticleLayer.Name = "ParticleLayer"
+    ParticleLayer.Size = UDim2.new(1, 0, 1, 0)
+    ParticleLayer.BackgroundTransparency = 1
+    ParticleLayer.ZIndex = 60
+    ParticleLayer.ClipsDescendants = false
+    ParticleLayer.Parent = ScriptUi
+
+    local ActiveParticleConns = {}
+
+    local function SampleThemeColor()
+        local cur = Window.CurrentTheme or Library.ThemePresets.Dark
+        local palette = {
+            cur.MainBG,
+            cur.AccentBG,
+            cur.ButtonBG,
+            cur.Divider,
+            cur.TopBG,
+        }
+        return palette[math.random(1, #palette)]
+    end
+
+    local function VaryBrightness(base)
+        local factor = 0.75 + math.random() * 0.50
+        return Color3.new(
+            math.clamp(base.R * factor, 0, 1),
+            math.clamp(base.G * factor, 0, 1),
+            math.clamp(base.B * factor, 0, 1)
+        )
+    end
+
+    local function SpawnClickParticles(screenX, screenY)
+        if not ScriptUi or not ScriptUi.Enabled then return end
+        local themeKey = Window.CurrentThemeKey or "Dark"
+
+        if themeKey == "Nature" then
+            -- 1. GREEN THEME: 8x8 Animated Flipbook Falling Leaves (109451333999691)
+            local count = math.random(7, 11)
+            for _ = 1, count do
+                local size = math.random(20, 28)
+                local greenColor = Color3.fromRGB(math.random(45, 80), math.random(190, 245), math.random(75, 115))
+                local lifeT = 0.8 + math.random() * 0.4
+                local vx = math.random(-35, 35)
+                local vy = math.random(60, 95)
+                local rotSpeed = math.random(-90, 90)
+                local swaySeed = math.random() * 10
+                local flipFrame = math.random(0, 63)
+
+                local p = Instance.new("ImageLabel")
+                p.Name = "LeafParticle"
+                p.Size = UDim2.new(0, size, 0, size)
+                p.Position = UDim2.new(0, screenX - size / 2, 0, screenY - size / 2)
+                p.BackgroundTransparency = 1
+                p.Image = "rbxassetid://109451333999691"
+                p.ImageColor3 = greenColor
+                p.ImageRectSize = Vector2.new(128, 128)
+                p.ImageRectOffset = Vector2.new((flipFrame % 8) * 128, math.floor(flipFrame / 8) * 128)
+                p.ZIndex = 61
+                p.Parent = ParticleLayer
+
+                local elapsed = 0
+                local startX = screenX - size / 2
+                local startY = screenY - size / 2
+                local conn
+
+                local function removeFromActive()
+                    for i = #ActiveParticleConns, 1, -1 do
+                        if ActiveParticleConns[i] == conn then
+                            table.remove(ActiveParticleConns, i)
+                            break
+                        end
+                    end
+                end
+
+                conn = RunService.RenderStepped:Connect(function(dt)
+                    elapsed = elapsed + dt
+                    if not p or not p.Parent then
+                        if conn then conn:Disconnect() end
+                        removeFromActive()
+                        return
+                    end
+                    if elapsed >= lifeT then
+                        p:Destroy()
+                        if conn then conn:Disconnect() end
+                        removeFromActive()
+                        return
+                    end
+
+                    flipFrame = (flipFrame + 1) % 64
+                    p.ImageRectOffset = Vector2.new((flipFrame % 8) * 128, math.floor(flipFrame / 8) * 128)
+                    p.Rotation = p.Rotation + rotSpeed * dt
+
+                    local t = elapsed / lifeT
+                    local cx = startX + vx * elapsed + math.sin(elapsed * 4 + swaySeed) * 12
+                    local cy = startY + vy * elapsed
+                    p.Position = UDim2.new(0, cx, 0, cy)
+                    p.ImageTransparency = math.clamp(t * 1.2, 0, 1)
+                end)
+                table.insert(ActiveParticleConns, conn)
+            end
+
+        elseif themeKey == "Amethyst" then
+            -- 2. PURPLE THEME: Falling Gem Particles (138774461279155)
+            local count = math.random(7, 11)
+            for _ = 1, count do
+                local size = math.random(18, 26)
+                local purpleColor = Color3.fromRGB(math.random(180, 220), math.random(90, 140), 255)
+                local lifeT = 0.8 + math.random() * 0.4
+                local vx = math.random(-30, 30)
+                local vy = math.random(60, 95)
+                local rotSpeed = math.random(-80, 80)
+                local swaySeed = math.random() * 10
+
+                local p = Instance.new("ImageLabel")
+                p.Name = "GemParticle"
+                p.Size = UDim2.new(0, size, 0, size)
+                p.Position = UDim2.new(0, screenX - size / 2, 0, screenY - size / 2)
+                p.BackgroundTransparency = 1
+                p.Image = "rbxassetid://138774461279155"
+                p.ImageColor3 = purpleColor
+                p.ZIndex = 61
+                p.Parent = ParticleLayer
+
+                local elapsed = 0
+                local startX = screenX - size / 2
+                local startY = screenY - size / 2
+                local conn
+
+                local function removeFromActive()
+                    for i = #ActiveParticleConns, 1, -1 do
+                        if ActiveParticleConns[i] == conn then
+                            table.remove(ActiveParticleConns, i)
+                            break
+                        end
+                    end
+                end
+
+                conn = RunService.RenderStepped:Connect(function(dt)
+                    elapsed = elapsed + dt
+                    if not p or not p.Parent then
+                        if conn then conn:Disconnect() end
+                        removeFromActive()
+                        return
+                    end
+                    if elapsed >= lifeT then
+                        p:Destroy()
+                        if conn then conn:Disconnect() end
+                        removeFromActive()
+                        return
+                    end
+
+                    p.Rotation = p.Rotation + rotSpeed * dt
+                    local t = elapsed / lifeT
+                    local cx = startX + vx * elapsed + math.sin(elapsed * 4 + swaySeed) * 10
+                    local cy = startY + vy * elapsed
+                    p.Position = UDim2.new(0, cx, 0, cy)
+                    p.ImageTransparency = math.clamp(t * 1.2, 0, 1)
+                end)
+                table.insert(ActiveParticleConns, conn)
+            end
+
+        elseif themeKey == "Original" then
+            -- 3. ORANGE THEME: Falling Light Orange Particles (80640700930724)
+            local count = math.random(7, 11)
+            for _ = 1, count do
+                local size = math.random(18, 26)
+                local orangeColor = Color3.fromRGB(255, math.random(165, 195), math.random(50, 85))
+                local lifeT = 0.8 + math.random() * 0.4
+                local vx = math.random(-30, 30)
+                local vy = math.random(60, 95)
+                local rotSpeed = math.random(-80, 80)
+                local swaySeed = math.random() * 10
+
+                local p = Instance.new("ImageLabel")
+                p.Name = "OrangeParticle"
+                p.Size = UDim2.new(0, size, 0, size)
+                p.Position = UDim2.new(0, screenX - size / 2, 0, screenY - size / 2)
+                p.BackgroundTransparency = 1
+                p.Image = "rbxassetid://80640700930724"
+                p.ImageColor3 = orangeColor
+                p.ZIndex = 61
+                p.Parent = ParticleLayer
+
+                local elapsed = 0
+                local startX = screenX - size / 2
+                local startY = screenY - size / 2
+                local conn
+
+                local function removeFromActive()
+                    for i = #ActiveParticleConns, 1, -1 do
+                        if ActiveParticleConns[i] == conn then
+                            table.remove(ActiveParticleConns, i)
+                            break
+                        end
+                    end
+                end
+
+                conn = RunService.RenderStepped:Connect(function(dt)
+                    elapsed = elapsed + dt
+                    if not p or not p.Parent then
+                        if conn then conn:Disconnect() end
+                        removeFromActive()
+                        return
+                    end
+                    if elapsed >= lifeT then
+                        p:Destroy()
+                        if conn then conn:Disconnect() end
+                        removeFromActive()
+                        return
+                    end
+
+                    p.Rotation = p.Rotation + rotSpeed * dt
+                    local t = elapsed / lifeT
+                    local cx = startX + vx * elapsed + math.sin(elapsed * 4 + swaySeed) * 10
+                    local cy = startY + vy * elapsed
+                    p.Position = UDim2.new(0, cx, 0, cy)
+                    p.ImageTransparency = math.clamp(t * 1.2, 0, 1)
+                end)
+                table.insert(ActiveParticleConns, conn)
+            end
+
+        else
+            -- 4. DARK, VERY DARK, WHITE: Geometric debris burst matching theme colors
+            local count = math.random(8, 14)
+            for _ = 1, count do
+                local shape = math.random(1, 3)
+                local size = math.random(5, 14)
+                local color = VaryBrightness(SampleThemeColor())
+
+                local angle = math.random() * math.pi * 2
+                local speed = math.random(55, 160)
+                local vx = math.cos(angle) * speed
+                local vy = math.sin(angle) * speed + math.random(20, 60)
+                local lifeT = 0.35 + math.random() * 0.35
+                local gravity = math.random(350, 600)
+
+                local p = Instance.new("Frame")
+                p.Name = "Particle"
+                p.Size = UDim2.new(0, size, 0, size)
+                p.Position = UDim2.new(0, screenX - size / 2, 0, screenY - size / 2)
+                p.BackgroundColor3 = color
+                p.BackgroundTransparency = 0
+                p.BorderSizePixel = 0
+                p.ZIndex = 61
+                p.Parent = ParticleLayer
+
+                if shape == 2 then
+                    local c = Instance.new("UICorner")
+                    c.CornerRadius = UDim.new(1, 0)
+                    c.Parent = p
+                elseif shape == 3 then
+                    p.Rotation = 45
+                    local c = Instance.new("UICorner")
+                    c.CornerRadius = UDim.new(0, 2)
+                    c.Parent = p
+                else
+                    local c = Instance.new("UICorner")
+                    c.CornerRadius = UDim.new(0, 3)
+                    c.Parent = p
+                end
+
+                local elapsed = 0
+                local startX = screenX - size / 2
+                local startY = screenY - size / 2
+                local conn
+
+                local function removeFromActive()
+                    for i = #ActiveParticleConns, 1, -1 do
+                        if ActiveParticleConns[i] == conn then
+                            table.remove(ActiveParticleConns, i)
+                            break
+                        end
+                    end
+                end
+
+                conn = RunService.RenderStepped:Connect(function(dt)
+                    elapsed = elapsed + dt
+                    if not p or not p.Parent then
+                        if conn then conn:Disconnect() end
+                        removeFromActive()
+                        return
+                    end
+                    if elapsed >= lifeT then
+                        p:Destroy()
+                        if conn then conn:Disconnect() end
+                        removeFromActive()
+                        return
+                    end
+                    local t = elapsed / lifeT
+                    local cx = startX + vx * elapsed
+                    local cy = startY + vy * elapsed + 0.5 * gravity * elapsed * elapsed
+                    local alpha = math.clamp(1 - (t * t), 0, 1)
+                    local sz = size * (1 - t * 0.5)
+                    p.Position = UDim2.new(0, cx, 0, cy)
+                    p.Size = UDim2.new(0, sz, 0, sz)
+                    p.BackgroundTransparency = 1 - alpha
+                end)
+                table.insert(ActiveParticleConns, conn)
+            end
+        end
+    end
+
+    TrackConn(UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            if ScriptUi and ScriptUi.Enabled then
+                local pos = input.Position
+                local mainAbs = MainContainer.AbsolutePosition
+                local mainSz = MainContainer.AbsoluteSize
+                if pos.X >= mainAbs.X and pos.X <= mainAbs.X + mainSz.X and pos.Y >= mainAbs.Y and pos.Y <= mainAbs.Y + mainSz.Y then
+                    SpawnClickParticles(pos.X, pos.Y)
+                end
+            end
+        end
+    end))
+
+    Window.SpawnClickParticles = SpawnClickParticles
 
     Window.ScriptUi = ScriptUi
     Window.MinimisedUI = MinimisedUI
@@ -3225,8 +3550,9 @@ function Library:CreateWindow(hubTitle, scriptName)
 
     function Window:SetBackgroundBlur(enabled)
         Window.BackgroundBlurEnabled = enabled
-        BackgroundDOF.Enabled = enabled
-        LocalUIBlurPart.Transparency = enabled and 0.98 or 1
+        if BackgroundBlur and BackgroundBlur.Parent then BackgroundBlur.Enabled = enabled end
+        if BackgroundDOF and BackgroundDOF.Parent then BackgroundDOF.Enabled = enabled end
+        if LocalUIBlurPart and LocalUIBlurPart.Parent then LocalUIBlurPart.Transparency = enabled and 0.96 or 1 end
     end
 
     function Window:SetSpiderwebBackground(enabled)
