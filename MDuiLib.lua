@@ -306,6 +306,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     local HttpService = game:GetService("HttpService")
     local SanitizedScriptName = (Window.ScriptName:gsub("[^%w_%-]", "_"))
     local ConfigFolderPath = "MD_Configs/" .. SanitizedScriptName
+    local AutoloadFilePath = ConfigFolderPath .. "/autoload.txt"
 
     local function EnsureConfigFolder()
         pcall(function()
@@ -333,14 +334,50 @@ function Library:CreateWindow(hubTitle, scriptName)
         return list
     end
 
+    function Window:GetAutoloadConfig()
+        local autoloadName = nil
+        pcall(function()
+            if readfile and isfile and isfile(AutoloadFilePath) then
+                local content = readfile(AutoloadFilePath)
+                if content then
+                    content = content:gsub("^%s+", ""):gsub("%s+$", "")
+                    if content ~= "" and content:upper() ~= "NONE" then
+                        autoloadName = content
+                    end
+                end
+            end
+        end)
+        return autoloadName
+    end
+
+    function Window:SetAutoloadConfig(configName)
+        EnsureConfigFolder()
+        if not configName or configName == "" or configName:upper() == "NONE" then
+            pcall(function()
+                if delfile and isfile and isfile(AutoloadFilePath) then
+                    delfile(AutoloadFilePath)
+                end
+            end)
+            return nil
+        else
+            pcall(function()
+                if writefile then
+                    writefile(AutoloadFilePath, tostring(configName))
+                end
+            end)
+            return tostring(configName)
+        end
+    end
+
     function Window:GetConfigSaveData()
         local data = {
             Theme = Window.CurrentThemeKey or "Dark",
             Settings = {
-                Spiderweb = Window.SpiderwebEnabled,
+                Spiderweb = (Window.SpiderwebBGEnabled ~= nil) and Window.SpiderwebBGEnabled or Window.SpiderwebEnabled,
                 Blur = Window.BackgroundBlurEnabled,
                 Sounds = Window.UISoundsEnabled,
-                SoundVolume = Window.SoundVolume
+                SoundVolume = Window.SoundVolume or 0.8,
+                Notifications = Window.NotificationsEnabled
             },
             Toggles = {},
             Sliders = {},
@@ -348,62 +385,50 @@ function Library:CreateWindow(hubTitle, scriptName)
             Dropdowns = {}
         }
         for name, toggle in pairs(Window.RegisteredToggles) do
-            pcall(function() data.Toggles[name] = toggle.GetState() end)
+            pcall(function()
+                if toggle and toggle.GetState then
+                    data.Toggles[name] = toggle.GetState()
+                end
+            end)
         end
         for name, slider in pairs(Window.RegisteredSliders) do
-            pcall(function() data.Sliders[name] = slider.GetValue() end)
+            pcall(function()
+                if slider and slider.GetValue then
+                    data.Sliders[name] = slider.GetValue()
+                end
+            end)
         end
         for name, box in pairs(Window.RegisteredTextboxes) do
-            pcall(function() data.Textboxes[name] = box.GetText() end)
+            pcall(function()
+                if box and box.GetText then
+                    data.Textboxes[name] = box.GetText()
+                end
+            end)
         end
         for name, drop in pairs(Window.RegisteredDropdowns) do
-            pcall(function() data.Dropdowns[name] = drop.GetSelected() end)
+            pcall(function()
+                if drop and drop.GetSelected then
+                    data.Dropdowns[name] = drop.GetSelected()
+                end
+            end)
         end
         return data
     end
 
     function Window:ApplyConfigSaveData(data)
         if not data then return end
-        if data.Toggles then
-            for name, state in pairs(data.Toggles) do
-                local toggle = Window.RegisteredToggles[name]
-                if toggle and toggle.SetState then
-                    pcall(function() toggle.SetState(state, true) end)
-                end
-            end
-        end
-        if data.Sliders then
-            for name, val in pairs(data.Sliders) do
-                local slider = Window.RegisteredSliders[name]
-                if slider and slider.SetValue then
-                    pcall(function() slider.SetValue(val, true) end)
-                end
-            end
-        end
-        if data.Textboxes then
-            for name, text in pairs(data.Textboxes) do
-                local box = Window.RegisteredTextboxes[name]
-                if box and box.SetText then
-                    pcall(function() box.SetText(text, true) end)
-                end
-            end
-        end
-        if data.Dropdowns then
-            for name, selected in pairs(data.Dropdowns) do
-                local drop = Window.RegisteredDropdowns[name]
-                if drop and drop.SetSelected then
-                    pcall(function() drop.SetSelected(selected, true) end)
-                end
-            end
-        end
+
+        -- 1. Apply Theme Preset First
         if data.Theme then
             if Window.ApplyTheme then
-                pcall(function() Window.ApplyTheme(data.Theme) end)
+                pcall(function() Window:ApplyTheme(data.Theme) end)
             elseif Library.ThemePresets[data.Theme] then
                 Window.CurrentTheme = Library.ThemePresets[data.Theme]
                 Window.CurrentThemeKey = data.Theme
             end
         end
+
+        -- 2. Apply Global Settings
         if data.Settings then
             if data.Settings.Spiderweb ~= nil and Window.SetSpiderwebBackground then
                 pcall(function() Window:SetSpiderwebBackground(data.Settings.Spiderweb) end)
@@ -417,14 +442,53 @@ function Library:CreateWindow(hubTitle, scriptName)
             if data.Settings.SoundVolume ~= nil and Window.SetSoundVolume then
                 pcall(function() Window:SetSoundVolume(data.Settings.SoundVolume) end)
             end
+            if data.Settings.Notifications ~= nil then
+                Window.NotificationsEnabled = data.Settings.Notifications
+            end
+        end
+
+        -- 3. Apply Toggles (trigger callbacks to turn ON/OFF active features)
+        if data.Toggles then
+            for name, state in pairs(data.Toggles) do
+                local toggle = Window.RegisteredToggles[name]
+                if toggle and toggle.SetState then
+                    pcall(function() toggle.SetState(state, true) end)
+                end
+            end
+        end
+
+        -- 4. Apply Sliders (trigger callbacks to adjust gameplay/UI values)
+        if data.Sliders then
+            for name, val in pairs(data.Sliders) do
+                local slider = Window.RegisteredSliders[name]
+                if slider and slider.SetValue then
+                    pcall(function() slider.SetValue(val, true) end)
+                end
+            end
+        end
+
+        -- 5. Apply Textboxes
+        if data.Textboxes then
+            for name, text in pairs(data.Textboxes) do
+                local box = Window.RegisteredTextboxes[name]
+                if box and box.SetText then
+                    pcall(function() box.SetText(text, true) end)
+                end
+            end
+        end
+
+        -- 6. Apply Dropdowns
+        if data.Dropdowns then
+            for name, selected in pairs(data.Dropdowns) do
+                local drop = Window.RegisteredDropdowns[name]
+                if drop and drop.SetSelected then
+                    pcall(function() drop.SetSelected(selected, true) end)
+                end
+            end
         end
     end
 
-    local DefaultConfigMemoryData = Window:GetConfigSaveData()
-    task.spawn(function()
-        task.wait(0.3)
-        DefaultConfigMemoryData = Window:GetConfigSaveData()
-    end)
+    local DefaultConfigMemoryData = nil
 
     local function ResolveUniqueConfigName(requestedName)
         requestedName = requestedName:gsub("^%s+", ""):gsub("%s+$", "")
@@ -520,7 +584,9 @@ function Library:CreateWindow(hubTitle, scriptName)
         configName = configName or "DEFAULT"
 
         if configName:upper() == "DEFAULT" then
-            Window:ApplyConfigSaveData(DefaultConfigMemoryData)
+            if DefaultConfigMemoryData then
+                Window:ApplyConfigSaveData(DefaultConfigMemoryData)
+            end
             Window:Notify("Config Loaded", "Loaded DEFAULT config!", 2.5)
             return true
         end
@@ -929,6 +995,17 @@ function Library:CreateWindow(hubTitle, scriptName)
         Row1.ZIndex = 4
         Row1.Parent = SectionFrame
 
+        local autoloadBtn = nil
+
+        local function GetAutoloadButtonLabel()
+            local auto = Window:GetAutoloadConfig()
+            if auto and auto ~= "" and auto:upper() ~= "NONE" then
+                return "AUTOLOAD CONFIG: " .. auto
+            else
+                return "AUTOLOAD CONFIG: NONE"
+            end
+        end
+
         Window:CreateMDButtonLong(Row1, UDim2.new(0, 0, 0, 0), UDim2.new(0.485, -4, 1, 0), "CREATE CONFIG", function()
             local requested = nameBoxObj.GetText()
             local savedName = Window:SaveConfig(requested)
@@ -943,6 +1020,12 @@ function Library:CreateWindow(hubTitle, scriptName)
             if Window:DeleteConfig(current) then
                 configDropdownObj.RefreshOptions(GetConfigList())
                 configDropdownObj.SetSelected("DEFAULT", false)
+                if Window:GetAutoloadConfig() == current then
+                    Window:SetAutoloadConfig(nil)
+                    if autoloadBtn and autoloadBtn.TextLabel then
+                        autoloadBtn.TextLabel.Text = GetAutoloadButtonLabel()
+                    end
+                end
             end
         end)
 
@@ -963,6 +1046,22 @@ function Library:CreateWindow(hubTitle, scriptName)
         Window:CreateMDButtonLong(Row2, UDim2.new(0.515, 4, 0, 0), UDim2.new(0.485, -4, 1, 0), "LOAD CONFIG", function()
             local current = configDropdownObj.GetSelected()
             Window:LoadConfig(current)
+        end)
+
+        -- 5. Row 3: Single Long Button for AUTOLOAD CONFIG
+        autoloadBtn = Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 44), GetAutoloadButtonLabel(), function()
+            local selected = configDropdownObj.GetSelected()
+            local currentAuto = Window:GetAutoloadConfig()
+            if currentAuto == selected then
+                Window:SetAutoloadConfig(nil)
+                Window:Notify("Autoload", "Disabled config autoload", 2.5)
+            else
+                Window:SetAutoloadConfig(selected)
+                Window:Notify("Autoload", "Set '" .. selected .. "' as autoload config!", 2.5)
+            end
+            if autoloadBtn and autoloadBtn.TextLabel then
+                autoloadBtn.TextLabel.Text = GetAutoloadButtonLabel()
+            end
         end)
 
         parentTab.ContentFrame.CanvasSize = UDim2.new(0, 0, 0, parentTab.Layout.AbsoluteContentSize.Y + 20)
@@ -1088,6 +1187,21 @@ function Library:CreateWindow(hubTitle, scriptName)
         if ScriptUi then
             ScriptUi.Enabled = true
         end
+
+        -- Snapshot default config state after full initialization
+        if not DefaultConfigMemoryData then
+            DefaultConfigMemoryData = Window:GetConfigSaveData()
+        end
+
+        -- Trigger Autoload Config if set
+        task.spawn(function()
+            task.wait(0.2)
+            local autoloadConfig = Window:GetAutoloadConfig()
+            if autoloadConfig and autoloadConfig ~= "" and autoloadConfig:upper() ~= "NONE" then
+                Window:LoadConfig(autoloadConfig)
+            end
+        end)
+
         task.delay(2.0, function()
             if Window and ScriptUi and ScriptUi.Enabled then
                 Window:SetBackgroundBlur(Window.BackgroundBlurEnabled)
@@ -1239,7 +1353,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         return btnData
     end
 
-    function Window:CreateMDToggle(parent, position, size, initialState, onToggle)
+    function Window:CreateMDToggle(parent, position, size, initialState, onToggle, identifier)
         size = size or UDim2.new(0, 56, 0, 26)
 
         local ToggleFrame = Instance.new("Frame")
@@ -1318,31 +1432,34 @@ function Library:CreateWindow(hubTitle, scriptName)
             TweenService:Create(ToggleFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetBG}):Play()
 
             if onToggle then
-                onToggle(isToggled)
+                pcall(onToggle, isToggled)
             end
         end))
 
+        local toggleName = identifier or ("Toggle_" .. (#Window.RegisteredMDToggles + 1))
         local toggleData = {
+            Name = toggleName,
             Frame = ToggleFrame,
             Knob = KnobFrame,
             Overlay = OverlayCircle,
             Stroke = Stroke,
             GetState = function() return isToggled end,
             SetState = function(state, triggerCallback)
-                isToggled = state
+                isToggled = (state == true)
                 KnobFrame.Position = isToggled and UDim2.new(1, -13, 0.5, 0) or UDim2.new(0, 13, 0.5, 0)
                 KnobFrame.Rotation = isToggled and 0 or 225
-                ToggleFrame.BackgroundColor3 = isToggled and Window.CurrentTheme.ButtonBG or Color3.fromRGB(35, 38, 48)
+                ToggleFrame.BackgroundColor3 = isToggled and Window.CurrentTheme.ButtonBG or ((Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
                 if triggerCallback and onToggle then
-                    onToggle(isToggled)
+                    pcall(onToggle, isToggled)
                 end
             end
         }
+        Window.RegisteredToggles[toggleName] = toggleData
         table.insert(Window.RegisteredMDToggles, toggleData)
         return toggleData
     end
 
-    function Window:CreateMDSlider(parent, position, size, minVal, maxVal, defaultVal, onValueChange)
+    function Window:CreateMDSlider(parent, position, size, minVal, maxVal, defaultVal, onValueChange, identifier)
         size = size or UDim2.new(0, 210, 0, 14)
         minVal = minVal or 0
         maxVal = maxVal or 100
@@ -1352,10 +1469,11 @@ function Library:CreateWindow(hubTitle, scriptName)
         TrackFrame.Name = "SliderTrackFrame"
         TrackFrame.Size = size
         TrackFrame.Position = position or UDim2.new(0, 0, 0, 0)
-        TrackFrame.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+        TrackFrame.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(20, 22, 28)
         TrackFrame.BackgroundTransparency = 0.05
         TrackFrame.BorderSizePixel = 0
         TrackFrame.ZIndex = 10
+        TrackFrame.ClipsDescendants = false
         TrackFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
@@ -1371,7 +1489,8 @@ function Library:CreateWindow(hubTitle, scriptName)
         Stroke.Transparency = 0
         Stroke.Parent = TrackFrame
 
-        local initialPct = (defaultVal - minVal) / (maxVal - minVal)
+        local initialPct = (maxVal > minVal) and math.clamp((defaultVal - minVal) / (maxVal - minVal), 0, 1) or 0
+        local knobSize = 22
 
         local FilledPart = Instance.new("Frame")
         FilledPart.Name = "Filledpart"
@@ -1387,9 +1506,9 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local HandleFrame = Instance.new("Frame")
         HandleFrame.Name = "SliderHandle"
-        HandleFrame.Size = UDim2.new(0, 30, 0, 30)
+        HandleFrame.Size = UDim2.new(0, knobSize, 0, knobSize)
         HandleFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-        HandleFrame.Position = UDim2.new(initialPct, 0, 0.5, 0)
+        HandleFrame.Position = UDim2.new(initialPct, math.floor((0.5 - initialPct) * knobSize), 0.5, 0)
         HandleFrame.BackgroundTransparency = 1
         HandleFrame.ZIndex = 12
         HandleFrame.Parent = TrackFrame
@@ -1429,11 +1548,11 @@ function Library:CreateWindow(hubTitle, scriptName)
             local pct = math.clamp((inputPos - trackAbsPos) / trackAbsSize, 0, 1)
 
             FilledPart.Size = UDim2.new(pct, 0, 1, 0)
-            HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
+            HandleFrame.Position = UDim2.new(pct, math.floor((0.5 - pct) * knobSize), 0.5, 0)
 
             currentVal = math.floor(minVal + (pct * (maxVal - minVal)))
             if onValueChange then
-                onValueChange(currentVal, pct)
+                pcall(onValueChange, currentVal, pct)
             end
         end
 
@@ -1456,7 +1575,9 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
         end))
 
+        local sliderName = identifier or ("Slider_" .. (#Window.RegisteredMDSliders + 1))
         local sliderData = {
+            Name = sliderName,
             Track = TrackFrame,
             FilledPart = FilledPart,
             Overlay = OverlayCircle,
@@ -1465,11 +1586,11 @@ function Library:CreateWindow(hubTitle, scriptName)
             SetValue = function(val, triggerCallback)
                 val = math.clamp(val, minVal, maxVal)
                 currentVal = val
-                local pct = (val - minVal) / (maxVal - minVal)
+                local pct = (maxVal > minVal) and ((val - minVal) / (maxVal - minVal)) or 0
                 FilledPart.Size = UDim2.new(pct, 0, 1, 0)
-                HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
+                HandleFrame.Position = UDim2.new(pct, math.floor((0.5 - pct) * knobSize), 0.5, 0)
                 if triggerCallback and onValueChange then
-                    onValueChange(currentVal, pct)
+                    pcall(onValueChange, currentVal, pct)
                 end
             end,
             RefreshTheme = function(theme)
@@ -1478,6 +1599,7 @@ function Library:CreateWindow(hubTitle, scriptName)
                 OverlayCircle.ImageColor3 = theme.ButtonBG
             end
         }
+        Window.RegisteredSliders[sliderName] = sliderData
         table.insert(Window.RegisteredMDSliders, sliderData)
         return sliderData
     end
@@ -1689,24 +1811,30 @@ function Library:CreateWindow(hubTitle, scriptName)
             TweenService:Create(ToggleFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetBG}):Play()
 
             if onToggle then
-                onToggle(isToggled)
+                pcall(onToggle, isToggled)
             end
         end))
 
+        local toggleName = text or ("ToggleHalf_" .. (#Window.RegisteredMDToggles + 1))
         local toggleData = {
+            Name = toggleName,
             Frame = CardFrame,
             ToggleFrame = ToggleFrame,
             BaseCircle = BaseCircle,
             Overlay = OverlayCircle,
             Stroke = Stroke,
             GetState = function() return isToggled end,
-            SetState = function(state)
-                isToggled = state
+            SetState = function(state, triggerCallback)
+                isToggled = (state == true)
                 BaseCircle.Position = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
                 OverlayCircle.Position = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
-                ToggleFrame.BackgroundColor3 = isToggled and Window.CurrentTheme.ButtonBG or Color3.fromRGB(35, 38, 48)
+                ToggleFrame.BackgroundColor3 = isToggled and Window.CurrentTheme.ButtonBG or ((Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
+                if triggerCallback and onToggle then
+                    pcall(onToggle, isToggled)
+                end
             end
         }
+        Window.RegisteredToggles[toggleName] = toggleData
         table.insert(Window.RegisteredMDToggles, toggleData)
 
         return toggleData
@@ -2843,22 +2971,69 @@ function Library:CreateWindow(hubTitle, scriptName)
             return Window:CreateConfigSection(TabObj)
         end
 
-        function TabObj:AddHalfToggle(text, initialState, onToggle, parentRow, position)
+        function TabObj:AddToggle(titleOrConfig, initialState, onToggle, parentRow, position)
             local targetParent = parentRow or ContentFrame
             local size = parentRow and UDim2.new(0.485, -4, 0, 44) or UDim2.new(1, -10, 0, 44)
             local pos = position or UDim2.new(0, 0, 0, 0)
+            local text = (type(titleOrConfig) == "table" and (titleOrConfig.Title or titleOrConfig.Name)) or tostring(titleOrConfig)
+            local state = (type(titleOrConfig) == "table" and (titleOrConfig.Default or titleOrConfig.Value)) or initialState
+            local cb = (type(titleOrConfig) == "table" and (titleOrConfig.Callback or titleOrConfig.OnChanged)) or onToggle
 
-            local toggleData = Window:CreateMDToggleHalf(targetParent, pos, size, text, initialState, onToggle)
+            local toggleData = Window:CreateMDToggleHalf(targetParent, pos, size, text, state, cb)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
             return toggleData
         end
 
-        function TabObj:AddSlider(minVal, maxVal, defaultVal, onValueChange, parentRow, position)
-            local targetParent = parentRow or ContentFrame
-            local size = parentRow and UDim2.new(0.485, -4, 0, 14) or UDim2.new(1, -10, 0, 14)
-            local pos = position or UDim2.new(0, 0, 0, 0)
+        function TabObj:AddHalfToggle(text, initialState, onToggle, parentRow, position)
+            return TabObj:AddToggle(text, initialState, onToggle, parentRow, position)
+        end
 
-            local sliderData = Window:CreateMDSlider(targetParent, pos, size, minVal, maxVal, defaultVal, onValueChange)
+        function TabObj:AddSlider(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+            local targetParent = ContentFrame
+            local pos = UDim2.new(0, 0, 0, 0)
+            local size = UDim2.new(1, -10, 0, 14)
+            local sliderName = nil
+            local minVal, maxVal, defaultVal, onValueChange
+
+            if type(arg1) == "string" then
+                sliderName = arg1
+                if type(arg2) == "table" then
+                    minVal = arg2.Min or arg2.min or 0
+                    maxVal = arg2.Max or arg2.max or 100
+                    defaultVal = arg2.Default or arg2.default or minVal
+                    onValueChange = arg2.Callback or arg2.callback or arg2.OnChanged
+                    targetParent = arg3 or targetParent
+                    pos = arg4 or pos
+                else
+                    minVal = arg2 or 0
+                    maxVal = arg3 or 100
+                    defaultVal = arg4 or minVal
+                    onValueChange = arg5
+                    targetParent = arg6 or targetParent
+                    pos = arg7 or pos
+                end
+            elseif type(arg1) == "table" then
+                sliderName = arg1.Title or arg1.Name
+                minVal = arg1.Min or arg1.min or 0
+                maxVal = arg1.Max or arg1.max or 100
+                defaultVal = arg1.Default or arg1.default or minVal
+                onValueChange = arg1.Callback or arg1.callback or arg1.OnChanged
+                targetParent = arg2 or targetParent
+                pos = arg3 or pos
+            else
+                minVal = arg1 or 0
+                maxVal = arg2 or 100
+                defaultVal = arg3 or minVal
+                onValueChange = arg4
+                targetParent = arg5 or targetParent
+                pos = arg6 or pos
+            end
+
+            if targetParent and targetParent.Name == "RowFrame" then
+                size = UDim2.new(0.485, -4, 0, 14)
+            end
+
+            local sliderData = Window:CreateMDSlider(targetParent, pos, size, minVal, maxVal, defaultVal, onValueChange, sliderName)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
             return sliderData
         end
@@ -2884,7 +3059,19 @@ function Library:CreateWindow(hubTitle, scriptName)
         end))
 
         Window.Tabs[tabName] = TabObj
-        if not Window.ActiveTab then
+        if not Window.ActiveTab or (Window.ActiveTab == "Settings" and tabName ~= "Settings") then
+            if Window.ActiveTab and Window.ActiveTab ~= tabName then
+                local oldTab = Window.Tabs[Window.ActiveTab]
+                if oldTab then
+                    oldTab.Button.TextColor3 = Window.CurrentTheme.SubText
+                    oldTab.Button.TextSize = 15
+                    oldTab.Button.FontFace = FontMichromaRegular
+                    oldTab.HoverGlow.BackgroundTransparency = 1
+                    if oldTab.ContentFrame then
+                        oldTab.ContentFrame.Visible = false
+                    end
+                end
+            end
             Window.ActiveTab = tabName
             ContentFrame.Visible = true
             ContentFrame.Position = UDim2.new(0, 10, 0, 10)
@@ -2902,6 +3089,273 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         return TabObj
     end
+
+    -- =========================================================================
+    -- DEFAULT BUILT-IN SETTINGS TAB BUILDER
+    -- =========================================================================
+    local function CreateDefaultSettingsTab()
+        Window:AddSidebarBigDivider(998)
+        local SettingsTab = Window:CreateTab("Settings", 999)
+
+        -- 1. Enable Notifications Card
+        local NotifCard = Instance.new("Frame")
+        NotifCard.Name = "NotifCard"
+        NotifCard.Size = UDim2.new(1, 0, 0, 50)
+        NotifCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+        NotifCard.ZIndex = 3
+        NotifCard.ClipsDescendants = false
+        NotifCard.Parent = SettingsTab.ContentFrame
+
+        local NotifCardCorner = Instance.new("UICorner")
+        NotifCardCorner.CornerRadius = UDim.new(0, 8)
+        NotifCardCorner.Parent = NotifCard
+        AddUIShadow(NotifCard, 12, 0.45)
+
+        local NotifLabel = Instance.new("TextLabel")
+        NotifLabel.Name = "NotifLabel"
+        NotifLabel.Size = UDim2.new(1, -90, 1, 0)
+        NotifLabel.Position = UDim2.new(0, 12, 0, 0)
+        NotifLabel.BackgroundTransparency = 1
+        NotifLabel.FontFace = FontMichromaBold
+        NotifLabel.Text = "ENABLE NOTIFICATIONS"
+        NotifLabel.TextColor3 = Window.CurrentTheme.Text
+        NotifLabel.TextSize = 12
+        NotifLabel.TextXAlignment = Enum.TextXAlignment.Left
+        NotifLabel.ZIndex = 4
+        NotifLabel.Parent = NotifCard
+
+        Window:CreateMDToggle(NotifCard, UDim2.new(1, -72, 0.5, -13), UDim2.new(0, 56, 0, 26), Window.NotificationsEnabled, function(state)
+            Window.NotificationsEnabled = state
+            if state then
+                Window:Notify("Settings", "Notifications Enabled", 2)
+            end
+        end, "Notifications")
+
+        -- 2. Enable UI Sounds Card
+        local SoundCard = Instance.new("Frame")
+        SoundCard.Name = "SoundCard"
+        SoundCard.Size = UDim2.new(1, 0, 0, 50)
+        SoundCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+        SoundCard.ZIndex = 3
+        SoundCard.ClipsDescendants = false
+        SoundCard.Parent = SettingsTab.ContentFrame
+
+        local SoundCardCorner = Instance.new("UICorner")
+        SoundCardCorner.CornerRadius = UDim.new(0, 8)
+        SoundCardCorner.Parent = SoundCard
+        AddUIShadow(SoundCard, 12, 0.45)
+
+        local SoundLabel = Instance.new("TextLabel")
+        SoundLabel.Name = "SoundLabel"
+        SoundLabel.Size = UDim2.new(1, -90, 1, 0)
+        SoundLabel.Position = UDim2.new(0, 12, 0, 0)
+        SoundLabel.BackgroundTransparency = 1
+        SoundLabel.FontFace = FontMichromaBold
+        SoundLabel.Text = "ENABLE UI SOUNDS"
+        SoundLabel.TextColor3 = Window.CurrentTheme.Text
+        SoundLabel.TextSize = 12
+        SoundLabel.TextXAlignment = Enum.TextXAlignment.Left
+        SoundLabel.ZIndex = 4
+        SoundLabel.Parent = SoundCard
+
+        Window:CreateMDToggle(SoundCard, UDim2.new(1, -72, 0.5, -13), UDim2.new(0, 56, 0, 26), Window.UISoundsEnabled, function(state)
+            Window:SetUISounds(state)
+            if state then
+                Window:Notify("Settings", "UI Sounds Enabled", 2)
+            end
+        end, "UISounds")
+
+        -- 3. UI Sound Volume Card
+        local VolumeCard = Instance.new("Frame")
+        VolumeCard.Name = "VolumeCard"
+        VolumeCard.Size = UDim2.new(1, 0, 0, 50)
+        VolumeCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+        VolumeCard.ZIndex = 3
+        VolumeCard.ClipsDescendants = false
+        VolumeCard.Parent = SettingsTab.ContentFrame
+
+        local VolumeCardCorner = Instance.new("UICorner")
+        VolumeCardCorner.CornerRadius = UDim.new(0, 8)
+        VolumeCardCorner.Parent = VolumeCard
+        AddUIShadow(VolumeCard, 12, 0.45)
+
+        local VolumeLabel = Instance.new("TextLabel")
+        VolumeLabel.Name = "VolumeLabel"
+        VolumeLabel.Size = UDim2.new(1, -240, 1, 0)
+        VolumeLabel.Position = UDim2.new(0, 12, 0, 0)
+        VolumeLabel.BackgroundTransparency = 1
+        VolumeLabel.FontFace = FontMichromaBold
+        local currentVolPct = math.floor((Window.SoundVolume or 0.8) * 100)
+        VolumeLabel.Text = string.format("UI sound volume : %d%%", currentVolPct)
+        VolumeLabel.TextColor3 = Window.CurrentTheme.Text
+        VolumeLabel.TextSize = 11
+        VolumeLabel.TextXAlignment = Enum.TextXAlignment.Left
+        VolumeLabel.ZIndex = 4
+        VolumeLabel.Parent = VolumeCard
+
+        Window:CreateMDSlider(VolumeCard, UDim2.new(1, -210, 0.5, -7), UDim2.new(0, 195, 0, 14), 0, 100, currentVolPct, function(val, pct)
+            VolumeLabel.Text = string.format("UI sound volume : %d%%", val)
+            Window:SetSoundVolume(pct)
+        end, "SoundVolume")
+
+        -- 4. Spiderweb Background Card
+        local WebCard = Instance.new("Frame")
+        WebCard.Name = "WebCard"
+        WebCard.Size = UDim2.new(1, 0, 0, 50)
+        WebCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+        WebCard.ZIndex = 3
+        WebCard.ClipsDescendants = false
+        WebCard.Parent = SettingsTab.ContentFrame
+
+        local WebCardCorner = Instance.new("UICorner")
+        WebCardCorner.CornerRadius = UDim.new(0, 8)
+        WebCardCorner.Parent = WebCard
+        AddUIShadow(WebCard, 12, 0.45)
+
+        local WebTitle = Instance.new("TextLabel")
+        WebTitle.Name = "WebTitle"
+        WebTitle.Size = UDim2.new(0, 220, 0, 24)
+        WebTitle.Position = UDim2.new(0, 12, 0, 6)
+        WebTitle.BackgroundTransparency = 1
+        WebTitle.FontFace = FontMichromaBold
+        WebTitle.Text = "Spiderweb Background"
+        WebTitle.TextColor3 = Window.CurrentTheme.Text
+        WebTitle.TextSize = 14
+        WebTitle.TextXAlignment = Enum.TextXAlignment.Left
+        WebTitle.ZIndex = 4
+        WebTitle.Parent = WebCard
+
+        local WebDesc = Instance.new("TextLabel")
+        WebDesc.Name = "WebDesc"
+        WebDesc.Size = UDim2.new(0, 280, 0, 16)
+        WebDesc.Position = UDim2.new(0, 12, 0, 28)
+        WebDesc.BackgroundTransparency = 1
+        WebDesc.FontFace = FontMichromaRegular
+        WebDesc.Text = "Interactive background warping web"
+        WebDesc.TextColor3 = Window.CurrentTheme.SubText
+        WebDesc.TextSize = 11
+        WebDesc.TextXAlignment = Enum.TextXAlignment.Left
+        WebDesc.ZIndex = 4
+        WebDesc.Parent = WebCard
+
+        Window:CreateMDToggle(WebCard, UDim2.new(1, -72, 0.5, -13), UDim2.new(0, 56, 0, 26), Window.SpiderwebBGEnabled, function(state)
+            Window:SetSpiderwebBackground(state)
+            if state then
+                Window:Notify("Settings", "Spiderweb BG Enabled", 2)
+            else
+                Window:Notify("Settings", "Spiderweb BG Disabled", 2)
+            end
+        end, "SpiderwebBG")
+
+        -- 5. Background Blur Card
+        local BlurCard = Instance.new("Frame")
+        BlurCard.Name = "BlurCard"
+        BlurCard.Size = UDim2.new(1, 0, 0, 50)
+        BlurCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+        BlurCard.ZIndex = 3
+        BlurCard.ClipsDescendants = false
+        BlurCard.Parent = SettingsTab.ContentFrame
+
+        local BlurCardCorner = Instance.new("UICorner")
+        BlurCardCorner.CornerRadius = UDim.new(0, 8)
+        BlurCardCorner.Parent = BlurCard
+        AddUIShadow(BlurCard, 12, 0.45)
+
+        local BlurTitle = Instance.new("TextLabel")
+        BlurTitle.Name = "BlurTitle"
+        BlurTitle.Size = UDim2.new(0, 220, 0, 24)
+        BlurTitle.Position = UDim2.new(0, 12, 0, 6)
+        BlurTitle.BackgroundTransparency = 1
+        BlurTitle.FontFace = FontMichromaBold
+        BlurTitle.Text = "Background Blur"
+        BlurTitle.TextColor3 = Window.CurrentTheme.Text
+        BlurTitle.TextSize = 14
+        BlurTitle.TextXAlignment = Enum.TextXAlignment.Left
+        BlurTitle.ZIndex = 4
+        BlurTitle.Parent = BlurCard
+
+        local BlurDesc = Instance.new("TextLabel")
+        BlurDesc.Name = "BlurDesc"
+        BlurDesc.Size = UDim2.new(0, 280, 0, 16)
+        BlurDesc.Position = UDim2.new(0, 12, 0, 28)
+        BlurDesc.BackgroundTransparency = 1
+        BlurDesc.FontFace = FontMichromaRegular
+        BlurDesc.Text = "Blur game world behind UI"
+        BlurDesc.TextColor3 = Window.CurrentTheme.SubText
+        BlurDesc.TextSize = 11
+        BlurDesc.TextXAlignment = Enum.TextXAlignment.Left
+        BlurDesc.ZIndex = 4
+        BlurDesc.Parent = BlurCard
+
+        Window:CreateMDToggle(BlurCard, UDim2.new(1, -72, 0.5, -13), UDim2.new(0, 56, 0, 26), Window.BackgroundBlurEnabled, function(state)
+            Window:SetBackgroundBlur(state)
+            if state then
+                Window:Notify("Settings", "Background Blur Enabled", 2)
+            else
+                Window:Notify("Settings", "Background Blur Disabled", 2)
+            end
+        end, "BackgroundBlur")
+
+        -- 6. Configurations Management Section
+        SettingsTab:CreateConfigSection()
+
+        -- 7. Theme Presets Card
+        local ThemeCard = Instance.new("Frame")
+        ThemeCard.Name = "ThemeCard"
+        ThemeCard.Size = UDim2.new(1, 0, 0, 150)
+        ThemeCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+        ThemeCard.ZIndex = 3
+        ThemeCard.ClipsDescendants = false
+        ThemeCard.Parent = SettingsTab.ContentFrame
+
+        local ThemeCardCorner = Instance.new("UICorner")
+        ThemeCardCorner.CornerRadius = UDim.new(0, 8)
+        ThemeCardCorner.Parent = ThemeCard
+        AddUIShadow(ThemeCard, 12, 0.45)
+
+        local ThemeTitle = Instance.new("TextLabel")
+        ThemeTitle.Name = "ThemeTitle"
+        ThemeTitle.Size = UDim2.new(1, -20, 0, 24)
+        ThemeTitle.Position = UDim2.new(0, 12, 0, 6)
+        ThemeTitle.BackgroundTransparency = 1
+        ThemeTitle.FontFace = FontMichromaBold
+        ThemeTitle.Text = "Theme presets"
+        ThemeTitle.TextColor3 = Window.CurrentTheme.Text
+        ThemeTitle.TextSize = 16
+        ThemeTitle.TextXAlignment = Enum.TextXAlignment.Left
+        ThemeTitle.ZIndex = 4
+        ThemeTitle.Parent = ThemeCard
+
+        local ThemeContainer = Instance.new("Frame")
+        ThemeContainer.Name = "ThemeContainer"
+        ThemeContainer.Size = UDim2.new(1, -24, 0, 100)
+        ThemeContainer.Position = UDim2.new(0, 12, 0, 36)
+        ThemeContainer.BackgroundTransparency = 1
+        ThemeContainer.Parent = ThemeCard
+
+        local ThemeGridLayout = Instance.new("UIGridLayout")
+        ThemeGridLayout.CellSize = UDim2.new(0.31, 0, 0, 36)
+        ThemeGridLayout.CellPadding = UDim2.new(0.03, 0, 0, 8)
+        ThemeGridLayout.Parent = ThemeContainer
+
+        local ThemePresetBtnMap = {}
+        for themeKey, themeData in pairs(Library.ThemePresets) do
+            local btnData = Window:CreateMDButtonLong(ThemeContainer, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, 0), themeData.Name, function()
+                Window:ApplyTheme(themeKey)
+            end)
+            ThemePresetBtnMap[themeKey] = btnData
+        end
+        Window.ThemePresetBtnMap = ThemePresetBtnMap
+        if ThemePresetBtnMap[Window.CurrentThemeKey or "Dark"] and ThemePresetBtnMap[Window.CurrentThemeKey or "Dark"].Stroke then
+            ThemePresetBtnMap[Window.CurrentThemeKey or "Dark"].Stroke.Thickness = 2.2
+        end
+
+        SettingsTab.ContentFrame.CanvasSize = UDim2.new(0, 0, 0, SettingsTab.Layout.AbsoluteContentSize.Y + 20)
+        Window.SettingsTab = SettingsTab
+        return SettingsTab
+    end
+
+    CreateDefaultSettingsTab()
 
     -- Resizing Engine
     local IsResizing, ResizeStartPos, StartWindowSize = false, nil, nil
