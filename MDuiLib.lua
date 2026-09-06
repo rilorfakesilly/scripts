@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.7"
+Library.Version = "2.8"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -211,8 +211,42 @@ end
 Library.ApplyCornerRadii = ApplyCornerRadii
 Library.AddUIShadow = AddUIShadow
 
-function Library:CreateWindow(hubTitle, scriptName)
-    hubTitle = hubTitle or "MD SCRIPT HUB"
+function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
+    local hubTitle, scriptName, authorText, discordLink, iconAsset
+
+    if type(arg1) == "table" then
+        hubTitle = arg1.Title or arg1.HubTitle or arg1.Name or arg1.hubTitle or "MD SCRIPT HUB"
+        scriptName = arg1.ScriptName or arg1.scriptName or hubTitle or "MD_Script"
+        authorText = arg1.Author or arg1.AuthorText or arg1.MadeBy or arg1.madeBy or arg1.Creator
+        discordLink = arg1.Discord or arg1.DiscordLink or arg1.DiscordServer or arg1.discord or arg1.Invite
+        iconAsset = arg1.Icon or arg1.IconAsset or arg1.Logo or arg1.IconId or arg1.icon
+    else
+        hubTitle = arg1 or "MD SCRIPT HUB"
+        scriptName = arg2 or hubTitle or "MD_Script"
+        authorText = arg3
+        discordLink = arg4
+        iconAsset = arg5
+    end
+
+    -- Defaults
+    if not authorText or authorText == "" then
+        authorText = "Made by MorningDrift"
+    elseif not authorText:lower():find("^made by") then
+        authorText = "Made by " .. authorText
+    end
+
+    if not discordLink or discordLink == "" then
+        discordLink = "discord.gg/48jdqB8rAw"
+    end
+
+    local discordDisplay = discordLink:gsub("^https?://", "")
+    local discordCopyUrl = discordLink:find("^https?://") and discordLink or ("https://" .. discordDisplay)
+
+    if not iconAsset or iconAsset == "" then
+        iconAsset = "rbxassetid://77044087750639"
+    elseif type(iconAsset) == "number" or tostring(iconAsset):match("^%d+$") then
+        iconAsset = "rbxassetid://" .. tostring(iconAsset)
+    end
 
     if ParentGui:FindFirstChild("ScriptUi") then ParentGui:FindFirstChild("ScriptUi"):Destroy() end
     if ParentGui:FindFirstChild("MinimisedUI") then ParentGui:FindFirstChild("MinimisedUI"):Destroy() end
@@ -221,6 +255,9 @@ function Library:CreateWindow(hubTitle, scriptName)
 
     local Window = {
         ScriptName = scriptName or hubTitle or "MD_Script",
+        AuthorText = authorText,
+        DiscordLink = discordLink,
+        IconAsset = iconAsset,
         CurrentTheme = Library.ThemePresets.Dark,
         CurrentThemeKey = "Dark",
         NotificationsEnabled = true,
@@ -1527,24 +1564,17 @@ function Library:CreateWindow(hubTitle, scriptName)
         TriggerBtn.ZIndex = 17
         TriggerBtn.Parent = BadgeContainer
 
-        -- Small close icon that appears when editing to delete/clear bind
-        local DeleteBtn = Instance.new("TextButton")
+        -- Close icon that appears when editing to delete/clear bind
+        local DeleteBtn = Instance.new("ImageButton")
         DeleteBtn.Name = "DeleteBindBtn"
         DeleteBtn.Size = UDim2.new(0, 14, 0, 14)
         DeleteBtn.Position = UDim2.new(1, -15, 0.5, -7)
-        DeleteBtn.BackgroundColor3 = Color3.fromRGB(215, 45, 45)
-        DeleteBtn.BackgroundTransparency = 0.1
-        DeleteBtn.FontFace = FontMichromaBold
-        DeleteBtn.Text = "X"
-        DeleteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        DeleteBtn.TextSize = 8
+        DeleteBtn.BackgroundTransparency = 1
+        DeleteBtn.Image = "rbxassetid://132261474823036"
+        DeleteBtn.ImageColor3 = Window.CurrentTheme.Text
         DeleteBtn.ZIndex = 18
         DeleteBtn.Visible = false
         DeleteBtn.Parent = BadgeContainer
-
-        local DelCorner = Instance.new("UICorner")
-        DelCorner.CornerRadius = UDim.new(0, 7)
-        DelCorner.Parent = DeleteBtn
 
         local badgeData = {
             Container = BadgeContainer,
@@ -3539,7 +3569,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     MDicon.Size = UDim2.new(0, 35, 0, 35)
     MDicon.Position = UDim2.new(0.0142, 0, 0.16, 0)
     MDicon.BackgroundTransparency = 0
-    MDicon.Image = "rbxassetid://77044087750639"
+    MDicon.Image = iconAsset
     MDicon.ZIndex = 6
     MDicon.Parent = BottomFrame
 
@@ -3554,7 +3584,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     MadebyText.Position = UDim2.new(0.0803, 0, 0.05, 0)
     MadebyText.BackgroundTransparency = 1
     MadebyText.FontFace = FontMichromaHeavy
-    MadebyText.Text = "Made by MorningDrift"
+    MadebyText.Text = authorText
     MadebyText.TextColor3 = Window.CurrentTheme.Text
     MadebyText.TextSize = 16
     MadebyText.TextXAlignment = Enum.TextXAlignment.Left
@@ -3568,7 +3598,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     DiscordBtn.Position = UDim2.new(0.0803, 0, 0.52, 0)
     DiscordBtn.BackgroundTransparency = 1
     DiscordBtn.FontFace = FontMichromaRegular
-    DiscordBtn.Text = "discord.gg/48jdqB8rAw"
+    DiscordBtn.Text = discordDisplay
     DiscordBtn.TextColor3 = Window.CurrentTheme.SubText
     DiscordBtn.TextSize = 11
     DiscordBtn.TextXAlignment = Enum.TextXAlignment.Left
@@ -3588,10 +3618,10 @@ function Library:CreateWindow(hubTitle, scriptName)
         PlayClickSFX()
         pcall(function()
             if setclipboard then
-                setclipboard("https://discord.gg/48jdqB8rAw")
+                setclipboard(discordCopyUrl)
             end
         end)
-        Window:Notify("Discord server", "Copied invite link to clipboard:\nhttps://discord.gg/48jdqB8rAw", 3)
+        Window:Notify("Discord server", "Copied invite link to clipboard:\n" .. discordCopyUrl, 3)
     end))
 
     local LocalTime = Instance.new("TextLabel")
@@ -3665,7 +3695,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     local MinimizedImage = Instance.new("ImageButton")
     MinimizedImage.Size = UDim2.new(1, 0, 1, 0)
     MinimizedImage.BackgroundTransparency = 0
-    MinimizedImage.Image = "rbxassetid://77044087750639"
+    MinimizedImage.Image = iconAsset
     MinimizedImage.ZIndex = 101
     MinimizedImage.Parent = MinimizedFrame
 
@@ -3758,7 +3788,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         NotifIcon.Size = UDim2.new(0, 52, 0, 52)
         NotifIcon.Position = UDim2.new(0.0217, 0, 0.1317, 0)
         NotifIcon.BackgroundTransparency = 0
-        NotifIcon.Image = "rbxassetid://77044087750639"
+        NotifIcon.Image = Window.IconAsset or iconAsset or "rbxassetid://77044087750639"
         NotifIcon.ZIndex = 32
         NotifIcon.Parent = NotifMain
 
@@ -3783,6 +3813,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         NotifBody.Parent = NotifMain
 
         table.insert(Window.ActiveNotifications, 1, NotifContainer)
+
         for index, notif in ipairs(Window.ActiveNotifications) do
             local targetX = -320 + ((index - 1) * 18)
             local targetY = -105 + ((index - 1) * 12)
@@ -3834,6 +3865,47 @@ function Library:CreateWindow(hubTitle, scriptName)
                 }):Play()
             end
         end)
+    end
+
+    function Window:SetAuthor(newAuthor)
+        if not newAuthor or newAuthor == "" then
+            newAuthor = "Made by MorningDrift"
+        elseif not tostring(newAuthor):lower():find("^made by") then
+            newAuthor = "Made by " .. tostring(newAuthor)
+        end
+        Window.AuthorText = newAuthor
+        if MadebyText then
+            MadebyText.Text = newAuthor
+        end
+    end
+
+    function Window:SetDiscord(newDiscord)
+        if not newDiscord or newDiscord == "" then
+            newDiscord = "discord.gg/48jdqB8rAw"
+        end
+        Window.DiscordLink = tostring(newDiscord)
+        discordDisplay = Window.DiscordLink:gsub("^https?://", "")
+        discordCopyUrl = Window.DiscordLink:find("^https?://") and Window.DiscordLink or ("https://" .. discordDisplay)
+        if DiscordBtn then
+            DiscordBtn.Text = discordDisplay
+        end
+    end
+
+    function Window:SetIcon(newIcon)
+        if not newIcon or newIcon == "" then
+            newIcon = "rbxassetid://77044087750639"
+        elseif type(newIcon) == "number" or tostring(newIcon):match("^%d+$") then
+            newIcon = "rbxassetid://" .. tostring(newIcon)
+        else
+            newIcon = tostring(newIcon)
+        end
+        Window.IconAsset = newIcon
+        if MDicon then
+            MDicon.Image = newIcon
+        end
+        if MinimizedImage then
+            MinimizedImage.Image = newIcon
+        end
     end
 
     local CurrentTabSwitchToken = 0
@@ -5678,6 +5750,9 @@ function Library:CreateWindow(hubTitle, scriptName)
                     b.Container.BackgroundColor3 = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(24, 26, 34)
                     if b.Label then
                         b.Label.TextColor3 = newTheme.Text
+                    end
+                    if b.DeleteBtn then
+                        b.DeleteBtn.ImageColor3 = newTheme.Text
                     end
                 end
             end
