@@ -271,7 +271,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     -- AUDIO SFX CONTROLLER (Cloned Overlay Engine)
     -- =========================================================================
     local SoundFolder = Instance.new("Folder")
-    SoundFolder.Name = "MDSounds"
+    SoundFolder.Name = "Sounds"
     SoundFolder.Parent = ParentGui
 
     local HoverSoundTemplate = Instance.new("Sound")
@@ -695,7 +695,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         position = position or UDim2.new(0, 0, 0, 0)
 
         local BoxFrame = Instance.new("Frame")
-        BoxFrame.Name = "MDTextboxFrame"
+        BoxFrame.Name = "TextboxFrame"
         BoxFrame.Size = size
         BoxFrame.Position = position
         BoxFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
@@ -786,14 +786,20 @@ function Library:CreateWindow(hubTitle, scriptName)
         options = options or {}
         defaultOption = defaultOption or options[1] or "Select..."
 
+        local initialParentZIndex = (parent and parent:IsA("GuiObject")) and parent.ZIndex or 3
+        if parent and parent:IsA("GuiObject") then
+            parent.ClipsDescendants = false
+        end
+
         local DropdownFrame = Instance.new("Frame")
-        DropdownFrame.Name = "DropdownExample"
+        DropdownFrame.Name = "Dropdown"
         DropdownFrame.Size = size
         DropdownFrame.Position = position
         DropdownFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
         DropdownFrame.BackgroundTransparency = 0.05
         DropdownFrame.BorderSizePixel = 0
         DropdownFrame.ZIndex = 15
+        DropdownFrame.ClipsDescendants = false
         DropdownFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
@@ -803,7 +809,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         AddUIShadow(DropdownFrame, 20, 0.5)
 
         local MDTextFolder = Instance.new("Folder")
-        MDTextFolder.Name = "MDText"
+        MDTextFolder.Name = "Text"
         MDTextFolder.Parent = DropdownFrame
 
         local TitleText = Instance.new("TextLabel")
@@ -852,7 +858,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         DropdownContent.BorderSizePixel = 0
         DropdownContent.ClipsDescendants = true
         DropdownContent.Visible = false
-        DropdownContent.ZIndex = 50
+        DropdownContent.ZIndex = 80
         DropdownContent.Parent = DropdownFrame
 
         local ContentCorner = Instance.new("UICorner")
@@ -868,7 +874,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         InnerScroll.BackgroundTransparency = 1
         InnerScroll.BorderSizePixel = 0
         InnerScroll.ScrollBarThickness = 3
-        InnerScroll.ZIndex = 51
+        InnerScroll.ZIndex = 81
         InnerScroll.Parent = DropdownContent
 
         local ListLayout = Instance.new("UIListLayout")
@@ -896,7 +902,7 @@ function Library:CreateWindow(hubTitle, scriptName)
                 ItemBtn.Text = opt
                 ItemBtn.TextColor3 = Window.CurrentTheme.Text
                 ItemBtn.TextSize = 12
-                ItemBtn.ZIndex = 52
+                ItemBtn.ZIndex = 82
                 ItemBtn.Parent = InnerScroll
 
                 local ItemCorner = Instance.new("UICorner")
@@ -911,6 +917,9 @@ function Library:CreateWindow(hubTitle, scriptName)
                     
                     isExpanded = false
                     DropdownFrame.ZIndex = 15
+                    if parent and parent:IsA("GuiObject") then
+                        parent.ZIndex = initialParentZIndex
+                    end
                     TweenService:Create(ArrowIcon, TweenInfo.new(0.25), {Rotation = 0}):Play()
                     TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                         Size = UDim2.new(1, 0, 0, 0)
@@ -931,7 +940,10 @@ function Library:CreateWindow(hubTitle, scriptName)
             local targetRotation = isExpanded and 180 or 0
             local targetHeight = isExpanded and math.clamp(#options * 39 + 15, 45, 220) or 0
 
-            DropdownFrame.ZIndex = isExpanded and 45 or 15
+            DropdownFrame.ZIndex = isExpanded and 75 or 15
+            if parent and parent:IsA("GuiObject") then
+                parent.ZIndex = isExpanded and 70 or initialParentZIndex
+            end
             TweenService:Create(ArrowIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = targetRotation}):Play()
 
             if isExpanded then
@@ -948,6 +960,9 @@ function Library:CreateWindow(hubTitle, scriptName)
                     if not isExpanded then
                         DropdownContent.Visible = false
                         DropdownFrame.ZIndex = 15
+                        if parent and parent:IsA("GuiObject") then
+                            parent.ZIndex = initialParentZIndex
+                        end
                     end
                 end)
             end
@@ -1327,7 +1342,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         Stroke.Parent = BtnFrame
 
         local MDTextFolder = Instance.new("Folder")
-        MDTextFolder.Name = "MDText"
+        MDTextFolder.Name = "Text"
         MDTextFolder.Parent = BtnFrame
 
         local BtnText = Instance.new("TextLabel")
@@ -1415,7 +1430,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         size = size or UDim2.new(0, 56, 0, 26)
 
         local ToggleFrame = Instance.new("Frame")
-        ToggleFrame.Name = "MDToggleFrame"
+        ToggleFrame.Name = "ToggleFrame"
         ToggleFrame.Size = size
         ToggleFrame.Position = position or UDim2.new(0, 0, 0, 0)
         ToggleFrame.BackgroundColor3 = initialState and Window.CurrentTheme.ButtonBG or Color3.fromRGB(35, 38, 48)
@@ -2239,7 +2254,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         Stroke.Parent = BtnFrame
 
         local MDTextFolder = Instance.new("Folder")
-        MDTextFolder.Name = "MDText"
+        MDTextFolder.Name = "Text"
         MDTextFolder.Parent = BtnFrame
 
         local BtnText = Instance.new("TextLabel")
@@ -2335,7 +2350,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         Stroke.Parent = CardFrame
 
         local MDTextFolder = Instance.new("Folder")
-        MDTextFolder.Name = "MDText"
+        MDTextFolder.Name = "Text"
         MDTextFolder.Parent = CardFrame
 
         local TitleText = Instance.new("TextLabel")
@@ -2372,7 +2387,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         AddUIShadow(ToggleFrame, 20, 0.5)
 
         local KnobFolder = Instance.new("Folder")
-        KnobFolder.Name = "MDText"
+        KnobFolder.Name = "Knob"
         KnobFolder.Parent = ToggleFrame
 
         local isToggled = initialState
@@ -2487,23 +2502,23 @@ function Library:CreateWindow(hubTitle, scriptName)
     -- =========================================================================
     local Lighting = game:GetService("Lighting")
     for _, item in ipairs(Lighting:GetChildren()) do
-        if item.Name == "MDScriptHubBlur" or item.Name == "MDScriptHubDOF" then
+        if item.Name == "ScriptHubBlur" or item.Name == "ScriptHubDOF" or item.Name == "MDScriptHubBlur" or item.Name == "MDScriptHubDOF" then
             pcall(function() item:Destroy() end)
         end
     end
     for _, item in ipairs(Camera:GetChildren()) do
-        if item.Name == "MDScriptHubBlur" or item.Name == "MDScriptHubBlurCam" or item.Name == "MDScriptHubDOF" or item.Name == "MD_LocalUIBlurPart" then
+        if item.Name == "ScriptHubBlur" or item.Name == "ScriptHubBlurCam" or item.Name == "ScriptHubDOF" or item.Name == "LocalUIBlurPart" or item.Name == "MDScriptHubBlur" or item.Name == "MDScriptHubBlurCam" or item.Name == "MDScriptHubDOF" or item.Name == "MD_LocalUIBlurPart" then
             pcall(function() item:Destroy() end)
         end
     end
     for _, item in ipairs(workspace:GetChildren()) do
-        if item.Name == "MD_LocalUIBlurPart" then
+        if item.Name == "LocalUIBlurPart" or item.Name == "MD_LocalUIBlurPart" then
             pcall(function() item:Destroy() end)
         end
     end
 
     local BackgroundDOF = Instance.new("DepthOfFieldEffect")
-    BackgroundDOF.Name = "MDScriptHubDOF"
+    BackgroundDOF.Name = "ScriptHubDOF"
     BackgroundDOF.FocusDistance = 2.5
     BackgroundDOF.InFocusRadius = 0
     BackgroundDOF.NearIntensity = 1.0
@@ -2512,7 +2527,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     BackgroundDOF.Parent = Lighting
 
     local LocalUIBlurPart = Instance.new("Part")
-    LocalUIBlurPart.Name = "MD_LocalUIBlurPart"
+    LocalUIBlurPart.Name = "LocalUIBlurPart"
     LocalUIBlurPart.Material = Enum.Material.Glass
     LocalUIBlurPart.Transparency = 1 -- Fully transparent during loading screen
     LocalUIBlurPart.Color = Color3.fromRGB(255, 255, 255)
@@ -2783,11 +2798,11 @@ function Library:CreateWindow(hubTitle, scriptName)
     AddUIShadow(TopFrame, 20, 0.5)
 
     local MDTextFolder = Instance.new("Folder")
-    MDTextFolder.Name = "MDText"
+    MDTextFolder.Name = "Text"
     MDTextFolder.Parent = TopFrame
 
     local MDHUBNAME = Instance.new("TextLabel")
-    MDHUBNAME.Name = "MDHUBNAME"
+    MDHUBNAME.Name = "HubName"
     MDHUBNAME.Size = UDim2.new(0, 180, 0, 46)
     MDHUBNAME.Position = UDim2.new(0.0259, 0, -0.052, 0)
     MDHUBNAME.BackgroundTransparency = 1
@@ -3193,6 +3208,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     BottomGradient.Parent = BottomFrame
 
     local MDicon = Instance.new("ImageLabel")
+    MDicon.Name = "Icon"
     MDicon.Size = UDim2.new(0, 35, 0, 35)
     MDicon.Position = UDim2.new(0.0142, 0, 0.16, 0)
     MDicon.BackgroundTransparency = 0
@@ -3382,7 +3398,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         AddUIShadow(NotifTop, 20, 0.5)
 
         local NotifTextFolder = Instance.new("Folder")
-        NotifTextFolder.Name = "MDText"
+        NotifTextFolder.Name = "Text"
         NotifTextFolder.Parent = NotifTop
 
         local NotifTitle = Instance.new("TextLabel")
@@ -3411,7 +3427,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         AddUIShadow(NotifMain, 20, 0.5)
 
         local NotifIcon = Instance.new("ImageLabel")
-        NotifIcon.Name = "MDicon"
+        NotifIcon.Name = "Icon"
         NotifIcon.Size = UDim2.new(0, 52, 0, 52)
         NotifIcon.Position = UDim2.new(0.0217, 0, 0.1317, 0)
         NotifIcon.BackgroundTransparency = 0
@@ -4318,7 +4334,6 @@ function Library:CreateWindow(hubTitle, scriptName)
             Window:OpenColorPicker("Base theme color", initCol, function(newCol)
                 CustomSwatchBtn.BackgroundColor3 = newCol
                 Window:ApplyCustomTheme(newCol)
-                Window:Notify("Settings", "Custom theme applied", 2)
             end)
         end))
 
@@ -5205,8 +5220,8 @@ function Library:CreateWindow(hubTitle, scriptName)
                 if tabData.ContentFrame then
                     tabData.ContentFrame.ScrollBarImageColor3 = newTheme.Divider
                     for _, card in ipairs(tabData.ContentFrame:GetChildren()) do
-                        if card:IsA("Frame") and card.Name ~= "TopFrame" and card.Name ~= "MainHeaderFrame" and card.Name ~= "ConfigRow1" and card.Name ~= "ConfigRow2" then
-                            if card.Name == "RowContainer" then
+                        if card:IsA("Frame") and card.Name ~= "TopFrame" and card.Name ~= "MainHeaderFrame" then
+                            if card.Name == "RowContainer" or card.Name == "RowFrame" or card.Name == "ParticleRow" or card.Name:find("Row") then
                                 card.BackgroundTransparency = 1
                                 for _, subCard in ipairs(card:GetChildren()) do
                                     if subCard:IsA("Frame") then
@@ -5320,7 +5335,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             BackgroundDOF.Enabled = enabled
         elseif enabled then
             BackgroundDOF = Instance.new("DepthOfFieldEffect")
-            BackgroundDOF.Name = "MDScriptHubDOF"
+            BackgroundDOF.Name = "ScriptHubDOF"
             BackgroundDOF.FocusDistance = 2.5
             BackgroundDOF.InFocusRadius = 0
             BackgroundDOF.NearIntensity = 1.0
@@ -5334,7 +5349,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             LocalUIBlurPart.Transparency = enabled and 0.98 or 1
         elseif enabled then
             LocalUIBlurPart = Instance.new("Part")
-            LocalUIBlurPart.Name = "MD_LocalUIBlurPart"
+            LocalUIBlurPart.Name = "LocalUIBlurPart"
             LocalUIBlurPart.Material = Enum.Material.Glass
             LocalUIBlurPart.Transparency = 0.98
             LocalUIBlurPart.Color = Color3.fromRGB(255, 255, 255)
