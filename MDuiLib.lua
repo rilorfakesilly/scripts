@@ -3509,56 +3509,97 @@ function Library:CreateWindow(hubTitle, scriptName)
         end)
     end
 
-    -- Smooth & Faster Tab Switch Engine
+    local CurrentTabSwitchToken = 0
+
+    -- Smooth Tab Switch Transition Engine
     SwitchTab = function(tabName)
         if Window.ActiveTab == tabName then return end
 
+        CurrentTabSwitchToken = CurrentTabSwitchToken + 1
+        local thisToken = CurrentTabSwitchToken
+
         local oldTab = Window.Tabs[Window.ActiveTab]
         local newTab = Window.Tabs[tabName]
+        Window.ActiveTab = tabName
 
-        if oldTab then
-            TweenService:Create(oldTab.Button, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        -- 1. Animate Sidebar Tab Buttons
+        if oldTab and oldTab.Button then
+            TweenService:Create(oldTab.Button, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                 TextSize = 15,
                 TextColor3 = Window.CurrentTheme.SubText
             }):Play()
             oldTab.Button.FontFace = FontMichromaRegular
-            TweenService:Create(oldTab.HoverGlow, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
+            if oldTab.HoverGlow then
+                TweenService:Create(oldTab.HoverGlow, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = 1
+                }):Play()
+            end
         end
 
-        if newTab then
-            TweenService:Create(newTab.Button, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        if newTab and newTab.Button then
+            TweenService:Create(newTab.Button, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                 TextSize = 18,
                 TextColor3 = Window.CurrentTheme.Text
             }):Play()
             newTab.Button.FontFace = FontMichromaBold
-            TweenService:Create(newTab.HoverGlow, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.85}):Play()
+            if newTab.HoverGlow then
+                TweenService:Create(newTab.HoverGlow, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = 0.85
+                }):Play()
+            end
         end
 
-        if oldTab and oldTab.ContentFrame then
-            local oldFrame = oldTab.ContentFrame
-            local slideUpOut = TweenService:Create(oldFrame, TweenInfo.new(0.16, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                Position = UDim2.new(0, 10, 0, -350)
-            })
-            slideUpOut:Play()
-            slideUpOut.Completed:Connect(function()
-                if Window.ActiveTab ~= oldTab.Name then
-                    oldFrame.Visible = false
-                    oldFrame.Position = UDim2.new(0, 10, 0, 10)
+        -- 2. Animate Out Previous Tab Content
+        if oldTab then
+            local oldTarget = oldTab.TabGroup or oldTab.ContentFrame
+            if oldTarget then
+                if oldTarget:IsA("CanvasGroup") then
+                    local fadeOut = TweenService:Create(oldTarget, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        GroupTransparency = 1,
+                        Position = UDim2.new(0, 0, 0, -8)
+                    })
+                    fadeOut:Play()
+                    fadeOut.Completed:Connect(function()
+                        if thisToken == CurrentTabSwitchToken and Window.ActiveTab ~= oldTab.Name then
+                            oldTarget.Visible = false
+                            oldTarget.Position = UDim2.new(0, 0, 0, 0)
+                        end
+                    end)
+                else
+                    local slideOut = TweenService:Create(oldTarget, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        Position = UDim2.new(0, 0, 0, -15)
+                    })
+                    slideOut:Play()
+                    slideOut.Completed:Connect(function()
+                        if thisToken == CurrentTabSwitchToken and Window.ActiveTab ~= oldTab.Name then
+                            oldTarget.Visible = false
+                            oldTarget.Position = UDim2.new(0, 0, 0, 0)
+                        end
+                    end)
                 end
-            end)
+            end
         end
 
-        if newTab and newTab.ContentFrame then
-            local newFrame = newTab.ContentFrame
-            newFrame.Position = UDim2.new(0, 10, 0, 350)
-            newFrame.Visible = true
-
-            TweenService:Create(newFrame, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Position = UDim2.new(0, 10, 0, 10)
-            }):Play()
+        -- 3. Animate In New Tab Content
+        if newTab then
+            local newTarget = newTab.TabGroup or newTab.ContentFrame
+            if newTarget then
+                newTarget.Visible = true
+                if newTarget:IsA("CanvasGroup") then
+                    newTarget.GroupTransparency = 1
+                    newTarget.Position = UDim2.new(0, 0, 0, 10)
+                    TweenService:Create(newTarget, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        GroupTransparency = 0,
+                        Position = UDim2.new(0, 0, 0, 0)
+                    }):Play()
+                else
+                    newTarget.Position = UDim2.new(0, 0, 0, 12)
+                    TweenService:Create(newTarget, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        Position = UDim2.new(0, 0, 0, 0)
+                    }):Play()
+                end
+            end
         end
-
-        Window.ActiveTab = tabName
     end
 
     function Window:AddSidebarBigDivider(layoutOrder)
@@ -4000,26 +4041,34 @@ function Library:CreateWindow(hubTitle, scriptName)
         Window.Tabs[tabName] = TabObj
         if not Window.ActiveTab or (Window.ActiveTab == "Settings" and tabName ~= "Settings") then
             if Window.ActiveTab and Window.ActiveTab ~= tabName then
-                local oldTab = Window.Tabs[Window.ActiveTab]
-                if oldTab then
-                    oldTab.Button.TextColor3 = Window.CurrentTheme.SubText
-                    oldTab.Button.TextSize = 15
-                    oldTab.Button.FontFace = FontMichromaRegular
-                    oldTab.HoverGlow.BackgroundTransparency = 1
-                    if oldTab.ContentFrame then
-                        oldTab.ContentFrame.Visible = false
+                local oldTabData = Window.Tabs[Window.ActiveTab]
+                if oldTabData then
+                    oldTabData.Button.TextColor3 = Window.CurrentTheme.SubText
+                    oldTabData.Button.TextSize = 15
+                    oldTabData.Button.FontFace = FontMichromaRegular
+                    if oldTabData.HoverGlow then
+                        oldTabData.HoverGlow.BackgroundTransparency = 1
+                    end
+                    local oldTarget = oldTabData.TabGroup or oldTabData.ContentFrame
+                    if oldTarget then
+                        oldTarget.Visible = false
                     end
                 end
             end
             Window.ActiveTab = tabName
+            -- Show first active tab with a gentle fade-in from slightly below
+            ContentFrame.Position = UDim2.new(0, 0, 0, 8)
             ContentFrame.Visible = true
-            ContentFrame.Position = UDim2.new(0, 10, 0, 10)
+            TweenService:Create(ContentFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Position = UDim2.new(0, 0, 0, 0)
+            }):Play()
             TabButton.TextColor3 = Window.CurrentTheme.Text
             TabButton.TextSize = 18
             TabButton.FontFace = FontMichromaBold
             HoverGlow.BackgroundTransparency = 0.85
         else
             ContentFrame.Visible = false
+            ContentFrame.Position = UDim2.new(0, 0, 0, 0)
             TabButton.TextColor3 = Window.CurrentTheme.SubText
             TabButton.TextSize = 15
             TabButton.FontFace = FontMichromaRegular
