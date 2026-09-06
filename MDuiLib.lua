@@ -52,7 +52,7 @@ Library.ThemePresets = {
         ButtonBG = Color3.fromRGB(45, 48, 60),
     },
     Original = {
-        Name = "Original Orange",
+        Name = "Original orange",
         MainBG = Color3.fromRGB(134, 59, 15),
         MainTrans = 0.15,
         AccentBG = Color3.fromRGB(209, 100, 21),
@@ -104,7 +104,7 @@ Library.ThemePresets = {
         ButtonBG = Color3.fromRGB(210, 215, 228),
     },
     VeryDark = {
-        Name = "Very Dark",
+        Name = "Very dark",
         MainBG = Color3.fromRGB(15, 16, 20),
         MainTrans = 0.05,
         AccentBG = Color3.fromRGB(24, 26, 34),
@@ -156,7 +156,7 @@ Library.ThemePresets = {
         ButtonBG = Color3.fromRGB(88, 28, 135),
     },
     Nature = {
-        Name = "Green/Nature",
+        Name = "Green/nature",
         MainBG = Color3.fromRGB(15, 60, 32),
         MainTrans = 0.15,
         AccentBG = Color3.fromRGB(20, 83, 45),
@@ -228,6 +228,11 @@ function Library:CreateWindow(hubTitle, scriptName)
         SoundVolume = 0.8,
         BackgroundBlurEnabled = true,
         SpiderwebBGEnabled = true,
+        CustomThemeColor = nil,
+        CustomBGTransparency = 0.10,
+        ClickEffectsEnabled = true,
+        ClickParticleType = "Theme default",
+        CustomParticleAsset = "",
         Connections = {},
         ActiveNotifications = {},
         SidebarDividers = {},
@@ -240,6 +245,9 @@ function Library:CreateWindow(hubTitle, scriptName)
         RegisteredTextboxesList = {},
         RegisteredDropdowns = {},
         RegisteredDropdownsList = {},
+        RegisteredColorPickers = {},
+        RegisteredColorPickersList = {},
+        SearchableItems = {},
         ThemePresetBtnMap = {},
         Tabs = {},
         ActiveTab = nil
@@ -377,12 +385,18 @@ function Library:CreateWindow(hubTitle, scriptName)
                 Blur = Window.BackgroundBlurEnabled,
                 Sounds = Window.UISoundsEnabled,
                 SoundVolume = Window.SoundVolume or 0.8,
-                Notifications = Window.NotificationsEnabled
+                Notifications = Window.NotificationsEnabled,
+                CustomThemeColor = Window.CustomThemeColor and Window.CustomThemeColor:ToHex() or nil,
+                BGTransparency = Window.CustomBGTransparency or 0.10,
+                ClickEffects = Window.ClickEffectsEnabled,
+                ClickParticle = Window.ClickParticleType or "Theme default",
+                CustomParticle = Window.CustomParticleAsset or ""
             },
             Toggles = {},
             Sliders = {},
             Textboxes = {},
-            Dropdowns = {}
+            Dropdowns = {},
+            ColorPickers = {}
         }
         for name, toggle in pairs(Window.RegisteredToggles) do
             pcall(function()
@@ -412,14 +426,27 @@ function Library:CreateWindow(hubTitle, scriptName)
                 end
             end)
         end
+        for name, cp in pairs(Window.RegisteredColorPickers) do
+            pcall(function()
+                if cp and cp.GetColor then
+                    local c = cp.GetColor()
+                    data.ColorPickers[name] = c:ToHex()
+                end
+            end)
+        end
         return data
     end
 
     function Window:ApplyConfigSaveData(data)
         if not data then return end
 
-        -- 1. Apply Theme Preset First
-        if data.Theme then
+        -- 1. Apply Theme Preset or Custom Theme First
+        if data.Settings and data.Settings.CustomThemeColor and Window.ApplyCustomTheme then
+            pcall(function()
+                local col = Color3.fromHex(data.Settings.CustomThemeColor)
+                Window:ApplyCustomTheme(col)
+            end)
+        elseif data.Theme then
             if Window.ApplyTheme then
                 pcall(function() Window:ApplyTheme(data.Theme) end)
             elseif Library.ThemePresets[data.Theme] then
@@ -444,6 +471,18 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
             if data.Settings.Notifications ~= nil then
                 Window.NotificationsEnabled = data.Settings.Notifications
+            end
+            if data.Settings.BGTransparency ~= nil and Window.SetBackgroundTransparency then
+                pcall(function() Window:SetBackgroundTransparency(data.Settings.BGTransparency) end)
+            end
+            if data.Settings.ClickEffects ~= nil then
+                Window.ClickEffectsEnabled = data.Settings.ClickEffects
+            end
+            if data.Settings.ClickParticle ~= nil then
+                Window.ClickParticleType = data.Settings.ClickParticle
+            end
+            if data.Settings.CustomParticle ~= nil then
+                Window.CustomParticleAsset = data.Settings.CustomParticle
             end
         end
 
@@ -483,6 +522,19 @@ function Library:CreateWindow(hubTitle, scriptName)
                 local drop = Window.RegisteredDropdowns[name]
                 if drop and drop.SetSelected then
                     pcall(function() drop.SetSelected(selected, true) end)
+                end
+            end
+        end
+
+        -- 7. Apply Color Pickers
+        if data.ColorPickers then
+            for name, hex in pairs(data.ColorPickers) do
+                local cp = Window.RegisteredColorPickers[name]
+                if cp and cp.SetColor then
+                    pcall(function()
+                        local col = Color3.fromHex(hex)
+                        cp.SetColor(col, true)
+                    end)
                 end
             end
         end
@@ -532,7 +584,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         configName = configName or "DEFAULT"
 
         if configName:upper() == "DEFAULT" then
-            Window:Notify("Config Error", "DEFAULT config cannot be overwritten!", 3)
+            Window:Notify("Config error", "Default config cannot be overwritten!", 3)
             return false
         end
 
@@ -549,17 +601,17 @@ function Library:CreateWindow(hubTitle, scriptName)
         end)
 
         if success then
-            Window:Notify("Config Saved", "Saved config as '" .. finalName .. "'", 2.5)
+            Window:Notify("Config saved", "Saved config as '" .. finalName .. "'", 2.5)
             return finalName
         else
-            Window:Notify("Config Error", "Failed to write config file", 3)
+            Window:Notify("Config error", "Failed to write config file", 3)
             return false
         end
     end
 
     function Window:RewriteConfig(configName)
         if not configName or configName:upper() == "DEFAULT" then
-            Window:Notify("Config Error", "DEFAULT config cannot be overwritten!", 3)
+            Window:Notify("Config error", "Default config cannot be overwritten!", 3)
             return false
         end
 
@@ -572,10 +624,10 @@ function Library:CreateWindow(hubTitle, scriptName)
         end)
 
         if success then
-            Window:Notify("Config Rewritten", "Overwrote '" .. configName .. "'!", 2.5)
+            Window:Notify("Config rewritten", "Overwrote '" .. configName .. "'!", 2.5)
             return true
         else
-            Window:Notify("Config Error", "Failed to overwrite file", 3)
+            Window:Notify("Config error", "Failed to overwrite file", 3)
             return false
         end
     end
@@ -587,7 +639,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             if DefaultConfigMemoryData then
                 Window:ApplyConfigSaveData(DefaultConfigMemoryData)
             end
-            Window:Notify("Config Loaded", "Loaded DEFAULT config!", 2.5)
+            Window:Notify("Config loaded", "Loaded default config!", 2.5)
             return true
         end
 
@@ -604,17 +656,17 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         if loadedData then
             Window:ApplyConfigSaveData(loadedData)
-            Window:Notify("Config Loaded", "Loaded '" .. configName .. "'!", 2.5)
+            Window:Notify("Config loaded", "Loaded '" .. configName .. "'!", 2.5)
             return true
         else
-            Window:Notify("Config Error", "Config '" .. configName .. "' not found!", 3)
+            Window:Notify("Config error", "Config '" .. configName .. "' not found!", 3)
             return false
         end
     end
 
     function Window:DeleteConfig(configName)
         if not configName or configName:upper() == "DEFAULT" then
-            Window:Notify("Config Error", "DEFAULT config cannot be deleted!", 3)
+            Window:Notify("Config error", "Default config cannot be deleted!", 3)
             return false
         end
 
@@ -627,10 +679,10 @@ function Library:CreateWindow(hubTitle, scriptName)
         end)
 
         if success then
-            Window:Notify("Config Deleted", "Deleted config '" .. configName .. "'", 2.5)
+            Window:Notify("Config deleted", "Deleted config '" .. configName .. "'", 2.5)
             return true
         else
-            Window:Notify("Config Error", "Failed to delete config file", 3)
+            Window:Notify("Config error", "Failed to delete config file", 3)
             return false
         end
     end
@@ -981,12 +1033,12 @@ function Library:CreateWindow(hubTitle, scriptName)
         SectionTitle.Parent = SectionFrame
 
         -- 1. Config Name Textbox
-        local nameBoxObj = Window:CreateMDTextbox(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 48), "Config Name", "MyConfig", nil)
+        local nameBoxObj = Window:CreateMDTextbox(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 48), "Config name", "MyConfig", nil)
 
         -- 2. Config Selector Dropdown
         local configDropdownObj = Window:CreateMDDropdown(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 48), "", GetConfigList(), "DEFAULT", nil)
 
-        -- 3. Row 1: Left = CREATE CONFIG, Right = DELETE CONFIG
+        -- 3. Row 1: Left = Create config, Right = Delete config
         local Row1 = Instance.new("Frame")
         Row1.Name = "ConfigRow1"
         Row1.Size = UDim2.new(1, 0, 0, 44)
@@ -1000,13 +1052,13 @@ function Library:CreateWindow(hubTitle, scriptName)
         local function GetAutoloadButtonLabel()
             local auto = Window:GetAutoloadConfig()
             if auto and auto ~= "" and auto:upper() ~= "NONE" then
-                return "AUTOLOAD CONFIG: " .. auto
+                return "Autoload config: " .. auto
             else
-                return "AUTOLOAD CONFIG: NONE"
+                return "Autoload config: None"
             end
         end
 
-        Window:CreateMDButtonLong(Row1, UDim2.new(0, 0, 0, 0), UDim2.new(0.485, -4, 1, 0), "CREATE CONFIG", function()
+        Window:CreateMDButtonLong(Row1, UDim2.new(0, 0, 0, 0), UDim2.new(0.485, -4, 1, 0), "Create config", function()
             local requested = nameBoxObj.GetText()
             local savedName = Window:SaveConfig(requested)
             if savedName then
@@ -1015,7 +1067,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
         end)
 
-        Window:CreateMDButtonLong(Row1, UDim2.new(0.515, 4, 0, 0), UDim2.new(0.485, -4, 1, 0), "DELETE CONFIG", function()
+        Window:CreateMDButtonLong(Row1, UDim2.new(0.515, 4, 0, 0), UDim2.new(0.485, -4, 1, 0), "Delete config", function()
             local current = configDropdownObj.GetSelected()
             if Window:DeleteConfig(current) then
                 configDropdownObj.RefreshOptions(GetConfigList())
@@ -1029,7 +1081,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
         end)
 
-        -- 4. Row 2: Left = OVERWRITE CONFIG, Right = LOAD CONFIG
+        -- 4. Row 2: Left = Overwrite config, Right = Load config
         local Row2 = Instance.new("Frame")
         Row2.Name = "ConfigRow2"
         Row2.Size = UDim2.new(1, 0, 0, 44)
@@ -1038,17 +1090,17 @@ function Library:CreateWindow(hubTitle, scriptName)
         Row2.ZIndex = 4
         Row2.Parent = SectionFrame
 
-        Window:CreateMDButtonLong(Row2, UDim2.new(0, 0, 0, 0), UDim2.new(0.485, -4, 1, 0), "OVERWRITE CONFIG", function()
+        Window:CreateMDButtonLong(Row2, UDim2.new(0, 0, 0, 0), UDim2.new(0.485, -4, 1, 0), "Overwrite config", function()
             local current = configDropdownObj.GetSelected()
             Window:RewriteConfig(current)
         end)
 
-        Window:CreateMDButtonLong(Row2, UDim2.new(0.515, 4, 0, 0), UDim2.new(0.485, -4, 1, 0), "LOAD CONFIG", function()
+        Window:CreateMDButtonLong(Row2, UDim2.new(0.515, 4, 0, 0), UDim2.new(0.485, -4, 1, 0), "Load config", function()
             local current = configDropdownObj.GetSelected()
             Window:LoadConfig(current)
         end)
 
-        -- 5. Row 3: Single Long Button for AUTOLOAD CONFIG
+        -- 5. Row 3: Single Long Button for Autoload config
         autoloadBtn = Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 44), GetAutoloadButtonLabel(), function()
             local selected = configDropdownObj.GetSelected()
             local currentAuto = Window:GetAutoloadConfig()
@@ -1139,7 +1191,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     Loadingtext.Position = UDim2.new(0.5, -163, 0.5, 28)
     Loadingtext.BackgroundTransparency = 1
     Loadingtext.FontFace = FontMichromaRegular
-    Loadingtext.Text = "LOADING..."
+    Loadingtext.Text = "Loading..."
     Loadingtext.TextColor3 = Color3.fromRGB(255, 255, 255)
     Loadingtext.TextSize = 22
     Loadingtext.TextWrapped = true
@@ -1180,7 +1232,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         if isFinishedLoading then return end
         isFinishedLoading = true
 
-        Window:UpdateLoadingProgress(100, "LOADED!")
+        Window:UpdateLoadingProgress(100, "Loaded!")
         task.wait(0.3)
         local shrinkTween = TweenService:Create(LoadCenterFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, 0)
@@ -1369,7 +1421,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         ToggleFrame.BackgroundColor3 = initialState and Window.CurrentTheme.ButtonBG or Color3.fromRGB(35, 38, 48)
         ToggleFrame.BackgroundTransparency = 0.05
         ToggleFrame.BorderSizePixel = 0
-        ToggleFrame.ClipsDescendants = true
+        ToggleFrame.ClipsDescendants = false
         ToggleFrame.ZIndex = 10
         ToggleFrame.Parent = parent
 
@@ -1514,7 +1566,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         HandleFrame.Name = "SliderHandle"
         HandleFrame.Size = UDim2.new(0, knobSize, 0, knobSize)
         HandleFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-        HandleFrame.Position = UDim2.new(initialPct, math.floor((0.5 - initialPct) * knobSize), 0.5, 0)
+        HandleFrame.Position = UDim2.new(initialPct, 0, 0.5, 0)
         HandleFrame.BackgroundTransparency = 1
         HandleFrame.ZIndex = 12
         HandleFrame.Parent = TrackFrame
@@ -1554,7 +1606,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             local pct = math.clamp((inputPos - trackAbsPos) / trackAbsSize, 0, 1)
 
             FilledPart.Size = UDim2.new(pct, 0, 1, 0)
-            HandleFrame.Position = UDim2.new(pct, math.floor((0.5 - pct) * knobSize), 0.5, 0)
+            HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
 
             currentVal = math.floor(minVal + (pct * (maxVal - minVal)))
             if onValueChange then
@@ -1594,7 +1646,7 @@ function Library:CreateWindow(hubTitle, scriptName)
                 currentVal = val
                 local pct = (maxVal > minVal) and ((val - minVal) / (maxVal - minVal)) or 0
                 FilledPart.Size = UDim2.new(pct, 0, 1, 0)
-                HandleFrame.Position = UDim2.new(pct, math.floor((0.5 - pct) * knobSize), 0.5, 0)
+                HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
                 if triggerCallback and onValueChange then
                     pcall(onValueChange, currentVal, pct)
                 end
@@ -1608,6 +1660,554 @@ function Library:CreateWindow(hubTitle, scriptName)
         Window.RegisteredSliders[sliderName] = sliderData
         table.insert(Window.RegisteredMDSliders, sliderData)
         return sliderData
+    end
+
+    -- =========================================================================
+    -- COLOR PICKER MODAL & WIDGET GENERATOR
+    -- =========================================================================
+    local ActiveColorPickerModal = nil
+
+    function Window:OpenColorPicker(title, initialColor, onColorSelected)
+        if ActiveColorPickerModal and ActiveColorPickerModal.Parent then
+            ActiveColorPickerModal:Destroy()
+            ActiveColorPickerModal = nil
+        end
+
+        initialColor = initialColor or Color3.fromRGB(255, 255, 255)
+        local curH, curS, curV = initialColor:ToHSV()
+        local selectedColor = initialColor
+
+        local ModalBackdrop = Instance.new("TextButton")
+        ModalBackdrop.Name = "ColorPickerBackdrop"
+        ModalBackdrop.Size = UDim2.new(1, 0, 1, 0)
+        ModalBackdrop.Position = UDim2.new(0, 0, 0, 0)
+        ModalBackdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        ModalBackdrop.BackgroundTransparency = 1
+        ModalBackdrop.Text = ""
+        ModalBackdrop.AutoButtonColor = false
+        ModalBackdrop.ZIndex = 80
+        ModalBackdrop.Parent = ScriptUi
+
+        ActiveColorPickerModal = ModalBackdrop
+
+        local ModalCard = Instance.new("Frame")
+        ModalCard.Name = "ColorPickerModal"
+        ModalCard.Size = UDim2.new(0, 290, 0, 310)
+        ModalCard.AnchorPoint = Vector2.new(0.5, 0.5)
+        ModalCard.Position = UDim2.new(0.5, 0, 0.5, 20)
+        ModalCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+        ModalCard.BackgroundTransparency = 0.02
+        ModalCard.BorderSizePixel = 0
+        ModalCard.ZIndex = 81
+        ModalCard.Parent = ModalBackdrop
+
+        local ModalCorner = Instance.new("UICorner")
+        ModalCorner.CornerRadius = UDim.new(0, 12)
+        ModalCorner.Parent = ModalCard
+
+        local ModalStroke = Instance.new("UIStroke")
+        ModalStroke.Thickness = 1.4
+        ModalStroke.Color = Color3.fromRGB(255, 255, 255)
+        ModalStroke.Transparency = 0.8
+        ModalStroke.Parent = ModalCard
+
+        AddUIShadow(ModalCard, 28, 0.6)
+
+        -- Header
+        local HeaderLabel = Instance.new("TextLabel")
+        HeaderLabel.Name = "HeaderTitle"
+        HeaderLabel.Size = UDim2.new(1, -50, 0, 32)
+        HeaderLabel.Position = UDim2.new(0, 14, 0, 4)
+        HeaderLabel.BackgroundTransparency = 1
+        HeaderLabel.FontFace = FontMichromaBold
+        HeaderLabel.Text = title or "Select color"
+        HeaderLabel.TextColor3 = Window.CurrentTheme.Text
+        HeaderLabel.TextSize = 12
+        HeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
+        HeaderLabel.ZIndex = 82
+        HeaderLabel.Parent = ModalCard
+
+        local CloseModalBtn = Instance.new("TextButton")
+        CloseModalBtn.Name = "CloseBtn"
+        CloseModalBtn.Size = UDim2.new(0, 24, 0, 24)
+        CloseModalBtn.Position = UDim2.new(1, -32, 0, 8)
+        CloseModalBtn.BackgroundTransparency = 1
+        CloseModalBtn.FontFace = FontMichromaBold
+        CloseModalBtn.Text = "X"
+        CloseModalBtn.TextColor3 = Window.CurrentTheme.SubText
+        CloseModalBtn.TextSize = 13
+        CloseModalBtn.ZIndex = 83
+        CloseModalBtn.Parent = ModalCard
+
+        -- SV 2D Canvas (Saturation & Value)
+        local SVBox = Instance.new("Frame")
+        SVBox.Name = "SVBox"
+        SVBox.Size = UDim2.new(1, -28, 0, 125)
+        SVBox.Position = UDim2.new(0, 14, 0, 38)
+        SVBox.BackgroundColor3 = Color3.fromHSV(curH, 1, 1)
+        SVBox.BorderSizePixel = 0
+        SVBox.ClipsDescendants = false
+        SVBox.ZIndex = 82
+        SVBox.Parent = ModalCard
+
+        local SVCorner = Instance.new("UICorner")
+        SVCorner.CornerRadius = UDim.new(0, 6)
+        SVCorner.Parent = SVBox
+
+        -- White horizontal gradient layer
+        local WhiteGradFrame = Instance.new("Frame")
+        WhiteGradFrame.Size = UDim2.new(1, 0, 1, 0)
+        WhiteGradFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        WhiteGradFrame.BorderSizePixel = 0
+        WhiteGradFrame.ZIndex = 82
+        WhiteGradFrame.Parent = SVBox
+
+        local WhiteGradCorner = Instance.new("UICorner")
+        WhiteGradCorner.CornerRadius = UDim.new(0, 6)
+        WhiteGradCorner.Parent = WhiteGradFrame
+
+        local WhiteGrad = Instance.new("UIGradient")
+        WhiteGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 255, 255))
+        WhiteGrad.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(1, 1)
+        })
+        WhiteGrad.Rotation = 0
+        WhiteGrad.Parent = WhiteGradFrame
+
+        -- Black vertical gradient layer
+        local BlackGradFrame = Instance.new("Frame")
+        BlackGradFrame.Size = UDim2.new(1, 0, 1, 0)
+        BlackGradFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        BlackGradFrame.BorderSizePixel = 0
+        BlackGradFrame.ZIndex = 83
+        BlackGradFrame.Parent = SVBox
+
+        local BlackGradCorner = Instance.new("UICorner")
+        BlackGradCorner.CornerRadius = UDim.new(0, 6)
+        BlackGradCorner.Parent = BlackGradFrame
+
+        local BlackGrad = Instance.new("UIGradient")
+        BlackGrad.Color = ColorSequence.new(Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 0, 0))
+        BlackGrad.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1),
+            NumberSequenceKeypoint.new(1, 0)
+        })
+        BlackGrad.Rotation = 90
+        BlackGrad.Parent = BlackGradFrame
+
+        -- SV Draggable Knob
+        local SVHandle = Instance.new("Frame")
+        SVHandle.Name = "SVHandle"
+        SVHandle.Size = UDim2.new(0, 14, 0, 14)
+        SVHandle.AnchorPoint = Vector2.new(0.5, 0.5)
+        SVHandle.Position = UDim2.new(curS, 0, 1 - curV, 0)
+        SVHandle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        SVHandle.BorderSizePixel = 0
+        SVHandle.ZIndex = 85
+        SVHandle.Parent = SVBox
+
+        local SVHandleCorner = Instance.new("UICorner")
+        SVHandleCorner.CornerRadius = UDim.new(1, 0)
+        SVHandleCorner.Parent = SVHandle
+
+        local SVHandleStroke = Instance.new("UIStroke")
+        SVHandleStroke.Thickness = 1.5
+        SVHandleStroke.Color = Color3.fromRGB(0, 0, 0)
+        SVHandleStroke.Parent = SVHandle
+
+        local SVTrigger = Instance.new("TextButton")
+        SVTrigger.Name = "SVTrigger"
+        SVTrigger.Size = UDim2.new(1, 0, 1, 0)
+        SVTrigger.BackgroundTransparency = 1
+        SVTrigger.Text = ""
+        SVTrigger.ZIndex = 86
+        SVTrigger.Parent = SVBox
+
+        -- Hue Slider Bar
+        local HueBar = Instance.new("Frame")
+        HueBar.Name = "HueBar"
+        HueBar.Size = UDim2.new(1, -28, 0, 14)
+        HueBar.Position = UDim2.new(0, 14, 0, 172)
+        HueBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        HueBar.BorderSizePixel = 0
+        HueBar.ClipsDescendants = false
+        HueBar.ZIndex = 82
+        HueBar.Parent = ModalCard
+
+        local HueCorner = Instance.new("UICorner")
+        HueCorner.CornerRadius = UDim.new(0, 7)
+        HueCorner.Parent = HueBar
+
+        local HueGrad = Instance.new("UIGradient")
+        HueGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 0, 0)),
+            ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)),
+            ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)),
+            ColorSequenceKeypoint.new(0.50, Color3.fromRGB(0, 255, 255)),
+            ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)),
+            ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)),
+            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255, 0, 0))
+        })
+        HueGrad.Parent = HueBar
+
+        local HueHandle = Instance.new("Frame")
+        HueHandle.Name = "HueHandle"
+        HueHandle.Size = UDim2.new(0, 16, 0, 16)
+        HueHandle.AnchorPoint = Vector2.new(0.5, 0.5)
+        HueHandle.Position = UDim2.new(curH, 0, 0.5, 0)
+        HueHandle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        HueHandle.BorderSizePixel = 0
+        HueHandle.ZIndex = 85
+        HueHandle.Parent = HueBar
+
+        local HueHandleCorner = Instance.new("UICorner")
+        HueHandleCorner.CornerRadius = UDim.new(1, 0)
+        HueHandleCorner.Parent = HueHandle
+
+        local HueHandleStroke = Instance.new("UIStroke")
+        HueHandleStroke.Thickness = 1.5
+        HueHandleStroke.Color = Color3.fromRGB(0, 0, 0)
+        HueHandleStroke.Parent = HueHandle
+
+        local HueTrigger = Instance.new("TextButton")
+        HueTrigger.Name = "HueTrigger"
+        HueTrigger.Size = UDim2.new(1, 0, 1, 0)
+        HueTrigger.BackgroundTransparency = 1
+        HueTrigger.Text = ""
+        HueTrigger.ZIndex = 86
+        HueTrigger.Parent = HueBar
+
+        -- Preview Swatch & Hex Box
+        local PreviewSwatch = Instance.new("Frame")
+        PreviewSwatch.Name = "PreviewSwatch"
+        PreviewSwatch.Size = UDim2.new(0, 36, 0, 26)
+        PreviewSwatch.Position = UDim2.new(0, 14, 0, 196)
+        PreviewSwatch.BackgroundColor3 = initialColor
+        PreviewSwatch.BorderSizePixel = 0
+        PreviewSwatch.ZIndex = 82
+        PreviewSwatch.Parent = ModalCard
+
+        local SwatchCorner = Instance.new("UICorner")
+        SwatchCorner.CornerRadius = UDim.new(0, 6)
+        SwatchCorner.Parent = PreviewSwatch
+
+        local SwatchStroke = Instance.new("UIStroke")
+        SwatchStroke.Thickness = 1.2
+        SwatchStroke.Color = Color3.fromRGB(255, 255, 255)
+        SwatchStroke.Transparency = 0.5
+        SwatchStroke.Parent = PreviewSwatch
+
+        local HexContainer = Instance.new("Frame")
+        HexContainer.Name = "HexContainer"
+        HexContainer.Size = UDim2.new(1, -62, 0, 26)
+        HexContainer.Position = UDim2.new(0, 56, 0, 196)
+        HexContainer.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+        HexContainer.BorderSizePixel = 0
+        HexContainer.ZIndex = 82
+        HexContainer.Parent = ModalCard
+
+        local HexCorner = Instance.new("UICorner")
+        HexCorner.CornerRadius = UDim.new(0, 6)
+        HexCorner.Parent = HexContainer
+
+        local HexBox = Instance.new("TextBox")
+        HexBox.Name = "HexBox"
+        HexBox.Size = UDim2.new(1, -12, 1, 0)
+        HexBox.Position = UDim2.new(0, 6, 0, 0)
+        HexBox.BackgroundTransparency = 1
+        HexBox.FontFace = FontMichromaRegular
+        HexBox.PlaceholderText = "#FFFFFF"
+        HexBox.PlaceholderColor3 = Window.CurrentTheme.SubText
+        HexBox.Text = "#" .. initialColor:ToHex():upper()
+        HexBox.TextColor3 = Window.CurrentTheme.Text
+        HexBox.TextSize = 11
+        HexBox.ClearTextOnFocus = false
+        HexBox.ZIndex = 83
+        HexBox.Parent = HexContainer
+
+        -- Preset Swatches Row
+        local PresetsRow = Instance.new("Frame")
+        PresetsRow.Name = "PresetsRow"
+        PresetsRow.Size = UDim2.new(1, -28, 0, 22)
+        PresetsRow.Position = UDim2.new(0, 14, 0, 230)
+        PresetsRow.BackgroundTransparency = 1
+        PresetsRow.ZIndex = 82
+        PresetsRow.Parent = ModalCard
+
+        local PresetsLayout = Instance.new("UIListLayout")
+        PresetsLayout.FillDirection = Enum.FillDirection.Horizontal
+        PresetsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        PresetsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+        PresetsLayout.Padding = UDim.new(0, 6)
+        PresetsLayout.Parent = PresetsRow
+
+        local presetColors = {
+            Color3.fromRGB(255, 60, 60),
+            Color3.fromRGB(255, 145, 0),
+            Color3.fromRGB(255, 225, 0),
+            Color3.fromRGB(60, 220, 90),
+            Color3.fromRGB(0, 210, 255),
+            Color3.fromRGB(60, 120, 255),
+            Color3.fromRGB(180, 80, 255),
+            Color3.fromRGB(255, 255, 255)
+        }
+
+        -- Bottom Apply Button
+        local ApplyBtn = Instance.new("TextButton")
+        ApplyBtn.Name = "ApplyButton"
+        ApplyBtn.Size = UDim2.new(1, -28, 0, 32)
+        ApplyBtn.Position = UDim2.new(0, 14, 0, 262)
+        ApplyBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
+        ApplyBtn.BorderSizePixel = 0
+        ApplyBtn.FontFace = FontMichromaBold
+        ApplyBtn.Text = "Apply color"
+        ApplyBtn.TextColor3 = Window.CurrentTheme.Text
+        ApplyBtn.TextSize = 12
+        ApplyBtn.ZIndex = 83
+        ApplyBtn.Parent = ModalCard
+
+        local ApplyCorner = Instance.new("UICorner")
+        ApplyCorner.CornerRadius = UDim.new(0, 6)
+        ApplyCorner.Parent = ApplyBtn
+
+        local isDraggingSV = false
+        local isDraggingHue = false
+
+        local function RefreshAll(source)
+            curH = math.clamp(curH, 0, 1)
+            curS = math.clamp(curS, 0, 1)
+            curV = math.clamp(curV, 0, 1)
+
+            selectedColor = Color3.fromHSV(curH, curS, curV)
+            SVBox.BackgroundColor3 = Color3.fromHSV(curH, 1, 1)
+            SVHandle.Position = UDim2.new(curS, 0, 1 - curV, 0)
+            HueHandle.Position = UDim2.new(curH, 0, 0.5, 0)
+            PreviewSwatch.BackgroundColor3 = selectedColor
+
+            if source ~= "hex" then
+                HexBox.Text = "#" .. selectedColor:ToHex():upper()
+            end
+        end
+
+        local function UpdateSV(inputX, inputY)
+            local absPos = SVBox.AbsolutePosition
+            local absSize = SVBox.AbsoluteSize
+            if absSize.X <= 0 or absSize.Y <= 0 then return end
+            curS = math.clamp((inputX - absPos.X) / absSize.X, 0, 1)
+            curV = math.clamp(1 - ((inputY - absPos.Y) / absSize.Y), 0, 1)
+            RefreshAll("sv")
+        end
+
+        local function UpdateHue(inputX)
+            local absPos = HueBar.AbsolutePosition
+            local absSize = HueBar.AbsoluteSize
+            if absSize.X <= 0 then return end
+            curH = math.clamp((inputX - absPos.X) / absSize.X, 0, 1)
+            RefreshAll("hue")
+        end
+
+        SVTrigger.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                isDraggingSV = true
+                UpdateSV(input.Position.X, input.Position.Y)
+            end
+        end)
+
+        HueTrigger.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                isDraggingHue = true
+                UpdateHue(input.Position.X)
+            end
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if isDraggingSV and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                UpdateSV(input.Position.X, input.Position.Y)
+            elseif isDraggingHue and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                UpdateHue(input.Position.X)
+            end
+        end)
+
+        local endConn = UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                isDraggingSV = false
+                isDraggingHue = false
+            end
+        end)
+
+        HexBox.FocusLost:Connect(function()
+            local raw = HexBox.Text:gsub("#", ""):gsub("%s+", "")
+            local success, col = pcall(function() return Color3.fromHex(raw) end)
+            if success and col then
+                curH, curS, curV = col:ToHSV()
+                RefreshAll("hex")
+            else
+                HexBox.Text = "#" .. selectedColor:ToHex():upper()
+            end
+        end)
+
+        for _, col in ipairs(presetColors) do
+            local dot = Instance.new("TextButton")
+            dot.Size = UDim2.new(0, 20, 0, 20)
+            dot.BackgroundColor3 = col
+            dot.Text = ""
+            dot.BorderSizePixel = 0
+            dot.ZIndex = 83
+            dot.Parent = PresetsRow
+
+            local dotCorner = Instance.new("UICorner")
+            dotCorner.CornerRadius = UDim.new(1, 0)
+            dotCorner.Parent = dot
+
+            local dotStroke = Instance.new("UIStroke")
+            dotStroke.Thickness = 1.2
+            dotStroke.Color = Color3.fromRGB(255, 255, 255)
+            dotStroke.Transparency = 0.6
+            dotStroke.Parent = dot
+
+            dot.MouseButton1Click:Connect(function()
+                PlayClickSFX()
+                curH, curS, curV = col:ToHSV()
+                RefreshAll("preset")
+            end)
+        end
+
+        local function CloseModal()
+            PlayClickSFX()
+            if endConn then endConn:Disconnect() end
+            TweenService:Create(ModalBackdrop, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
+            local t = TweenService:Create(ModalCard, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                Position = UDim2.new(0.5, 0, 0.5, 40),
+                Size = UDim2.new(0, 270, 0, 290)
+            })
+            t:Play()
+            t.Completed:Connect(function()
+                if ModalBackdrop and ModalBackdrop.Parent then
+                    ModalBackdrop:Destroy()
+                end
+                if ActiveColorPickerModal == ModalBackdrop then
+                    ActiveColorPickerModal = nil
+                end
+            end)
+        end
+
+        CloseModalBtn.MouseButton1Click:Connect(CloseModal)
+        ModalBackdrop.MouseButton1Click:Connect(function()
+            CloseModal()
+        end)
+
+        ApplyBtn.MouseButton1Click:Connect(function()
+            PlayClickSFX()
+            if onColorSelected then
+                pcall(onColorSelected, selectedColor)
+            end
+            CloseModal()
+        end)
+
+        -- Animate In
+        TweenService:Create(ModalBackdrop, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.45}):Play()
+        TweenService:Create(ModalCard, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            Size = UDim2.new(0, 290, 0, 310)
+        }):Play()
+
+        RefreshAll("init")
+    end
+
+    function Window:CreateMDColorPicker(parent, position, size, title, defaultColor, onColorChanged, identifier)
+        size = size or UDim2.new(1, 0, 0, 44)
+        position = position or UDim2.new(0, 0, 0, 0)
+        defaultColor = defaultColor or Color3.fromRGB(255, 255, 255)
+
+        local CardFrame = Instance.new("Frame")
+        CardFrame.Name = "ColorPickerCard"
+        CardFrame.Size = size
+        CardFrame.Position = position
+        CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
+        CardFrame.BackgroundTransparency = 0.05
+        CardFrame.BorderSizePixel = 0
+        CardFrame.ZIndex = 10
+        CardFrame.Parent = parent
+
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 8)
+        Corner.Parent = CardFrame
+
+        AddUIShadow(CardFrame, 20, 0.5)
+
+        local Stroke = Instance.new("UIStroke")
+        Stroke.Name = "UIStroke"
+        Stroke.Color = Color3.fromRGB(255, 255, 255)
+        Stroke.Thickness = 1.2
+        Stroke.Transparency = 0.8
+        Stroke.Parent = CardFrame
+
+        local TitleLabel = Instance.new("TextLabel")
+        TitleLabel.Name = "TitleLabel"
+        TitleLabel.Size = UDim2.new(1, -65, 1, 0)
+        TitleLabel.Position = UDim2.new(0, 14, 0, 0)
+        TitleLabel.BackgroundTransparency = 1
+        TitleLabel.FontFace = FontMichromaRegular
+        TitleLabel.Text = title or "Color"
+        TitleLabel.TextColor3 = Window.CurrentTheme.Text
+        TitleLabel.TextSize = 12
+        TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
+        TitleLabel.ZIndex = 11
+        TitleLabel.Parent = CardFrame
+
+        local SwatchButton = Instance.new("TextButton")
+        SwatchButton.Name = "SwatchButton"
+        SwatchButton.Size = UDim2.new(0, 36, 0, 24)
+        SwatchButton.Position = UDim2.new(1, -48, 0.5, -12)
+        SwatchButton.BackgroundColor3 = defaultColor
+        SwatchButton.BorderSizePixel = 0
+        SwatchButton.Text = ""
+        SwatchButton.ZIndex = 12
+        SwatchButton.Parent = CardFrame
+
+        local SwatchCorner = Instance.new("UICorner")
+        SwatchCorner.CornerRadius = UDim.new(0, 6)
+        SwatchCorner.Parent = SwatchButton
+
+        local SwatchStroke = Instance.new("UIStroke")
+        SwatchStroke.Thickness = 1.2
+        SwatchStroke.Color = Color3.fromRGB(255, 255, 255)
+        SwatchStroke.Transparency = 0.4
+        SwatchStroke.Parent = SwatchButton
+
+        local currentColor = defaultColor
+
+        local colorPickerName = identifier or ("ColorPicker_" .. (#Window.RegisteredColorPickersList + 1))
+        local colorPickerData = {
+            Name = colorPickerName,
+            Frame = CardFrame,
+            Swatch = SwatchButton,
+            GetColor = function() return currentColor end,
+            SetColor = function(col, triggerCallback)
+                currentColor = col
+                SwatchButton.BackgroundColor3 = col
+                if triggerCallback and onColorChanged then
+                    pcall(onColorChanged, col)
+                end
+            end,
+            RefreshTheme = function(theme)
+                CardFrame.BackgroundColor3 = theme.CardBG
+                TitleLabel.TextColor3 = theme.Text
+            end
+        }
+
+        TrackConn(SwatchButton.MouseButton1Click:Connect(function()
+            PlayClickSFX()
+            Window:OpenColorPicker(title, currentColor, function(newCol)
+                colorPickerData.SetColor(newCol, true)
+            end)
+        end))
+
+        Window.RegisteredColorPickers[colorPickerName] = colorPickerData
+        table.insert(Window.RegisteredColorPickersList, colorPickerData)
+        return colorPickerData
     end
 
     -- Long Button Generator (Half-Side / Full-Row)
@@ -1761,7 +2361,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         ToggleFrame.BackgroundColor3 = initialState and Window.CurrentTheme.ButtonBG or Color3.fromRGB(35, 38, 48)
         ToggleFrame.BackgroundTransparency = 0.05
         ToggleFrame.BorderSizePixel = 0
-        ToggleFrame.ClipsDescendants = true
+        ToggleFrame.ClipsDescendants = false
         ToggleFrame.ZIndex = 11
         ToggleFrame.Parent = CardFrame
 
@@ -2163,6 +2763,8 @@ function Library:CreateWindow(hubTitle, scriptName)
     local LastWindowSize = MainContainer.Size
     local LastWindowPos = MainContainer.Position
 
+    local SwitchTab = nil
+
     -- TopFrame
     local TopFrame = Instance.new("Frame")
     TopFrame.Name = "TopFrame"
@@ -2186,7 +2788,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
     local MDHUBNAME = Instance.new("TextLabel")
     MDHUBNAME.Name = "MDHUBNAME"
-    MDHUBNAME.Size = UDim2.new(0, 190, 0, 46)
+    MDHUBNAME.Size = UDim2.new(0, 180, 0, 46)
     MDHUBNAME.Position = UDim2.new(0.0259, 0, -0.052, 0)
     MDHUBNAME.BackgroundTransparency = 1
     MDHUBNAME.FontFace = FontMichromaHeavy
@@ -2196,6 +2798,249 @@ function Library:CreateWindow(hubTitle, scriptName)
     MDHUBNAME.TextXAlignment = Enum.TextXAlignment.Left
     MDHUBNAME.ZIndex = 5
     MDHUBNAME.Parent = MDTextFolder
+
+    -- Topbar Search Bar
+    local SearchBarContainer = Instance.new("Frame")
+    SearchBarContainer.Name = "SearchBarContainer"
+    SearchBarContainer.Size = UDim2.new(0, 230, 0, 26)
+    SearchBarContainer.Position = UDim2.new(0.5, -115, 0.5, -13)
+    SearchBarContainer.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(22, 24, 30)
+    SearchBarContainer.BackgroundTransparency = 0.1
+    SearchBarContainer.BorderSizePixel = 0
+    SearchBarContainer.ZIndex = 6
+    SearchBarContainer.Parent = TopFrame
+
+    local SearchCorner = Instance.new("UICorner")
+    SearchCorner.CornerRadius = UDim.new(0, 13)
+    SearchCorner.Parent = SearchBarContainer
+
+    local SearchStroke = Instance.new("UIStroke")
+    SearchStroke.Thickness = 1.1
+    SearchStroke.Color = Color3.fromRGB(255, 255, 255)
+    SearchStroke.Transparency = 0.82
+    SearchStroke.Parent = SearchBarContainer
+
+    local SearchIcon = Instance.new("ImageLabel")
+    SearchIcon.Name = "SearchIcon"
+    SearchIcon.Size = UDim2.new(0, 14, 0, 14)
+    SearchIcon.Position = UDim2.new(0, 8, 0.5, -7)
+    SearchIcon.BackgroundTransparency = 1
+    SearchIcon.Image = "rbxassetid://15396333997"
+    SearchIcon.ImageColor3 = Window.CurrentTheme.SubText
+    SearchIcon.ZIndex = 7
+    SearchIcon.Parent = SearchBarContainer
+
+    local SearchInput = Instance.new("TextBox")
+    SearchInput.Name = "SearchInput"
+    SearchInput.Size = UDim2.new(1, -48, 1, 0)
+    SearchInput.Position = UDim2.new(0, 26, 0, 0)
+    SearchInput.BackgroundTransparency = 1
+    SearchInput.FontFace = FontMichromaRegular
+    SearchInput.PlaceholderText = "Search scripts..."
+    SearchInput.PlaceholderColor3 = Window.CurrentTheme.SubText
+    SearchInput.Text = ""
+    SearchInput.TextColor3 = Window.CurrentTheme.Text
+    SearchInput.TextSize = 11
+    SearchInput.TextXAlignment = Enum.TextXAlignment.Left
+    SearchInput.ClearTextOnFocus = false
+    SearchInput.ZIndex = 7
+    SearchInput.Parent = SearchBarContainer
+
+    local ClearSearchBtn = Instance.new("TextButton")
+    ClearSearchBtn.Name = "ClearSearchBtn"
+    ClearSearchBtn.Size = UDim2.new(0, 16, 0, 16)
+    ClearSearchBtn.Position = UDim2.new(1, -22, 0.5, -8)
+    ClearSearchBtn.BackgroundTransparency = 1
+    ClearSearchBtn.FontFace = FontMichromaBold
+    ClearSearchBtn.Text = "X"
+    ClearSearchBtn.TextColor3 = Window.CurrentTheme.SubText
+    ClearSearchBtn.TextSize = 10
+    ClearSearchBtn.Visible = false
+    ClearSearchBtn.ZIndex = 8
+    ClearSearchBtn.Parent = SearchBarContainer
+
+    -- Search Results Dropdown Overlay (Floats on MainContainer)
+    local SearchResultsOverlay = Instance.new("Frame")
+    SearchResultsOverlay.Name = "SearchResultsOverlay"
+    SearchResultsOverlay.Size = UDim2.new(0, 230, 0, 0)
+    SearchResultsOverlay.Position = UDim2.new(0.5, -115, 0, 44)
+    SearchResultsOverlay.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(240, 245, 255) or Color3.fromRGB(20, 22, 28)
+    SearchResultsOverlay.BackgroundTransparency = 0.05
+    SearchResultsOverlay.BorderSizePixel = 0
+    SearchResultsOverlay.ClipsDescendants = true
+    SearchResultsOverlay.ZIndex = 50
+    SearchResultsOverlay.Visible = false
+    SearchResultsOverlay.Parent = MainContainer
+
+    local ResultsCorner = Instance.new("UICorner")
+    ResultsCorner.CornerRadius = UDim.new(0, 8)
+    ResultsCorner.Parent = SearchResultsOverlay
+
+    local ResultsStroke = Instance.new("UIStroke")
+    ResultsStroke.Thickness = 1.2
+    ResultsStroke.Color = Color3.fromRGB(255, 255, 255)
+    ResultsStroke.Transparency = 0.8
+    ResultsStroke.Parent = SearchResultsOverlay
+
+    AddUIShadow(SearchResultsOverlay, 20, 0.5)
+
+    local ResultsScroll = Instance.new("ScrollingFrame")
+    ResultsScroll.Name = "ResultsScroll"
+    ResultsScroll.Size = UDim2.new(1, 0, 1, 0)
+    ResultsScroll.Position = UDim2.new(0, 0, 0, 0)
+    ResultsScroll.BackgroundTransparency = 1
+    ResultsScroll.BorderSizePixel = 0
+    ResultsScroll.ScrollBarThickness = 2
+    ResultsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    ResultsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ResultsScroll.ZIndex = 51
+    ResultsScroll.Parent = SearchResultsOverlay
+
+    local ResultsPadding = Instance.new("UIPadding")
+    ResultsPadding.PaddingTop = UDim.new(0, 6)
+    ResultsPadding.PaddingBottom = UDim.new(0, 6)
+    ResultsPadding.PaddingLeft = UDim.new(0, 4)
+    ResultsPadding.PaddingRight = UDim.new(0, 4)
+    ResultsPadding.Parent = ResultsScroll
+
+    local ResultsLayout = Instance.new("UIListLayout")
+    ResultsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    ResultsLayout.Padding = UDim.new(0, 3)
+    ResultsLayout.Parent = ResultsScroll
+
+    local function PerformSearch(rawText)
+        local query = rawText:gsub("^%s+", ""):gsub("%s+$", ""):lower()
+        if query == "" then
+            ClearSearchBtn.Visible = false
+            SearchResultsOverlay.Visible = false
+            SearchResultsOverlay.Size = UDim2.new(0, 230, 0, 0)
+            for _, item in ipairs(Window.SearchableItems) do
+                if item.Instance and item.Instance.Parent then
+                    item.Instance.Visible = true
+                end
+            end
+            return
+        end
+
+        ClearSearchBtn.Visible = true
+
+        for _, item in ipairs(Window.SearchableItems) do
+            if item.TabName == Window.ActiveTab and item.Instance and item.Instance.Parent then
+                local match = item.Name:lower():find(query, 1, true) or item.Desc:lower():find(query, 1, true)
+                item.Instance.Visible = (match ~= nil)
+            end
+        end
+
+        for _, child in ipairs(ResultsScroll:GetChildren()) do
+            if child:IsA("GuiObject") then child:Destroy() end
+        end
+
+        local matches = {}
+        for _, item in ipairs(Window.SearchableItems) do
+            local nameMatch = item.Name:lower():find(query, 1, true)
+            local descMatch = item.Desc:lower():find(query, 1, true)
+            local tabMatch = item.TabName:lower():find(query, 1, true)
+            if nameMatch or descMatch or tabMatch then
+                table.insert(matches, item)
+            end
+        end
+
+        if #matches == 0 then
+            local emptyLabel = Instance.new("TextLabel")
+            emptyLabel.Size = UDim2.new(1, 0, 0, 32)
+            emptyLabel.BackgroundTransparency = 1
+            emptyLabel.FontFace = FontMichromaRegular
+            emptyLabel.Text = "No results found"
+            emptyLabel.TextColor3 = Window.CurrentTheme.SubText
+            emptyLabel.TextSize = 10
+            emptyLabel.ZIndex = 52
+            emptyLabel.Parent = ResultsScroll
+
+            SearchResultsOverlay.Visible = true
+            TweenService:Create(SearchResultsOverlay, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, 230, 0, 40)
+            }):Play()
+            return
+        end
+
+        local maxToShow = math.min(#matches, 6)
+        for i = 1, maxToShow do
+            local item = matches[i]
+            local rowBtn = Instance.new("TextButton")
+            rowBtn.Name = "SearchResult"
+            rowBtn.Size = UDim2.new(1, -4, 0, 32)
+            rowBtn.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(30, 33, 42)
+            rowBtn.BackgroundTransparency = 0.4
+            rowBtn.Text = ""
+            rowBtn.ZIndex = 52
+            rowBtn.Parent = ResultsScroll
+
+            local rowCorner = Instance.new("UICorner")
+            rowCorner.CornerRadius = UDim.new(0, 6)
+            rowCorner.Parent = rowBtn
+
+            local titleLbl = Instance.new("TextLabel")
+            titleLbl.Size = UDim2.new(1, -12, 0, 16)
+            titleLbl.Position = UDim2.new(0, 8, 0, 1)
+            titleLbl.BackgroundTransparency = 1
+            titleLbl.FontFace = FontMichromaBold
+            titleLbl.Text = item.Name
+            titleLbl.TextColor3 = Window.CurrentTheme.Text
+            titleLbl.TextSize = 10
+            titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+            titleLbl.TextTruncate = Enum.TextTruncate.AtEnd
+            titleLbl.ZIndex = 53
+            titleLbl.Parent = rowBtn
+
+            local subLbl = Instance.new("TextLabel")
+            subLbl.Size = UDim2.new(1, -12, 0, 14)
+            subLbl.Position = UDim2.new(0, 8, 0, 16)
+            subLbl.BackgroundTransparency = 1
+            subLbl.FontFace = FontMichromaRegular
+            subLbl.Text = item.TabName .. " • " .. item.Type:lower()
+            subLbl.TextColor3 = Window.CurrentTheme.SubText
+            subLbl.TextSize = 8
+            subLbl.TextXAlignment = Enum.TextXAlignment.Left
+            subLbl.TextTruncate = Enum.TextTruncate.AtEnd
+            subLbl.ZIndex = 53
+            subLbl.Parent = rowBtn
+
+            rowBtn.MouseEnter:Connect(function()
+                TweenService:Create(rowBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.1}):Play()
+            end)
+            rowBtn.MouseLeave:Connect(function()
+                TweenService:Create(rowBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.4}):Play()
+            end)
+
+            rowBtn.MouseButton1Click:Connect(function()
+                PlayClickSFX()
+                if SwitchTab then
+                    SwitchTab(item.TabName)
+                end
+                SearchResultsOverlay.Visible = false
+                SearchResultsOverlay.Size = UDim2.new(0, 230, 0, 0)
+                if item.Instance and item.Instance.Parent then
+                    item.Instance.Visible = true
+                end
+            end)
+        end
+
+        local targetHeight = math.min(maxToShow * 36 + 14, 220)
+        SearchResultsOverlay.Visible = true
+        TweenService:Create(SearchResultsOverlay, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 230, 0, targetHeight)
+        }):Play()
+    end
+
+    TrackConn(SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
+        PerformSearch(SearchInput.Text)
+    end))
+
+    TrackConn(ClearSearchBtn.MouseButton1Click:Connect(function()
+        PlayClickSFX()
+        SearchInput.Text = ""
+        PerformSearch("")
+    end))
 
     local TopRightFolder = Instance.new("Folder")
     TopRightFolder.Name = "toprightbuttons"
@@ -2403,7 +3248,7 @@ function Library:CreateWindow(hubTitle, scriptName)
                 setclipboard("https://discord.gg/48jdqB8rAw")
             end
         end)
-        Window:Notify("Discord Server", "Copied invite link to clipboard:\nhttps://discord.gg/48jdqB8rAw", 3)
+        Window:Notify("Discord server", "Copied invite link to clipboard:\nhttps://discord.gg/48jdqB8rAw", 3)
     end))
 
     local LocalTime = Instance.new("TextLabel")
@@ -2649,7 +3494,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     end
 
     -- Smooth & Faster Tab Switch Engine
-    local function SwitchTab(tabName)
+    SwitchTab = function(tabName)
         if Window.ActiveTab == tabName then return end
 
         local oldTab = Window.Tabs[Window.ActiveTab]
@@ -2918,7 +3763,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             DescLabel.Visible = hasDesc
             DescLabel.Parent = CardFrame
 
-            Window:CreateMDButton(CardFrame, UDim2.new(0, 110, 0, 30), UDim2.new(1, -120, 0.5, -15), "EXECUTE", function()
+            Window:CreateMDButton(CardFrame, UDim2.new(0, 110, 0, 30), UDim2.new(1, -120, 0.5, -15), "Execute", function()
                 Window:Notify("Executing", "Running " .. title .. "...", 2.5)
                 task.spawn(function()
                     if type(callback) == "function" then
@@ -2930,6 +3775,15 @@ function Library:CreateWindow(hubTitle, scriptName)
             end, true)
 
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+
+            table.insert(Window.SearchableItems, {
+                Type = "Button",
+                Name = title or "Button",
+                Desc = desc or "",
+                TabName = tabName,
+                Instance = CardFrame,
+                Callback = callback
+            })
         end
 
         function TabObj:AddRow()
@@ -2951,9 +3805,18 @@ function Library:CreateWindow(hubTitle, scriptName)
 
             local btnData = Window:CreateMDButtonLong(targetParent, pos, size, text, callback)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+
+            table.insert(Window.SearchableItems, {
+                Type = "Button",
+                Name = text or "Button",
+                Desc = "",
+                TabName = tabName,
+                Instance = btnData.Frame,
+                Callback = callback
+            })
+
             return btnData
         end
-
 
         function TabObj:AddDropdown(title, options, defaultOption, onSelect, parentRow, position)
             local targetParent = parentRow or ContentFrame
@@ -2961,6 +3824,15 @@ function Library:CreateWindow(hubTitle, scriptName)
             local pos = position or UDim2.new(0, 0, 0, 0)
             local dropObj = Window:CreateMDDropdown(targetParent, pos, size, title, options, defaultOption, onSelect)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+
+            table.insert(Window.SearchableItems, {
+                Type = "Dropdown",
+                Name = title or "Dropdown",
+                Desc = "",
+                TabName = tabName,
+                Instance = dropObj.Frame
+            })
+
             return dropObj
         end
 
@@ -2970,7 +3842,34 @@ function Library:CreateWindow(hubTitle, scriptName)
             local pos = position or UDim2.new(0, 0, 0, 0)
             local boxObj = Window:CreateMDTextbox(targetParent, pos, size, title, placeholder, defaultText, onSubmit)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+
+            table.insert(Window.SearchableItems, {
+                Type = "Textbox",
+                Name = title or "Textbox",
+                Desc = placeholder or "",
+                TabName = tabName,
+                Instance = boxObj.Frame
+            })
+
             return boxObj
+        end
+
+        function TabObj:AddColorPicker(title, defaultColor, callback, parentRow, position)
+            local targetParent = parentRow or ContentFrame
+            local size = parentRow and UDim2.new(0.485, -4, 0, 44) or UDim2.new(1, -10, 0, 44)
+            local pos = position or UDim2.new(0, 0, 0, 0)
+            local cpData = Window:CreateMDColorPicker(targetParent, pos, size, title, defaultColor, callback)
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+
+            table.insert(Window.SearchableItems, {
+                Type = "Color picker",
+                Name = title or "Color",
+                Desc = "",
+                TabName = tabName,
+                Instance = cpData.Frame
+            })
+
+            return cpData
         end
 
         function TabObj:CreateConfigSection()
@@ -2987,6 +3886,15 @@ function Library:CreateWindow(hubTitle, scriptName)
 
             local toggleData = Window:CreateMDToggleHalf(targetParent, pos, size, text, state, cb)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+
+            table.insert(Window.SearchableItems, {
+                Type = "Toggle",
+                Name = text or "Toggle",
+                Desc = "",
+                TabName = tabName,
+                Instance = toggleData.Frame
+            })
+
             return toggleData
         end
 
@@ -3041,6 +3949,15 @@ function Library:CreateWindow(hubTitle, scriptName)
 
             local sliderData = Window:CreateMDSlider(targetParent, pos, size, minVal, maxVal, defaultVal, onValueChange, sliderName)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+
+            table.insert(Window.SearchableItems, {
+                Type = "Slider",
+                Name = sliderName or "Slider",
+                Desc = "",
+                TabName = tabName,
+                Instance = sliderData.Track
+            })
+
             return sliderData
         end
 
@@ -3123,7 +4040,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         NotifLabel.Position = UDim2.new(0, 12, 0, 0)
         NotifLabel.BackgroundTransparency = 1
         NotifLabel.FontFace = FontMichromaBold
-        NotifLabel.Text = "ENABLE NOTIFICATIONS"
+        NotifLabel.Text = "Enable notifications"
         NotifLabel.TextColor3 = Window.CurrentTheme.Text
         NotifLabel.TextSize = 12
         NotifLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -3133,7 +4050,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         Window:CreateMDToggle(NotifCard, UDim2.new(1, -72, 0.5, -13), UDim2.new(0, 56, 0, 26), Window.NotificationsEnabled, function(state)
             Window.NotificationsEnabled = state
             if state then
-                Window:Notify("Settings", "Notifications Enabled", 2)
+                Window:Notify("Settings", "Notifications enabled", 2)
             end
         end, "Notifications")
 
@@ -3157,7 +4074,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         SoundLabel.Position = UDim2.new(0, 12, 0, 0)
         SoundLabel.BackgroundTransparency = 1
         SoundLabel.FontFace = FontMichromaBold
-        SoundLabel.Text = "ENABLE UI SOUNDS"
+        SoundLabel.Text = "Enable UI sounds"
         SoundLabel.TextColor3 = Window.CurrentTheme.Text
         SoundLabel.TextSize = 12
         SoundLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -3167,7 +4084,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         Window:CreateMDToggle(SoundCard, UDim2.new(1, -72, 0.5, -13), UDim2.new(0, 56, 0, 26), Window.UISoundsEnabled, function(state)
             Window:SetUISounds(state)
             if state then
-                Window:Notify("Settings", "UI Sounds Enabled", 2)
+                Window:Notify("Settings", "UI sounds enabled", 2)
             end
         end, "UISounds")
 
@@ -3224,7 +4141,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         WebTitle.Position = UDim2.new(0, 12, 0, 6)
         WebTitle.BackgroundTransparency = 1
         WebTitle.FontFace = FontMichromaBold
-        WebTitle.Text = "Spiderweb Background"
+        WebTitle.Text = "Spiderweb background"
         WebTitle.TextColor3 = Window.CurrentTheme.Text
         WebTitle.TextSize = 14
         WebTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -3247,9 +4164,9 @@ function Library:CreateWindow(hubTitle, scriptName)
         Window:CreateMDToggle(WebCard, UDim2.new(1, -72, 0.5, -13), UDim2.new(0, 56, 0, 26), Window.SpiderwebBGEnabled, function(state)
             Window:SetSpiderwebBackground(state)
             if state then
-                Window:Notify("Settings", "Spiderweb BG Enabled", 2)
+                Window:Notify("Settings", "Spiderweb background enabled", 2)
             else
-                Window:Notify("Settings", "Spiderweb BG Disabled", 2)
+                Window:Notify("Settings", "Spiderweb background disabled", 2)
             end
         end, "SpiderwebBG")
 
@@ -3273,7 +4190,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         BlurTitle.Position = UDim2.new(0, 12, 0, 6)
         BlurTitle.BackgroundTransparency = 1
         BlurTitle.FontFace = FontMichromaBold
-        BlurTitle.Text = "Background Blur"
+        BlurTitle.Text = "Background blur"
         BlurTitle.TextColor3 = Window.CurrentTheme.Text
         BlurTitle.TextSize = 14
         BlurTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -3296,13 +4213,186 @@ function Library:CreateWindow(hubTitle, scriptName)
         Window:CreateMDToggle(BlurCard, UDim2.new(1, -72, 0.5, -13), UDim2.new(0, 56, 0, 26), Window.BackgroundBlurEnabled, function(state)
             Window:SetBackgroundBlur(state)
             if state then
-                Window:Notify("Settings", "Background Blur Enabled", 2)
+                Window:Notify("Settings", "Background blur enabled", 2)
             else
-                Window:Notify("Settings", "Background Blur Disabled", 2)
+                Window:Notify("Settings", "Background blur disabled", 2)
             end
         end, "BackgroundBlur")
 
-        -- 6. Configurations Management Section
+        -- 6. Background Transparency Card
+        local TransCard = Instance.new("Frame")
+        TransCard.Name = "TransCard"
+        TransCard.Size = UDim2.new(1, -10, 0, 50)
+        TransCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+        TransCard.ZIndex = 3
+        TransCard.ClipsDescendants = false
+        TransCard.Parent = SettingsTab.ContentFrame
+
+        local TransCardCorner = Instance.new("UICorner")
+        TransCardCorner.CornerRadius = UDim.new(0, 8)
+        TransCardCorner.Parent = TransCard
+        AddUIShadow(TransCard, 12, 0.45)
+
+        local TransLabel = Instance.new("TextLabel")
+        TransLabel.Name = "TransLabel"
+        TransLabel.Size = UDim2.new(1, -240, 1, 0)
+        TransLabel.Position = UDim2.new(0, 12, 0, 0)
+        TransLabel.BackgroundTransparency = 1
+        TransLabel.FontFace = FontMichromaBold
+        local currentTransPct = math.floor((Window.CustomBGTransparency or 0.10) * 100)
+        TransLabel.Text = string.format("Background transparency : %d%%", currentTransPct)
+        TransLabel.TextColor3 = Window.CurrentTheme.Text
+        TransLabel.TextSize = 11
+        TransLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TransLabel.ZIndex = 4
+        TransLabel.Parent = TransCard
+
+        Window:CreateMDSlider(TransCard, UDim2.new(1, -210, 0.5, -7), UDim2.new(0, 195, 0, 14), 0, 90, currentTransPct, function(val, pct)
+            TransLabel.Text = string.format("Background transparency : %d%%", val)
+            Window:SetBackgroundTransparency(val / 100)
+        end, "BGTransparency")
+
+        -- 7. Custom Theme Builder Card (1-Color)
+        local CustomThemeCard = Instance.new("Frame")
+        CustomThemeCard.Name = "CustomThemeCard"
+        CustomThemeCard.Size = UDim2.new(1, -10, 0, 50)
+        CustomThemeCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+        CustomThemeCard.ZIndex = 3
+        CustomThemeCard.ClipsDescendants = false
+        CustomThemeCard.Parent = SettingsTab.ContentFrame
+
+        local CustomThemeCorner = Instance.new("UICorner")
+        CustomThemeCorner.CornerRadius = UDim.new(0, 8)
+        CustomThemeCorner.Parent = CustomThemeCard
+        AddUIShadow(CustomThemeCard, 12, 0.45)
+
+        local CustomThemeTitle = Instance.new("TextLabel")
+        CustomThemeTitle.Name = "CustomThemeTitle"
+        CustomThemeTitle.Size = UDim2.new(0, 220, 0, 24)
+        CustomThemeTitle.Position = UDim2.new(0, 12, 0, 6)
+        CustomThemeTitle.BackgroundTransparency = 1
+        CustomThemeTitle.FontFace = FontMichromaBold
+        CustomThemeTitle.Text = "Custom theme"
+        CustomThemeTitle.TextColor3 = Window.CurrentTheme.Text
+        CustomThemeTitle.TextSize = 14
+        CustomThemeTitle.TextXAlignment = Enum.TextXAlignment.Left
+        CustomThemeTitle.ZIndex = 4
+        CustomThemeTitle.Parent = CustomThemeCard
+
+        local CustomThemeDesc = Instance.new("TextLabel")
+        CustomThemeDesc.Name = "CustomThemeDesc"
+        CustomThemeDesc.Size = UDim2.new(0, 280, 0, 16)
+        CustomThemeDesc.Position = UDim2.new(0, 12, 0, 28)
+        CustomThemeDesc.BackgroundTransparency = 1
+        CustomThemeDesc.FontFace = FontMichromaRegular
+        CustomThemeDesc.Text = "Generate full UI palette from 1 color"
+        CustomThemeDesc.TextColor3 = Window.CurrentTheme.SubText
+        CustomThemeDesc.TextSize = 11
+        CustomThemeDesc.TextXAlignment = Enum.TextXAlignment.Left
+        CustomThemeDesc.ZIndex = 4
+        CustomThemeDesc.Parent = CustomThemeCard
+
+        local CustomSwatchBtn = Instance.new("TextButton")
+        CustomSwatchBtn.Name = "CustomSwatchBtn"
+        CustomSwatchBtn.Size = UDim2.new(0, 56, 0, 26)
+        CustomSwatchBtn.Position = UDim2.new(1, -72, 0.5, -13)
+        CustomSwatchBtn.BackgroundColor3 = Window.CustomThemeColor or Window.CurrentTheme.ButtonBG
+        CustomSwatchBtn.BorderSizePixel = 0
+        CustomSwatchBtn.Text = ""
+        CustomSwatchBtn.ZIndex = 5
+        CustomSwatchBtn.Parent = CustomThemeCard
+
+        local CustomSwatchCorner = Instance.new("UICorner")
+        CustomSwatchCorner.CornerRadius = UDim.new(0, 6)
+        CustomSwatchCorner.Parent = CustomSwatchBtn
+
+        local CustomSwatchStroke = Instance.new("UIStroke")
+        CustomSwatchStroke.Thickness = 1.2
+        CustomSwatchStroke.Color = Color3.fromRGB(255, 255, 255)
+        CustomSwatchStroke.Transparency = 0.4
+        CustomSwatchStroke.Parent = CustomSwatchBtn
+
+        TrackConn(CustomSwatchBtn.MouseButton1Click:Connect(function()
+            PlayClickSFX()
+            local initCol = Window.CustomThemeColor or Window.CurrentTheme.ButtonBG
+            Window:OpenColorPicker("Base theme color", initCol, function(newCol)
+                CustomSwatchBtn.BackgroundColor3 = newCol
+                Window:ApplyCustomTheme(newCol)
+                Window:Notify("Settings", "Custom theme applied", 2)
+            end)
+        end))
+
+        -- 8. Click Effects Toggle Card
+        local ClickEffectsCard = Instance.new("Frame")
+        ClickEffectsCard.Name = "ClickEffectsCard"
+        ClickEffectsCard.Size = UDim2.new(1, -10, 0, 50)
+        ClickEffectsCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+        ClickEffectsCard.ZIndex = 3
+        ClickEffectsCard.ClipsDescendants = false
+        ClickEffectsCard.Parent = SettingsTab.ContentFrame
+
+        local ClickEffectsCorner = Instance.new("UICorner")
+        ClickEffectsCorner.CornerRadius = UDim.new(0, 8)
+        ClickEffectsCorner.Parent = ClickEffectsCard
+        AddUIShadow(ClickEffectsCard, 12, 0.45)
+
+        local ClickEffectsTitle = Instance.new("TextLabel")
+        ClickEffectsTitle.Name = "ClickEffectsTitle"
+        ClickEffectsTitle.Size = UDim2.new(0, 220, 0, 24)
+        ClickEffectsTitle.Position = UDim2.new(0, 12, 0, 6)
+        ClickEffectsTitle.BackgroundTransparency = 1
+        ClickEffectsTitle.FontFace = FontMichromaBold
+        ClickEffectsTitle.Text = "Enable click effects"
+        ClickEffectsTitle.TextColor3 = Window.CurrentTheme.Text
+        ClickEffectsTitle.TextSize = 14
+        ClickEffectsTitle.TextXAlignment = Enum.TextXAlignment.Left
+        ClickEffectsTitle.ZIndex = 4
+        ClickEffectsTitle.Parent = ClickEffectsCard
+
+        local ClickEffectsDesc = Instance.new("TextLabel")
+        ClickEffectsDesc.Name = "ClickEffectsDesc"
+        ClickEffectsDesc.Size = UDim2.new(0, 280, 0, 16)
+        ClickEffectsDesc.Position = UDim2.new(0, 12, 0, 28)
+        ClickEffectsDesc.BackgroundTransparency = 1
+        ClickEffectsDesc.FontFace = FontMichromaRegular
+        ClickEffectsDesc.Text = "Interactive particles on click"
+        ClickEffectsDesc.TextColor3 = Window.CurrentTheme.SubText
+        ClickEffectsDesc.TextSize = 11
+        ClickEffectsDesc.TextXAlignment = Enum.TextXAlignment.Left
+        ClickEffectsDesc.ZIndex = 4
+        ClickEffectsDesc.Parent = ClickEffectsCard
+
+        Window:CreateMDToggle(ClickEffectsCard, UDim2.new(1, -72, 0.5, -13), UDim2.new(0, 56, 0, 26), Window.ClickEffectsEnabled, function(state)
+            Window.ClickEffectsEnabled = state
+            if state then
+                Window:Notify("Settings", "Click effects enabled", 2)
+            else
+                Window:Notify("Settings", "Click effects disabled", 2)
+            end
+        end, "ClickEffects")
+
+        -- 9. Particle Customization Row (Dropdown + Custom Image Textbox)
+        local ParticleRow = Instance.new("Frame")
+        ParticleRow.Name = "ParticleRow"
+        ParticleRow.Size = UDim2.new(1, -10, 0, 44)
+        ParticleRow.BackgroundTransparency = 1
+        ParticleRow.ZIndex = 3
+        ParticleRow.Parent = SettingsTab.ContentFrame
+
+        local particleOptions = {"Theme default", "Leaves", "Gems", "Sparkles", "Rings", "Dots", "Custom image"}
+        Window:CreateMDDropdown(ParticleRow, UDim2.new(0, 0, 0, 0), UDim2.new(0.485, -4, 0, 44), "Particle style", particleOptions, Window.ClickParticleType or "Theme default", function(selected)
+            Window.ClickParticleType = selected
+            Window:Notify("Settings", "Particle style: " .. selected:lower(), 2)
+        end)
+
+        Window:CreateMDTextbox(ParticleRow, UDim2.new(0.515, 4, 0, 0), UDim2.new(0.485, -4, 0, 44), "Custom image ID", "rbxassetid://...", Window.CustomParticleAsset or "", function(entered)
+            Window.CustomParticleAsset = entered
+            if entered ~= "" then
+                Window:Notify("Settings", "Custom particle image updated", 2)
+            end
+        end)
+
+        -- 10. Configurations Management Section
         SettingsTab:CreateConfigSection()
 
         -- 7. Theme Presets Card
@@ -3533,17 +4623,18 @@ function Library:CreateWindow(hubTitle, scriptName)
     end
 
     local function SpawnClickParticles(screenX, screenY)
-        if not ScriptUi or not ScriptUi.Enabled then return end
+        if not Window.ClickEffectsEnabled or not ScriptUi or not ScriptUi.Enabled then return end
         local themeKey = Window.CurrentThemeKey or "Dark"
+        local style = Window.ClickParticleType or "Theme default"
 
-        if themeKey == "Nature" then
-            -- GREEN THEME: 8x8 Animated Flipbook Falling Leaves (109451333999691)
+        if style == "Leaves" or (style == "Theme default" and themeKey == "Nature") then
+            -- 8x8 Animated Flipbook Falling Leaves (109451333999691)
             local count = math.random(9, 14)
             for _ = 1, count do
                 local size = math.random(20, 28)
                 local greenColor = Color3.fromRGB(math.random(45, 80), math.random(190, 245), math.random(75, 115))
                 local lifeT = 0.9 + math.random() * 0.5
-                local vx = math.random(-70, 70)   -- wider horizontal spread
+                local vx = math.random(-70, 70)
                 local vy = math.random(55, 90)
                 local rotSpeed = math.random(-110, 110)
                 local swaySeed = math.random() * 10
@@ -3562,8 +4653,8 @@ function Library:CreateWindow(hubTitle, scriptName)
                 p.Parent = ParticleLayer
 
                 local elapsed = 0
-                local flipAccum = 0          -- accumulator for 30 fps flipbook
-                local flipInterval = 1 / 30  -- advance frame every 1/30 s
+                local flipAccum = 0
+                local flipInterval = 1 / 30
                 local startX = screenX - size / 2
                 local startY = screenY - size / 2
                 local conn
@@ -3592,7 +4683,6 @@ function Library:CreateWindow(hubTitle, scriptName)
                         return
                     end
 
-                    -- Advance flipbook at 30 fps
                     if flipAccum >= flipInterval then
                         flipAccum = flipAccum - flipInterval
                         flipFrame = (flipFrame + 1) % 64
@@ -3609,11 +4699,11 @@ function Library:CreateWindow(hubTitle, scriptName)
                 table.insert(ActiveParticleConns, conn)
             end
 
-        elseif themeKey == "Amethyst" then
-            -- PURPLE THEME: Falling Gem Particles (138774461279155) — smaller
+        elseif style == "Gems" or (style == "Theme default" and themeKey == "Amethyst") then
+            -- Falling Gem Particles (138774461279155)
             local count = math.random(9, 13)
             for _ = 1, count do
-                local size = math.random(10, 16)   -- smaller gems
+                local size = math.random(10, 16)
                 local purpleColor = Color3.fromRGB(math.random(180, 220), math.random(90, 140), 255)
                 local lifeT = 0.75 + math.random() * 0.4
                 local vx = math.random(-40, 40)
@@ -3669,26 +4759,146 @@ function Library:CreateWindow(hubTitle, scriptName)
                 table.insert(ActiveParticleConns, conn)
             end
 
-        elseif themeKey == "Original" then
-            -- ORANGE THEME: Launch up then arc down with gravity (80640700930724)
-            local count = math.random(8, 12)
-            local gravity = 480  -- pixels/s² pulling down
-            for _ = 1, count do
-                local size = math.random(18, 26)
-                local orangeColor = Color3.fromRGB(255, math.random(155, 200), math.random(40, 90))
-                local lifeT = 0.9 + math.random() * 0.45
-                local vx = math.random(-55, 55)
-                local vy = -(math.random(80, 150))  -- negative = upward initial velocity
-                local rotSpeed = math.random(-100, 100)
-                local swaySeed = math.random() * 10
+        elseif style == "Rings" then
+            -- Expanding Pulsing Rings
+            local count = math.random(3, 5)
+            for i = 1, count do
+                local initialSize = math.random(12, 18)
+                local finalSize = initialSize + math.random(30, 50)
+                local color = VaryBrightness(SampleThemeColor())
+                local lifeT = 0.5 + math.random() * 0.3
 
                 local p = Instance.new("ImageLabel")
-                p.Name = "OrangeParticle"
+                p.Name = "RingParticle"
+                p.Size = UDim2.new(0, initialSize, 0, initialSize)
+                p.Position = UDim2.new(0, screenX - initialSize / 2, 0, screenY - initialSize / 2)
+                p.BackgroundTransparency = 1
+                p.Image = "rbxassetid://118376432250064"
+                p.ImageColor3 = color
+                p.ZIndex = 61
+                p.Parent = ParticleLayer
+
+                local elapsed = 0
+                local conn
+
+                local function removeFromActive()
+                    for idx = #ActiveParticleConns, 1, -1 do
+                        if ActiveParticleConns[idx] == conn then
+                            table.remove(ActiveParticleConns, idx)
+                            break
+                        end
+                    end
+                end
+
+                conn = RunService.RenderStepped:Connect(function(dt)
+                    elapsed = elapsed + dt
+                    if not p or not p.Parent then
+                        if conn then conn:Disconnect() end
+                        removeFromActive()
+                        return
+                    end
+                    if elapsed >= lifeT then
+                        p:Destroy()
+                        if conn then conn:Disconnect() end
+                        removeFromActive()
+                        return
+                    end
+
+                    local t = elapsed / lifeT
+                    local curSz = initialSize + (finalSize - initialSize) * t
+                    p.Size = UDim2.new(0, curSz, 0, curSz)
+                    p.Position = UDim2.new(0, screenX - curSz / 2, 0, screenY - curSz / 2)
+                    p.ImageTransparency = math.clamp(t * 1.3, 0, 1)
+                end)
+                table.insert(ActiveParticleConns, conn)
+            end
+
+        elseif style == "Dots" then
+            -- Glowing Circle Burst
+            local count = math.random(6, 10)
+            for _ = 1, count do
+                local size = math.random(6, 12)
+                local color = VaryBrightness(SampleThemeColor())
+                local lifeT = 0.6 + math.random() * 0.3
+                local angle = math.random() * math.pi * 2
+                local speed = math.random(40, 90)
+                local vx = math.cos(angle) * speed
+                local vy = math.sin(angle) * speed
+
+                local p = Instance.new("Frame")
+                p.Name = "DotParticle"
+                p.Size = UDim2.new(0, size, 0, size)
+                p.Position = UDim2.new(0, screenX - size / 2, 0, screenY - size / 2)
+                p.BackgroundColor3 = color
+                p.BorderSizePixel = 0
+                p.ZIndex = 61
+                p.Parent = ParticleLayer
+
+                local c = Instance.new("UICorner")
+                c.CornerRadius = UDim.new(1, 0)
+                c.Parent = p
+
+                local elapsed = 0
+                local startX = screenX - size / 2
+                local startY = screenY - size / 2
+                local conn
+
+                local function removeFromActive()
+                    for idx = #ActiveParticleConns, 1, -1 do
+                        if ActiveParticleConns[idx] == conn then
+                            table.remove(ActiveParticleConns, idx)
+                            break
+                        end
+                    end
+                end
+
+                conn = RunService.RenderStepped:Connect(function(dt)
+                    elapsed = elapsed + dt
+                    if not p or not p.Parent then
+                        if conn then conn:Disconnect() end
+                        removeFromActive()
+                        return
+                    end
+                    if elapsed >= lifeT then
+                        p:Destroy()
+                        if conn then conn:Disconnect() end
+                        removeFromActive()
+                        return
+                    end
+
+                    local t = elapsed / lifeT
+                    local cx = startX + vx * elapsed
+                    local cy = startY + vy * elapsed + (80 * elapsed * elapsed)
+                    p.Position = UDim2.new(0, cx, 0, cy)
+                    p.BackgroundTransparency = math.clamp(t * 1.2, 0, 1)
+                end)
+                table.insert(ActiveParticleConns, conn)
+            end
+
+        elseif style == "Sparkles" or style == "Custom image" or (style == "Theme default" and themeKey == "Original") then
+            local count = math.random(6, 9)
+            local customRaw = (style == "Custom image" and (Window.CustomParticleAsset or "")) or ""
+            local customId = (customRaw:match("^%d+$") and ("rbxassetid://" .. customRaw)) or customRaw
+            if customId == "" then
+                customId = (style == "Sparkles" and "rbxassetid://15396333997") or "rbxassetid://80640700930724"
+            end
+
+            for _ = 1, count do
+                local size = math.random(14, 22)
+                local color = VaryBrightness(SampleThemeColor())
+                local lifeT = 0.75 + math.random() * 0.4
+                local vx = math.random(-60, 60)
+                local vy = -(math.random(60, 120))
+                local gravity = 350
+                local rotSpeed = math.random(-120, 120)
+
+                local p = Instance.new("ImageLabel")
+                p.Name = "CustomParticle"
                 p.Size = UDim2.new(0, size, 0, size)
                 p.Position = UDim2.new(0, screenX - size / 2, 0, screenY - size / 2)
                 p.BackgroundTransparency = 1
-                p.Image = "rbxassetid://80640700930724"
-                p.ImageColor3 = orangeColor
+                p.Image = customId
+                p.ImageColor3 = color
                 p.ZIndex = 61
                 p.Parent = ParticleLayer
 
@@ -3698,9 +4908,9 @@ function Library:CreateWindow(hubTitle, scriptName)
                 local conn
 
                 local function removeFromActive()
-                    for i = #ActiveParticleConns, 1, -1 do
-                        if ActiveParticleConns[i] == conn then
-                            table.remove(ActiveParticleConns, i)
+                    for idx = #ActiveParticleConns, 1, -1 do
+                        if ActiveParticleConns[idx] == conn then
+                            table.remove(ActiveParticleConns, idx)
                             break
                         end
                     end
@@ -3722,31 +4932,30 @@ function Library:CreateWindow(hubTitle, scriptName)
 
                     p.Rotation = p.Rotation + rotSpeed * dt
                     local t = elapsed / lifeT
-                    -- arc: y = vy*t + 0.5*gravity*t² (goes up first, then falls)
-                    local cx = startX + vx * elapsed + math.sin(elapsed * 3.5 + swaySeed) * 8
+                    local cx = startX + vx * elapsed
                     local cy = startY + vy * elapsed + 0.5 * gravity * elapsed * elapsed
                     p.Position = UDim2.new(0, cx, 0, cy)
-                    p.ImageTransparency = math.clamp(t * 1.1, 0, 1)
+                    p.ImageTransparency = math.clamp(t * 1.15, 0, 1)
                 end)
                 table.insert(ActiveParticleConns, conn)
             end
 
         else
-            -- DARK / VERY DARK / WHITE: 4x4 flipbook burst (rbxassetid://8733226116), 15 fps
+            -- Default Flipbook burst
             local count = math.random(4, 5)
-            local baseSize = math.random(20, 26)        -- anchor size, small variance per particle
+            local baseSize = math.random(20, 26)
             for _ = 1, count do
-                local size = baseSize + math.random(-3, 3)  -- tight range, not too different
+                local size = baseSize + math.random(-3, 3)
                 local color = VaryBrightness(SampleThemeColor())
                 local lifeT = 0.85 + math.random() * 0.4
 
                 local angle = math.random() * math.pi * 2
-                local speed = math.random(35, 75)           -- gentle scatter speed
+                local speed = math.random(35, 75)
                 local vx = math.cos(angle) * speed
-                local vy = math.sin(angle) * speed + math.random(5, 20)  -- small downward bias
-                local gravity = math.random(60, 100)        -- slow fall
+                local vy = math.sin(angle) * speed + math.random(5, 20)
+                local gravity = math.random(60, 100)
                 local swaySeed = math.random() * 10
-                local flipFrame = math.random(0, 15)   -- 16 frames total (4x4)
+                local flipFrame = math.random(0, 15)
 
                 local p = Instance.new("ImageLabel")
                 p.Name = "FlipParticle"
@@ -3755,22 +4964,22 @@ function Library:CreateWindow(hubTitle, scriptName)
                 p.BackgroundTransparency = 1
                 p.Image = "rbxassetid://8733226116"
                 p.ImageColor3 = color
-                p.ImageRectSize = Vector2.new(256, 256)   -- each cell is 256x256 in the 4x4 sheet
+                p.ImageRectSize = Vector2.new(256, 256)
                 p.ImageRectOffset = Vector2.new((flipFrame % 4) * 256, math.floor(flipFrame / 4) * 256)
                 p.ZIndex = 61
                 p.Parent = ParticleLayer
 
                 local elapsed = 0
                 local flipAccum = 0
-                local flipInterval = 1 / 15   -- 15 fps
+                local flipInterval = 1 / 15
                 local startX = screenX - size / 2
                 local startY = screenY - size / 2
                 local conn
 
                 local function removeFromActive()
-                    for i = #ActiveParticleConns, 1, -1 do
-                        if ActiveParticleConns[i] == conn then
-                            table.remove(ActiveParticleConns, i)
+                    for idx = #ActiveParticleConns, 1, -1 do
+                        if ActiveParticleConns[idx] == conn then
+                            table.remove(ActiveParticleConns, idx)
                             break
                         end
                     end
@@ -3791,7 +5000,6 @@ function Library:CreateWindow(hubTitle, scriptName)
                         return
                     end
 
-                    -- Advance flipbook at 15 fps
                     if flipAccum >= flipInterval then
                         flipAccum = flipAccum - flipInterval
                         flipFrame = (flipFrame + 1) % 16
@@ -3949,6 +5157,31 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
         end
 
+        if Window.RegisteredColorPickersList then
+            for _, cp in ipairs(Window.RegisteredColorPickersList) do
+                if cp and cp.RefreshTheme then
+                    pcall(function() cp.RefreshTheme(newTheme) end)
+                end
+            end
+        end
+
+        if SearchBarContainer then
+            SearchBarContainer.BackgroundColor3 = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(22, 24, 30)
+            if SearchInput then
+                SearchInput.TextColor3 = newTheme.Text
+                SearchInput.PlaceholderColor3 = newTheme.SubText
+            end
+            if SearchIcon then
+                SearchIcon.ImageColor3 = newTheme.SubText
+            end
+            if ClearSearchBtn then
+                ClearSearchBtn.TextColor3 = newTheme.SubText
+            end
+        end
+        if SearchResultsOverlay then
+            SearchResultsOverlay.BackgroundColor3 = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(240, 245, 255) or Color3.fromRGB(20, 22, 28)
+        end
+
         if Window.ThemePresetBtnMap then
             for k, btnData in pairs(Window.ThemePresetBtnMap) do
                 if btnData and btnData.Stroke then
@@ -3993,9 +5226,9 @@ function Library:CreateWindow(hubTitle, scriptName)
                                 card.BackgroundTransparency = 0
                                 for _, child in ipairs(card:GetChildren()) do
                                     if child:IsA("TextLabel") then
-                                        if child.Name == "CardTitle" or child.Name == "TitleLabel" or child.Name == "ThemeTitle" or child.Name == "SectionTitle" or child.Name == "NotifLabel" or child.Name == "SoundLabel" or child.Name == "VolumeLabel" or child.Name == "WebTitle" or child.Name == "BlurTitle" or child.Name == "Welcomemsg" then
+                                        if child.Name == "CardTitle" or child.Name == "TitleLabel" or child.Name == "ThemeTitle" or child.Name == "SectionTitle" or child.Name == "NotifLabel" or child.Name == "SoundLabel" or child.Name == "VolumeLabel" or child.Name == "WebTitle" or child.Name == "BlurTitle" or child.Name == "TransLabel" or child.Name == "CustomThemeTitle" or child.Name == "ClickEffectsTitle" or child.Name == "Welcomemsg" then
                                             child.TextColor3 = newTheme.Text
-                                        elseif child.Name == "CardBody" or child.Name == "DescLabel" or child.Name == "WebDesc" or child.Name == "BlurDesc" then
+                                        elseif child.Name == "CardBody" or child.Name == "DescLabel" or child.Name == "WebDesc" or child.Name == "BlurDesc" or child.Name == "CustomThemeDesc" or child.Name == "ClickEffectsDesc" then
                                             child.TextColor3 = newTheme.SubText
                                         elseif child.Name ~= "LocalTime" and child.Name ~= "btntext" and child.Name ~= "drpdwntext" then
                                             child.TextColor3 = newTheme.Text
@@ -4009,7 +5242,65 @@ function Library:CreateWindow(hubTitle, scriptName)
             end
         end
 
-        Window:Notify("Theme Updated", "Applied " .. newTheme.Name .. " theme!", 2.5)
+        Window:Notify("Theme updated", "Applied " .. newTheme.Name .. " theme!", 2.5)
+    end
+
+    function Window:ApplyCustomTheme(baseColor)
+        if not baseColor then return end
+        Window.CustomThemeColor = baseColor
+        local h, s, v = baseColor:ToHSV()
+
+        local buttonBG = Color3.fromHSV(h, math.clamp(s * 0.95, 0.4, 1), math.clamp(v * 0.9, 0.4, 0.95))
+        local accentBG = Color3.fromHSV(h, math.clamp(s * 0.75, 0.2, 0.8), math.clamp(v * 0.45, 0.15, 0.45))
+        local topBG = Color3.fromHSV(h, math.clamp(s * 0.7, 0.2, 0.75), math.clamp(v * 0.35, 0.12, 0.38))
+        local bottomBG = topBG
+        local mainBG = Color3.fromHSV(h, math.clamp(s * 0.65, 0.15, 0.6), math.clamp(v * 0.22, 0.08, 0.24))
+        local cardBG = Color3.fromHSV(h, math.clamp(s * 0.6, 0.15, 0.55), math.clamp(v * 0.15, 0.05, 0.16))
+        local divider = Color3.fromHSV(h, math.clamp(s * 0.9, 0.3, 0.95), math.clamp(v * 0.7, 0.3, 0.85))
+
+        local text = Color3.fromRGB(245, 245, 250)
+        local subText = Color3.fromHSV(h, math.clamp(s * 0.25, 0.05, 0.35), 0.85)
+
+        local bot1 = Color3.fromHSV(h, math.clamp(s * 0.8, 0.25, 0.85), math.clamp(v * 0.35, 0.15, 0.4))
+        local bot2 = Color3.fromHSV(h, math.clamp(s * 0.85, 0.3, 0.9), math.clamp(v * 0.55, 0.25, 0.65))
+        local bot3 = Color3.fromHSV(h, math.clamp(s * 0.8, 0.25, 0.85), math.clamp(v * 0.3, 0.12, 0.35))
+
+        local min1 = Color3.fromHSV(h, math.clamp(s * 0.9, 0.4, 0.95), math.clamp(v * 0.65, 0.35, 0.8))
+        local min2 = Color3.fromHSV(h, math.clamp(s * 0.75, 0.3, 0.8), math.clamp(v * 0.95, 0.6, 1.0))
+        local min3 = Color3.fromHSV(h, math.clamp(s * 0.9, 0.4, 0.95), math.clamp(v * 0.7, 0.4, 0.85))
+
+        local customTheme = {
+            Name = "Custom",
+            MainBG = mainBG,
+            MainTrans = Window.CustomBGTransparency or 0.10,
+            AccentBG = accentBG,
+            AccentTrans = math.clamp((Window.CustomBGTransparency or 0.10) + 0.10, 0, 1),
+            TopBG = topBG,
+            TopTrans = 0.05,
+            BottomBG = bottomBG,
+            BottomTrans = 0.0,
+            BottomGradient = { bot1, bot2, bot3 },
+            MinGradient = { min1, min2, min3 },
+            Divider = divider,
+            Text = text,
+            SubText = subText,
+            CardBG = cardBG,
+            ButtonBG = buttonBG
+        }
+
+        Library.ThemePresets["Custom"] = customTheme
+        Window:ApplyTheme("Custom")
+    end
+
+    function Window:SetBackgroundTransparency(transparency)
+        local pct = math.clamp(transparency or 0.10, 0, 0.95)
+        Window.CustomBGTransparency = pct
+        if Window.MainFrame then
+            Window.MainFrame.BackgroundTransparency = pct
+        end
+        if Window.LeftFrame then
+            Window.LeftFrame.BackgroundTransparency = math.clamp(pct + 0.10, 0, 1)
+        end
     end
 
     function Window:SetUISounds(enabled)
@@ -4070,10 +5361,10 @@ function Library:CreateWindow(hubTitle, scriptName)
     -- REAL ASSET PRELOADER & INITIALIZATION ENGINE
     -- =========================================================================
     task.defer(function()
-        Window:UpdateLoadingProgress(10, "INITIALIZING...")
+        Window:UpdateLoadingProgress(10, "Initializing...")
 
         if not game:IsLoaded() then
-            Window:UpdateLoadingProgress(15, "WAITING FOR GAME...")
+            Window:UpdateLoadingProgress(15, "Waiting for game...")
             pcall(function() game.Loaded:Wait() end)
         end
 
@@ -4082,12 +5373,12 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local lp = Players.LocalPlayer
         while not lp do
-            Window:UpdateLoadingProgress(25, "WAITING FOR PLAYER...")
+            Window:UpdateLoadingProgress(25, "Waiting for player...")
             task.wait(0.1)
             lp = Players.LocalPlayer
         end
 
-        Window:UpdateLoadingProgress(35, "PREPARING ASSETS...")
+        Window:UpdateLoadingProgress(35, "Preparing assets...")
 
         local assetsToPreload = {
             "rbxassetid://5852311399",
@@ -4131,12 +5422,12 @@ function Library:CreateWindow(hubTitle, scriptName)
                 ContentProvider:PreloadAsync(assetsToPreload, function(contentId, status)
                     loadedAssets = loadedAssets + 1
                     local pct = 40 + math.floor((loadedAssets / totalAssets) * 55)
-                    Window:UpdateLoadingProgress(pct, string.format("PRELOADING ASSETS (%d/%d)...", loadedAssets, totalAssets))
+                    Window:UpdateLoadingProgress(pct, string.format("Preloading assets (%d/%d)...", loadedAssets, totalAssets))
                 end)
             end)
         end
 
-        Window:UpdateLoadingProgress(100, "LOADED!")
+        Window:UpdateLoadingProgress(100, "Loaded!")
         Window:FinishLoading()
     end)
 
