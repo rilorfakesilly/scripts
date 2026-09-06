@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.6"
+Library.Version = "2.7"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -247,6 +247,8 @@ function Library:CreateWindow(hubTitle, scriptName)
         RegisteredDropdownsList = {},
         RegisteredColorPickers = {},
         RegisteredColorPickersList = {},
+        RegisteredKeybindBadges = {},
+        KeybindMap = {},
         SearchableItems = {},
         ThemePresetBtnMap = {},
         Tabs = {},
@@ -1426,7 +1428,231 @@ function Library:CreateWindow(hubTitle, scriptName)
         return btnData
     end
 
-    function Window:CreateMDToggle(parent, position, size, initialState, onToggle, identifier)
+    -- =========================================================================
+    -- KEYBIND BADGE & TOGGLE FUNCTION BIND ENGINE
+    -- =========================================================================
+    local ActiveListeningBadge = nil
+
+    local function ParseKeyCode(input)
+        if not input or input == "..." or input == "" or input == false then
+            return nil
+        end
+        if typeof(input) == "EnumItem" and input.EnumType == Enum.KeyCode then
+            return input
+        end
+        if type(input) == "string" then
+            local trimmed = input:gsub("%s+", "")
+            if trimmed == "..." or trimmed == "" or trimmed:lower() == "none" or trimmed:lower() == "nil" then
+                return nil
+            end
+            for _, code in ipairs(Enum.KeyCode:GetEnumItems()) do
+                if code.Name:lower() == trimmed:lower() then
+                    return code
+                end
+            end
+        end
+        return nil
+    end
+
+    local function GetKeyDisplayName(keyCode)
+        if not keyCode or keyCode == Enum.KeyCode.Unknown then
+            return "..."
+        end
+        local name = keyCode.Name
+        if name:find("^Keypad") then
+            name = name:gsub("^Keypad", "Num")
+        elseif name == "LeftShift" then
+            name = "LShift"
+        elseif name == "RightShift" then
+            name = "RShift"
+        elseif name == "LeftControl" then
+            name = "LCtrl"
+        elseif name == "RightControl" then
+            name = "RCtrl"
+        elseif name == "LeftAlt" then
+            name = "LAlt"
+        elseif name == "RightAlt" then
+            name = "RAlt"
+        end
+        return name
+    end
+
+    function Window:CreateKeybindBadge(parent, position, size, initialBind, onTrigger, identifier)
+        size = size or UDim2.new(0, 36, 0, 22)
+        position = position or UDim2.new(0, 0, 0, 0)
+
+        local initialKey = ParseKeyCode(initialBind)
+
+        local BadgeContainer = Instance.new("Frame")
+        BadgeContainer.Name = "KeybindBadge"
+        BadgeContainer.Size = size
+        BadgeContainer.Position = position
+        BadgeContainer.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(24, 26, 34)
+        BadgeContainer.BackgroundTransparency = 0.15
+        BadgeContainer.BorderSizePixel = 0
+        BadgeContainer.ZIndex = 15
+        BadgeContainer.ClipsDescendants = false
+        BadgeContainer.Parent = parent
+
+        local BadgeCorner = Instance.new("UICorner")
+        BadgeCorner.CornerRadius = UDim.new(0, 6)
+        BadgeCorner.Parent = BadgeContainer
+
+        local BadgeStroke = Instance.new("UIStroke")
+        BadgeStroke.Name = "BadgeStroke"
+        BadgeStroke.Thickness = 1.1
+        BadgeStroke.Color = Color3.fromRGB(255, 255, 255)
+        BadgeStroke.Transparency = 0.75
+        BadgeStroke.Parent = BadgeContainer
+
+        local BadgeText = Instance.new("TextLabel")
+        BadgeText.Name = "KeyLabel"
+        BadgeText.Size = UDim2.new(1, -6, 1, 0)
+        BadgeText.Position = UDim2.new(0, 3, 0, 0)
+        BadgeText.BackgroundTransparency = 1
+        BadgeText.FontFace = FontMichromaRegular
+        BadgeText.Text = GetKeyDisplayName(initialKey)
+        BadgeText.TextColor3 = Window.CurrentTheme.Text
+        BadgeText.TextSize = 10
+        BadgeText.TextXAlignment = Enum.TextXAlignment.Center
+        BadgeText.TextYAlignment = Enum.TextYAlignment.Center
+        BadgeText.ZIndex = 16
+        BadgeText.Parent = BadgeContainer
+
+        local TriggerBtn = Instance.new("TextButton")
+        TriggerBtn.Name = "BindTrigger"
+        TriggerBtn.Size = UDim2.new(1, 0, 1, 0)
+        TriggerBtn.BackgroundTransparency = 1
+        TriggerBtn.Text = ""
+        TriggerBtn.ZIndex = 17
+        TriggerBtn.Parent = BadgeContainer
+
+        -- Small close icon that appears when editing to delete/clear bind
+        local DeleteBtn = Instance.new("TextButton")
+        DeleteBtn.Name = "DeleteBindBtn"
+        DeleteBtn.Size = UDim2.new(0, 14, 0, 14)
+        DeleteBtn.Position = UDim2.new(1, -15, 0.5, -7)
+        DeleteBtn.BackgroundColor3 = Color3.fromRGB(215, 45, 45)
+        DeleteBtn.BackgroundTransparency = 0.1
+        DeleteBtn.FontFace = FontMichromaBold
+        DeleteBtn.Text = "X"
+        DeleteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        DeleteBtn.TextSize = 8
+        DeleteBtn.ZIndex = 18
+        DeleteBtn.Visible = false
+        DeleteBtn.Parent = BadgeContainer
+
+        local DelCorner = Instance.new("UICorner")
+        DelCorner.CornerRadius = UDim.new(0, 7)
+        DelCorner.Parent = DeleteBtn
+
+        local badgeData = {
+            Container = BadgeContainer,
+            Label = BadgeText,
+            Stroke = BadgeStroke,
+            DeleteBtn = DeleteBtn,
+            CurrentKey = initialKey,
+            OnTrigger = onTrigger,
+            Identifier = identifier or "Toggle",
+            IsListening = false
+        }
+
+        local function UpdateUI()
+            BadgeText.Text = GetKeyDisplayName(badgeData.CurrentKey)
+            if badgeData.IsListening then
+                BadgeText.Text = "..."
+                BadgeText.Size = UDim2.new(1, -18, 1, 0)
+                BadgeText.Position = UDim2.new(0, 2, 0, 0)
+                BadgeStroke.Thickness = 1.6
+                BadgeStroke.Color = Window.CurrentTheme.Text
+                BadgeStroke.Transparency = 0.2
+                DeleteBtn.Visible = true
+            else
+                BadgeText.Size = UDim2.new(1, -6, 1, 0)
+                BadgeText.Position = UDim2.new(0, 3, 0, 0)
+                BadgeStroke.Thickness = 1.1
+                BadgeStroke.Color = Color3.fromRGB(255, 255, 255)
+                BadgeStroke.Transparency = 0.75
+                DeleteBtn.Visible = false
+            end
+        end
+
+        function badgeData.SetKey(newKeyCode, isUserEdit)
+            if badgeData.CurrentKey and Window.KeybindMap[badgeData.CurrentKey] == badgeData then
+                Window.KeybindMap[badgeData.CurrentKey] = nil
+            end
+
+            if newKeyCode and newKeyCode ~= Enum.KeyCode.Unknown then
+                -- Conflict check: if another toggle used this key, clear it
+                local existing = Window.KeybindMap[newKeyCode]
+                if existing and existing ~= badgeData then
+                    existing.ClearKey(false)
+                    if isUserEdit then
+                        Window:Notify("Keybind", "Reassigned " .. newKeyCode.Name .. " (cleared from " .. (existing.Identifier or "toggle") .. ")", 2.5)
+                    end
+                end
+                Window.KeybindMap[newKeyCode] = badgeData
+                badgeData.CurrentKey = newKeyCode
+            else
+                badgeData.CurrentKey = nil
+            end
+
+            UpdateUI()
+        end
+
+        function badgeData.ClearKey(notify)
+            if badgeData.CurrentKey and Window.KeybindMap[badgeData.CurrentKey] == badgeData then
+                Window.KeybindMap[badgeData.CurrentKey] = nil
+            end
+            badgeData.CurrentKey = nil
+            badgeData.IsListening = false
+            UpdateUI()
+            if notify then
+                Window:Notify("Keybind", "Cleared bind for " .. (badgeData.Identifier or "toggle"), 2)
+            end
+        end
+
+        function badgeData.StartListening()
+            if ActiveListeningBadge and ActiveListeningBadge ~= badgeData then
+                ActiveListeningBadge.StopListening()
+            end
+            badgeData.IsListening = true
+            ActiveListeningBadge = badgeData
+            PlayClickSFX()
+            UpdateUI()
+        end
+
+        function badgeData.StopListening()
+            badgeData.IsListening = false
+            if ActiveListeningBadge == badgeData then
+                ActiveListeningBadge = nil
+            end
+            UpdateUI()
+        end
+
+        TrackConn(TriggerBtn.MouseButton1Click:Connect(function()
+            if badgeData.IsListening then
+                badgeData.StopListening()
+            else
+                badgeData.StartListening()
+            end
+        end))
+
+        TrackConn(DeleteBtn.MouseButton1Click:Connect(function()
+            PlayClickSFX()
+            badgeData.ClearKey(true)
+            badgeData.StopListening()
+        end))
+
+        if initialKey then
+            badgeData.SetKey(initialKey, false)
+        end
+
+        table.insert(Window.RegisteredKeybindBadges, badgeData)
+        return badgeData
+    end
+
+    function Window:CreateMDToggle(parent, position, size, initialState, onToggle, identifier, keybindConfig)
         size = size or UDim2.new(0, 56, 0, 26)
 
         local ToggleFrame = Instance.new("Frame")
@@ -1490,13 +1716,11 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local isToggled = initialState
 
-        TrackConn(ClickBtn.MouseButton1Click:Connect(function()
-            PlayClickSFX()
-            isToggled = not isToggled
-
+        local function PerformToggle(newState, triggerCallback)
+            isToggled = (newState == true)
             local targetKnobPos = isToggled and UDim2.new(1, -13, 0.5, 0) or UDim2.new(0, 13, 0.5, 0)
             local targetRotation = isToggled and 0 or 225
-            local targetBG = isToggled and Window.CurrentTheme.ButtonBG or Color3.fromRGB(35, 38, 48)
+            local targetBG = isToggled and Window.CurrentTheme.ButtonBG or ((Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
 
             TweenService:Create(KnobFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                 Position = targetKnobPos,
@@ -1504,9 +1728,14 @@ function Library:CreateWindow(hubTitle, scriptName)
             }):Play()
             TweenService:Create(ToggleFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetBG}):Play()
 
-            if onToggle then
+            if triggerCallback and onToggle then
                 pcall(onToggle, isToggled)
             end
+        end
+
+        TrackConn(ClickBtn.MouseButton1Click:Connect(function()
+            PlayClickSFX()
+            PerformToggle(not isToggled, true)
         end))
 
         local toggleName = identifier or ("Toggle_" .. (#Window.RegisteredMDToggles + 1))
@@ -1518,15 +1747,20 @@ function Library:CreateWindow(hubTitle, scriptName)
             Stroke = Stroke,
             GetState = function() return isToggled end,
             SetState = function(state, triggerCallback)
-                isToggled = (state == true)
-                KnobFrame.Position = isToggled and UDim2.new(1, -13, 0.5, 0) or UDim2.new(0, 13, 0.5, 0)
-                KnobFrame.Rotation = isToggled and 0 or 225
-                ToggleFrame.BackgroundColor3 = isToggled and Window.CurrentTheme.ButtonBG or ((Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
-                if triggerCallback and onToggle then
-                    pcall(onToggle, isToggled)
-                end
+                PerformToggle(state, triggerCallback)
             end
         }
+
+        if keybindConfig then
+            local defaultKey = (type(keybindConfig) == "table" and (keybindConfig.Default or keybindConfig.Bind)) or (keybindConfig ~= true and keybindConfig or nil)
+            local pos = position or UDim2.new(0, 0, 0, 0)
+            local badgePos = UDim2.new(pos.X.Scale, pos.X.Offset - 42, pos.Y.Scale, pos.Y.Offset + 2)
+            toggleData.Keybind = Window:CreateKeybindBadge(parent, badgePos, UDim2.new(0, 36, 0, 22), defaultKey, function()
+                toggleData.SetState(not isToggled, true)
+                PlayClickSFX()
+            end, toggleName)
+        end
+
         Window.RegisteredToggles[toggleName] = toggleData
         table.insert(Window.RegisteredMDToggles, toggleData)
         return toggleData
@@ -2225,10 +2459,93 @@ function Library:CreateWindow(hubTitle, scriptName)
         return colorPickerData
     end
 
-    -- Long Button Generator (Half-Side / Full-Row)
+    -- =========================================================================
+    -- SCRIPTING QOL: SIZE FRACTIONS & ROW WIDTH ENGINE
+    -- =========================================================================
+    local function ResolveSizeFraction(sizeInput, defaultFraction)
+        if sizeInput == nil then
+            return defaultFraction or 1.0, nil
+        end
+        if typeof(sizeInput) == "UDim2" then
+            return nil, sizeInput
+        end
+        if type(sizeInput) == "number" then
+            return math.clamp(sizeInput, 0.05, 1.0), nil
+        end
+        if type(sizeInput) == "string" then
+            local lower = sizeInput:lower():gsub("%s+", "")
+            if lower == "1" or lower == "full" or lower == "100%" or lower == "1/1" or lower == "single" then
+                return 1.0, nil
+            elseif lower == "1/2" or lower == "half" or lower == "50%" or lower == "0.5" or lower == "dual" then
+                return 0.5, nil
+            elseif lower == "1/3" or lower == "third" or lower == "33%" or lower == "0.33" or lower == "0.333" or lower == "triple" then
+                return 1/3, nil
+            elseif lower == "2/3" or lower == "two-thirds" or lower == "66%" or lower == "0.66" or lower == "0.666" or lower == "0.67" then
+                return 2/3, nil
+            elseif lower == "1/4" or lower == "quarter" or lower == "fourth" or lower == "25%" or lower == "0.25" or lower == "quad" then
+                return 0.25, nil
+            elseif lower == "3/4" or lower == "three-fourths" or lower == "75%" or lower == "0.75" then
+                return 0.75, nil
+            else
+                local num = tonumber(lower)
+                if num then
+                    return math.clamp(num, 0.05, 1.0), nil
+                end
+            end
+        end
+        return defaultFraction or 1.0, nil
+    end
+
+    local function ComputeRowItemWidth(fraction, height)
+        height = height or 44
+        if not fraction or fraction >= 0.98 then
+            return UDim2.new(1, 0, 0, height)
+        elseif fraction >= 0.48 and fraction <= 0.52 then
+            return UDim2.new(0.5, -4, 0, height)
+        elseif fraction >= 0.31 and fraction <= 0.35 then
+            return UDim2.new(0.3333, -5, 0, height)
+        elseif fraction >= 0.64 and fraction <= 0.68 then
+            return UDim2.new(0.6666, -5, 0, height)
+        elseif fraction >= 0.23 and fraction <= 0.27 then
+            return UDim2.new(0.25, -6, 0, height)
+        elseif fraction >= 0.73 and fraction <= 0.77 then
+            return UDim2.new(0.75, -6, 0, height)
+        else
+            local items = math.max(1, math.floor((1 / fraction) + 0.5))
+            local gapSub = math.floor(((items - 1) * 8 / items) + 0.5)
+            return UDim2.new(fraction, -gapSub, 0, height)
+        end
+    end
+
+    -- Long Button Generator (Half-Side / Full-Row / Fractional)
     function Window:CreateMDButtonLong(parent, position, size, text, onClick)
-        size = size or UDim2.new(1, 0, 0, 44)
-        position = position or UDim2.new(0, 0, 0, 0)
+        local btnText, callback, btnSize, btnPos, targetParent
+
+        if type(parent) == "table" and not parent.IsA then
+            targetParent = parent.Parent or parent.parent or parent.Row or parent[1]
+            btnPos = parent.Position or parent.pos or UDim2.new(0, 0, 0, 0)
+            btnSize = parent.Size or parent.size or parent.Fraction or parent[2]
+            btnText = parent.Text or parent.text or parent.Title or parent.Name or parent[3] or "Button"
+            callback = parent.Callback or parent.callback or parent.OnClick or parent[4]
+        else
+            targetParent = parent
+            btnPos = position or UDim2.new(0, 0, 0, 0)
+            btnSize = size
+            btnText = text or "Function"
+            callback = onClick
+        end
+
+        local fraction, explicitUDim = ResolveSizeFraction(btnSize, nil)
+        if explicitUDim then
+            size = explicitUDim
+        elseif fraction then
+            size = ComputeRowItemWidth(fraction, 44)
+        else
+            size = UDim2.new(1, 0, 0, 44)
+        end
+        position = btnPos or UDim2.new(0, 0, 0, 0)
+        text = btnText or "Function"
+        onClick = callback
 
         local BtnFrame = Instance.new("Frame")
         BtnFrame.Name = "TopFrame"
@@ -2322,7 +2639,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     end
 
     -- Half-Side Embedded Toggle Generator
-    function Window:CreateMDToggleHalf(parent, position, size, text, initialState, onToggle)
+    function Window:CreateMDToggleHalf(parent, position, size, text, initialState, onToggle, keybindConfig)
         size = size or UDim2.new(0, 260, 0, 44)
         position = position or UDim2.new(0, 0, 0, 0)
 
@@ -2353,9 +2670,11 @@ function Library:CreateWindow(hubTitle, scriptName)
         MDTextFolder.Name = "Text"
         MDTextFolder.Parent = CardFrame
 
+        local hasKeybind = keybindConfig ~= nil and keybindConfig ~= false
+
         local TitleText = Instance.new("TextLabel")
         TitleText.Name = "btntext"
-        TitleText.Size = UDim2.new(1, -65, 1, 0)
+        TitleText.Size = hasKeybind and UDim2.new(1, -104, 1, 0) or UDim2.new(1, -65, 1, 0)
         TitleText.Position = UDim2.new(0, 14, 0, 0)
         TitleText.BackgroundTransparency = 1
         TitleText.FontFace = FontMichromaRegular
@@ -2419,21 +2738,24 @@ function Library:CreateWindow(hubTitle, scriptName)
         ClickBtn.ZIndex = 14
         ClickBtn.Parent = CardFrame
 
-        TrackConn(ClickBtn.MouseButton1Click:Connect(function()
-            PlayClickSFX()
-            isToggled = not isToggled
-
+        local function PerformToggle(newState, triggerCallback)
+            isToggled = (newState == true)
             local targetKnobPosBase = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
             local targetKnobPosOver = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
-            local targetBG = isToggled and Window.CurrentTheme.ButtonBG or Color3.fromRGB(35, 38, 48)
+            local targetBG = isToggled and Window.CurrentTheme.ButtonBG or ((Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
 
             TweenService:Create(BaseCircle, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetKnobPosBase}):Play()
             TweenService:Create(OverlayCircle, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetKnobPosOver}):Play()
             TweenService:Create(ToggleFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetBG}):Play()
 
-            if onToggle then
+            if triggerCallback and onToggle then
                 pcall(onToggle, isToggled)
             end
+        end
+
+        TrackConn(ClickBtn.MouseButton1Click:Connect(function()
+            PlayClickSFX()
+            PerformToggle(not isToggled, true)
         end))
 
         local toggleName = text or ("ToggleHalf_" .. (#Window.RegisteredMDToggles + 1))
@@ -2446,15 +2768,18 @@ function Library:CreateWindow(hubTitle, scriptName)
             Stroke = Stroke,
             GetState = function() return isToggled end,
             SetState = function(state, triggerCallback)
-                isToggled = (state == true)
-                BaseCircle.Position = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
-                OverlayCircle.Position = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
-                ToggleFrame.BackgroundColor3 = isToggled and Window.CurrentTheme.ButtonBG or ((Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
-                if triggerCallback and onToggle then
-                    pcall(onToggle, isToggled)
-                end
+                PerformToggle(state, triggerCallback)
             end
         }
+
+        if hasKeybind then
+            local defaultKey = (type(keybindConfig) == "table" and (keybindConfig.Default or keybindConfig.Bind)) or (keybindConfig ~= true and keybindConfig or nil)
+            toggleData.Keybind = Window:CreateKeybindBadge(CardFrame, UDim2.new(1, -96, 0.5, -11), UDim2.new(0, 36, 0, 22), defaultKey, function()
+                toggleData.SetState(not isToggled, true)
+                PlayClickSFX()
+            end, toggleName)
+        end
+
         Window.RegisteredToggles[toggleName] = toggleData
         table.insert(Window.RegisteredMDToggles, toggleData)
 
@@ -3807,24 +4132,111 @@ function Library:CreateWindow(hubTitle, scriptName)
             })
         end
 
-        function TabObj:AddRow()
+        function TabObj:AddRow(height, padding)
+            height = height or 44
+            padding = padding or 8
+
             local RowFrame = Instance.new("Frame")
             RowFrame.Name = "RowFrame"
-            RowFrame.Size = UDim2.new(1, -10, 0, 44)
+            RowFrame.Size = UDim2.new(1, -10, 0, height)
             RowFrame.BackgroundTransparency = 1
             RowFrame.BorderSizePixel = 0
             RowFrame.ZIndex = 3
+            RowFrame.ClipsDescendants = false
             RowFrame.Parent = ContentFrame
+
+            local RowLayout = Instance.new("UIListLayout")
+            RowLayout.Name = "RowLayout"
+            RowLayout.FillDirection = Enum.FillDirection.Horizontal
+            RowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            RowLayout.Padding = UDim.new(0, padding)
+            RowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+            RowLayout.Parent = RowFrame
+
+            function RowFrame:AddButton(text, callback, sizeFraction)
+                return TabObj:AddLongButton(text, callback, sizeFraction or 0.5, RowFrame)
+            end
+            function RowFrame:AddLongButton(text, callback, sizeFraction)
+                return TabObj:AddLongButton(text, callback, sizeFraction or 0.5, RowFrame)
+            end
+            function RowFrame:AddToggle(titleOrConfig, initialState, onToggle, sizeFraction)
+                return TabObj:AddToggle(titleOrConfig, initialState, onToggle, RowFrame, nil, sizeFraction or 0.5)
+            end
+            function RowFrame:AddDropdown(title, options, defaultOption, onSelect, sizeFraction)
+                return TabObj:AddDropdown(title, options, defaultOption, onSelect, RowFrame, nil, sizeFraction or 0.5)
+            end
+            function RowFrame:AddTextbox(title, placeholder, defaultText, onSubmit, sizeFraction)
+                return TabObj:AddTextbox(title, placeholder, defaultText, onSubmit, RowFrame, nil, sizeFraction or 0.5)
+            end
+            function RowFrame:AddColorPicker(title, defaultColor, callback, sizeFraction)
+                return TabObj:AddColorPicker(title, defaultColor, callback, RowFrame, nil, sizeFraction or 0.5)
+            end
+
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
             return RowFrame
         end
 
-        function TabObj:AddLongButton(text, callback, parentRow, position)
-            local targetParent = parentRow or ContentFrame
-            local size = parentRow and UDim2.new(0.485, -4, 0, 44) or UDim2.new(1, -10, 0, 44)
-            local pos = position or UDim2.new(0, 0, 0, 0)
+        function TabObj:AddLongButton(arg1, arg2, arg3, arg4, arg5)
+            local text, callback, sizeInput, parentRow, position
+            if type(arg1) == "table" and not arg1.IsA then
+                text = arg1.Text or arg1.Title or arg1.Name or arg1[1] or "Button"
+                callback = arg1.Callback or arg1.OnClick or arg1.callback or arg1[2]
+                sizeInput = arg1.Size or arg1.Fraction or arg1.size or arg1[3]
+                parentRow = arg1.Parent or arg1.Row or arg1.parentRow
+                position = arg1.Position or arg1.pos
+            else
+                text = arg1 or "Button"
+                callback = arg2
+                if typeof(arg3) == "Instance" then
+                    parentRow = arg3
+                    position = arg4
+                else
+                    sizeInput = arg3
+                    parentRow = arg4
+                    position = arg5
+                end
+            end
 
-            local btnData = Window:CreateMDButtonLong(targetParent, pos, size, text, callback)
+            local fraction, explicitUDim = ResolveSizeFraction(sizeInput, parentRow and 0.5 or 1.0)
+            local targetParent = parentRow
+            local finalSize
+
+            if explicitUDim then
+                finalSize = explicitUDim
+                targetParent = targetParent or ContentFrame
+            elseif targetParent then
+                finalSize = ComputeRowItemWidth(fraction or 0.5, 44)
+            else
+                -- Auto-Flow Left-to-Right Sorting Engine
+                if fraction and fraction < 0.98 then
+                    local needsNewRow = false
+                    if not TabObj.CurrentAutoRow or not TabObj.CurrentAutoRow.Parent or TabObj.CurrentAutoRow.Parent ~= ContentFrame then
+                        needsNewRow = true
+                    elseif (TabObj.CurrentAutoRowRemaining or 0) < (fraction - 0.02) then
+                        needsNewRow = true
+                    end
+
+                    if needsNewRow then
+                        TabObj.CurrentAutoRow = TabObj:AddRow(44, 8)
+                        TabObj.CurrentAutoRowRemaining = 1.0
+                    end
+
+                    targetParent = TabObj.CurrentAutoRow
+                    finalSize = ComputeRowItemWidth(fraction, 44)
+                    TabObj.CurrentAutoRowRemaining = (TabObj.CurrentAutoRowRemaining or 1.0) - fraction
+                    if TabObj.CurrentAutoRowRemaining <= 0.05 then
+                        TabObj.CurrentAutoRow = nil
+                    end
+                else
+                    TabObj.CurrentAutoRow = nil
+                    TabObj.CurrentAutoRowRemaining = 0
+                    targetParent = ContentFrame
+                    finalSize = UDim2.new(1, -10, 0, 44)
+                end
+            end
+
+            local pos = position or UDim2.new(0, 0, 0, 0)
+            local btnData = Window:CreateMDButtonLong(targetParent, pos, finalSize, text, callback)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
 
             table.insert(Window.SearchableItems, {
@@ -3839,9 +4251,48 @@ function Library:CreateWindow(hubTitle, scriptName)
             return btnData
         end
 
-        function TabObj:AddDropdown(title, options, defaultOption, onSelect, parentRow, position)
+        function TabObj:AddButtonRow(buttonList, height)
+            height = height or 44
+            if type(buttonList) ~= "table" then return end
+
+            local row = TabObj:AddRow(height, 8)
+            local count = #buttonList
+            local defaultFraction = count > 0 and (1 / count) or 0.5
+
+            local results = {}
+            for i, item in ipairs(buttonList) do
+                local text, callback, sizeInput
+                if type(item) == "table" and not item.IsA then
+                    text = item.Text or item.Title or item.Name or item[1] or "Button"
+                    callback = item.Callback or item.OnClick or item.callback or item[2]
+                    sizeInput = item.Size or item.Fraction or item[3] or defaultFraction
+                else
+                    text = tostring(item)
+                    sizeInput = defaultFraction
+                end
+
+                local fraction, explicitUDim = ResolveSizeFraction(sizeInput, defaultFraction)
+                local itemSize = explicitUDim or ComputeRowItemWidth(fraction, height)
+                local btn = Window:CreateMDButtonLong(row, UDim2.new(0, 0, 0, 0), itemSize, text, callback)
+
+                table.insert(Window.SearchableItems, {
+                    Type = "Button",
+                    Name = text,
+                    Desc = "",
+                    TabName = tabName,
+                    Instance = btn.Frame,
+                    Callback = callback
+                })
+                table.insert(results, btn)
+            end
+
+            return row, results
+        end
+
+        function TabObj:AddDropdown(title, options, defaultOption, onSelect, parentRow, position, sizeFraction)
             local targetParent = parentRow or ContentFrame
-            local size = parentRow and UDim2.new(0.485, -4, 0, 44) or UDim2.new(1, -10, 0, 44)
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
+            local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
             local pos = position or UDim2.new(0, 0, 0, 0)
             local dropObj = Window:CreateMDDropdown(targetParent, pos, size, title, options, defaultOption, onSelect)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
@@ -3857,9 +4308,10 @@ function Library:CreateWindow(hubTitle, scriptName)
             return dropObj
         end
 
-        function TabObj:AddTextbox(title, placeholder, defaultText, onSubmit, parentRow, position)
+        function TabObj:AddTextbox(title, placeholder, defaultText, onSubmit, parentRow, position, sizeFraction)
             local targetParent = parentRow or ContentFrame
-            local size = parentRow and UDim2.new(0.485, -4, 0, 44) or UDim2.new(1, -10, 0, 44)
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
+            local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
             local pos = position or UDim2.new(0, 0, 0, 0)
             local boxObj = Window:CreateMDTextbox(targetParent, pos, size, title, placeholder, defaultText, onSubmit)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
@@ -3875,9 +4327,10 @@ function Library:CreateWindow(hubTitle, scriptName)
             return boxObj
         end
 
-        function TabObj:AddColorPicker(title, defaultColor, callback, parentRow, position)
+        function TabObj:AddColorPicker(title, defaultColor, callback, parentRow, position, sizeFraction)
             local targetParent = parentRow or ContentFrame
-            local size = parentRow and UDim2.new(0.485, -4, 0, 44) or UDim2.new(1, -10, 0, 44)
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
+            local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
             local pos = position or UDim2.new(0, 0, 0, 0)
             local cpData = Window:CreateMDColorPicker(targetParent, pos, size, title, defaultColor, callback)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
@@ -3897,15 +4350,18 @@ function Library:CreateWindow(hubTitle, scriptName)
             return Window:CreateConfigSection(TabObj)
         end
 
-        function TabObj:AddToggle(titleOrConfig, initialState, onToggle, parentRow, position)
+        function TabObj:AddToggle(titleOrConfig, initialState, onToggle, parentRow, position, sizeFraction, bindConfig)
             local targetParent = parentRow or ContentFrame
-            local size = parentRow and UDim2.new(0.485, -4, 0, 44) or UDim2.new(1, -10, 0, 44)
-            local pos = position or UDim2.new(0, 0, 0, 0)
-            local text = (type(titleOrConfig) == "table" and (titleOrConfig.Title or titleOrConfig.Name)) or tostring(titleOrConfig)
-            local state = (type(titleOrConfig) == "table" and (titleOrConfig.Default or titleOrConfig.Value)) or initialState
-            local cb = (type(titleOrConfig) == "table" and (titleOrConfig.Callback or titleOrConfig.OnChanged)) or onToggle
+            local text = (type(titleOrConfig) == "table" and (titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1])) or tostring(titleOrConfig)
+            local state = (type(titleOrConfig) == "table" and (titleOrConfig.Default or titleOrConfig.Value or titleOrConfig.State or titleOrConfig[2])) or initialState
+            local cb = (type(titleOrConfig) == "table" and (titleOrConfig.Callback or titleOrConfig.OnChanged or titleOrConfig.callback or titleOrConfig[3])) or onToggle
+            local bind = (type(titleOrConfig) == "table" and (titleOrConfig.Bind or titleOrConfig.Keybind or titleOrConfig.DefaultBind or titleOrConfig[4])) or bindConfig
 
-            local toggleData = Window:CreateMDToggleHalf(targetParent, pos, size, text, state, cb)
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
+            local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
+            local pos = position or UDim2.new(0, 0, 0, 0)
+
+            local toggleData = Window:CreateMDToggleHalf(targetParent, pos, size, text, state, cb, bind)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
 
             table.insert(Window.SearchableItems, {
@@ -4081,7 +4537,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             if state then
                 Window:Notify("Settings", "Notifications enabled", 2)
             end
-        end, "Notifications")
+        end, "Notifications", true)
 
         -- 2. Enable UI Sounds Card
         local SoundCard = Instance.new("Frame")
@@ -4197,7 +4653,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             else
                 Window:Notify("Settings", "Spiderweb background disabled", 2)
             end
-        end, "SpiderwebBG")
+        end, "SpiderwebBG", "Y")
 
         -- 5. Background Blur Card
         local BlurCard = Instance.new("Frame")
@@ -5045,7 +5501,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         end
     end
 
-    TrackConn(UserInputService.InputBegan:Connect(function(input)
+    TrackConn(UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
             if ScriptUi and ScriptUi.Enabled then
@@ -5054,6 +5510,29 @@ function Library:CreateWindow(hubTitle, scriptName)
                 local mainSz = MainContainer.AbsoluteSize
                 if pos.X >= mainAbs.X and pos.X <= mainAbs.X + mainSz.X and pos.Y >= mainAbs.Y and pos.Y <= mainAbs.Y + mainSz.Y then
                     SpawnClickParticles(pos.X, pos.Y)
+                end
+            end
+        elseif input.UserInputType == Enum.UserInputType.Keyboard then
+            if UserInputService:GetFocusedTextBox() then return end
+
+            -- 1. Check if a keybind badge is currently in editing/listening mode
+            if ActiveListeningBadge then
+                local b = ActiveListeningBadge
+                if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete or input.KeyCode == Enum.KeyCode.Escape then
+                    b.ClearKey(true)
+                    b.StopListening()
+                else
+                    b.SetKey(input.KeyCode, true)
+                    b.StopListening()
+                end
+                return
+            end
+
+            -- 2. Trigger active keybinds
+            if not gameProcessed and ScriptUi and ScriptUi.Enabled then
+                local boundBadge = Window.KeybindMap[input.KeyCode]
+                if boundBadge and boundBadge.OnTrigger then
+                    boundBadge.OnTrigger()
                 end
             end
         end
@@ -5189,6 +5668,17 @@ function Library:CreateWindow(hubTitle, scriptName)
             for _, cp in ipairs(Window.RegisteredColorPickersList) do
                 if cp and cp.RefreshTheme then
                     pcall(function() cp.RefreshTheme(newTheme) end)
+                end
+            end
+        end
+
+        if Window.RegisteredKeybindBadges then
+            for _, b in ipairs(Window.RegisteredKeybindBadges) do
+                if b and b.Container and b.Container.Parent then
+                    b.Container.BackgroundColor3 = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(24, 26, 34)
+                    if b.Label then
+                        b.Label.TextColor3 = newTheme.Text
+                    end
                 end
             end
         end
