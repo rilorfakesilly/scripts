@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.10"
+Library.Version = "2.11"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -902,11 +902,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         options = options or {}
         defaultOption = defaultOption or options[1] or "Select..."
 
-        local initialParentZIndex = (parent and parent:IsA("GuiObject")) and parent.ZIndex or 3
-        if parent and parent:IsA("GuiObject") then
-            parent.ClipsDescendants = false
-        end
-
         local DropdownFrame = Instance.new("Frame")
         DropdownFrame.Name = "Dropdown"
         DropdownFrame.Size = size
@@ -914,7 +909,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DropdownFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
         DropdownFrame.BackgroundTransparency = 0.05
         DropdownFrame.BorderSizePixel = 0
-        DropdownFrame.ZIndex = 15
+        DropdownFrame.ZIndex = 4
         DropdownFrame.ClipsDescendants = false
         DropdownFrame.Parent = parent
 
@@ -943,7 +938,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleText.TextWrapped = true
         TitleText.TextXAlignment = Enum.TextXAlignment.Left
         TitleText.TextYAlignment = Enum.TextYAlignment.Center
-        TitleText.ZIndex = 16
+        TitleText.ZIndex = 5
         TitleText.Parent = MDTextFolder
 
         local ArrowIcon = Instance.new("ImageLabel")
@@ -953,7 +948,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ArrowIcon.BackgroundTransparency = 1
         ArrowIcon.Image = "rbxassetid://11552476728"
         ArrowIcon.ImageColor3 = Window.CurrentTheme.Text
-        ArrowIcon.ZIndex = 16
+        ArrowIcon.ZIndex = 5
         ArrowIcon.Parent = DropdownFrame
 
         local HeaderTrigger = Instance.new("TextButton")
@@ -961,21 +956,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         HeaderTrigger.Size = UDim2.new(1, 0, 1, 0)
         HeaderTrigger.BackgroundTransparency = 1
         HeaderTrigger.Text = ""
-        HeaderTrigger.ZIndex = 17
+        HeaderTrigger.ZIndex = 6
         HeaderTrigger.Parent = DropdownFrame
 
-        -- Dropdown Content List Frame
+        -- Dropdown Content List Frame (Parented to Window.DropdownOverlay or MainContainer)
         local DropdownContent = Instance.new("Frame")
         DropdownContent.Name = "DropdownContent"
-        DropdownContent.Size = UDim2.new(1, 0, 0, 0)
-        DropdownContent.Position = UDim2.new(0, 0, 1, 6)
+        DropdownContent.Size = UDim2.new(0, 0, 0, 0)
+        DropdownContent.Position = UDim2.new(0, 0, 0, 0)
         DropdownContent.BackgroundColor3 = Window.CurrentTheme.CardBG
         DropdownContent.BackgroundTransparency = 0.05
         DropdownContent.BorderSizePixel = 0
         DropdownContent.ClipsDescendants = true
         DropdownContent.Visible = false
-        DropdownContent.ZIndex = 80
-        DropdownContent.Parent = DropdownFrame
+        DropdownContent.ZIndex = 501
+        DropdownContent.Parent = Window.DropdownOverlay or MainContainer
 
         local ContentCorner = Instance.new("UICorner")
         ContentCorner.CornerRadius = UDim.new(0, 8)
@@ -990,7 +985,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         InnerScroll.BackgroundTransparency = 1
         InnerScroll.BorderSizePixel = 0
         InnerScroll.ScrollBarThickness = 3
-        InnerScroll.ZIndex = 81
+        InnerScroll.ZIndex = 502
         InnerScroll.Parent = DropdownContent
 
         local ListLayout = Instance.new("UIListLayout")
@@ -1001,6 +996,47 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local selectedOption = defaultOption
         local isExpanded = false
         local dropObj = nil
+
+        local function UpdateDropdownPos()
+            if not DropdownFrame or not DropdownFrame.Parent then return end
+            local overlay = Window.DropdownOverlay or MainContainer
+            if not overlay then return end
+
+            local scale = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
+            if scale <= 0 then scale = 1 end
+
+            local fPos = DropdownFrame.AbsolutePosition
+            local oPos = overlay.AbsolutePosition
+            local fSize = DropdownFrame.AbsoluteSize
+
+            local relX = (fPos.X - oPos.X) / scale
+            local relY = ((fPos.Y - oPos.Y) / scale) + (fSize.Y / scale) + 4
+            local width = fSize.X / scale
+
+            DropdownContent.Position = UDim2.new(0, relX, 0, relY)
+            return width
+        end
+
+        local function CloseDropdown()
+            if not isExpanded then return end
+            isExpanded = false
+            if Window.ActiveDropdown == dropObj then
+                Window.ActiveDropdown = nil
+            end
+            TweenService:Create(ArrowIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = 0}):Play()
+            local scale = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
+            if scale <= 0 then scale = 1 end
+            local curWidth = DropdownContent.AbsoluteSize.X / scale
+            local t = TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, curWidth, 0, 0)
+            })
+            t:Play()
+            t.Completed:Connect(function()
+                if not isExpanded then
+                    DropdownContent.Visible = false
+                end
+            end)
+        end
 
         local function RefreshOptions(newOptions)
             options = newOptions or options
@@ -1019,7 +1055,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ItemBtn.Text = opt
                 ItemBtn.TextColor3 = Window.CurrentTheme.Text
                 ItemBtn.TextSize = 12
-                ItemBtn.ZIndex = isExpanded and 302 or 82
+                ItemBtn.ZIndex = 503
                 ItemBtn.Parent = InnerScroll
 
                 local ItemCorner = Instance.new("UICorner")
@@ -1032,24 +1068,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     local newDisplay = (title and title ~= "") and (title .. ": " .. selectedOption) or selectedOption
                     TitleText.Text = newDisplay
                     
-                    if dropObj and dropObj.Close then
-                        dropObj.Close()
-                    else
-                        isExpanded = false
-                        DropdownFrame.ZIndex = 15
-                        DropdownContent.ZIndex = 80
-                        if Window.ActiveDropdown == dropObj then
-                            Window.ActiveDropdown = nil
-                        end
-                        if Window.ActiveDropdown == nil and ContentOverlay then
-                            ContentOverlay.ZIndex = 15
-                        end
-                        TweenService:Create(ArrowIcon, TweenInfo.new(0.25), {Rotation = 0}):Play()
-                        TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                            Size = UDim2.new(1, 0, 0, 0)
-                        }):Play()
-                        task.delay(0.25, function() DropdownContent.Visible = false end)
-                    end
+                    CloseDropdown()
 
                     if onSelect then onSelect(selectedOption) end
                 end))
@@ -1059,32 +1078,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         RefreshOptions(options)
 
-        local function CloseDropdown()
-            if not isExpanded then return end
-            isExpanded = false
-            if Window.ActiveDropdown == dropObj then
-                Window.ActiveDropdown = nil
-            end
-            TweenService:Create(ArrowIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = 0}):Play()
-            local t = TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Size = UDim2.new(1, 0, 0, 0)
-            })
-            t:Play()
-            t.Completed:Connect(function()
-                if not isExpanded then
-                    DropdownContent.Visible = false
-                    DropdownFrame.ZIndex = 15
-                    DropdownContent.ZIndex = 80
-                    if parent and parent:IsA("GuiObject") then
-                        parent.ZIndex = initialParentZIndex
-                    end
-                    if Window.ActiveDropdown == nil and ContentOverlay then
-                        ContentOverlay.ZIndex = 15
-                    end
-                end
-            end)
-        end
-
         local function OpenDropdown()
             if Window.ActiveDropdown and Window.ActiveDropdown ~= dropObj then
                 pcall(function() Window.ActiveDropdown.Close() end)
@@ -1092,30 +1085,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Window.ActiveDropdown = dropObj
             isExpanded = true
 
-            if ContentOverlay then
-                ContentOverlay.ZIndex = 100
-            end
-            DropdownFrame.ZIndex = 250
-            DropdownContent.ZIndex = 300
-            InnerScroll.ZIndex = 301
-            for _, btn in ipairs(InnerScroll:GetChildren()) do
-                if btn:IsA("GuiObject") then btn.ZIndex = 302 end
+            if DropdownContent.Parent ~= (Window.DropdownOverlay or MainContainer) then
+                DropdownContent.Parent = (Window.DropdownOverlay or MainContainer)
             end
 
-            local curr = parent
-            while curr and curr ~= MainContainer and curr ~= ScriptUi do
-                if curr:IsA("GuiObject") then
-                    curr.ClipsDescendants = false
-                end
-                curr = curr.Parent
-            end
-
-            local targetRotation = 180
+            local scale = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
+            if scale <= 0 then scale = 1 end
+            local width = UpdateDropdownPos() or (DropdownFrame.AbsoluteSize.X / scale)
             local targetHeight = math.clamp(#options * 39 + 15, 45, 220)
+
+            DropdownContent.Size = UDim2.new(0, width, 0, 0)
             DropdownContent.Visible = true
-            TweenService:Create(ArrowIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = targetRotation}):Play()
+
+            TweenService:Create(ArrowIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = 180}):Play()
             TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Size = UDim2.new(1, 0, 0, targetHeight)
+                Size = UDim2.new(0, width, 0, targetHeight)
             }):Play()
         end
 
@@ -1125,6 +1109,25 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 CloseDropdown()
             else
                 OpenDropdown()
+            end
+        end))
+
+        -- Auto close when scrolling the tab
+        local scrollParent = parent
+        while scrollParent and not scrollParent:IsA("ScrollingFrame") and scrollParent ~= MainContainer do
+            scrollParent = scrollParent.Parent
+        end
+        if scrollParent and scrollParent:IsA("ScrollingFrame") then
+            TrackConn(scrollParent:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+                if isExpanded then
+                    CloseDropdown()
+                end
+            end))
+        end
+
+        TrackConn(DropdownFrame.AncestryChanged:Connect(function(_, newParent)
+            if not newParent then
+                pcall(function() DropdownContent:Destroy() end)
             end
         end))
 
@@ -3120,6 +3123,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     UIScaleConstraint.Name = "MainUIScale"
     UIScaleConstraint.Parent = MainContainer
 
+    local DropdownOverlay = Instance.new("Frame")
+    DropdownOverlay.Name = "DropdownOverlay"
+    DropdownOverlay.Size = UDim2.new(1, 0, 1, 0)
+    DropdownOverlay.Position = UDim2.new(0, 0, 0, 0)
+    DropdownOverlay.BackgroundTransparency = 1
+    DropdownOverlay.BorderSizePixel = 0
+    DropdownOverlay.ClipsDescendants = false
+    DropdownOverlay.ZIndex = 500
+    DropdownOverlay.Parent = MainContainer
+    Window.DropdownOverlay = DropdownOverlay
+
     -- =========================================================================
     -- LOCAL UI-ONLY BACKGROUND BLUR ENGINE
     -- =========================================================================
@@ -3751,7 +3765,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MainFrame.BackgroundColor3 = Window.CurrentTheme.MainBG
     MainFrame.BackgroundTransparency = Window.CurrentTheme.MainTrans
     MainFrame.BorderSizePixel = 0
-    MainFrame.ClipsDescendants = false
+    MainFrame.ClipsDescendants = true
     MainFrame.ZIndex = 1
     MainFrame.Parent = MainContainer
 
@@ -3760,7 +3774,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- Init Spiderweb Background at ZIndex 2 (Above LeftFrame & MainFrame panel backgrounds, below UI contents)
     InitSpiderwebBackground(MainContainer, ScriptUi)
 
-    -- Content Overlay Layer (ZIndex 15 for all UI controls, cards, tab buttons, dividers, and text)
+    -- Content Overlay Layer (ZIndex 3 for all UI controls, cards, tab buttons, dividers, and text)
     local ContentOverlay = Instance.new("Frame")
     ContentOverlay.Name = "ContentOverlay"
     ContentOverlay.Size = UDim2.new(1, 0, 1, -94)
@@ -3768,7 +3782,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     ContentOverlay.BackgroundTransparency = 1
     ContentOverlay.BorderSizePixel = 0
     ContentOverlay.ClipsDescendants = false
-    ContentOverlay.ZIndex = 15
+    ContentOverlay.ZIndex = 3
     ContentOverlay.Parent = MainContainer
 
     local SidebarScroll = Instance.new("ScrollingFrame")
@@ -3782,7 +3796,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SidebarScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     SidebarScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     SidebarScroll.ClipsDescendants = true
-    SidebarScroll.ZIndex = 15
+    SidebarScroll.ZIndex = 4
     SidebarScroll.Parent = ContentOverlay
 
     local SidebarLayout = Instance.new("UIListLayout")
@@ -3804,8 +3818,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MainContentFrame.Position = UDim2.new(0, 175, 0, 0)
     MainContentFrame.BackgroundTransparency = 1
     MainContentFrame.BorderSizePixel = 0
-    MainContentFrame.ClipsDescendants = false
-    MainContentFrame.ZIndex = 15
+    MainContentFrame.ClipsDescendants = true
+    MainContentFrame.ZIndex = 4
     MainContentFrame.Parent = ContentOverlay
 
     -- Bottom Frame
@@ -3816,7 +3830,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     BottomFrame.BackgroundColor3 = Window.CurrentTheme.BottomBG
     BottomFrame.BackgroundTransparency = Window.CurrentTheme.BottomTrans
     BottomFrame.BorderSizePixel = 0
-    BottomFrame.ZIndex = 4
+    BottomFrame.ZIndex = 20
     BottomFrame.Parent = MainContainer
 
     local BottomCorner = Instance.new("UICorner")
@@ -4385,9 +4399,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ContentFrame.ScrollBarImageTransparency = 1
         ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-        ContentFrame.ClipsDescendants = false
+        ContentFrame.ClipsDescendants = true
         ContentFrame.Visible = false
-        ContentFrame.ZIndex = 15
+        ContentFrame.ZIndex = 4
         ContentFrame.Parent = MainContentFrame or MainFrame
 
         local ContentPadding = Instance.new("UIPadding")
@@ -5604,6 +5618,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local IsAnimatingMinimize = false
     local function MinimizeWindowAnimation()
         if IsAnimatingMinimize then return end
+        if Window.ActiveDropdown then
+            pcall(function() Window.ActiveDropdown.Close() end)
+        end
         IsAnimatingMinimize = true
         PlayClickSFX()
 
