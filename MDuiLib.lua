@@ -2840,7 +2840,7 @@ function Library:CreateWindow(hubTitle, scriptName)
     SearchIcon.Size = UDim2.new(0, 14, 0, 14)
     SearchIcon.Position = UDim2.new(0, 8, 0.5, -7)
     SearchIcon.BackgroundTransparency = 1
-    SearchIcon.Image = "rbxassetid://15396333997"
+    SearchIcon.Image = "rbxassetid://6031154871"
     SearchIcon.ImageColor3 = Window.CurrentTheme.SubText
     SearchIcon.ZIndex = 7
     SearchIcon.Parent = SearchBarContainer
@@ -2913,8 +2913,8 @@ function Library:CreateWindow(hubTitle, scriptName)
     ResultsScroll.Parent = SearchResultsOverlay
 
     local ResultsPadding = Instance.new("UIPadding")
-    ResultsPadding.PaddingTop = UDim.new(0, 6)
-    ResultsPadding.PaddingBottom = UDim.new(0, 6)
+    ResultsPadding.PaddingTop = UDim.new(0, 5)
+    ResultsPadding.PaddingBottom = UDim.new(0, 5)
     ResultsPadding.PaddingLeft = UDim.new(0, 4)
     ResultsPadding.PaddingRight = UDim.new(0, 4)
     ResultsPadding.Parent = ResultsScroll
@@ -2963,7 +2963,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         if #matches == 0 then
             local emptyLabel = Instance.new("TextLabel")
-            emptyLabel.Size = UDim2.new(1, 0, 0, 32)
+            emptyLabel.Size = UDim2.new(1, 0, 0, 28)
             emptyLabel.BackgroundTransparency = 1
             emptyLabel.FontFace = FontMichromaRegular
             emptyLabel.Text = "No results found"
@@ -2974,7 +2974,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
             SearchResultsOverlay.Visible = true
             TweenService:Create(SearchResultsOverlay, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, 230, 0, 40)
+                Size = UDim2.new(0, 230, 0, 38)
             }):Play()
             return
         end
@@ -2984,7 +2984,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             local item = matches[i]
             local rowBtn = Instance.new("TextButton")
             rowBtn.Name = "SearchResult"
-            rowBtn.Size = UDim2.new(1, -4, 0, 32)
+            rowBtn.Size = UDim2.new(1, -4, 0, 30)
             rowBtn.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(30, 33, 42)
             rowBtn.BackgroundTransparency = 0.4
             rowBtn.Text = ""
@@ -2996,7 +2996,7 @@ function Library:CreateWindow(hubTitle, scriptName)
             rowCorner.Parent = rowBtn
 
             local titleLbl = Instance.new("TextLabel")
-            titleLbl.Size = UDim2.new(1, -12, 0, 16)
+            titleLbl.Size = UDim2.new(1, -12, 0, 15)
             titleLbl.Position = UDim2.new(0, 8, 0, 1)
             titleLbl.BackgroundTransparency = 1
             titleLbl.FontFace = FontMichromaBold
@@ -3009,11 +3009,11 @@ function Library:CreateWindow(hubTitle, scriptName)
             titleLbl.Parent = rowBtn
 
             local subLbl = Instance.new("TextLabel")
-            subLbl.Size = UDim2.new(1, -12, 0, 14)
-            subLbl.Position = UDim2.new(0, 8, 0, 16)
+            subLbl.Size = UDim2.new(1, -12, 0, 12)
+            subLbl.Position = UDim2.new(0, 8, 0, 15)
             subLbl.BackgroundTransparency = 1
             subLbl.FontFace = FontMichromaRegular
-            subLbl.Text = item.TabName .. " • " .. item.Type:lower()
+            subLbl.Text = item.TabName
             subLbl.TextColor3 = Window.CurrentTheme.SubText
             subLbl.TextSize = 8
             subLbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -3041,8 +3041,8 @@ function Library:CreateWindow(hubTitle, scriptName)
             end)
         end
 
-        -- Each row: 32px height + 3px gap, plus 12px total vertical padding (6 top + 6 bottom)
-        local targetHeight = math.min(maxToShow * 35 + 12, 212)
+        -- Exact snug fit: each row 30px + 3px layout spacing + 10px vertical padding (5 top + 5 bottom)
+        local targetHeight = (maxToShow * 30) + math.max(0, (maxToShow - 1) * 3) + 10
         SearchResultsOverlay.Visible = true
         TweenService:Create(SearchResultsOverlay, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, 230, 0, targetHeight)
@@ -3517,90 +3517,52 @@ function Library:CreateWindow(hubTitle, scriptName)
     SwitchTab = function(tabName)
         if Window.ActiveTab == tabName then return end
 
-        CurrentTabSwitchToken = CurrentTabSwitchToken + 1
-        local thisToken = CurrentTabSwitchToken
-
         local oldTab = Window.Tabs[Window.ActiveTab]
         local newTab = Window.Tabs[tabName]
         Window.ActiveTab = tabName
 
         -- 1. Animate Sidebar Tab Buttons
         if oldTab and oldTab.Button then
-            TweenService:Create(oldTab.Button, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            TweenService:Create(oldTab.Button, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                 TextSize = 15,
                 TextColor3 = Window.CurrentTheme.SubText
             }):Play()
             oldTab.Button.FontFace = FontMichromaRegular
             if oldTab.HoverGlow then
-                TweenService:Create(oldTab.HoverGlow, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                TweenService:Create(oldTab.HoverGlow, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                     BackgroundTransparency = 1
                 }):Play()
             end
         end
 
         if newTab and newTab.Button then
-            TweenService:Create(newTab.Button, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            TweenService:Create(newTab.Button, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                 TextSize = 18,
                 TextColor3 = Window.CurrentTheme.Text
             }):Play()
             newTab.Button.FontFace = FontMichromaBold
             if newTab.HoverGlow then
-                TweenService:Create(newTab.HoverGlow, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                TweenService:Create(newTab.HoverGlow, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                     BackgroundTransparency = 0.85
                 }):Play()
             end
         end
 
-        -- 2. Animate Out Previous Tab Content
-        if oldTab then
-            local oldTarget = oldTab.TabGroup or oldTab.ContentFrame
-            if oldTarget then
-                if oldTarget:IsA("CanvasGroup") then
-                    local fadeOut = TweenService:Create(oldTarget, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                        GroupTransparency = 1,
-                        Position = UDim2.new(0, 0, 0, -8)
-                    })
-                    fadeOut:Play()
-                    fadeOut.Completed:Connect(function()
-                        if thisToken == CurrentTabSwitchToken and Window.ActiveTab ~= oldTab.Name then
-                            oldTarget.Visible = false
-                            oldTarget.Position = UDim2.new(0, 0, 0, 0)
-                        end
-                    end)
-                else
-                    local slideOut = TweenService:Create(oldTarget, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                        Position = UDim2.new(0, 0, 0, -15)
-                    })
-                    slideOut:Play()
-                    slideOut.Completed:Connect(function()
-                        if thisToken == CurrentTabSwitchToken and Window.ActiveTab ~= oldTab.Name then
-                            oldTarget.Visible = false
-                            oldTarget.Position = UDim2.new(0, 0, 0, 0)
-                        end
-                    end)
-                end
+        -- 2. Hide all other tab frames cleanly with zero overlap
+        for name, tabObj in pairs(Window.Tabs) do
+            if name ~= tabName and tabObj and tabObj.ContentFrame then
+                tabObj.ContentFrame.Visible = false
+                tabObj.ContentFrame.Position = UDim2.new(0, 0, 0, 0)
             end
         end
 
-        -- 3. Animate In New Tab Content
-        if newTab then
-            local newTarget = newTab.TabGroup or newTab.ContentFrame
-            if newTarget then
-                newTarget.Visible = true
-                if newTarget:IsA("CanvasGroup") then
-                    newTarget.GroupTransparency = 1
-                    newTarget.Position = UDim2.new(0, 0, 0, 10)
-                    TweenService:Create(newTarget, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                        GroupTransparency = 0,
-                        Position = UDim2.new(0, 0, 0, 0)
-                    }):Play()
-                else
-                    newTarget.Position = UDim2.new(0, 0, 0, 12)
-                    TweenService:Create(newTarget, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                        Position = UDim2.new(0, 0, 0, 0)
-                    }):Play()
-                end
-            end
+        -- 3. Smooth entrance of active tab content
+        if newTab and newTab.ContentFrame then
+            newTab.ContentFrame.Position = UDim2.new(0, 0, 0, 10)
+            newTab.ContentFrame.Visible = true
+            TweenService:Create(newTab.ContentFrame, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Position = UDim2.new(0, 0, 0, 0)
+            }):Play()
         end
     end
 
@@ -4464,7 +4426,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         -- 7. Theme Presets Card
         local ThemeCard = Instance.new("Frame")
         ThemeCard.Name = "ThemeCard"
-        ThemeCard.Size = UDim2.new(1, -10, 0, 132)
+        ThemeCard.Size = UDim2.new(1, -10, 0, 122)
         ThemeCard.BackgroundColor3 = Window.CurrentTheme.CardBG
         ThemeCard.ZIndex = 3
         ThemeCard.ClipsDescendants = false
@@ -4477,7 +4439,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local ThemeTitle = Instance.new("TextLabel")
         ThemeTitle.Name = "ThemeTitle"
-        ThemeTitle.Size = UDim2.new(1, -20, 0, 24)
+        ThemeTitle.Size = UDim2.new(1, -20, 0, 22)
         ThemeTitle.Position = UDim2.new(0, 12, 0, 6)
         ThemeTitle.BackgroundTransparency = 1
         ThemeTitle.FontFace = FontMichromaBold
@@ -4490,8 +4452,8 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local ThemeContainer = Instance.new("Frame")
         ThemeContainer.Name = "ThemeContainer"
-        ThemeContainer.Size = UDim2.new(1, -24, 0, 88)
-        ThemeContainer.Position = UDim2.new(0, 12, 0, 36)
+        ThemeContainer.Size = UDim2.new(1, -24, 0, 80)
+        ThemeContainer.Position = UDim2.new(0, 12, 0, 34)
         ThemeContainer.BackgroundTransparency = 1
         ThemeContainer.Parent = ThemeCard
 
