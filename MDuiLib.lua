@@ -2905,7 +2905,8 @@ function Library:CreateWindow(hubTitle, scriptName)
     ResultsScroll.Position = UDim2.new(0, 0, 0, 0)
     ResultsScroll.BackgroundTransparency = 1
     ResultsScroll.BorderSizePixel = 0
-    ResultsScroll.ScrollBarThickness = 2
+    ResultsScroll.ScrollBarThickness = 0
+    ResultsScroll.ScrollBarImageTransparency = 1
     ResultsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     ResultsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     ResultsScroll.ZIndex = 51
@@ -3040,7 +3041,8 @@ function Library:CreateWindow(hubTitle, scriptName)
             end)
         end
 
-        local targetHeight = math.min(maxToShow * 36 + 14, 220)
+        -- Each row: 32px height + 3px gap, plus 12px total vertical padding (6 top + 6 bottom)
+        local targetHeight = math.min(maxToShow * 35 + 12, 212)
         SearchResultsOverlay.Visible = true
         TweenService:Create(SearchResultsOverlay, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, 230, 0, targetHeight)
@@ -4219,7 +4221,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         WebDesc.Position = UDim2.new(0, 12, 0, 28)
         WebDesc.BackgroundTransparency = 1
         WebDesc.FontFace = FontMichromaRegular
-        WebDesc.Text = "Interactive background warping web"
+        WebDesc.Text = "Warping web bg"
         WebDesc.TextColor3 = Window.CurrentTheme.SubText
         WebDesc.TextSize = 11
         WebDesc.TextXAlignment = Enum.TextXAlignment.Left
@@ -4268,7 +4270,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         BlurDesc.Position = UDim2.new(0, 12, 0, 28)
         BlurDesc.BackgroundTransparency = 1
         BlurDesc.FontFace = FontMichromaRegular
-        BlurDesc.Text = "Blur game world behind UI"
+        BlurDesc.Text = "Blurry bg for the ui"
         BlurDesc.TextColor3 = Window.CurrentTheme.SubText
         BlurDesc.TextSize = 11
         BlurDesc.TextXAlignment = Enum.TextXAlignment.Left
@@ -4350,7 +4352,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         CustomThemeDesc.Position = UDim2.new(0, 12, 0, 28)
         CustomThemeDesc.BackgroundTransparency = 1
         CustomThemeDesc.FontFace = FontMichromaRegular
-        CustomThemeDesc.Text = "Generate full UI palette from 1 color"
+        CustomThemeDesc.Text = "Ts changes whole ui color"
         CustomThemeDesc.TextColor3 = Window.CurrentTheme.SubText
         CustomThemeDesc.TextSize = 11
         CustomThemeDesc.TextXAlignment = Enum.TextXAlignment.Left
@@ -4419,7 +4421,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         ClickEffectsDesc.Position = UDim2.new(0, 12, 0, 28)
         ClickEffectsDesc.BackgroundTransparency = 1
         ClickEffectsDesc.FontFace = FontMichromaRegular
-        ClickEffectsDesc.Text = "Interactive particles on click"
+        ClickEffectsDesc.Text = "Particles on click"
         ClickEffectsDesc.TextColor3 = Window.CurrentTheme.SubText
         ClickEffectsDesc.TextSize = 11
         ClickEffectsDesc.TextXAlignment = Enum.TextXAlignment.Left
@@ -4462,7 +4464,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         -- 7. Theme Presets Card
         local ThemeCard = Instance.new("Frame")
         ThemeCard.Name = "ThemeCard"
-        ThemeCard.Size = UDim2.new(1, -10, 0, 150)
+        ThemeCard.Size = UDim2.new(1, -10, 0, 132)
         ThemeCard.BackgroundColor3 = Window.CurrentTheme.CardBG
         ThemeCard.ZIndex = 3
         ThemeCard.ClipsDescendants = false
@@ -4488,7 +4490,7 @@ function Library:CreateWindow(hubTitle, scriptName)
 
         local ThemeContainer = Instance.new("Frame")
         ThemeContainer.Name = "ThemeContainer"
-        ThemeContainer.Size = UDim2.new(1, -24, 0, 100)
+        ThemeContainer.Size = UDim2.new(1, -24, 0, 88)
         ThemeContainer.Position = UDim2.new(0, 12, 0, 36)
         ThemeContainer.BackgroundTransparency = 1
         ThemeContainer.Parent = ThemeCard
