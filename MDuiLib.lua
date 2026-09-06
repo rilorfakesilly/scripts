@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.11"
+Library.Version = "2.12"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -386,7 +386,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local function PlayHoverSFX()
         if not Window or not Window.UISoundsEnabled then return end
         pcall(function()
+            local vol = (Window.SoundVolume ~= nil) and Window.SoundVolume or 0.8
             local snd = HoverSoundTemplate:Clone()
+            snd.Volume = 0.35 * vol
             snd.Parent = SoundFolder
             snd:Play()
             Debris:AddItem(snd, 1.5)
@@ -396,7 +398,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local function PlayClickSFX()
         if not Window or not Window.UISoundsEnabled then return end
         pcall(function()
+            local vol = (Window.SoundVolume ~= nil) and Window.SoundVolume or 0.8
             local snd = ClickSoundTemplate:Clone()
+            snd.Volume = 0.45 * vol
             snd.Parent = SoundFolder
             snd:Play()
             Debris:AddItem(snd, 1.5)
@@ -1906,6 +1910,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             GetState = function() return isToggled end,
             SetState = function(state, triggerCallback)
                 PerformToggle(state, triggerCallback)
+            end,
+            RefreshTheme = function(theme)
+                local isTog = isToggled
+                ToggleFrame.BackgroundColor3 = isTog and theme.ButtonBG or ((theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
+                OverlayCircle.ImageColor3 = theme.ButtonBG
+                if toggleData.Keybind and toggleData.Keybind.Container then
+                    toggleData.Keybind.Container.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(24, 26, 34)
+                    if toggleData.Keybind.Label then toggleData.Keybind.Label.TextColor3 = theme.Text end
+                    if toggleData.Keybind.DeleteBtn then toggleData.Keybind.DeleteBtn.ImageColor3 = theme.Text end
+                end
             end
         }
 
@@ -1915,7 +1929,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local badgePos = UDim2.new(pos.X.Scale, pos.X.Offset - 42, pos.Y.Scale, pos.Y.Offset + 2)
             toggleData.Keybind = Window:CreateKeybindBadge(parent, badgePos, UDim2.new(0, 36, 0, 22), defaultKey, function()
                 toggleData.SetState(not isToggled, true)
-                PlayClickSFX()
             end, toggleName)
         end
 
@@ -2771,7 +2784,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         onClick = callback
 
         local BtnFrame = Instance.new("Frame")
-        BtnFrame.Name = "TopFrame"
+        BtnFrame.Name = "MDButtonCard"
         BtnFrame.Size = size
         BtnFrame.Position = position
         BtnFrame.BackgroundColor3 = Window.CurrentTheme.ButtonBG
@@ -2854,7 +2867,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TextLabel = BtnText,
             Stroke = Stroke,
             Trigger = ClickBtn,
-            BaseSize = size
+            BaseSize = size,
+            RefreshTheme = function(theme)
+                BtnFrame.BackgroundColor3 = theme.ButtonBG
+                BtnText.TextColor3 = theme.Text
+            end
         }
         table.insert(Window.RegisteredMDButtons, btnData)
 
@@ -2867,10 +2884,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         position = position or UDim2.new(0, 0, 0, 0)
 
         local CardFrame = Instance.new("Frame")
-        CardFrame.Name = "TopFrame"
+        CardFrame.Name = "MDToggleCard"
         CardFrame.Size = size
         CardFrame.Position = position
-        CardFrame.BackgroundColor3 = Window.CurrentTheme.ButtonBG
+        CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
         CardFrame.BackgroundTransparency = 0.05
         CardFrame.BorderSizePixel = 0
         CardFrame.ZIndex = 10
@@ -2923,7 +2940,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ToggleFrame.Name = "TogglePill"
         ToggleFrame.Size = UDim2.new(0, 44, 0, 24)
         ToggleFrame.Position = UDim2.new(1, -54, 0.5, -12)
-        ToggleFrame.BackgroundColor3 = initialState and Window.CurrentTheme.ButtonBG or Color3.fromRGB(35, 38, 48)
+        ToggleFrame.BackgroundColor3 = initialState and Window.CurrentTheme.ButtonBG or ((Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
         ToggleFrame.BackgroundTransparency = 0.05
         ToggleFrame.BorderSizePixel = 0
         ToggleFrame.ClipsDescendants = false
@@ -2993,8 +3010,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local toggleName = text or ("ToggleHalf_" .. (#Window.RegisteredMDToggles + 1))
         local toggleData = {
             Name = toggleName,
+            CardFrame = CardFrame,
             Frame = CardFrame,
             ToggleFrame = ToggleFrame,
+            TitleText = TitleText,
             BaseCircle = BaseCircle,
             Overlay = OverlayCircle,
             Stroke = Stroke,
@@ -3002,6 +3021,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             GetState = function() return isToggled end,
             SetState = function(state, triggerCallback)
                 PerformToggle(state, triggerCallback)
+            end,
+            RefreshTheme = function(theme)
+                CardFrame.BackgroundColor3 = theme.CardBG
+                TitleText.TextColor3 = theme.Text
+                local isTog = isToggled
+                ToggleFrame.BackgroundColor3 = isTog and theme.ButtonBG or ((theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
+                OverlayCircle.ImageColor3 = theme.ButtonBG
+                if toggleData.ConnectedSlider and toggleData.ConnectedSlider.RefreshTheme then
+                    toggleData.ConnectedSlider.RefreshTheme(theme)
+                end
+                if toggleData.ValueLabel then
+                    toggleData.ValueLabel.TextColor3 = theme.Text
+                end
+                if toggleData.Keybind and toggleData.Keybind.Container then
+                    toggleData.Keybind.Container.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(24, 26, 34)
+                    if toggleData.Keybind.Label then toggleData.Keybind.Label.TextColor3 = theme.Text end
+                    if toggleData.Keybind.DeleteBtn then toggleData.Keybind.DeleteBtn.ImageColor3 = theme.Text end
+                end
             end
         }
 
@@ -3069,6 +3106,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 sliderTrack.ValueLabel = ValueLabel
             end
             toggleData.ConnectedSlider = sliderTrack
+            toggleData.ValueLabel = ValueLabel
             return sliderTrack
         end
 
@@ -3077,7 +3115,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local keyPos = (toggleData.ConnectedSlider or CardFrame.Size.Y.Offset > 50) and UDim2.new(1, -96, 0, 11) or UDim2.new(1, -96, 0.5, -11)
             toggleData.Keybind = Window:CreateKeybindBadge(CardFrame, keyPos, UDim2.new(0, 36, 0, 22), defaultKey, function()
                 toggleData.SetState(not isToggled, true)
-                PlayClickSFX()
             end, toggleName)
         end
 
@@ -5177,7 +5214,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if state then
                 Window:Notify("Settings", "Notifications enabled", 2)
             end
-        end, "Notifications", true)
+        end, "Notifications")
 
         -- 2. Enable UI Sounds Card
         local SoundCard = Instance.new("Frame")
@@ -5293,7 +5330,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             else
                 Window:Notify("Settings", "Spiderweb background disabled", 2)
             end
-        end, "SpiderwebBG", "Y")
+        end, "SpiderwebBG")
 
         -- 5. Background Blur Card
         local BlurCard = Instance.new("Frame")
@@ -6186,7 +6223,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if not gameProcessed and ScriptUi and ScriptUi.Enabled then
                 local boundBadge = Window.KeybindMap[input.KeyCode]
                 if boundBadge and boundBadge.OnTrigger then
-                    boundBadge.OnTrigger()
+                    local now = os.clock()
+                    if (now - (boundBadge._lastTrigger or 0)) >= 0.22 then
+                        boundBadge._lastTrigger = now
+                        boundBadge.OnTrigger()
+                    end
                 end
             end
         end
@@ -6271,7 +6312,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         for _, btnData in ipairs(Window.RegisteredMDButtons) do
-            if btnData and btnData.Frame and btnData.Frame.Parent then
+            if btnData and btnData.RefreshTheme then
+                pcall(function() btnData.RefreshTheme(newTheme) end)
+            elseif btnData and btnData.Frame and btnData.Frame.Parent then
                 btnData.Frame.BackgroundColor3 = newTheme.ButtonBG
                 if btnData.TextLabel then
                     btnData.TextLabel.TextColor3 = newTheme.Text
@@ -6287,7 +6330,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         for _, toggle in ipairs(Window.RegisteredMDToggles) do
-            if toggle and toggle.Frame and toggle.Frame.Parent then
+            if toggle and toggle.RefreshTheme then
+                pcall(function() toggle.RefreshTheme(newTheme) end)
+            elseif toggle and toggle.Frame and toggle.Frame.Parent then
                 if toggle.Overlay then toggle.Overlay.ImageColor3 = newTheme.ButtonBG end
                 local isToggled = (toggle.GetState and toggle.GetState())
                 toggle.Frame.BackgroundColor3 = isToggled and newTheme.ButtonBG or ((newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
@@ -6295,10 +6340,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         for _, slider in ipairs(Window.RegisteredMDSliders) do
-            if slider and slider.Track and slider.Track.Parent then
+            if slider and slider.RefreshTheme then
+                pcall(function() slider.RefreshTheme(newTheme) end)
+            elseif slider and slider.Track and slider.Track.Parent then
                 slider.Track.BackgroundColor3 = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(20, 22, 28)
                 if slider.FilledPart then slider.FilledPart.BackgroundColor3 = newTheme.ButtonBG end
                 if slider.Overlay then slider.Overlay.ImageColor3 = newTheme.ButtonBG end
+                if slider.ValueLabel then slider.ValueLabel.TextColor3 = newTheme.Text end
             end
         end
 
@@ -6376,36 +6424,43 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if tabData.Button then
                     tabData.Button.TextColor3 = (name == Window.ActiveTab) and newTheme.Text or newTheme.SubText
                 end
+                if tabData.Icon then
+                    tabData.Icon.ImageColor3 = (name == Window.ActiveTab) and newTheme.Text or newTheme.SubText
+                end
 
                 if tabData.ContentFrame then
                     tabData.ContentFrame.ScrollBarImageColor3 = newTheme.Divider
                     for _, card in ipairs(tabData.ContentFrame:GetChildren()) do
-                        if card:IsA("Frame") and card.Name ~= "TopFrame" and card.Name ~= "MainHeaderFrame" then
-                            if card.Name == "RowContainer" or card.Name == "RowFrame" or card.Name == "ParticleRow" or card.Name:find("Row") then
+                        if card:IsA("Frame") and card.Name ~= "MainHeaderFrame" and card.Name ~= "DropdownOverlay" then
+                            if card.Name == "RowContainer" or card.Name == "RowFrame" or card.Name == "ParticleRow" or card.Name == "ToggleGroup" or card.Name:find("Row") or card.Name:find("Group") then
                                 card.BackgroundTransparency = 1
                                 for _, subCard in ipairs(card:GetChildren()) do
                                     if subCard:IsA("Frame") then
-                                        subCard.BackgroundColor3 = newTheme.CardBG
-                                        subCard.BackgroundTransparency = 0
+                                        if subCard.Name ~= "MDButtonCard" and subCard.Name ~= "TogglePill" and subCard.Name ~= "DropdownContent" then
+                                            subCard.BackgroundColor3 = newTheme.CardBG
+                                        end
                                         for _, child in ipairs(subCard:GetChildren()) do
                                             if child:IsA("TextLabel") then
-                                                child.TextColor3 = (child.Name == "CardTitle" and newTheme.Text) or newTheme.SubText
+                                                if child.Name == "CardTitle" or child.Name == "btntext" or child.Name == "drpdwntext" or child.Name == "TitleLabel" or child.Name == "SliderTitle" or child.Name == "ValueLabel" or child.Name:find("Title") or child.Name:find("Label") then
+                                                    child.TextColor3 = newTheme.Text
+                                                elseif child.Name == "CardBody" or child.Name == "DescLabel" or child.Name:find("Desc") then
+                                                    child.TextColor3 = newTheme.SubText
+                                                end
                                             elseif child.Name == "CardDividerLine" then
                                                 child.BackgroundTransparency = 1
                                             end
                                         end
                                     end
                                 end
-                            else
+                            elseif card.Name ~= "MDButtonCard" and card.Name ~= "DropdownContent" then
                                 card.BackgroundColor3 = newTheme.CardBG
-                                card.BackgroundTransparency = 0
                                 for _, child in ipairs(card:GetChildren()) do
                                     if child:IsA("TextLabel") then
-                                        if child.Name == "CardTitle" or child.Name == "TitleLabel" or child.Name == "ThemeTitle" or child.Name == "SectionTitle" or child.Name == "NotifLabel" or child.Name == "SoundLabel" or child.Name == "VolumeLabel" or child.Name == "WebTitle" or child.Name == "BlurTitle" or child.Name == "TransLabel" or child.Name == "CustomThemeTitle" or child.Name == "ClickEffectsTitle" or child.Name == "Welcomemsg" then
+                                        if child.Name == "CardTitle" or child.Name == "btntext" or child.Name == "drpdwntext" or child.Name == "TitleLabel" or child.Name == "SliderTitle" or child.Name == "ValueLabel" or child.Name == "ThemeTitle" or child.Name == "SectionTitle" or child.Name == "NotifLabel" or child.Name == "SoundLabel" or child.Name == "VolumeLabel" or child.Name == "WebTitle" or child.Name == "BlurTitle" or child.Name == "TransLabel" or child.Name == "CustomThemeTitle" or child.Name == "ClickEffectsTitle" or child.Name == "Welcomemsg" or child.Name:find("Title") or child.Name:find("Label") then
                                             child.TextColor3 = newTheme.Text
-                                        elseif child.Name == "CardBody" or child.Name == "DescLabel" or child.Name == "WebDesc" or child.Name == "BlurDesc" or child.Name == "CustomThemeDesc" or child.Name == "ClickEffectsDesc" then
+                                        elseif child.Name == "CardBody" or child.Name == "DescLabel" or child.Name == "WebDesc" or child.Name == "BlurDesc" or child.Name == "CustomThemeDesc" or child.Name == "ClickEffectsDesc" or child.Name:find("Desc") then
                                             child.TextColor3 = newTheme.SubText
-                                        elseif child.Name ~= "LocalTime" and child.Name ~= "btntext" and child.Name ~= "drpdwntext" then
+                                        elseif child.Name ~= "LocalTime" then
                                             child.TextColor3 = newTheme.Text
                                         end
                                     end
