@@ -3525,7 +3525,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchInput.Position = UDim2.new(0, 26, 0, 0)
     SearchInput.BackgroundTransparency = 1
     SearchInput.FontFace = FontMichromaRegular
-    SearchInput.PlaceholderText = "Search scripts..."
+    SearchInput.PlaceholderText = "Search in script..."
     SearchInput.PlaceholderColor3 = Window.CurrentTheme.SubText
     SearchInput.Text = ""
     SearchInput.TextColor3 = Window.CurrentTheme.Text
