@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.8"
+Library.Version = "2.5"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -248,6 +248,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         iconAsset = "rbxassetid://" .. tostring(iconAsset)
     end
 
+    local minimizedIcon = (type(arg1) == "table" and (arg1.MinimizedIcon or arg1.MinimisedIcon or arg1.MiniIcon)) or iconAsset
+    if not minimizedIcon or minimizedIcon == "" then
+        minimizedIcon = "rbxassetid://77044087750639"
+    elseif type(minimizedIcon) == "number" or tostring(minimizedIcon):match("^%d+$") then
+        minimizedIcon = "rbxassetid://" .. tostring(minimizedIcon)
+    end
+    local autoSmallDividers = type(arg1) == "table" and (arg1.AutoSmallDividers == true or arg1.AutoDividers == true)
+
     if ParentGui:FindFirstChild("ScriptUi") then ParentGui:FindFirstChild("ScriptUi"):Destroy() end
     if ParentGui:FindFirstChild("MinimisedUI") then ParentGui:FindFirstChild("MinimisedUI"):Destroy() end
     if ParentGui:FindFirstChild("NotificationUI") then ParentGui:FindFirstChild("NotificationUI"):Destroy() end
@@ -258,6 +266,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         AuthorText = authorText,
         DiscordLink = discordLink,
         IconAsset = iconAsset,
+        MinimizedIcon = minimizedIcon,
+        AutoSmallDividers = autoSmallDividers,
         CurrentTheme = Library.ThemePresets.Dark,
         CurrentThemeKey = "Dark",
         NotificationsEnabled = true,
@@ -1796,11 +1806,29 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return toggleData
     end
 
-    function Window:CreateMDSlider(parent, position, size, minVal, maxVal, defaultVal, onValueChange, identifier)
+    function Window:CreateMDSlider(parent, position, size, minVal, maxVal, defaultVal, onValueChange, identifier, sliderOptions)
         size = size or UDim2.new(0, 210, 0, 14)
         minVal = minVal or 0
         maxVal = maxVal or 100
         defaultVal = math.clamp(defaultVal or 80, minVal, maxVal)
+
+        local showValue = false
+        local valueFormat = "number"
+        local suffix = ""
+        local prefix = ""
+
+        if type(sliderOptions) == "table" then
+            showValue = (sliderOptions.ShowValue ~= false)
+            valueFormat = sliderOptions.ValueFormat or (sliderOptions.IsPercent and "percent") or (sliderOptions.Suffix == "%" and "percent") or "number"
+            suffix = sliderOptions.Suffix or (valueFormat == "percent" and "%" or "")
+            prefix = sliderOptions.Prefix or ""
+        elseif type(sliderOptions) == "string" then
+            showValue = true
+            suffix = sliderOptions
+            if suffix == "%" then valueFormat = "percent" end
+        elseif sliderOptions == true then
+            showValue = true
+        end
 
         local TrackFrame = Instance.new("Frame")
         TrackFrame.Name = "SliderTrackFrame"
@@ -1828,6 +1856,32 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local initialPct = (maxVal > minVal) and math.clamp((defaultVal - minVal) / (maxVal - minVal), 0, 1) or 0
         local knobSize = 22
+
+        local function GetFormattedValue(val, pct)
+            if valueFormat == "percent" or valueFormat == "%" or suffix == "%" then
+                local pctVal = math.floor(pct * 100)
+                return prefix .. tostring(pctVal) .. "%"
+            else
+                return prefix .. tostring(val) .. suffix
+            end
+        end
+
+        local ValueLabel = nil
+        if showValue or identifier then
+            ValueLabel = Instance.new("TextLabel")
+            ValueLabel.Name = "ValueLabel"
+            ValueLabel.Size = UDim2.new(0, 60, 0, 14)
+            ValueLabel.Position = UDim2.new(1, -64, 0, -16)
+            ValueLabel.BackgroundTransparency = 1
+            ValueLabel.FontFace = FontMichromaRegular
+            ValueLabel.TextColor3 = Window.CurrentTheme.Text
+            ValueLabel.TextSize = 11
+            ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+            ValueLabel.TextYAlignment = Enum.TextYAlignment.Center
+            ValueLabel.Text = GetFormattedValue(defaultVal, initialPct)
+            ValueLabel.ZIndex = 14
+            ValueLabel.Parent = TrackFrame
+        end
 
         local FilledPart = Instance.new("Frame")
         FilledPart.Name = "Filledpart"
@@ -1888,6 +1942,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
 
             currentVal = math.floor(minVal + (pct * (maxVal - minVal)))
+            if ValueLabel then
+                ValueLabel.Text = GetFormattedValue(currentVal, pct)
+            end
             if onValueChange then
                 pcall(onValueChange, currentVal, pct)
             end
@@ -1919,6 +1976,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             FilledPart = FilledPart,
             Overlay = OverlayCircle,
             Stroke = Stroke,
+            ValueLabel = ValueLabel,
             GetValue = function() return currentVal end,
             SetValue = function(val, triggerCallback)
                 val = math.clamp(val, minVal, maxVal)
@@ -1926,14 +1984,29 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local pct = (maxVal > minVal) and ((val - minVal) / (maxVal - minVal)) or 0
                 FilledPart.Size = UDim2.new(pct, 0, 1, 0)
                 HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
+                if ValueLabel then
+                    ValueLabel.Text = GetFormattedValue(currentVal, pct)
+                end
                 if triggerCallback and onValueChange then
                     pcall(onValueChange, currentVal, pct)
+                end
+            end,
+            SetValueFormat = function(format, newSuffix, newPrefix)
+                valueFormat = format or valueFormat
+                suffix = newSuffix or suffix
+                prefix = newPrefix or prefix
+                local pct = (maxVal > minVal) and ((currentVal - minVal) / (maxVal - minVal)) or 0
+                if ValueLabel then
+                    ValueLabel.Text = GetFormattedValue(currentVal, pct)
                 end
             end,
             RefreshTheme = function(theme)
                 TrackFrame.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(20, 22, 28)
                 FilledPart.BackgroundColor3 = theme.ButtonBG
                 OverlayCircle.ImageColor3 = theme.ButtonBG
+                if ValueLabel then
+                    ValueLabel.TextColor3 = theme.Text
+                end
             end
         }
         Window.RegisteredSliders[sliderName] = sliderData
@@ -2669,7 +2742,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
     -- Half-Side Embedded Toggle Generator
-    function Window:CreateMDToggleHalf(parent, position, size, text, initialState, onToggle, keybindConfig)
+    function Window:CreateMDToggleHalf(parent, position, size, text, initialState, onToggle, keybindConfig, connectMode)
         size = size or UDim2.new(0, 260, 0, 44)
         position = position or UDim2.new(0, 0, 0, 0)
 
@@ -2684,7 +2757,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CardFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 22)
+        if connectMode == "Top" or connectMode == "First" then
+            ApplyCornerRadii(Corner, 22, 22, 0, 0)
+        elseif connectMode == "Middle" then
+            ApplyCornerRadii(Corner, 0, 0, 0, 0)
+        elseif connectMode == "Bottom" or connectMode == "Last" then
+            ApplyCornerRadii(Corner, 0, 0, 22, 22)
+        else
+            Corner.CornerRadius = UDim.new(0, 22)
+        end
         Corner.Parent = CardFrame
 
         AddUIShadow(CardFrame, 20, 0.5)
@@ -2796,11 +2877,35 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             BaseCircle = BaseCircle,
             Overlay = OverlayCircle,
             Stroke = Stroke,
+            Corner = Corner,
             GetState = function() return isToggled end,
             SetState = function(state, triggerCallback)
                 PerformToggle(state, triggerCallback)
             end
         }
+
+        toggleData.AddSlider = function(self, sliderConfig)
+            sliderConfig = sliderConfig or {}
+            local minVal = sliderConfig.Min or sliderConfig.min or 0
+            local maxVal = sliderConfig.Max or sliderConfig.max or 100
+            local defVal = sliderConfig.Default or sliderConfig.default or minVal
+            local cb = sliderConfig.Callback or sliderConfig.callback or sliderConfig.OnChanged
+            local suffix = sliderConfig.Suffix or (sliderConfig.ValueFormat == "percent" and "%") or "%"
+            local showVal = sliderConfig.ShowValue ~= false
+
+            if not connectMode then
+                ApplyCornerRadii(Corner, 22, 22, 0, 0)
+            end
+
+            local sliderSize = UDim2.new(size.X.Scale, size.X.Offset, 0, 14)
+            local sliderData = Window:CreateMDSlider(parent, UDim2.new(0, 0, 0, 0), sliderSize, minVal, maxVal, defVal, cb, toggleName .. "_Slider", {
+                ShowValue = showVal,
+                Suffix = suffix,
+                ValueFormat = sliderConfig.ValueFormat or (suffix == "%" and "percent" or "number")
+            })
+            toggleData.ConnectedSlider = sliderData
+            return sliderData
+        end
 
         if hasKeybind then
             local defaultKey = (type(keybindConfig) == "table" and (keybindConfig.Default or keybindConfig.Bind)) or (keybindConfig ~= true and keybindConfig or nil)
@@ -3695,7 +3800,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local MinimizedImage = Instance.new("ImageButton")
     MinimizedImage.Size = UDim2.new(1, 0, 1, 0)
     MinimizedImage.BackgroundTransparency = 0
-    MinimizedImage.Image = iconAsset
+    MinimizedImage.Image = minimizedIcon
     MinimizedImage.ZIndex = 101
     MinimizedImage.Parent = MinimizedFrame
 
@@ -3903,6 +4008,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if MDicon then
             MDicon.Image = newIcon
         end
+    end
+
+    function Window:SetMinimizedIcon(newIcon)
+        if not newIcon or newIcon == "" then
+            newIcon = "rbxassetid://77044087750639"
+        elseif type(newIcon) == "number" or tostring(newIcon):match("^%d+$") then
+            newIcon = "rbxassetid://" .. tostring(newIcon)
+        else
+            newIcon = tostring(newIcon)
+        end
+        Window.MinimizedIcon = newIcon
         if MinimizedImage then
             MinimizedImage.Image = newIcon
         end
@@ -3930,6 +4046,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     BackgroundTransparency = 1
                 }):Play()
             end
+            if oldTab.Icon then
+                TweenService:Create(oldTab.Icon, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    ImageColor3 = Window.CurrentTheme.SubText
+                }):Play()
+            end
         end
 
         if newTab and newTab.Button then
@@ -3941,6 +4062,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if newTab.HoverGlow then
                 TweenService:Create(newTab.HoverGlow, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                     BackgroundTransparency = 0.85
+                }):Play()
+            end
+            if newTab.Icon then
+                TweenService:Create(newTab.Icon, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    ImageColor3 = Window.CurrentTheme.Text
                 }):Play()
             end
         end
@@ -3999,12 +4125,35 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return DivideFrameSmall
     end
 
-    function Window:CreateTab(tabName, layoutOrder)
+    function Window:CreateTab(arg1, arg2, arg3, arg4)
+        local tabName, layoutOrder, tabIcon, autoDivider
+        if type(arg1) == "table" then
+            tabName = arg1.Name or arg1.Title or arg1.TabName or arg1[1] or "Tab"
+            layoutOrder = arg1.LayoutOrder or arg1.Order or arg1[2]
+            tabIcon = arg1.Icon or arg1.IconAsset or arg1[3]
+            autoDivider = arg1.AutoSmallDivider or arg1.Divider or arg1[4]
+        else
+            tabName = arg1 or "Tab"
+            layoutOrder = arg2
+            tabIcon = arg3
+            autoDivider = arg4
+        end
+
+        local totalTabs = 0
+        for _ in pairs(Window.Tabs) do
+            totalTabs = totalTabs + 1
+        end
+
+        if autoDivider or (Window.AutoSmallDividers and totalTabs > 0 and not Window._FirstTabCreated) then
+            Window:AddSidebarSmallDivider((layoutOrder or (totalTabs + 1)) - 0.5)
+        end
+        Window._FirstTabCreated = true
+
         local TabContainer = Instance.new("Frame")
         TabContainer.Name = tabName
         TabContainer.Size = UDim2.new(0, 165, 0, 34)
         TabContainer.BackgroundTransparency = 1
-        TabContainer.LayoutOrder = layoutOrder or 1
+        TabContainer.LayoutOrder = layoutOrder or (totalTabs + 1)
         TabContainer.Parent = SidebarScroll
 
         local HoverGlow = Instance.new("Frame")
@@ -4021,16 +4170,38 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         HoverCorner.CornerRadius = UDim.new(0, 6)
         HoverCorner.Parent = HoverGlow
 
+        local TabIcon = nil
+        if tabIcon and tabIcon ~= "" and tabIcon ~= false then
+            if type(tabIcon) == "number" or tostring(tabIcon):match("^%d+$") then
+                tabIcon = "rbxassetid://" .. tostring(tabIcon)
+            end
+            TabIcon = Instance.new("ImageLabel")
+            TabIcon.Name = "TabIcon"
+            TabIcon.Size = UDim2.new(0, 18, 0, 18)
+            TabIcon.Position = UDim2.new(0, 10, 0.5, -9)
+            TabIcon.BackgroundTransparency = 1
+            TabIcon.Image = tabIcon
+            TabIcon.ImageColor3 = Window.CurrentTheme.SubText
+            TabIcon.ZIndex = 3
+            TabIcon.Parent = TabContainer
+        end
+
         local TabButton = Instance.new("TextButton")
         TabButton.Name = "TextButton"
-        TabButton.Size = UDim2.new(1, 0, 1, 0)
-        TabButton.Position = UDim2.new(0, 0, 0, 0)
+        if TabIcon then
+            TabButton.Size = UDim2.new(1, -38, 1, 0)
+            TabButton.Position = UDim2.new(0, 34, 0, 0)
+            TabButton.TextXAlignment = Enum.TextXAlignment.Left
+        else
+            TabButton.Size = UDim2.new(1, 0, 1, 0)
+            TabButton.Position = UDim2.new(0, 0, 0, 0)
+            TabButton.TextXAlignment = Enum.TextXAlignment.Center
+        end
         TabButton.BackgroundTransparency = 1
         TabButton.FontFace = FontMichromaRegular
         TabButton.Text = tabName
         TabButton.TextColor3 = Window.CurrentTheme.SubText
         TabButton.TextSize = 15
-        TabButton.TextXAlignment = Enum.TextXAlignment.Center
         TabButton.TextYAlignment = Enum.TextYAlignment.Center
         TabButton.ZIndex = 2
         TabButton.Parent = TabContainer
@@ -4069,6 +4240,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Name = tabName,
             Button = TabButton,
             HoverGlow = HoverGlow,
+            Icon = TabIcon,
             ContentFrame = ContentFrame,
             Layout = ContentLayout
         }
@@ -4242,6 +4414,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
             function RowFrame:AddColorPicker(title, defaultColor, callback, sizeFraction)
                 return TabObj:AddColorPicker(title, defaultColor, callback, RowFrame, nil, sizeFraction or 0.5)
+            end
+            function RowFrame:AddSlider(title, min, max, default, callback, sizeFraction, options)
+                return TabObj:AddSlider(title, min, max, default, callback, options or sizeFraction, RowFrame)
             end
 
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
@@ -4424,17 +4599,36 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         function TabObj:AddToggle(titleOrConfig, initialState, onToggle, parentRow, position, sizeFraction, bindConfig)
             local targetParent = parentRow or ContentFrame
-            local text = (type(titleOrConfig) == "table" and (titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1])) or tostring(titleOrConfig)
-            local state = (type(titleOrConfig) == "table" and (titleOrConfig.Default or titleOrConfig.Value or titleOrConfig.State or titleOrConfig[2])) or initialState
-            local cb = (type(titleOrConfig) == "table" and (titleOrConfig.Callback or titleOrConfig.OnChanged or titleOrConfig.callback or titleOrConfig[3])) or onToggle
-            local bind = (type(titleOrConfig) == "table" and (titleOrConfig.Bind or titleOrConfig.Keybind or titleOrConfig.DefaultBind or titleOrConfig[4])) or bindConfig
+            local text, state, cb, bind, connectMode, sliderConfig
 
+            if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                text = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Toggle"
+                state = titleOrConfig.Default or titleOrConfig.Value or titleOrConfig.State or titleOrConfig[2]
+                cb = titleOrConfig.Callback or titleOrConfig.OnChanged or titleOrConfig.callback or titleOrConfig[3]
+                bind = titleOrConfig.Bind or titleOrConfig.Keybind or titleOrConfig.DefaultBind or titleOrConfig[4]
+                connectMode = titleOrConfig.Connect or titleOrConfig.Connected or titleOrConfig.PositionInGroup
+                sliderConfig = titleOrConfig.Slider or titleOrConfig.ConnectedSlider
+                sizeFraction = titleOrConfig.Size or titleOrConfig.Fraction or sizeFraction
+                parentRow = titleOrConfig.Parent or titleOrConfig.Row or parentRow
+                position = titleOrConfig.Position or position
+            else
+                text = tostring(titleOrConfig or "Toggle")
+                state = initialState
+                cb = onToggle
+                bind = bindConfig
+            end
+
+            targetParent = parentRow or ContentFrame
             local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
             local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
             local pos = position or UDim2.new(0, 0, 0, 0)
 
-            local toggleData = Window:CreateMDToggleHalf(targetParent, pos, size, text, state, cb, bind)
+            local toggleData = Window:CreateMDToggleHalf(targetParent, pos, size, text, state, cb, bind, connectMode)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+
+            if sliderConfig then
+                toggleData:AddSlider(sliderConfig)
+            end
 
             table.insert(Window.SearchableItems, {
                 Type = "Toggle",
@@ -4447,6 +4641,47 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return toggleData
         end
 
+        function TabObj:AddToggleGroup(toggleList)
+            if type(toggleList) ~= "table" then return {} end
+            local count = #toggleList
+            local results = {}
+            for i, item in ipairs(toggleList) do
+                local config
+                if type(item) == "table" and not item.IsA then
+                    config = item
+                else
+                    config = { Name = tostring(item) }
+                end
+                local connectMode
+                if count == 1 then
+                    connectMode = nil
+                elseif i == 1 then
+                    connectMode = "Top"
+                elseif i == count then
+                    connectMode = "Bottom"
+                else
+                    connectMode = "Middle"
+                end
+                config.Connect = config.Connect or connectMode
+                local toggle = TabObj:AddToggle(config)
+                table.insert(results, toggle)
+            end
+            return results
+        end
+
+        function TabObj:AddToggleSlider(config)
+            if type(config) ~= "table" then return end
+            local toggle = TabObj:AddToggle({
+                Name = config.Name or config.Title or "Toggle",
+                Default = config.Default or config.ToggleDefault or false,
+                Callback = config.Callback or config.ToggleCallback,
+                Bind = config.Bind or config.Keybind or config.DefaultBind,
+                Connect = config.Connect
+            })
+            local slider = toggle:AddSlider(config.Slider or config)
+            return toggle, slider
+        end
+
         function TabObj:AddHalfToggle(text, initialState, onToggle, parentRow, position)
             return TabObj:AddToggle(text, initialState, onToggle, parentRow, position)
         end
@@ -4456,7 +4691,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local pos = UDim2.new(0, 0, 0, 0)
             local size = UDim2.new(1, -10, 0, 14)
             local sliderName = nil
-            local minVal, maxVal, defaultVal, onValueChange
+            local minVal, maxVal, defaultVal, onValueChange, sliderOptions
 
             if type(arg1) == "string" then
                 sliderName = arg1
@@ -4465,6 +4700,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     maxVal = arg2.Max or arg2.max or 100
                     defaultVal = arg2.Default or arg2.default or minVal
                     onValueChange = arg2.Callback or arg2.callback or arg2.OnChanged
+                    sliderOptions = arg2
                     targetParent = arg3 or targetParent
                     pos = arg4 or pos
                 else
@@ -4472,8 +4708,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     maxVal = arg3 or 100
                     defaultVal = arg4 or minVal
                     onValueChange = arg5
-                    targetParent = arg6 or targetParent
-                    pos = arg7 or pos
+                    sliderOptions = arg6
+                    targetParent = (typeof(arg6) == "Instance" and arg6) or (typeof(arg7) == "Instance" and arg7) or targetParent
+                    pos = (typeof(arg7) == "UDim2" and arg7) or pos
                 end
             elseif type(arg1) == "table" then
                 sliderName = arg1.Title or arg1.Name
@@ -4481,6 +4718,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 maxVal = arg1.Max or arg1.max or 100
                 defaultVal = arg1.Default or arg1.default or minVal
                 onValueChange = arg1.Callback or arg1.callback or arg1.OnChanged
+                sliderOptions = arg1
                 targetParent = arg2 or targetParent
                 pos = arg3 or pos
             else
@@ -4488,15 +4726,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 maxVal = arg2 or 100
                 defaultVal = arg3 or minVal
                 onValueChange = arg4
-                targetParent = arg5 or targetParent
-                pos = arg6 or pos
+                sliderOptions = arg5
+                targetParent = (typeof(arg5) == "Instance" and arg5) or (typeof(arg6) == "Instance" and arg6) or targetParent
+                pos = (typeof(arg6) == "UDim2" and arg6) or (typeof(arg7) == "UDim2" and arg7) or pos
             end
 
             if targetParent and targetParent.Name == "RowFrame" then
                 size = UDim2.new(0.485, -4, 0, 14)
             end
 
-            local sliderData = Window:CreateMDSlider(targetParent, pos, size, minVal, maxVal, defaultVal, onValueChange, sliderName)
+            local sliderData = Window:CreateMDSlider(targetParent, pos, size, minVal, maxVal, defaultVal, onValueChange, sliderName, sliderOptions)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
 
             table.insert(Window.SearchableItems, {
@@ -4515,6 +4754,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if Window.ActiveTab ~= tabName then
                 TweenService:Create(HoverGlow, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.90}):Play()
                 TweenService:Create(TabButton, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextColor3 = Window.CurrentTheme.Text}):Play()
+                if TabIcon then
+                    TweenService:Create(TabIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {ImageColor3 = Window.CurrentTheme.Text}):Play()
+                end
             end
         end))
 
@@ -4522,6 +4764,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if Window.ActiveTab ~= tabName then
                 TweenService:Create(HoverGlow, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
                 TweenService:Create(TabButton, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextColor3 = Window.CurrentTheme.SubText}):Play()
+                if TabIcon then
+                    TweenService:Create(TabIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {ImageColor3 = Window.CurrentTheme.SubText}):Play()
+                end
             end
         end))
 
