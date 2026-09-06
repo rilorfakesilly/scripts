@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.5"
+Library.Version = "2.10"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -210,6 +210,45 @@ end
 
 Library.ApplyCornerRadii = ApplyCornerRadii
 Library.AddUIShadow = AddUIShadow
+Library.ActiveWindows = {}
+
+function Library:RegisterTheme(name, data)
+    if type(name) ~= "string" or type(data) ~= "table" then return end
+    local defaultTheme = Library.ThemePresets.Dark
+    local newTheme = {
+        Name = data.Name or name,
+        MainBG = data.MainBG or defaultTheme.MainBG,
+        MainTrans = data.MainTrans or defaultTheme.MainTrans,
+        AccentBG = data.AccentBG or defaultTheme.AccentBG,
+        AccentTrans = data.AccentTrans or defaultTheme.AccentTrans,
+        TopBG = data.TopBG or defaultTheme.TopBG,
+        TopTrans = data.TopTrans or defaultTheme.TopTrans,
+        BottomBG = data.BottomBG or defaultTheme.BottomBG,
+        BottomTrans = data.BottomTrans or defaultTheme.BottomTrans,
+        CardBG = data.CardBG or defaultTheme.CardBG,
+        ButtonBG = data.ButtonBG or defaultTheme.ButtonBG,
+        Text = data.Text or defaultTheme.Text,
+        SubText = data.SubText or defaultTheme.SubText,
+        Divider = data.Divider or defaultTheme.Divider,
+        BottomGradient = data.BottomGradient or defaultTheme.BottomGradient,
+        MinGradient = data.MinGradient or defaultTheme.MinGradient
+    }
+    Library.ThemePresets[name] = newTheme
+
+    for _, win in ipairs(Library.ActiveWindows or {}) do
+        if win and win.ThemeContainer and win.ThemePresetBtnMap and not win.ThemePresetBtnMap[name] then
+            local btnData = win:CreateMDButtonLong(win.ThemeContainer, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, 0), newTheme.Name, function()
+                win:ApplyTheme(name)
+            end)
+            win.ThemePresetBtnMap[name] = btnData
+            if win.SettingsTab and win.SettingsTab.ContentFrame and win.SettingsTab.Layout then
+                win.SettingsTab.ContentFrame.CanvasSize = UDim2.new(0, 0, 0, win.SettingsTab.Layout.AbsoluteContentSize.Y + 20)
+            end
+        end
+    end
+    return newTheme
+end
+Library.RegisterTheme = Library.RegisterTheme
 
 function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local hubTitle, scriptName, authorText, discordLink, iconAsset
@@ -301,6 +340,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Tabs = {},
         ActiveTab = nil
     }
+    table.insert(Library.ActiveWindows, Window)
+
+    function Window:RegisterTheme(name, data)
+        return Library:RegisterTheme(name, data)
+    end
+
+    function Window:GetSettingsTab()
+        return Window.SettingsTab
+    end
 
     local ScriptUi = nil
     local MinimisedUI = nil
@@ -739,9 +787,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- =========================================================================
     -- TEXTBOX GENERATORS (Full & Half Width)
     -- =========================================================================
-    function Window:CreateMDTextbox(parent, position, size, title, placeholder, defaultText, onSubmit)
+    function Window:CreateMDTextbox(parent, position, size, title, placeholder, defaultText, onSubmit, boxOptions)
         size = size or UDim2.new(1, -10, 0, 50)
         position = position or UDim2.new(0, 0, 0, 0)
+
+        local boxWidth = 160
+        local titleWidth = nil
+        if type(boxOptions) == "table" then
+            boxWidth = boxOptions.BoxWidth or boxOptions.InputWidth or boxOptions.boxWidth or boxWidth
+            titleWidth = boxOptions.TitleWidth or boxOptions.titleWidth
+        elseif type(boxOptions) == "number" then
+            boxWidth = boxOptions
+        end
 
         local BoxFrame = Instance.new("Frame")
         BoxFrame.Name = "TextboxFrame"
@@ -761,21 +818,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local TitleLabel = Instance.new("TextLabel")
         TitleLabel.Name = "TitleLabel"
-        TitleLabel.Size = UDim2.new(0, 140, 1, 0)
+        TitleLabel.Size = titleWidth and UDim2.new(0, titleWidth, 1, 0) or UDim2.new(1, -(boxWidth + 24), 1, 0)
         TitleLabel.Position = UDim2.new(0, 12, 0, 0)
         TitleLabel.BackgroundTransparency = 1
         TitleLabel.FontFace = FontMichromaBold
         TitleLabel.Text = title or "Input"
         TitleLabel.TextColor3 = Window.CurrentTheme.Text
         TitleLabel.TextSize = 12
+        TitleLabel.TextWrapped = true
         TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
         TitleLabel.ZIndex = 11
         TitleLabel.Parent = BoxFrame
 
         local InputBox = Instance.new("TextBox")
         InputBox.Name = "InputBox"
-        InputBox.Size = UDim2.new(1, -165, 0, 30)
-        InputBox.Position = UDim2.new(0, 150, 0.5, -15)
+        InputBox.AnchorPoint = Vector2.new(1, 0.5)
+        InputBox.Size = UDim2.new(0, boxWidth, 0, 30)
+        InputBox.Position = UDim2.new(1, -12, 0.5, 0)
         InputBox.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
         InputBox.BackgroundTransparency = 0.2
         InputBox.BorderSizePixel = 0
@@ -803,6 +863,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SetText = function(txt, triggerCallback)
                 InputBox.Text = txt or ""
                 if triggerCallback and onSubmit then onSubmit(InputBox.Text) end
+            end,
+            SetBoxWidth = function(newWidth)
+                boxWidth = newWidth or boxWidth
+                InputBox.Size = UDim2.new(0, boxWidth, 0, 30)
+                if not titleWidth then
+                    TitleLabel.Size = UDim2.new(1, -(boxWidth + 24), 1, 0)
+                end
             end,
             RefreshTheme = function(theme)
                 BoxFrame.BackgroundColor3 = theme.CardBG
@@ -2824,8 +2891,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local BaseCircle = Instance.new("ImageLabel")
         BaseCircle.Name = "ToggleThingLikeCircle"
+        BaseCircle.AnchorPoint = Vector2.new(0.5, 0.5)
         BaseCircle.Size = UDim2.new(0, 18, 0, 18)
-        BaseCircle.Position = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
+        BaseCircle.Position = isToggled and UDim2.new(1, -12, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
         BaseCircle.BackgroundTransparency = 1
         BaseCircle.Image = "rbxassetid://118376432250064"
         BaseCircle.ZIndex = 12
@@ -2833,8 +2901,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local OverlayCircle = Instance.new("ImageLabel")
         OverlayCircle.Name = "ThethingOnTopThatMatchesBGofIt"
-        OverlayCircle.Size = UDim2.new(0, 19, 0, 19)
-        OverlayCircle.Position = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
+        OverlayCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+        OverlayCircle.Size = UDim2.new(0, 18, 0, 18)
+        OverlayCircle.Position = isToggled and UDim2.new(1, -12, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
         OverlayCircle.BackgroundTransparency = 1
         OverlayCircle.Image = "rbxassetid://100354746235648"
         OverlayCircle.ImageColor3 = Window.CurrentTheme.ButtonBG
@@ -2843,7 +2912,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local ClickBtn = Instance.new("TextButton")
         ClickBtn.Name = "ClickTrigger"
-        ClickBtn.Size = UDim2.new(1, 0, 1, 0)
+        ClickBtn.Size = UDim2.new(1, 0, 0, 44)
         ClickBtn.BackgroundTransparency = 1
         ClickBtn.Text = ""
         ClickBtn.ZIndex = 14
@@ -2851,12 +2920,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local function PerformToggle(newState, triggerCallback)
             isToggled = (newState == true)
-            local targetKnobPosBase = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
-            local targetKnobPosOver = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
+            local targetKnobPos = isToggled and UDim2.new(1, -12, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
             local targetBG = isToggled and Window.CurrentTheme.ButtonBG or ((Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
 
-            TweenService:Create(BaseCircle, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetKnobPosBase}):Play()
-            TweenService:Create(OverlayCircle, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetKnobPosOver}):Play()
+            TweenService:Create(BaseCircle, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetKnobPos}):Play()
+            TweenService:Create(OverlayCircle, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetKnobPos}):Play()
             TweenService:Create(ToggleFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetBG}):Play()
 
             if triggerCallback and onToggle then
@@ -2893,18 +2961,59 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local suffix = sliderConfig.Suffix or (sliderConfig.ValueFormat == "percent" and "%") or "%"
             local showVal = sliderConfig.ShowValue ~= false
 
-            if not connectMode then
-                ApplyCornerRadii(Corner, 22, 22, 0, 0)
+            -- Expand card to contain slider underneath (Screenshot 2 style)
+            CardFrame.Size = UDim2.new(size.X.Scale, size.X.Offset, 0, 76)
+            TitleText.Size = hasKeybind and UDim2.new(1, -190, 0, 44) or UDim2.new(1, -145, 0, 44)
+            ToggleFrame.Position = UDim2.new(1, -54, 0, 10)
+            if toggleData.Keybind and toggleData.Keybind.Badge then
+                toggleData.Keybind.Badge.Position = UDim2.new(1, -96, 0, 11)
             end
 
-            local sliderSize = UDim2.new(size.X.Scale, size.X.Offset, 0, 14)
-            local sliderData = Window:CreateMDSlider(parent, UDim2.new(0, 0, 0, 0), sliderSize, minVal, maxVal, defVal, cb, toggleName .. "_Slider", {
-                ShowValue = showVal,
-                Suffix = suffix,
-                ValueFormat = sliderConfig.ValueFormat or (suffix == "%" and "percent" or "number")
+            local ValueLabel = nil
+            if showVal then
+                ValueLabel = Instance.new("TextLabel")
+                ValueLabel.Name = "ValueLabel"
+                ValueLabel.Size = UDim2.new(0, 85, 0, 20)
+                ValueLabel.Position = hasKeybind and UDim2.new(1, -102, 0, 12) or UDim2.new(1, -60, 0, 12)
+                ValueLabel.AnchorPoint = Vector2.new(1, 0)
+                ValueLabel.BackgroundTransparency = 1
+                ValueLabel.FontFace = FontMichromaRegular
+                ValueLabel.TextColor3 = Window.CurrentTheme.Text
+                ValueLabel.TextSize = 11
+                ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+                ValueLabel.TextYAlignment = Enum.TextYAlignment.Center
+                ValueLabel.ZIndex = 11
+                ValueLabel.Parent = CardFrame
+
+                local function FormatVal(val, pct)
+                    if suffix == "%" or sliderConfig.ValueFormat == "percent" then
+                        return tostring(math.floor(pct * 100)) .. "%"
+                    else
+                        return tostring(val) .. suffix
+                    end
+                end
+                local initialPct = (maxVal > minVal) and math.clamp((defVal - minVal) / (maxVal - minVal), 0, 1) or 0
+                ValueLabel.Text = FormatVal(defVal, initialPct)
+            end
+
+            local sliderTrack = Window:CreateMDSlider(CardFrame, UDim2.new(0, 14, 0, 50), UDim2.new(1, -28, 0, 12), minVal, maxVal, defVal, function(val, pct)
+                if ValueLabel then
+                    if suffix == "%" or sliderConfig.ValueFormat == "percent" then
+                        ValueLabel.Text = tostring(math.floor(pct * 100)) .. "%"
+                    else
+                        ValueLabel.Text = tostring(val) .. suffix
+                    end
+                end
+                if cb then cb(val, pct) end
+            end, toggleName .. "_Slider", {
+                ShowValue = false
             })
-            toggleData.ConnectedSlider = sliderData
-            return sliderData
+
+            if ValueLabel then
+                sliderTrack.ValueLabel = ValueLabel
+            end
+            toggleData.ConnectedSlider = sliderTrack
+            return sliderTrack
         end
 
         if hasKeybind then
@@ -4139,6 +4248,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             autoDivider = arg4
         end
 
+        if tabName and tostring(tabName):lower() == "settings" and Window.SettingsTab then
+            return Window.SettingsTab
+        end
+
         local totalTabs = 0
         for _ in pairs(Window.Tabs) do
             totalTabs = totalTabs + 1
@@ -4555,18 +4668,36 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return dropObj
         end
 
-        function TabObj:AddTextbox(title, placeholder, defaultText, onSubmit, parentRow, position, sizeFraction)
+        function TabObj:AddTextbox(titleOrConfig, placeholder, defaultText, onSubmit, parentRow, position, sizeFraction, boxOptions)
+            local title, ph, def, cb, opts
+            if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                title = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Input"
+                ph = titleOrConfig.Placeholder or titleOrConfig.placeholder or titleOrConfig[2] or "Type here..."
+                def = titleOrConfig.Default or titleOrConfig.default or titleOrConfig[3] or ""
+                cb = titleOrConfig.Callback or titleOrConfig.OnSubmit or titleOrConfig.callback or titleOrConfig[4]
+                opts = titleOrConfig
+                parentRow = titleOrConfig.Parent or titleOrConfig.Row or parentRow
+                position = titleOrConfig.Position or position
+                sizeFraction = titleOrConfig.Size or titleOrConfig.Fraction or sizeFraction
+            else
+                title = titleOrConfig or "Input"
+                ph = placeholder or "Type here..."
+                def = defaultText or ""
+                cb = onSubmit
+                opts = boxOptions
+            end
+
             local targetParent = parentRow or ContentFrame
             local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
-            local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
+            local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 50) or UDim2.new(1, -10, 0, 50))
             local pos = position or UDim2.new(0, 0, 0, 0)
-            local boxObj = Window:CreateMDTextbox(targetParent, pos, size, title, placeholder, defaultText, onSubmit)
+            local boxObj = Window:CreateMDTextbox(targetParent, pos, size, title, ph, def, cb, opts)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
 
             table.insert(Window.SearchableItems, {
                 Type = "Textbox",
                 Name = title or "Textbox",
-                Desc = placeholder or "",
+                Desc = ph or "",
                 TabName = tabName,
                 Instance = boxObj.Frame
             })
@@ -4619,8 +4750,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
 
             targetParent = parentRow or ContentFrame
-            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
-            local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
+            local isToggleGroup = parentRow and parentRow.Name == "ToggleGroup"
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isToggleGroup) and 0.5 or 1.0)
+            local defaultH = sliderConfig and 76 or 44
+            local size = explicitUDim or (isToggleGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
             local pos = position or UDim2.new(0, 0, 0, 0)
 
             local toggleData = Window:CreateMDToggleHalf(targetParent, pos, size, text, state, cb, bind, connectMode)
@@ -4644,6 +4777,22 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         function TabObj:AddToggleGroup(toggleList)
             if type(toggleList) ~= "table" then return {} end
             local count = #toggleList
+            if count == 0 then return {} end
+
+            local GroupFrame = Instance.new("Frame")
+            GroupFrame.Name = "ToggleGroup"
+            GroupFrame.Size = UDim2.new(1, -10, 0, 0)
+            GroupFrame.AutomaticSize = Enum.AutomaticSize.Y
+            GroupFrame.BackgroundTransparency = 1
+            GroupFrame.BorderSizePixel = 0
+            GroupFrame.ZIndex = 10
+            GroupFrame.Parent = ContentFrame
+
+            local GroupLayout = Instance.new("UIListLayout")
+            GroupLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            GroupLayout.Padding = UDim.new(0, 0)
+            GroupLayout.Parent = GroupFrame
+
             local results = {}
             for i, item in ipairs(toggleList) do
                 local config
@@ -4663,9 +4812,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     connectMode = "Middle"
                 end
                 config.Connect = config.Connect or connectMode
+                config.Parent = GroupFrame
                 local toggle = TabObj:AddToggle(config)
                 table.insert(results, toggle)
             end
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
             return results
         end
 
@@ -4689,9 +4840,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         function TabObj:AddSlider(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
             local targetParent = ContentFrame
             local pos = UDim2.new(0, 0, 0, 0)
-            local size = UDim2.new(1, -10, 0, 14)
             local sliderName = nil
             local minVal, maxVal, defaultVal, onValueChange, sliderOptions
+            local customParent = false
 
             if type(arg1) == "string" then
                 sliderName = arg1
@@ -4701,7 +4852,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     defaultVal = arg2.Default or arg2.default or minVal
                     onValueChange = arg2.Callback or arg2.callback or arg2.OnChanged
                     sliderOptions = arg2
-                    targetParent = arg3 or targetParent
+                    if arg3 then targetParent = arg3 customParent = true end
                     pos = arg4 or pos
                 else
                     minVal = arg2 or 0
@@ -4709,17 +4860,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     defaultVal = arg4 or minVal
                     onValueChange = arg5
                     sliderOptions = arg6
-                    targetParent = (typeof(arg6) == "Instance" and arg6) or (typeof(arg7) == "Instance" and arg7) or targetParent
+                    if typeof(arg6) == "Instance" then targetParent = arg6 customParent = true
+                    elseif typeof(arg7) == "Instance" then targetParent = arg7 customParent = true end
                     pos = (typeof(arg7) == "UDim2" and arg7) or pos
                 end
             elseif type(arg1) == "table" then
-                sliderName = arg1.Title or arg1.Name
+                sliderName = arg1.Title or arg1.Name or arg1.Text
                 minVal = arg1.Min or arg1.min or 0
                 maxVal = arg1.Max or arg1.max or 100
                 defaultVal = arg1.Default or arg1.default or minVal
                 onValueChange = arg1.Callback or arg1.callback or arg1.OnChanged
                 sliderOptions = arg1
-                targetParent = arg2 or targetParent
+                if arg2 then targetParent = arg2 customParent = true end
                 pos = arg3 or pos
             else
                 minVal = arg1 or 0
@@ -4727,26 +4879,126 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 defaultVal = arg3 or minVal
                 onValueChange = arg4
                 sliderOptions = arg5
-                targetParent = (typeof(arg5) == "Instance" and arg5) or (typeof(arg6) == "Instance" and arg6) or targetParent
+                if typeof(arg5) == "Instance" then targetParent = arg5 customParent = true
+                elseif typeof(arg6) == "Instance" then targetParent = arg6 customParent = true end
                 pos = (typeof(arg6) == "UDim2" and arg6) or (typeof(arg7) == "UDim2" and arg7) or pos
             end
 
-            if targetParent and targetParent.Name == "RowFrame" then
-                size = UDim2.new(0.485, -4, 0, 14)
+            local suffix = (type(sliderOptions) == "table" and (sliderOptions.Suffix or (sliderOptions.ValueFormat == "percent" and "%"))) or (type(sliderOptions) == "string" and sliderOptions) or "%"
+            local isCard = not customParent or targetParent == ContentFrame or (targetParent and targetParent.Name == "RowFrame")
+
+            if isCard and (type(sliderOptions) ~= "table" or sliderOptions.AsCard ~= false) then
+                local isRow = targetParent and targetParent.Name == "RowFrame"
+                local cardSize = isRow and UDim2.new(0.485, -4, 0, 56) or UDim2.new(1, -10, 0, 56)
+
+                local SliderCard = Instance.new("Frame")
+                SliderCard.Name = (sliderName or "Slider") .. "_Card"
+                SliderCard.Size = cardSize
+                SliderCard.Position = pos
+                SliderCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+                SliderCard.BackgroundTransparency = 0.05
+                SliderCard.BorderSizePixel = 0
+                SliderCard.ZIndex = 10
+                SliderCard.Parent = targetParent
+
+                local CardCorner = Instance.new("UICorner")
+                CardCorner.CornerRadius = UDim.new(0, 8)
+                CardCorner.Parent = SliderCard
+
+                AddUIShadow(SliderCard, 20, 0.5)
+
+                local CardStroke = Instance.new("UIStroke")
+                CardStroke.Name = "UIStroke"
+                CardStroke.Color = Color3.fromRGB(255, 255, 255)
+                CardStroke.Thickness = 1.2
+                CardStroke.Transparency = 0
+                CardStroke.Parent = SliderCard
+
+                local TitleLabel = Instance.new("TextLabel")
+                TitleLabel.Name = "SliderTitle"
+                TitleLabel.Size = UDim2.new(1, -95, 0, 20)
+                TitleLabel.Position = UDim2.new(0, 14, 0, 8)
+                TitleLabel.BackgroundTransparency = 1
+                TitleLabel.FontFace = FontMichromaRegular
+                TitleLabel.Text = sliderName or "Slider"
+                TitleLabel.TextColor3 = Window.CurrentTheme.Text
+                TitleLabel.TextSize = 12
+                TitleLabel.TextWrapped = true
+                TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+                TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
+                TitleLabel.ZIndex = 11
+                TitleLabel.Parent = SliderCard
+
+                local ValueLabel = Instance.new("TextLabel")
+                ValueLabel.Name = "ValueLabel"
+                ValueLabel.Size = UDim2.new(0, 80, 0, 20)
+                ValueLabel.Position = UDim2.new(1, -14, 0, 8)
+                ValueLabel.AnchorPoint = Vector2.new(1, 0)
+                ValueLabel.BackgroundTransparency = 1
+                ValueLabel.FontFace = FontMichromaRegular
+                ValueLabel.TextColor3 = Window.CurrentTheme.Text
+                ValueLabel.TextSize = 11
+                ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+                ValueLabel.TextYAlignment = Enum.TextYAlignment.Center
+                ValueLabel.ZIndex = 11
+                ValueLabel.Parent = SliderCard
+
+                local function FormatVal(val, pct)
+                    if suffix == "%" or (type(sliderOptions) == "table" and sliderOptions.ValueFormat == "percent") then
+                        return tostring(math.floor(pct * 100)) .. "%"
+                    else
+                        return tostring(val) .. suffix
+                    end
+                end
+
+                local initialPct = (maxVal > minVal) and math.clamp((defaultVal - minVal) / (maxVal - minVal), 0, 1) or 0
+                ValueLabel.Text = FormatVal(defaultVal, initialPct)
+
+                local sliderData = Window:CreateMDSlider(SliderCard, UDim2.new(0, 14, 0, 34), UDim2.new(1, -28, 0, 12), minVal, maxVal, defaultVal, function(val, pct)
+                    ValueLabel.Text = FormatVal(val, pct)
+                    if onValueChange then
+                        pcall(onValueChange, val, pct)
+                    end
+                end, sliderName, {
+                    ShowValue = false
+                })
+
+                sliderData.CardFrame = SliderCard
+                sliderData.TitleLabel = TitleLabel
+                sliderData.ValueLabel = ValueLabel
+                sliderData.Stroke = CardStroke
+
+                local oldRefresh = sliderData.RefreshTheme
+                sliderData.RefreshTheme = function(theme)
+                    if oldRefresh then oldRefresh(theme) end
+                    SliderCard.BackgroundColor3 = theme.CardBG
+                    TitleLabel.TextColor3 = theme.Text
+                    ValueLabel.TextColor3 = theme.Text
+                end
+
+                ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+                table.insert(Window.SearchableItems, {
+                    Type = "Slider",
+                    Name = sliderName or "Slider",
+                    Desc = "",
+                    TabName = tabName,
+                    Instance = SliderCard
+                })
+                return sliderData
+            else
+                local size = (targetParent and targetParent.Name == "RowFrame") and UDim2.new(0.485, -4, 0, 14) or UDim2.new(1, -10, 0, 14)
+                local sliderData = Window:CreateMDSlider(targetParent, pos, size, minVal, maxVal, defaultVal, onValueChange, sliderName, sliderOptions)
+                ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+
+                table.insert(Window.SearchableItems, {
+                    Type = "Slider",
+                    Name = sliderName or "Slider",
+                    Desc = "",
+                    TabName = tabName,
+                    Instance = sliderData.Track
+                })
+                return sliderData
             end
-
-            local sliderData = Window:CreateMDSlider(targetParent, pos, size, minVal, maxVal, defaultVal, onValueChange, sliderName, sliderOptions)
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
-
-            table.insert(Window.SearchableItems, {
-                Type = "Slider",
-                Name = sliderName or "Slider",
-                Desc = "",
-                TabName = tabName,
-                Instance = sliderData.Track
-            })
-
-            return sliderData
         end
 
         TrackConn(TabButton.MouseEnter:Connect(function()
@@ -5199,7 +5451,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         -- 7. Theme Presets Card
         local ThemeCard = Instance.new("Frame")
         ThemeCard.Name = "ThemeCard"
-        ThemeCard.Size = UDim2.new(1, -10, 0, 122)
+        ThemeCard.Size = UDim2.new(1, -10, 0, 0)
+        ThemeCard.AutomaticSize = Enum.AutomaticSize.Y
         ThemeCard.BackgroundColor3 = Window.CurrentTheme.CardBG
         ThemeCard.ZIndex = 3
         ThemeCard.ClipsDescendants = false
@@ -5210,10 +5463,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ThemeCardCorner.Parent = ThemeCard
         AddUIShadow(ThemeCard, 12, 0.45)
 
+        local ThemeCardPadding = Instance.new("UIPadding")
+        ThemeCardPadding.PaddingTop = UDim.new(0, 8)
+        ThemeCardPadding.PaddingBottom = UDim.new(0, 12)
+        ThemeCardPadding.PaddingLeft = UDim.new(0, 12)
+        ThemeCardPadding.PaddingRight = UDim.new(0, 12)
+        ThemeCardPadding.Parent = ThemeCard
+
         local ThemeTitle = Instance.new("TextLabel")
         ThemeTitle.Name = "ThemeTitle"
-        ThemeTitle.Size = UDim2.new(1, -20, 0, 22)
-        ThemeTitle.Position = UDim2.new(0, 12, 0, 6)
+        ThemeTitle.Size = UDim2.new(1, 0, 0, 22)
+        ThemeTitle.Position = UDim2.new(0, 0, 0, 0)
         ThemeTitle.BackgroundTransparency = 1
         ThemeTitle.FontFace = FontMichromaBold
         ThemeTitle.Text = "Theme presets"
@@ -5225,8 +5485,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local ThemeContainer = Instance.new("Frame")
         ThemeContainer.Name = "ThemeContainer"
-        ThemeContainer.Size = UDim2.new(1, -24, 0, 80)
-        ThemeContainer.Position = UDim2.new(0, 12, 0, 34)
+        ThemeContainer.Size = UDim2.new(1, 0, 0, 0)
+        ThemeContainer.AutomaticSize = Enum.AutomaticSize.Y
+        ThemeContainer.Position = UDim2.new(0, 0, 0, 28)
         ThemeContainer.BackgroundTransparency = 1
         ThemeContainer.Parent = ThemeCard
 
@@ -5237,11 +5498,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local ThemePresetBtnMap = {}
         for themeKey, themeData in pairs(Library.ThemePresets) do
-            local btnData = Window:CreateMDButtonLong(ThemeContainer, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, 0), themeData.Name, function()
+            local btnData = Window:CreateMDButtonLong(ThemeContainer, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, 0), themeData.Name or themeKey, function()
                 Window:ApplyTheme(themeKey)
             end)
             ThemePresetBtnMap[themeKey] = btnData
         end
+        Window.ThemeCard = ThemeCard
+        Window.ThemeContainer = ThemeContainer
         Window.ThemePresetBtnMap = ThemePresetBtnMap
         if ThemePresetBtnMap[Window.CurrentThemeKey or "Dark"] and ThemePresetBtnMap[Window.CurrentThemeKey or "Dark"].Stroke then
             ThemePresetBtnMap[Window.CurrentThemeKey or "Dark"].Stroke.Thickness = 2.2
