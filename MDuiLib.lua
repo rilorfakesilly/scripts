@@ -1161,7 +1161,10 @@ function Library:CreateWindow(hubTitle, scriptName)
     percloaded.ZIndex = 102
     percloaded.Parent = LoadCenterFrame
 
+    local isFinishedLoading = false
+
     function Window:UpdateLoadingProgress(pct, statusText)
+        if isFinishedLoading then return end
         pct = math.clamp(pct, 0, 100)
         percloaded.Text = string.format("%d %%", math.floor(pct))
         if statusText then
@@ -1174,6 +1177,9 @@ function Library:CreateWindow(hubTitle, scriptName)
     end
 
     function Window:FinishLoading()
+        if isFinishedLoading then return end
+        isFinishedLoading = true
+
         Window:UpdateLoadingProgress(100, "LOADED!")
         task.wait(0.3)
         local shrinkTween = TweenService:Create(LoadCenterFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
@@ -3100,7 +3106,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         -- 1. Enable Notifications Card
         local NotifCard = Instance.new("Frame")
         NotifCard.Name = "NotifCard"
-        NotifCard.Size = UDim2.new(1, 0, 0, 50)
+        NotifCard.Size = UDim2.new(1, -10, 0, 50)
         NotifCard.BackgroundColor3 = Window.CurrentTheme.CardBG
         NotifCard.ZIndex = 3
         NotifCard.ClipsDescendants = false
@@ -3134,7 +3140,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         -- 2. Enable UI Sounds Card
         local SoundCard = Instance.new("Frame")
         SoundCard.Name = "SoundCard"
-        SoundCard.Size = UDim2.new(1, 0, 0, 50)
+        SoundCard.Size = UDim2.new(1, -10, 0, 50)
         SoundCard.BackgroundColor3 = Window.CurrentTheme.CardBG
         SoundCard.ZIndex = 3
         SoundCard.ClipsDescendants = false
@@ -3168,7 +3174,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         -- 3. UI Sound Volume Card
         local VolumeCard = Instance.new("Frame")
         VolumeCard.Name = "VolumeCard"
-        VolumeCard.Size = UDim2.new(1, 0, 0, 50)
+        VolumeCard.Size = UDim2.new(1, -10, 0, 50)
         VolumeCard.BackgroundColor3 = Window.CurrentTheme.CardBG
         VolumeCard.ZIndex = 3
         VolumeCard.ClipsDescendants = false
@@ -3201,7 +3207,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         -- 4. Spiderweb Background Card
         local WebCard = Instance.new("Frame")
         WebCard.Name = "WebCard"
-        WebCard.Size = UDim2.new(1, 0, 0, 50)
+        WebCard.Size = UDim2.new(1, -10, 0, 50)
         WebCard.BackgroundColor3 = Window.CurrentTheme.CardBG
         WebCard.ZIndex = 3
         WebCard.ClipsDescendants = false
@@ -3250,7 +3256,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         -- 5. Background Blur Card
         local BlurCard = Instance.new("Frame")
         BlurCard.Name = "BlurCard"
-        BlurCard.Size = UDim2.new(1, 0, 0, 50)
+        BlurCard.Size = UDim2.new(1, -10, 0, 50)
         BlurCard.BackgroundColor3 = Window.CurrentTheme.CardBG
         BlurCard.ZIndex = 3
         BlurCard.ClipsDescendants = false
@@ -3302,7 +3308,7 @@ function Library:CreateWindow(hubTitle, scriptName)
         -- 7. Theme Presets Card
         local ThemeCard = Instance.new("Frame")
         ThemeCard.Name = "ThemeCard"
-        ThemeCard.Size = UDim2.new(1, 0, 0, 150)
+        ThemeCard.Size = UDim2.new(1, -10, 0, 150)
         ThemeCard.BackgroundColor3 = Window.CurrentTheme.CardBG
         ThemeCard.ZIndex = 3
         ThemeCard.ClipsDescendants = false
@@ -4059,6 +4065,80 @@ function Library:CreateWindow(hubTitle, scriptName)
     function Window:SetSpiderwebBackground(enabled)
         Window.SpiderwebBGEnabled = enabled
     end
+
+    -- =========================================================================
+    -- REAL ASSET PRELOADER & INITIALIZATION ENGINE
+    -- =========================================================================
+    task.defer(function()
+        Window:UpdateLoadingProgress(10, "INITIALIZING...")
+
+        if not game:IsLoaded() then
+            Window:UpdateLoadingProgress(15, "WAITING FOR GAME...")
+            pcall(function() game.Loaded:Wait() end)
+        end
+
+        local Players = game:GetService("Players")
+        local ContentProvider = game:GetService("ContentProvider")
+
+        local lp = Players.LocalPlayer
+        while not lp do
+            Window:UpdateLoadingProgress(25, "WAITING FOR PLAYER...")
+            task.wait(0.1)
+            lp = Players.LocalPlayer
+        end
+
+        Window:UpdateLoadingProgress(35, "PREPARING ASSETS...")
+
+        local assetsToPreload = {
+            "rbxassetid://5852311399",
+            "rbxassetid://5852311745",
+            "rbxassetid://77044087750639",
+            "rbxassetid://15396333997",
+            "rbxassetid://132261474823036",
+            "rbxassetid://104249430704982",
+            "rbxassetid://118376432250064",
+            "rbxassetid://100354746235648",
+            "rbxassetid://2418686949",
+            "rbxassetid://5054663650",
+            "rbxassetid://5054663737",
+            "rbxassetid://6031094678",
+            "rbxassetid://98226027552943"
+        }
+
+        if lp and lp.UserId then
+            table.insert(assetsToPreload, "rbxthumb://type=AvatarHeadShot&id=" .. lp.UserId .. "&w=420&h=420")
+        end
+
+        if ScriptUi then
+            for _, desc in ipairs(ScriptUi:GetDescendants()) do
+                if desc:IsA("ImageLabel") or desc:IsA("ImageButton") then
+                    if desc.Image and desc.Image ~= "" and not table.find(assetsToPreload, desc.Image) then
+                        table.insert(assetsToPreload, desc.Image)
+                    end
+                elseif desc:IsA("Sound") then
+                    if desc.SoundId and desc.SoundId ~= "" and not table.find(assetsToPreload, desc.SoundId) then
+                        table.insert(assetsToPreload, desc.SoundId)
+                    end
+                end
+            end
+        end
+
+        local totalAssets = #assetsToPreload
+        local loadedAssets = 0
+
+        if totalAssets > 0 then
+            pcall(function()
+                ContentProvider:PreloadAsync(assetsToPreload, function(contentId, status)
+                    loadedAssets = loadedAssets + 1
+                    local pct = 40 + math.floor((loadedAssets / totalAssets) * 55)
+                    Window:UpdateLoadingProgress(pct, string.format("PRELOADING ASSETS (%d/%d)...", loadedAssets, totalAssets))
+                end)
+            end)
+        end
+
+        Window:UpdateLoadingProgress(100, "LOADED!")
+        Window:FinishLoading()
+    end)
 
     return Window
 end
