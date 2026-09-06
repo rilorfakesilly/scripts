@@ -1000,6 +1000,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local selectedOption = defaultOption
         local isExpanded = false
+        local dropObj = nil
 
         local function RefreshOptions(newOptions)
             options = newOptions or options
@@ -1018,7 +1019,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ItemBtn.Text = opt
                 ItemBtn.TextColor3 = Window.CurrentTheme.Text
                 ItemBtn.TextSize = 12
-                ItemBtn.ZIndex = 82
+                ItemBtn.ZIndex = isExpanded and 302 or 82
                 ItemBtn.Parent = InnerScroll
 
                 local ItemCorner = Instance.new("UICorner")
@@ -1031,16 +1032,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     local newDisplay = (title and title ~= "") and (title .. ": " .. selectedOption) or selectedOption
                     TitleText.Text = newDisplay
                     
-                    isExpanded = false
-                    DropdownFrame.ZIndex = 15
-                    if parent and parent:IsA("GuiObject") then
-                        parent.ZIndex = initialParentZIndex
+                    if dropObj and dropObj.Close then
+                        dropObj.Close()
+                    else
+                        isExpanded = false
+                        DropdownFrame.ZIndex = 15
+                        DropdownContent.ZIndex = 80
+                        if Window.ActiveDropdown == dropObj then
+                            Window.ActiveDropdown = nil
+                        end
+                        if Window.ActiveDropdown == nil and ContentOverlay then
+                            ContentOverlay.ZIndex = 15
+                        end
+                        TweenService:Create(ArrowIcon, TweenInfo.new(0.25), {Rotation = 0}):Play()
+                        TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                            Size = UDim2.new(1, 0, 0, 0)
+                        }):Play()
+                        task.delay(0.25, function() DropdownContent.Visible = false end)
                     end
-                    TweenService:Create(ArrowIcon, TweenInfo.new(0.25), {Rotation = 0}):Play()
-                    TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                        Size = UDim2.new(1, 0, 0, 0)
-                    }):Play()
-                    task.delay(0.25, function() DropdownContent.Visible = false end)
 
                     if onSelect then onSelect(selectedOption) end
                 end))
@@ -1050,46 +1059,83 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         RefreshOptions(options)
 
+        local function CloseDropdown()
+            if not isExpanded then return end
+            isExpanded = false
+            if Window.ActiveDropdown == dropObj then
+                Window.ActiveDropdown = nil
+            end
+            TweenService:Create(ArrowIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = 0}):Play()
+            local t = TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Size = UDim2.new(1, 0, 0, 0)
+            })
+            t:Play()
+            t.Completed:Connect(function()
+                if not isExpanded then
+                    DropdownContent.Visible = false
+                    DropdownFrame.ZIndex = 15
+                    DropdownContent.ZIndex = 80
+                    if parent and parent:IsA("GuiObject") then
+                        parent.ZIndex = initialParentZIndex
+                    end
+                    if Window.ActiveDropdown == nil and ContentOverlay then
+                        ContentOverlay.ZIndex = 15
+                    end
+                end
+            end)
+        end
+
+        local function OpenDropdown()
+            if Window.ActiveDropdown and Window.ActiveDropdown ~= dropObj then
+                pcall(function() Window.ActiveDropdown.Close() end)
+            end
+            Window.ActiveDropdown = dropObj
+            isExpanded = true
+
+            if ContentOverlay then
+                ContentOverlay.ZIndex = 100
+            end
+            DropdownFrame.ZIndex = 250
+            DropdownContent.ZIndex = 300
+            InnerScroll.ZIndex = 301
+            for _, btn in ipairs(InnerScroll:GetChildren()) do
+                if btn:IsA("GuiObject") then btn.ZIndex = 302 end
+            end
+
+            local curr = parent
+            while curr and curr ~= MainContainer and curr ~= ScriptUi do
+                if curr:IsA("GuiObject") then
+                    curr.ClipsDescendants = false
+                end
+                curr = curr.Parent
+            end
+
+            local targetRotation = 180
+            local targetHeight = math.clamp(#options * 39 + 15, 45, 220)
+            DropdownContent.Visible = true
+            TweenService:Create(ArrowIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = targetRotation}):Play()
+            TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Size = UDim2.new(1, 0, 0, targetHeight)
+            }):Play()
+        end
+
         TrackConn(HeaderTrigger.MouseButton1Click:Connect(function()
             PlayClickSFX()
-            isExpanded = not isExpanded
-            local targetRotation = isExpanded and 180 or 0
-            local targetHeight = isExpanded and math.clamp(#options * 39 + 15, 45, 220) or 0
-
-            DropdownFrame.ZIndex = isExpanded and 75 or 15
-            if parent and parent:IsA("GuiObject") then
-                parent.ZIndex = isExpanded and 70 or initialParentZIndex
-            end
-            TweenService:Create(ArrowIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = targetRotation}):Play()
-
             if isExpanded then
-                DropdownContent.Visible = true
-                TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                    Size = UDim2.new(1, 0, 0, targetHeight)
-                }):Play()
+                CloseDropdown()
             else
-                local t = TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                    Size = UDim2.new(1, 0, 0, 0)
-                })
-                t:Play()
-                t.Completed:Connect(function()
-                    if not isExpanded then
-                        DropdownContent.Visible = false
-                        DropdownFrame.ZIndex = 15
-                        if parent and parent:IsA("GuiObject") then
-                            parent.ZIndex = initialParentZIndex
-                        end
-                    end
-                end)
+                OpenDropdown()
             end
         end))
 
-        local dropObj = {
+        dropObj = {
             Frame = DropdownFrame,
             Content = DropdownContent,
             InnerScroll = InnerScroll,
             TitleText = TitleText,
             ArrowIcon = ArrowIcon,
+            Close = CloseDropdown,
+            Open = OpenDropdown,
             GetSelected = function() return selectedOption end,
             SetSelected = function(opt, triggerCallback)
                 selectedOption = opt
@@ -1655,6 +1701,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local badgeData = {
             Container = BadgeContainer,
+            Badge = BadgeContainer,
+            Frame = BadgeContainer,
             Label = BadgeText,
             Stroke = BadgeStroke,
             DeleteBtn = DeleteBtn,
@@ -1934,7 +1982,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         local ValueLabel = nil
-        if showValue or identifier then
+        if showValue then
             ValueLabel = Instance.new("TextLabel")
             ValueLabel.Name = "ValueLabel"
             ValueLabel.Size = UDim2.new(0, 60, 0, 14)
@@ -2051,7 +2099,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local pct = (maxVal > minVal) and ((val - minVal) / (maxVal - minVal)) or 0
                 FilledPart.Size = UDim2.new(pct, 0, 1, 0)
                 HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
-                if ValueLabel then
+                if sliderData.ValueLabel then
+                    sliderData.ValueLabel.Text = GetFormattedValue(currentVal, pct)
+                elseif ValueLabel then
                     ValueLabel.Text = GetFormattedValue(currentVal, pct)
                 end
                 if triggerCallback and onValueChange then
@@ -2965,8 +3015,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CardFrame.Size = UDim2.new(size.X.Scale, size.X.Offset, 0, 76)
             TitleText.Size = hasKeybind and UDim2.new(1, -190, 0, 44) or UDim2.new(1, -145, 0, 44)
             ToggleFrame.Position = UDim2.new(1, -54, 0, 10)
-            if toggleData.Keybind and toggleData.Keybind.Badge then
-                toggleData.Keybind.Badge.Position = UDim2.new(1, -96, 0, 11)
+            if toggleData.Keybind then
+                local kb = toggleData.Keybind.Container or toggleData.Keybind.Badge or toggleData.Keybind.Frame or (toggleData.Keybind.IsA and toggleData.Keybind:IsA("GuiObject") and toggleData.Keybind)
+                if kb then
+                    kb.Position = UDim2.new(1, -96, 0, 11)
+                end
             end
 
             local ValueLabel = nil
@@ -3018,7 +3071,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         if hasKeybind then
             local defaultKey = (type(keybindConfig) == "table" and (keybindConfig.Default or keybindConfig.Bind)) or (keybindConfig ~= true and keybindConfig or nil)
-            toggleData.Keybind = Window:CreateKeybindBadge(CardFrame, UDim2.new(1, -96, 0.5, -11), UDim2.new(0, 36, 0, 22), defaultKey, function()
+            local keyPos = (toggleData.ConnectedSlider or CardFrame.Size.Y.Offset > 50) and UDim2.new(1, -96, 0, 11) or UDim2.new(1, -96, 0.5, -11)
+            toggleData.Keybind = Window:CreateKeybindBadge(CardFrame, keyPos, UDim2.new(0, 36, 0, 22), defaultKey, function()
                 toggleData.SetState(not isToggled, true)
                 PlayClickSFX()
             end, toggleName)
@@ -3357,7 +3411,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TopFrame.BackgroundColor3 = Window.CurrentTheme.TopBG
     TopFrame.BackgroundTransparency = Window.CurrentTheme.TopTrans
     TopFrame.BorderSizePixel = 0
-    TopFrame.ZIndex = 4
+    TopFrame.ZIndex = 20
     TopFrame.Parent = MainContainer
 
     local TopCorner = Instance.new("UICorner")
@@ -3706,15 +3760,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- Init Spiderweb Background at ZIndex 2 (Above LeftFrame & MainFrame panel backgrounds, below UI contents)
     InitSpiderwebBackground(MainContainer, ScriptUi)
 
-    -- Content Overlay Layer (ZIndex 3 for all UI controls, cards, tab buttons, dividers, and text)
+    -- Content Overlay Layer (ZIndex 15 for all UI controls, cards, tab buttons, dividers, and text)
     local ContentOverlay = Instance.new("Frame")
     ContentOverlay.Name = "ContentOverlay"
     ContentOverlay.Size = UDim2.new(1, 0, 1, -94)
     ContentOverlay.Position = UDim2.new(0, 0, 0, 42)
     ContentOverlay.BackgroundTransparency = 1
     ContentOverlay.BorderSizePixel = 0
-    ContentOverlay.ClipsDescendants = true
-    ContentOverlay.ZIndex = 3
+    ContentOverlay.ClipsDescendants = false
+    ContentOverlay.ZIndex = 15
     ContentOverlay.Parent = MainContainer
 
     local SidebarScroll = Instance.new("ScrollingFrame")
@@ -3728,7 +3782,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SidebarScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     SidebarScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     SidebarScroll.ClipsDescendants = true
-    SidebarScroll.ZIndex = 3
+    SidebarScroll.ZIndex = 15
     SidebarScroll.Parent = ContentOverlay
 
     local SidebarLayout = Instance.new("UIListLayout")
@@ -3750,8 +3804,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MainContentFrame.Position = UDim2.new(0, 175, 0, 0)
     MainContentFrame.BackgroundTransparency = 1
     MainContentFrame.BorderSizePixel = 0
-    MainContentFrame.ClipsDescendants = true
-    MainContentFrame.ZIndex = 3
+    MainContentFrame.ClipsDescendants = false
+    MainContentFrame.ZIndex = 15
     MainContentFrame.Parent = ContentOverlay
 
     -- Bottom Frame
@@ -3762,7 +3816,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     BottomFrame.BackgroundColor3 = Window.CurrentTheme.BottomBG
     BottomFrame.BackgroundTransparency = Window.CurrentTheme.BottomTrans
     BottomFrame.BorderSizePixel = 0
-    BottomFrame.ZIndex = 5
+    BottomFrame.ZIndex = 4
     BottomFrame.Parent = MainContainer
 
     local BottomCorner = Instance.new("UICorner")
@@ -4137,6 +4191,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     -- Smooth Tab Switch Transition Engine
     SwitchTab = function(tabName)
+        if Window.ActiveDropdown then
+            pcall(function() Window.ActiveDropdown.Close() end)
+        end
         if Window.ActiveTab == tabName then return end
 
         local oldTab = Window.Tabs[Window.ActiveTab]
@@ -4328,9 +4385,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ContentFrame.ScrollBarImageTransparency = 1
         ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-        ContentFrame.ClipsDescendants = true
+        ContentFrame.ClipsDescendants = false
         ContentFrame.Visible = false
-        ContentFrame.ZIndex = 3
+        ContentFrame.ZIndex = 15
         ContentFrame.Parent = MainContentFrame or MainFrame
 
         local ContentPadding = Instance.new("UIPadding")
