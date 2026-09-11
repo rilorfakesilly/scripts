@@ -299,6 +299,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     if ParentGui:FindFirstChild("MinimisedUI") then ParentGui:FindFirstChild("MinimisedUI"):Destroy() end
     if ParentGui:FindFirstChild("NotificationUI") then ParentGui:FindFirstChild("NotificationUI"):Destroy() end
     if ParentGui:FindFirstChild("ParticleLayer") then ParentGui:FindFirstChild("ParticleLayer"):Destroy() end
+    if ParentGui:FindFirstChild("MDMobileUI") then ParentGui:FindFirstChild("MDMobileUI"):Destroy() end
+    if ParentGui:FindFirstChild("MobileUI") then ParentGui:FindFirstChild("MobileUI"):Destroy() end
 
     local Window = {
         ScriptName = scriptName or hubTitle or "MD_Script",
@@ -325,6 +327,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         RegisteredMDButtons = {},
         RegisteredMDToggles = {},
         RegisteredMDSliders = {},
+        RegisteredMobileButtons = {},
+        MobileButtonsLocked = false,
+        MobileButtonsLayout = {
+            BaseOffsetX = 70,
+            BaseOffsetY = 70,
+            SpacingY = 56,
+            SpacingX = 64,
+            MaxButtonsPerColumn = 6
+        },
         RegisteredToggles = {},
         RegisteredSliders = {},
         RegisteredTextboxes = {},
@@ -1351,6 +1362,35 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LoadbaremptyStroke.Thickness = 1.5
     LoadbaremptyStroke.Transparency = 0
     LoadbaremptyStroke.Parent = Loadbarempty
+
+
+    local LoadbaremptyBG = Instance.new("ImageLabel")
+    LoadbaremptyBG.Size = UDim2.new(0, 326, 0, 23)
+    LoadbaremptyBG.Image = "rbxassetid://139688890190075"
+    LoadbaremptyBG.ScaleType = Enum.ScaleType.Tile
+    LoadbaremptyBG.Name = "emptyBG"
+    LoadbaremptyBG.TileSize = UDim2.new(0, 25, 1, 0)
+    LoadbaremptyBG.Parent = Loadbarempty
+
+    local LoadbaremptyCornerBG = Instance.new("UICorner")
+    LoadbaremptyCornerBG.CornerRadius = UDim.new(0, 8)
+    LoadbaremptyCornerBG.Parent = LoadbaremptyBG
+
+    local LoadbaremptyStrokeBG = Instance.new("UIStroke")
+    LoadbaremptyStrokeBG.Parent = LoadbaremptyBG
+    LoadbaremptyStrokeBG.CornerRadius = UDim.new(0, 8)
+
+
+    local LoadbaremptyStrokeGradientBG = Instance.new("UIGradient")
+    LoadbaremptyStrokeGradientBG.Rotation = 90
+    LoadbaremptyStrokeGradientBG.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.769),
+        NumberSequenceKeypoint.new(0.359, 1),
+        NumberSequenceKeypoint.new(0.623, 1),
+        NumberSequenceKeypoint.new(1, 0.637)
+    })
+    LoadbaremptyStrokeGradientBG.Parent = LoadbaremptyStrokeBG
+
 
     AddUIShadow(Loadbarempty, 20, 0.5, Color3.fromRGB(255, 255, 255))
 
@@ -2918,7 +2958,42 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         MDTextFolder.Name = "Text"
         MDTextFolder.Parent = CardFrame
 
-        local hasKeybind = keybindConfig ~= nil and keybindConfig ~= false
+        local bgImageOn = nil
+        local bgImageOff = nil
+        if type(keybindConfig) == "table" then
+            bgImageOn = keybindConfig.BackgroundImageOn or keybindConfig.OnImage or keybindConfig.BackgroundImage or keybindConfig.Background
+            bgImageOff = keybindConfig.BackgroundImageOff or keybindConfig.OffImage or keybindConfig.BackgroundImage or keybindConfig.Background
+        end
+
+        local CardBgImage = nil
+        local function UpdateCardBgImage()
+            local targetImg = isToggled and (bgImageOn or bgImageOff) or (bgImageOff or bgImageOn)
+            if targetImg and targetImg ~= "" then
+                if type(targetImg) == "number" or tostring(targetImg):match("^%d+$") then
+                    targetImg = "rbxassetid://" .. tostring(targetImg)
+                end
+                if not CardBgImage then
+                    CardBgImage = Instance.new("ImageLabel")
+                    CardBgImage.Name = "CardBgImage"
+                    CardBgImage.Size = UDim2.new(1, 0, 1, 0)
+                    CardBgImage.Position = UDim2.new(0, 0, 0, 0)
+                    CardBgImage.BackgroundTransparency = 1
+                    CardBgImage.ImageTransparency = 0.25
+                    CardBgImage.ScaleType = Enum.ScaleType.Crop
+                    CardBgImage.ZIndex = 10
+                    CardBgImage.Parent = CardFrame
+
+                    local imgCorner = Corner:Clone()
+                    imgCorner.Parent = CardBgImage
+                end
+                CardBgImage.Image = targetImg
+                CardBgImage.Visible = true
+            elseif CardBgImage then
+                CardBgImage.Visible = false
+            end
+        end
+
+        local hasKeybind = keybindConfig ~= nil and keybindConfig ~= false and (type(keybindConfig) ~= "table" or keybindConfig.Default ~= nil or keybindConfig.Bind ~= nil)
 
         local TitleText = Instance.new("TextLabel")
         TitleText.Name = "btntext"
@@ -2958,6 +3033,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         KnobFolder.Parent = ToggleFrame
 
         local isToggled = initialState
+        if bgImageOn or bgImageOff then
+            UpdateCardBgImage()
+        end
 
         local BaseCircle = Instance.new("ImageLabel")
         BaseCircle.Name = "ToggleThingLikeCircle"
@@ -2996,6 +3074,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TweenService:Create(BaseCircle, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetKnobPos}):Play()
             TweenService:Create(OverlayCircle, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetKnobPos}):Play()
             TweenService:Create(ToggleFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetBG}):Play()
+            UpdateCardBgImage()
 
             if triggerCallback and onToggle then
                 pcall(onToggle, isToggled)
@@ -3018,9 +3097,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Overlay = OverlayCircle,
             Stroke = Stroke,
             Corner = Corner,
+            CardBgImage = CardBgImage,
             GetState = function() return isToggled end,
             SetState = function(state, triggerCallback)
                 PerformToggle(state, triggerCallback)
+            end,
+            SetBackgroundImage = function(self, onImg, offImg)
+                bgImageOn = onImg
+                bgImageOff = offImg or onImg
+                UpdateCardBgImage()
+            end,
+            SetToggleImages = function(self, onImg, offImg)
+                bgImageOn = onImg
+                bgImageOff = offImg or onImg
+                UpdateCardBgImage()
             end,
             RefreshTheme = function(theme)
                 CardFrame.BackgroundColor3 = theme.CardBG
@@ -3148,6 +3238,500 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     NotificationUI.DisplayOrder = 30
     NotificationUI.Parent = ParentGui
 
+    local MobileUI = Instance.new("ScreenGui")
+    MobileUI.Name = "MDMobileUI"
+    MobileUI.ResetOnSpawn = false
+    MobileUI.Enabled = true
+    MobileUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    MobileUI.DisplayOrder = 22
+    MobileUI.Parent = ParentGui
+    Window.MobileUI = MobileUI
+
+    -- =========================================================================
+    -- MOBILE FLOATING ACTION & TOGGLE BUTTON ENGINE
+    -- =========================================================================
+    function Window:CreateMobileButton(arg1, arg2, arg3, arg4, arg5)
+        local config = {}
+        if type(arg1) == "table" then
+            config = arg1
+        else
+            config.Text = arg1
+            config.Callback = arg2
+            config.Type = arg3 or "Button"
+            config.Icon = arg4
+            config.Position = arg5
+        end
+
+        local text = config.Text or config.Title or config.Name or config[1] or ""
+        local btnType = (config.Type or config.type or "Button"):lower()
+        local isToggle = (btnType == "toggle")
+        local initialToggleState = (config.Default == true or config.State == true or config.Value == true)
+        local currentState = initialToggleState
+        local callback = config.Callback or config.OnClick or config.OnToggle or config.callback or config[2]
+
+        local iconAsset = config.Icon or config.Image or config.IconAsset or config.icon
+        if iconAsset and (type(iconAsset) == "number" or tostring(iconAsset):match("^%d+$")) then
+            iconAsset = "rbxassetid://" .. tostring(iconAsset)
+        end
+
+        local bgAssetOn = config.BackgroundImageOn or config.OnImage or config.BackgroundImage or config.Background or config.ImageBackground or config.bgImage
+        local bgAssetOff = config.BackgroundImageOff or config.OffImage or config.BackgroundImage or config.Background or config.ImageBackground or config.bgImage
+        if type(config.BackgroundImage) == "table" then
+            bgAssetOn = config.BackgroundImage.On or config.BackgroundImage[1] or bgAssetOn
+            bgAssetOff = config.BackgroundImage.Off or config.BackgroundImage[2] or bgAssetOff
+        end
+
+        local shape = (config.Shape or config.shape or (text == "" and iconAsset and "Circle") or "Pill"):lower()
+        local isDraggable = config.Draggable ~= false
+        local followTheme = config.FollowTheme ~= false
+        local customBgColor = config.Color or config.BackgroundColor or config.ButtonBG
+        local customTextColor = config.TextColor or config.textColor
+        local customImageColor = config.ImageColor or config.imageColor
+        local customStrokeColor = config.StrokeColor or config.strokeColor
+
+        local btnCount = #Window.RegisteredMobileButtons
+        local defaultSize = config.Size
+        if not defaultSize then
+            if text ~= "" and iconAsset then
+                defaultSize = UDim2.new(0, 118, 0, 42)
+            elseif text ~= "" then
+                defaultSize = UDim2.new(0, 100, 0, 40)
+            else
+                defaultSize = UDim2.new(0, 48, 0, 48)
+            end
+        end
+
+        local defaultPos = config.Position
+        if not defaultPos then
+            local layout = Window.MobileButtonsLayout or {}
+            local baseOffsetX = layout.BaseOffsetX or 70
+            local baseOffsetY = layout.BaseOffsetY or 70
+            local spacingY = layout.SpacingY or 56
+            local itemWidth = (defaultSize.X.Offset > 0) and defaultSize.X.Offset or 52
+            local spacingX = layout.SpacingX or (itemWidth + 12)
+            local maxPerCol = layout.MaxButtonsPerColumn or 6
+
+            local rowInCol = btnCount % maxPerCol
+            local colIndex = math.floor(btnCount / maxPerCol)
+
+            local offX = -(baseOffsetX + (colIndex * spacingX))
+            local offY = -(baseOffsetY + (rowInCol * spacingY))
+            defaultPos = UDim2.new(1, offX, 1, offY)
+        end
+
+        local BtnFrame = Instance.new("Frame")
+        BtnFrame.Name = "MDMobileBtn_" .. (text ~= "" and text:gsub("%s+", "_") or tostring(btnCount + 1))
+        BtnFrame.Size = defaultSize
+        BtnFrame.Position = defaultPos
+        BtnFrame.BorderSizePixel = 0
+        BtnFrame.ClipsDescendants = false
+        BtnFrame.ZIndex = 100
+        BtnFrame.Parent = MobileUI
+
+        local Corner = Instance.new("UICorner")
+        Corner.Name = "BtnCorner"
+        if config.CornerRadius then
+            Corner.CornerRadius = UDim.new(0, config.CornerRadius)
+        elseif shape == "circle" then
+            Corner.CornerRadius = UDim.new(1, 0)
+        elseif shape == "square" then
+            Corner.CornerRadius = UDim.new(0, 4)
+        elseif shape == "round" then
+            Corner.CornerRadius = UDim.new(0, 10)
+        else
+            Corner.CornerRadius = UDim.new(0, 22)
+        end
+        Corner.Parent = BtnFrame
+
+        local Stroke = Instance.new("UIStroke")
+        Stroke.Name = "BtnStroke"
+        Stroke.Thickness = config.StrokeThickness or 1.2
+        Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        Stroke.Parent = BtnFrame
+
+        AddUIShadow(BtnFrame, 14, 0.45)
+
+        local BgImageLabel = nil
+        local function UpdateBgImage()
+            local targetImg = isToggle and (currentState and (bgAssetOn or bgAssetOff) or (bgAssetOff or bgAssetOn)) or (bgAssetOn or bgAssetOff)
+            if targetImg and targetImg ~= "" then
+                if type(targetImg) == "number" or tostring(targetImg):match("^%d+$") then
+                    targetImg = "rbxassetid://" .. tostring(targetImg)
+                end
+                if not BgImageLabel then
+                    BgImageLabel = Instance.new("ImageLabel")
+                    BgImageLabel.Name = "BgImage"
+                    BgImageLabel.Size = UDim2.new(1, 0, 1, 0)
+                    BgImageLabel.Position = UDim2.new(0, 0, 0, 0)
+                    BgImageLabel.BackgroundTransparency = 1
+                    BgImageLabel.ImageTransparency = config.BgTransparency or 0.2
+                    BgImageLabel.ScaleType = Enum.ScaleType.Crop
+                    BgImageLabel.ZIndex = 101
+                    BgImageLabel.Parent = BtnFrame
+
+                    local BgCorner = Corner:Clone()
+                    BgCorner.Parent = BgImageLabel
+                end
+                BgImageLabel.Image = targetImg
+                BgImageLabel.Visible = true
+            elseif BgImageLabel then
+                BgImageLabel.Visible = false
+            end
+        end
+
+        if bgAssetOn or bgAssetOff then
+            UpdateBgImage()
+        end
+
+        local ToggleIndicator = nil
+        if isToggle then
+            ToggleIndicator = Instance.new("Frame")
+            ToggleIndicator.Name = "ToggleIndicator"
+            ToggleIndicator.Size = UDim2.new(0, 6, 0, 6)
+            ToggleIndicator.Position = UDim2.new(1, -12, 0, 6)
+            ToggleIndicator.BackgroundColor3 = Color3.fromRGB(50, 255, 120)
+            ToggleIndicator.BackgroundTransparency = initialToggleState and 0 or 1
+            ToggleIndicator.BorderSizePixel = 0
+            ToggleIndicator.ZIndex = 105
+            ToggleIndicator.Parent = BtnFrame
+
+            local IndCorner = Instance.new("UICorner")
+            IndCorner.CornerRadius = UDim.new(1, 0)
+            IndCorner.Parent = ToggleIndicator
+        end
+
+        local IconImage = nil
+        if iconAsset and iconAsset ~= "" then
+            IconImage = Instance.new("ImageLabel")
+            IconImage.Name = "BtnIcon"
+            IconImage.BackgroundTransparency = 1
+            IconImage.Image = iconAsset
+            IconImage.ZIndex = 103
+            IconImage.Parent = BtnFrame
+
+            if text ~= "" then
+                IconImage.Size = UDim2.new(0, 20, 0, 20)
+                IconImage.Position = UDim2.new(0, 10, 0.5, -10)
+            else
+                IconImage.Size = UDim2.new(0, 24, 0, 24)
+                IconImage.AnchorPoint = Vector2.new(0.5, 0.5)
+                IconImage.Position = UDim2.new(0.5, 0, 0.5, 0)
+            end
+        end
+
+        local TextLabel = nil
+        if text ~= "" then
+            TextLabel = Instance.new("TextLabel")
+            TextLabel.Name = "BtnText"
+            TextLabel.BackgroundTransparency = 1
+            TextLabel.FontFace = FontMichromaBold
+            TextLabel.Text = text
+            TextLabel.TextSize = config.TextSize or 12
+            TextLabel.ZIndex = 103
+            TextLabel.Parent = BtnFrame
+
+            if IconImage then
+                TextLabel.Size = UDim2.new(1, -38, 1, 0)
+                TextLabel.Position = UDim2.new(0, 32, 0, 0)
+                TextLabel.TextXAlignment = Enum.TextXAlignment.Left
+                TextLabel.TextYAlignment = Enum.TextYAlignment.Center
+            else
+                TextLabel.Size = UDim2.new(1, 0, 1, 0)
+                TextLabel.Position = UDim2.new(0, 0, 0, 0)
+                TextLabel.TextXAlignment = Enum.TextXAlignment.Center
+                TextLabel.TextYAlignment = Enum.TextYAlignment.Center
+            end
+        end
+
+        local Hitbox = Instance.new("TextButton")
+        Hitbox.Name = "Hitbox"
+        Hitbox.Size = UDim2.new(1, 0, 1, 0)
+        Hitbox.Position = UDim2.new(0, 0, 0, 0)
+        Hitbox.BackgroundTransparency = 1
+        Hitbox.Text = ""
+        Hitbox.ZIndex = 110
+        Hitbox.Parent = BtnFrame
+
+        local ButtonObj = {
+            Frame = BtnFrame,
+            Hitbox = Hitbox,
+            TextLabel = TextLabel,
+            IconImage = IconImage,
+            BackgroundImage = BgImageLabel,
+            Stroke = Stroke,
+            Corner = Corner,
+            ToggleIndicator = ToggleIndicator,
+            Type = btnType,
+            IsToggle = isToggle,
+            IsLocked = (config.Locked == true),
+            IsDraggable = isDraggable,
+            State = currentState,
+            FollowTheme = followTheme,
+            CustomBgColor = customBgColor,
+            CustomTextColor = customTextColor,
+            CustomImageColor = customImageColor,
+            CustomStrokeColor = customStrokeColor
+        }
+
+        local function RefreshAppearance(theme)
+            theme = theme or Window.CurrentTheme or Library.ThemePresets.Dark
+            if isToggle then
+                if currentState then
+                    BtnFrame.BackgroundColor3 = customBgColor or theme.ButtonBG
+                    BtnFrame.BackgroundTransparency = 0.05
+                    Stroke.Color = customStrokeColor or theme.Divider or Color3.fromRGB(255, 255, 255)
+                    Stroke.Thickness = 1.8
+                    if ToggleIndicator then
+                        ToggleIndicator.BackgroundTransparency = 0
+                        ToggleIndicator.BackgroundColor3 = Color3.fromRGB(50, 255, 120)
+                    end
+                    if TextLabel then
+                        TextLabel.TextColor3 = customTextColor or theme.Text
+                    end
+                    if IconImage then
+                        IconImage.ImageColor3 = customImageColor or theme.Text
+                    end
+                else
+                    BtnFrame.BackgroundColor3 = customBgColor or theme.CardBG
+                    BtnFrame.BackgroundTransparency = 0.25
+                    Stroke.Color = customStrokeColor or (theme.CardBG == Color3.fromRGB(255, 255, 255) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(70, 75, 88))
+                    Stroke.Thickness = 1.2
+                    if ToggleIndicator then
+                        ToggleIndicator.BackgroundTransparency = 1
+                    end
+                    if TextLabel then
+                        TextLabel.TextColor3 = customTextColor or theme.SubText
+                    end
+                    if IconImage then
+                        IconImage.ImageColor3 = customImageColor or theme.SubText
+                    end
+                end
+            else
+                BtnFrame.BackgroundColor3 = customBgColor or theme.ButtonBG
+                BtnFrame.BackgroundTransparency = 0.1
+                Stroke.Color = customStrokeColor or (theme.CardBG == Color3.fromRGB(255, 255, 255) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(255, 255, 255))
+                Stroke.Thickness = 1.2
+                if TextLabel then
+                    TextLabel.TextColor3 = customTextColor or theme.Text
+                end
+                if IconImage then
+                    IconImage.ImageColor3 = customImageColor or theme.Text
+                end
+            end
+        end
+
+        ButtonObj.RefreshTheme = RefreshAppearance
+        RefreshAppearance(Window.CurrentTheme)
+
+        local function PlayBounceAnim()
+            local originalSize = BtnFrame.Size
+            local targetSize = UDim2.new(originalSize.X.Scale, originalSize.X.Offset * 0.92, originalSize.Y.Scale, originalSize.Y.Offset * 0.92)
+            TweenService:Create(BtnFrame, TweenInfo.new(0.08, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+            task.delay(0.08, function()
+                TweenService:Create(BtnFrame, TweenInfo.new(0.14, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = originalSize}):Play()
+            end)
+        end
+
+        local function TriggerAction()
+            PlayClickSFX()
+            PlayBounceAnim()
+            if isToggle then
+                currentState = not currentState
+                ButtonObj.State = currentState
+                RefreshAppearance(Window.CurrentTheme)
+                UpdateBgImage()
+                if callback then
+                    pcall(callback, currentState, ButtonObj)
+                end
+            else
+                if callback then
+                    pcall(callback, ButtonObj)
+                end
+            end
+        end
+
+        local dragging = false
+        local dragStart = nil
+        local startPos = nil
+        local hasMoved = false
+        local pressStartTime = 0
+
+        TrackConn(Hitbox.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                if not ButtonObj.IsDraggable or Window.MobileButtonsLocked or ButtonObj.IsLocked then
+                    dragging = false
+                    pressStartTime = os.clock()
+                    return
+                end
+                dragging = true
+                dragStart = input.Position
+                startPos = BtnFrame.Position
+                hasMoved = false
+                pressStartTime = os.clock()
+
+                local changedConn
+                changedConn = input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                        if changedConn then changedConn:Disconnect() end
+                    end
+                end)
+            end
+        end))
+
+        TrackConn(UserInputService.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                if not ButtonObj.IsDraggable or Window.MobileButtonsLocked or ButtonObj.IsLocked then return end
+                if dragging and dragStart and startPos then
+                    local delta = input.Position - dragStart
+                    if math.abs(delta.X) > 6 or math.abs(delta.Y) > 6 then
+                        hasMoved = true
+                    end
+                    if hasMoved then
+                        BtnFrame.Position = UDim2.new(
+                            startPos.X.Scale,
+                            startPos.X.Offset + delta.X,
+                            startPos.Y.Scale,
+                            startPos.Y.Offset + delta.Y
+                        )
+                    end
+                end
+            end
+        end))
+
+        TrackConn(Hitbox.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                if not ButtonObj.IsDraggable or Window.MobileButtonsLocked or ButtonObj.IsLocked then
+                    if (os.clock() - pressStartTime) < 0.45 then
+                        TriggerAction()
+                    end
+                    return
+                end
+                if dragging then
+                    dragging = false
+                    if not hasMoved and (os.clock() - pressStartTime) < 0.45 then
+                        TriggerAction()
+                    end
+                end
+            end
+        end))
+
+        function ButtonObj:SetText(newText)
+            newText = tostring(newText or "")
+            if TextLabel then
+                TextLabel.Text = newText
+            elseif newText ~= "" then
+                TextLabel = Instance.new("TextLabel")
+                TextLabel.Name = "BtnText"
+                TextLabel.BackgroundTransparency = 1
+                TextLabel.FontFace = FontMichromaBold
+                TextLabel.Text = newText
+                TextLabel.TextSize = config.TextSize or 12
+                TextLabel.ZIndex = 103
+                TextLabel.Parent = BtnFrame
+                ButtonObj.TextLabel = TextLabel
+                RefreshAppearance(Window.CurrentTheme)
+            end
+        end
+
+        function ButtonObj:SetIcon(newIcon)
+            if newIcon and (type(newIcon) == "number" or tostring(newIcon):match("^%d+$")) then
+                newIcon = "rbxassetid://" .. tostring(newIcon)
+            end
+            if IconImage then
+                if newIcon and newIcon ~= "" then
+                    IconImage.Image = newIcon
+                    IconImage.Visible = true
+                else
+                    IconImage.Visible = false
+                end
+            elseif newIcon and newIcon ~= "" then
+                IconImage = Instance.new("ImageLabel")
+                IconImage.Name = "BtnIcon"
+                IconImage.BackgroundTransparency = 1
+                IconImage.Image = newIcon
+                IconImage.ZIndex = 103
+                IconImage.Size = UDim2.new(0, 24, 0, 24)
+                IconImage.AnchorPoint = Vector2.new(0.5, 0.5)
+                IconImage.Position = UDim2.new(0.5, 0, 0.5, 0)
+                IconImage.Parent = BtnFrame
+                ButtonObj.IconImage = IconImage
+                RefreshAppearance(Window.CurrentTheme)
+            end
+        end
+
+        function ButtonObj:SetBackgroundImage(onImg, offImg)
+            bgAssetOn = onImg
+            bgAssetOff = offImg or onImg
+            UpdateBgImage()
+        end
+        ButtonObj.SetToggleImages = ButtonObj.SetBackgroundImage
+
+        function ButtonObj:SetState(newState, triggerCb)
+            currentState = (newState == true)
+            ButtonObj.State = currentState
+            RefreshAppearance(Window.CurrentTheme)
+            UpdateBgImage()
+            if triggerCb and callback then
+                pcall(callback, currentState, ButtonObj)
+            end
+        end
+
+        function ButtonObj:GetState()
+            return currentState
+        end
+
+        function ButtonObj:SetVisible(isVisible)
+            BtnFrame.Visible = (isVisible ~= false)
+        end
+
+        function ButtonObj:SetLocked(locked)
+            ButtonObj.IsLocked = (locked == true)
+        end
+
+        function ButtonObj:SetDraggable(draggable)
+            ButtonObj.IsDraggable = (draggable ~= false)
+        end
+
+        function ButtonObj:SetCallback(fn)
+            callback = fn
+        end
+
+        function ButtonObj:Destroy()
+            for idx, b in ipairs(Window.RegisteredMobileButtons) do
+                if b == ButtonObj then
+                    table.remove(Window.RegisteredMobileButtons, idx)
+                    break
+                end
+            end
+            if BtnFrame and BtnFrame.Parent then
+                BtnFrame:Destroy()
+            end
+        end
+
+        table.insert(Window.RegisteredMobileButtons, ButtonObj)
+        return ButtonObj
+    end
+    Window.AddMobileButton = Window.CreateMobileButton
+
+    function Window:ConfigureMobileLayout(options)
+        if type(options) ~= "table" then return end
+        Window.MobileButtonsLayout = Window.MobileButtonsLayout or {}
+        for k, v in pairs(options) do
+            Window.MobileButtonsLayout[k] = v
+        end
+    end
+    Window.SetMobileButtonsLayout = Window.ConfigureMobileLayout
+
+    function Window:SetMobileButtonsLocked(locked)
+        Window.MobileButtonsLocked = (locked == true)
+    end
+    Window.LockMobileButtons = Window.SetMobileButtonsLocked
+
+    function Window:GetMobileButtonsLocked()
+        return Window.MobileButtonsLocked == true
+    end
+
     MainContainer = Instance.new("Frame")
     MainContainer.Name = "MainContainer"
     MainContainer.Size = UDim2.new(0, 660, 0, 430)
@@ -3209,24 +3793,49 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LocalUIBlurPart.CanCollide = false
     LocalUIBlurPart.CanTouch = false
     LocalUIBlurPart.CanQuery = false
+    LocalUIBlurPart.Archivable = false
     LocalUIBlurPart.Anchored = true
     LocalUIBlurPart.Size = Vector3.new(1, 1, 0.01)
+    LocalUIBlurPart.CFrame = CFrame.new(0, 999999, 0)
     LocalUIBlurPart.Parent = workspace
 
     Window.BackgroundDOF = BackgroundDOF
     Window.LocalUIBlurPart = LocalUIBlurPart
 
     local function UpdateLocalUIBlur()
-        if not Window.BackgroundBlurEnabled then return end
-        if not ScriptUi or not ScriptUi.Enabled then return end
-        if not MainContainer or not MainContainer.Parent then return end
+        if not Window.BackgroundBlurEnabled or not ScriptUi or not ScriptUi.Enabled or not MainContainer or not MainContainer.Parent or not LocalUIBlurPart or not LocalUIBlurPart.Parent then
+            if LocalUIBlurPart and LocalUIBlurPart.Parent then
+                LocalUIBlurPart.Transparency = 1
+                LocalUIBlurPart.CFrame = CFrame.new(0, 999999, 0)
+            end
+            if BackgroundDOF and BackgroundDOF.Parent then
+                BackgroundDOF.Enabled = false
+            end
+            return
+        end
 
         local Camera = workspace.CurrentCamera
-        if not Camera or not Camera.FieldOfView then return end
+        if not Camera or not Camera.FieldOfView then
+            if LocalUIBlurPart and LocalUIBlurPart.Parent then
+                LocalUIBlurPart.Transparency = 1
+                LocalUIBlurPart.CFrame = CFrame.new(0, 999999, 0)
+            end
+            if BackgroundDOF and BackgroundDOF.Parent then
+                BackgroundDOF.Enabled = false
+            end
+            return
+        end
 
         local absPos = MainContainer.AbsolutePosition
         local absSize = MainContainer.AbsoluteSize
-        if not absPos or not absSize or absSize.X <= 30 or absSize.Y <= 30 then return end
+        if not absPos or not absSize or absSize.X <= 30 or absSize.Y <= 30 then
+            LocalUIBlurPart.Transparency = 1
+            LocalUIBlurPart.CFrame = CFrame.new(0, 999999, 0)
+            if BackgroundDOF and BackgroundDOF.Parent then
+                BackgroundDOF.Enabled = false
+            end
+            return
+        end
 
         local padX = 16
         local padY = 16
@@ -3241,15 +3850,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local depth = 1.0
         local dirTL = Camera.CFrame:VectorToObjectSpace(rayTL.Direction)
-        local dirBR = Camera.CFrame:VectorToObjectSpace(rayBR.Direction)
+        local keyboardR = Camera.CFrame:VectorToObjectSpace(rayBR.Direction)
         local dirC = Camera.CFrame:VectorToObjectSpace(rayC.Direction)
 
-        if dirTL.Z >= 0 or dirBR.Z >= 0 or dirC.Z >= 0 then return end
+        if dirTL.Z >= 0 or keyboardR.Z >= 0 or dirC.Z >= 0 then
+            LocalUIBlurPart.Transparency = 1
+            LocalUIBlurPart.CFrame = CFrame.new(0, 999999, 0)
+            return
+        end
 
         local x1 = (dirTL.X / -dirTL.Z) * depth
         local y1 = (dirTL.Y / -dirTL.Z) * depth
-        local x2 = (dirBR.X / -dirBR.Z) * depth
-        local y2 = (dirBR.Y / -dirBR.Z) * depth
+        local x2 = (keyboardR.X / -keyboardR.Z) * depth
+        local y2 = (keyboardR.Y / -keyboardR.Z) * depth
         local cX = (dirC.X / -dirC.Z) * depth
         local cY = (dirC.Y / -dirC.Z) * depth
 
@@ -3258,6 +3871,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         LocalUIBlurPart.Size = Vector3.new(partW, partH, 0.01)
         LocalUIBlurPart.CFrame = Camera.CFrame * CFrame.new(cX, cY, -depth)
+        LocalUIBlurPart.Transparency = 0.98
+        if BackgroundDOF and BackgroundDOF.Parent then
+            BackgroundDOF.Enabled = true
+        end
     end
 
     TrackConn(RunService.RenderStepped:Connect(function()
@@ -3525,7 +4142,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchInput.Position = UDim2.new(0, 26, 0, 0)
     SearchInput.BackgroundTransparency = 1
     SearchInput.FontFace = FontMichromaRegular
-    SearchInput.PlaceholderText = "Search in script..."
+    SearchInput.PlaceholderText = "Search scripts..."
     SearchInput.PlaceholderColor3 = Window.CurrentTheme.SubText
     SearchInput.Text = ""
     SearchInput.TextColor3 = Window.CurrentTheme.Text
@@ -4844,7 +5461,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 text = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Toggle"
                 state = titleOrConfig.Default or titleOrConfig.Value or titleOrConfig.State or titleOrConfig[2]
                 cb = titleOrConfig.Callback or titleOrConfig.OnChanged or titleOrConfig.callback or titleOrConfig[3]
-                bind = titleOrConfig.Bind or titleOrConfig.Keybind or titleOrConfig.DefaultBind or titleOrConfig[4]
+                bind = titleOrConfig
                 connectMode = titleOrConfig.Connect or titleOrConfig.Connected or titleOrConfig.PositionInGroup
                 sliderConfig = titleOrConfig.Slider or titleOrConfig.ConnectedSlider
                 sizeFraction = titleOrConfig.Size or titleOrConfig.Fraction or sizeFraction
@@ -4881,6 +5498,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             return toggleData
         end
+
+        function TabObj:AddMobileButton(arg1, arg2, arg3, arg4, arg5)
+            return Window:CreateMobileButton(arg1, arg2, arg3, arg4, arg5)
+        end
+        TabObj.CreateMobileButton = TabObj.AddMobileButton
 
         function TabObj:AddToggleGroup(toggleList)
             if type(toggleList) ~= "table" then return {} end
@@ -5662,6 +6284,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         PlayClickSFX()
 
         LocalUIBlurPart.Transparency = 1
+        LocalUIBlurPart.CFrame = CFrame.new(0, 999999, 0)
         BackgroundDOF.Enabled = false
 
         LastWindowPos = MainContainer.Position
@@ -5722,6 +6345,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         scaleTween:Play()
 
         scaleTween.Completed:Wait()
+        if Window.BackgroundBlurEnabled and UpdateLocalUIBlur then
+            pcall(UpdateLocalUIBlur)
+        end
         IsAnimatingMinimize = false
     end
 
@@ -5764,6 +6390,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if ParticleLayer and ParticleLayer.Parent then ParticleLayer:Destroy() end
         if LocalUIBlurPart and LocalUIBlurPart.Parent then LocalUIBlurPart:Destroy() end
         if BackgroundDOF and BackgroundDOF.Parent then BackgroundDOF:Destroy() end
+        if MobileUI and MobileUI.Parent then MobileUI:Destroy() end
         if ScriptUi then ScriptUi:Destroy() end
         if MinimisedUI.Parent then MinimisedUI:Destroy() end
         if NotificationUI.Parent then NotificationUI:Destroy() end
@@ -6388,6 +7015,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
+        if Window.RegisteredMobileButtons then
+            for _, mb in ipairs(Window.RegisteredMobileButtons) do
+                if mb and mb.RefreshTheme then
+                    pcall(function() mb.RefreshTheme(newTheme) end)
+                end
+            end
+        end
+
         if SearchBarContainer then
             SearchBarContainer.BackgroundColor3 = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(22, 24, 30)
             if SearchInput then
@@ -6663,5 +7298,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     return Window
 end
+
+function Library:CreateMobileButton(config, arg2, arg3, arg4, arg5)
+    local win = Library.ActiveWindows and Library.ActiveWindows[#Library.ActiveWindows]
+    if win and win.CreateMobileButton then
+        return win:CreateMobileButton(config, arg2, arg3, arg4, arg5)
+    end
+end
+Library.AddMobileButton = Library.CreateMobileButton
 
 return Library
