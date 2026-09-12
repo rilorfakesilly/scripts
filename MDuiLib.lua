@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.16"
+Library.Version = "2.16.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -3879,16 +3879,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local customStrokeColor = config.StrokeColor or config.strokeColor
 
         local btnCount = #Window.RegisteredMobileButtons
-        local defaultSize = config.Size or UDim2.new(0, 48, 0, 48)
+        local defaultSize = config.Size or UDim2.new(0, 64, 0, 64)
 
         local defaultPos = config.Position
         if not defaultPos then
             local layout = Window.MobileButtonsLayout or {}
-            local baseOffsetX = layout.BaseOffsetX or 70
-            local baseOffsetY = layout.BaseOffsetY or 70
-            local spacingY = layout.SpacingY or 56
-            local itemWidth = (defaultSize.X.Offset > 0) and defaultSize.X.Offset or 52
-            local spacingX = layout.SpacingX or (itemWidth + 12)
+            local baseOffsetX = layout.BaseOffsetX or 80
+            local baseOffsetY = layout.BaseOffsetY or 80
+            local spacingY = layout.SpacingY or 74
+            local itemWidth = (defaultSize.X.Offset > 0) and defaultSize.X.Offset or 64
+            local spacingX = layout.SpacingX or (itemWidth + 14)
             local maxPerCol = layout.MaxButtonsPerColumn or 6
 
             local rowInCol = btnCount % maxPerCol
