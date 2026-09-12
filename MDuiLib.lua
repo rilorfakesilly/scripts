@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.14"
+Library.Version = "2.15"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -348,7 +348,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         RegisteredMultiDropdownsList = {},
         RegisteredColorPickers = {},
         RegisteredColorPickersList = {},
-        RegisteredMobileButtons = {},
         RegisteredKeybindBadges = {},
         ConfigLoadedCallbacks = {},
         ConfigSavedCallbacks = {},
@@ -5229,6 +5228,22 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         SidebarScroll.CanvasSize = UDim2.new(0, 0, 0, SidebarLayout.AbsoluteContentSize.Y + 20)
     end)
 
+    local SidebarCollapseBtn = Instance.new("ImageButton")
+    SidebarCollapseBtn.Name = "SidebarCollapseBtn"
+    SidebarCollapseBtn.Size = UDim2.new(0, 20, 0, 20)
+    SidebarCollapseBtn.BackgroundTransparency = 1
+    SidebarCollapseBtn.Image = "rbxassetid://6031091004"
+    SidebarCollapseBtn.ImageColor3 = Window.CurrentTheme.Text
+    SidebarCollapseBtn.LayoutOrder = 9999
+    SidebarCollapseBtn.ZIndex = 5
+    SidebarCollapseBtn.Parent = SidebarScroll
+
+    TrackConn(SidebarCollapseBtn.MouseButton1Click:Connect(function()
+        PlayClickSFX()
+        Window:ToggleSidebar()
+    end))
+    Window.SidebarCollapseBtn = SidebarCollapseBtn
+
     MainContentFrame = Instance.new("Frame")
     MainContentFrame.Name = "MainContentFrame"
     MainContentFrame.Size = UDim2.new(1, -175, 1, 0)
@@ -6149,6 +6164,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local LabelFrame = Instance.new("Frame")
             LabelFrame.Name = "MDLabelFrame_" .. labelText:gsub("%s+", "_")
             LabelFrame.Size = UDim2.new(1, -10, 0, frameHeight)
+            LabelFrame.AutomaticSize = Enum.AutomaticSize.Y
             LabelFrame.BackgroundTransparency = 1
             LabelFrame.BorderSizePixel = 0
             LabelFrame.ZIndex = 3
@@ -6163,6 +6179,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleLabel.Text = labelText
             TitleLabel.TextColor3 = textColor or Window.CurrentTheme.Text
             TitleLabel.TextSize = 13
+            TitleLabel.TextWrapped = true
             TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
             TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
             TitleLabel.ZIndex = 4
@@ -6179,6 +6196,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 DescLabel.Text = descText
                 DescLabel.TextColor3 = Window.CurrentTheme.SubText
                 DescLabel.TextSize = 10
+                DescLabel.TextWrapped = true
                 DescLabel.TextXAlignment = Enum.TextXAlignment.Left
                 DescLabel.TextYAlignment = Enum.TextYAlignment.Center
                 DescLabel.ZIndex = 4
@@ -6684,7 +6702,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             DropdownMenu.ClipsDescendants = true
             DropdownMenu.ZIndex = 600
             DropdownMenu.Visible = false
-            DropdownMenu.Parent = Window.DropdownOverlay or ScriptUi
+            DropdownMenu.Parent = Window.DropdownOverlay or MainContainer
 
             local MenuCorner = Instance.new("UICorner")
             MenuCorner.CornerRadius = UDim.new(0, 8)
@@ -6804,9 +6822,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                 RefreshOptions()
                 isOpen = true
+                local overlay = Window.DropdownOverlay or MainContainer
+                if DropdownMenu.Parent ~= overlay then
+                    DropdownMenu.Parent = overlay
+                end
+
                 local absPos = CardFrame.AbsolutePosition
                 local absSize = CardFrame.AbsoluteSize
-                local overlayPos = (Window.DropdownOverlay and Window.DropdownOverlay.AbsolutePosition) or Vector2.new(0, 0)
+                local overlayPos = (overlay and overlay.AbsolutePosition) or Vector2.new(0, 0)
                 local scale = (UIScaleConstraint and UIScaleConstraint.Scale > 0) and UIScaleConstraint.Scale or 1.0
 
                 local relX = (absPos.X - overlayPos.X) / scale
@@ -6975,6 +6998,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             AddUIShadow(CardFrame, 20, 0.5)
 
+            local TitleLabel = Instance.new("TextLabel")
             TitleLabel.Name = "ProgressTitle"
             TitleLabel.Size = UDim2.new(1, -120, 0, 20)
             TitleLabel.Position = UDim2.new(0, 14, 0, 7)
@@ -8867,6 +8891,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         if Window.SidebarScroll then
             Window.SidebarScroll.ScrollBarImageColor3 = newTheme.Divider
+        end
+
+        if Window.SidebarCollapseBtn then
+            Window.SidebarCollapseBtn.ImageColor3 = newTheme.Text
         end
 
         if Window.BottomGradient then
