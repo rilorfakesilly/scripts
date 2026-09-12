@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.12"
+Library.Version = "2.13"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -342,9 +342,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         RegisteredTextboxesList = {},
         RegisteredDropdowns = {},
         RegisteredDropdownsList = {},
+        RegisteredNumberInputs = {},
+        RegisteredNumberInputsList = {},
+        RegisteredMultiDropdowns = {},
+        RegisteredMultiDropdownsList = {},
         RegisteredColorPickers = {},
         RegisteredColorPickersList = {},
+        RegisteredMobileButtons = {},
         RegisteredKeybindBadges = {},
+        ConfigLoadedCallbacks = {},
+        ConfigSavedCallbacks = {},
+        SidebarCollapsed = false,
+        SidebarWidth = 175,
+        CollapsedSidebarWidth = 56,
         KeybindMap = {},
         SearchableItems = {},
         ThemePresetBtnMap = {},
@@ -352,6 +362,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ActiveTab = nil
     }
     table.insert(Library.ActiveWindows, Window)
+
+    function Window:OnConfigLoaded(fn)
+        if type(fn) == "function" then
+            table.insert(Window.ConfigLoadedCallbacks, fn)
+        end
+    end
+
+    function Window:OnConfigSaved(fn)
+        if type(fn) == "function" then
+            table.insert(Window.ConfigSavedCallbacks, fn)
+        end
+    end
 
     function Window:RegisterTheme(name, data)
         return Library:RegisterTheme(name, data)
@@ -492,6 +514,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     function Window:GetConfigSaveData()
         local data = {
             Theme = Window.CurrentThemeKey or "Dark",
+            SidebarCollapsed = Window.SidebarCollapsed == true,
             Settings = {
                 Spiderweb = (Window.SpiderwebBGEnabled ~= nil) and Window.SpiderwebBGEnabled or Window.SpiderwebEnabled,
                 Blur = Window.BackgroundBlurEnabled,
@@ -508,7 +531,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Sliders = {},
             Textboxes = {},
             Dropdowns = {},
-            ColorPickers = {}
+            MultiDropdowns = {},
+            NumberInputs = {},
+            ColorPickers = {},
+            MobileButtons = {}
         }
         for name, toggle in pairs(Window.RegisteredToggles) do
             pcall(function()
@@ -538,6 +564,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             end)
         end
+        for name, mdrop in pairs(Window.RegisteredMultiDropdowns) do
+            pcall(function()
+                if mdrop and mdrop.GetSelected then
+                    data.MultiDropdowns[name] = mdrop.GetSelected()
+                end
+            end)
+        end
+        for name, numInput in pairs(Window.RegisteredNumberInputs) do
+            pcall(function()
+                if numInput and numInput.GetValue then
+                    data.NumberInputs[name] = numInput.GetValue()
+                end
+            end)
+        end
         for name, cp in pairs(Window.RegisteredColorPickers) do
             pcall(function()
                 if cp and cp.GetColor then
@@ -545,6 +585,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     data.ColorPickers[name] = c:ToHex()
                 end
             end)
+        end
+        if Window.RegisteredMobileButtons then
+            for idx, mb in ipairs(Window.RegisteredMobileButtons) do
+                pcall(function()
+                    local key = mb.SaveKey or (mb.Text and mb.Text ~= "" and mb.Text) or ("MobileBtn_" .. idx)
+                    local pos = mb.Frame and mb.Frame.Position
+                    data.MobileButtons[key] = {
+                        Visible = (mb.GetVisible and mb:GetVisible()) or (mb.Frame and mb.Frame.Visible),
+                        State = mb.State,
+                        Position = pos and {
+                            XScale = pos.X.Scale,
+                            XOffset = pos.X.Offset,
+                            YScale = pos.Y.Scale,
+                            YOffset = pos.Y.Offset
+                        }
+                    }
+                end)
+            end
         end
         return data
     end
@@ -598,7 +656,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- 3. Apply Toggles (trigger callbacks to turn ON/OFF active features)
+        if data.SidebarCollapsed ~= nil and Window.SetSidebarCollapsed then
+            pcall(function() Window:SetSidebarCollapsed(data.SidebarCollapsed) end)
+        end
+
+        -- 3. Apply Toggles
         if data.Toggles then
             for name, state in pairs(data.Toggles) do
                 local toggle = Window.RegisteredToggles[name]
@@ -608,7 +670,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- 4. Apply Sliders (trigger callbacks to adjust gameplay/UI values)
+        -- 4. Apply Sliders
         if data.Sliders then
             for name, val in pairs(data.Sliders) do
                 local slider = Window.RegisteredSliders[name]
@@ -638,7 +700,27 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- 7. Apply Color Pickers
+        -- 7. Apply Multi Dropdowns
+        if data.MultiDropdowns then
+            for name, selected in pairs(data.MultiDropdowns) do
+                local mdrop = Window.RegisteredMultiDropdowns[name]
+                if mdrop and mdrop.SetSelected then
+                    pcall(function() mdrop.SetSelected(selected, true) end)
+                end
+            end
+        end
+
+        -- 8. Apply Number Inputs
+        if data.NumberInputs then
+            for name, val in pairs(data.NumberInputs) do
+                local numInput = Window.RegisteredNumberInputs[name]
+                if numInput and numInput.SetValue then
+                    pcall(function() numInput.SetValue(val, true) end)
+                end
+            end
+        end
+
+        -- 9. Apply Color Pickers
         if data.ColorPickers then
             for name, hex in pairs(data.ColorPickers) do
                 local cp = Window.RegisteredColorPickers[name]
@@ -648,6 +730,39 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         cp.SetColor(col, true)
                     end)
                 end
+            end
+        end
+
+        -- 10. Apply Mobile Buttons
+        if data.MobileButtons and Window.RegisteredMobileButtons then
+            for key, info in pairs(data.MobileButtons) do
+                for idx, mb in ipairs(Window.RegisteredMobileButtons) do
+                    local mbKey = mb.SaveKey or (mb.Text and mb.Text ~= "" and mb.Text) or ("MobileBtn_" .. idx)
+                    if mbKey == key or tostring(idx) == tostring(key) then
+                        if info.Visible ~= nil and mb.SetVisible then
+                            mb:SetVisible(info.Visible)
+                        end
+                        if info.State ~= nil and mb.SetState then
+                            mb:SetState(info.State, true)
+                        end
+                        if info.Position and mb.Frame then
+                            mb.Frame.Position = UDim2.new(
+                                info.Position.XScale or mb.Frame.Position.X.Scale,
+                                info.Position.XOffset or mb.Frame.Position.X.Offset,
+                                info.Position.YScale or mb.Frame.Position.Y.Scale,
+                                info.Position.YOffset or mb.Frame.Position.Y.Offset
+                            )
+                        end
+                        break
+                    end
+                end
+            end
+        end
+
+        -- Fire ConfigLoaded Callbacks
+        if Window.ConfigLoadedCallbacks then
+            for _, fn in ipairs(Window.ConfigLoadedCallbacks) do
+                pcall(fn, data)
             end
         end
     end
@@ -714,6 +829,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         if success then
             Window:Notify("Config saved", "Saved config as '" .. finalName .. "'", 2.5)
+            if Window.ConfigSavedCallbacks then
+                for _, fn in ipairs(Window.ConfigSavedCallbacks) do
+                    pcall(fn, finalName, saveData)
+                end
+            end
             return finalName
         else
             Window:Notify("Config error", "Failed to write config file", 3)
@@ -737,6 +857,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         if success then
             Window:Notify("Config rewritten", "Overwrote '" .. configName .. "'!", 2.5)
+            if Window.ConfigSavedCallbacks then
+                for _, fn in ipairs(Window.ConfigSavedCallbacks) do
+                    pcall(fn, configName, saveData)
+                end
+            end
             return true
         else
             Window:Notify("Config error", "Failed to overwrite file", 3)
@@ -795,6 +920,122 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return true
         else
             Window:Notify("Config error", "Failed to delete config file", 3)
+            return false
+        end
+    end
+
+    function Window:ExportConfigToClipboard()
+        local saveData = Window:GetConfigSaveData()
+        local jsonString = HttpService:JSONEncode(saveData)
+        local success = pcall(function()
+            if setclipboard then
+                setclipboard(jsonString)
+            elseif toclipboard then
+                toclipboard(jsonString)
+            end
+        end)
+        if success then
+            Window:Notify("Config Exported", "Config copied to clipboard as JSON!", 2.5)
+            return jsonString
+        else
+            Window:Notify("Export Error", "Clipboard not supported on this executor", 3)
+            return nil
+        end
+    end
+
+    function Window:ImportConfigFromClipboard(jsonOverride)
+        local jsonString = jsonOverride
+        if not jsonString then
+            pcall(function()
+                if getclipboard then
+                    jsonString = getclipboard()
+                end
+            end)
+        end
+        if not jsonString or jsonString == "" then
+            Window:Notify("Import Error", "Clipboard is empty or not accessible", 3)
+            return false
+        end
+        local success, loadedData = pcall(function()
+            return HttpService:JSONDecode(jsonString)
+        end)
+        if success and type(loadedData) == "table" then
+            Window:ApplyConfigSaveData(loadedData)
+            Window:Notify("Config Imported", "Applied configuration from clipboard!", 2.5)
+            return true
+        else
+            Window:Notify("Import Error", "Invalid JSON config data in clipboard", 3)
+            return false
+        end
+    end
+
+    function Window:SaveTabConfig(tabName, configName)
+        if not tabName or tabName == "" then return false end
+        configName = configName or "TabConfig"
+        local fullSave = Window:GetConfigSaveData()
+        local tabData = {
+            Tab = tabName,
+            Toggles = {},
+            Sliders = {},
+            Textboxes = {},
+            Dropdowns = {},
+            MultiDropdowns = {},
+            NumberInputs = {},
+            ColorPickers = {}
+        }
+        for _, item in ipairs(Window.SearchableItems) do
+            if item.TabName == tabName then
+                local n = item.Name
+                if item.Type == "Toggle" and fullSave.Toggles[n] ~= nil then
+                    tabData.Toggles[n] = fullSave.Toggles[n]
+                elseif item.Type == "Slider" and fullSave.Sliders[n] ~= nil then
+                    tabData.Sliders[n] = fullSave.Sliders[n]
+                elseif item.Type == "Textbox" and fullSave.Textboxes[n] ~= nil then
+                    tabData.Textboxes[n] = fullSave.Textboxes[n]
+                elseif item.Type == "Dropdown" and fullSave.Dropdowns[n] ~= nil then
+                    tabData.Dropdowns[n] = fullSave.Dropdowns[n]
+                elseif item.Type == "MultiDropdown" and fullSave.MultiDropdowns[n] ~= nil then
+                    tabData.MultiDropdowns[n] = fullSave.MultiDropdowns[n]
+                elseif item.Type == "NumberInput" and fullSave.NumberInputs[n] ~= nil then
+                    tabData.NumberInputs[n] = fullSave.NumberInputs[n]
+                elseif item.Type == "Color picker" and fullSave.ColorPickers[n] ~= nil then
+                    tabData.ColorPickers[n] = fullSave.ColorPickers[n]
+                end
+            end
+        end
+        local jsonString = HttpService:JSONEncode(tabData)
+        EnsureConfigFolder()
+        local filePath = ConfigFolderPath .. "/TAB_" .. tabName:gsub("[^%w_%-]", "_") .. "_" .. configName .. ".json"
+        local success = pcall(function()
+            if writefile then writefile(filePath, jsonString) end
+        end)
+        if success then
+            Window:Notify("Tab config saved", "Saved '" .. tabName .. "' config as '" .. configName .. "'", 2.5)
+            return true
+        else
+            Window:Notify("Config error", "Failed to write tab config file", 3)
+            return false
+        end
+    end
+
+    function Window:LoadTabConfig(tabName, configName)
+        if not tabName or tabName == "" then return false end
+        configName = configName or "TabConfig"
+        EnsureConfigFolder()
+        local filePath = ConfigFolderPath .. "/TAB_" .. tabName:gsub("[^%w_%-]", "_") .. "_" .. configName .. ".json"
+        local loadedData = nil
+        pcall(function()
+            if readfile and isfile and isfile(filePath) then
+                local content = readfile(filePath)
+                loadedData = HttpService:JSONDecode(content)
+            end
+        end)
+        if loadedData and type(loadedData) == "table" then
+            Window:ApplyConfigSaveData(loadedData)
+            Window:Notify("Tab config loaded", "Loaded '" .. tabName .. "' config '" .. configName .. "'!", 2.5)
+            return true
+        else
+            Window:Notify("Config error", "Tab config '" .. configName .. "' not found!", 3)
             return false
         end
     end
@@ -895,6 +1136,32 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         }
 
+        boxObj.WithCallback = function(self, cb)
+            onSubmit = cb
+            return self
+        end
+        boxObj.WithTooltip = function(self, tt)
+            if Window.AttachTooltip and BoxFrame then
+                Window:AttachTooltip(BoxFrame, tt)
+            end
+            return self
+        end
+        boxObj.WithSaveKey = function(self, key)
+            if key and key ~= "" then
+                self.SaveKey = key
+                Window.RegisteredTextboxes[key] = self
+            end
+            return self
+        end
+        boxObj.WithText = function(self, txt)
+            self.SetText(txt)
+            return self
+        end
+        boxObj.WithPlaceholder = function(self, ph)
+            if InputBox then InputBox.PlaceholderText = ph end
+            return self
+        end
+
         TrackConn(InputBox.FocusLost:Connect(function(enterPressed)
             PlayClickSFX()
             if onSubmit then onSubmit(InputBox.Text, enterPressed) end
@@ -904,6 +1171,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Window.RegisteredTextboxes[title] = boxObj
         end
         table.insert(Window.RegisteredTextboxesList, boxObj)
+
+        if boxOptions and type(boxOptions) == "table" and (boxOptions.Tooltip or boxOptions.tooltip) then
+            boxObj:WithTooltip(boxOptions.Tooltip or boxOptions.tooltip)
+        end
+        if boxOptions and type(boxOptions) == "table" and (boxOptions.SaveKey or boxOptions.saveKey) then
+            boxObj:WithSaveKey(boxOptions.SaveKey or boxOptions.saveKey)
+        end
 
         return boxObj
     end
@@ -1173,6 +1447,33 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         }
 
+        dropObj.WithCallback = function(self, cb)
+            onSelect = cb
+            return self
+        end
+        dropObj.WithTooltip = function(self, tt)
+            if Window.AttachTooltip and DropdownFrame then
+                Window:AttachTooltip(DropdownFrame, tt)
+            end
+            return self
+        end
+        dropObj.WithSaveKey = function(self, key)
+            if key and key ~= "" then
+                self.SaveKey = key
+                Window.RegisteredDropdowns[key] = self
+            end
+            return self
+        end
+        dropObj.WithSelected = function(self, opt, triggerCb)
+            self.SetSelected(opt, triggerCb)
+            return self
+        end
+        dropObj.WithOptions = function(self, newOpts)
+            options = newOpts or {}
+            self.RefreshOptions(options)
+            return self
+        end
+
         if title and title ~= "" then
             Window.RegisteredDropdowns[title] = dropObj
         end
@@ -1264,16 +1565,28 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         Window:CreateMDButtonLong(Row1, UDim2.new(0.515, 4, 0, 0), UDim2.new(0.485, -4, 1, 0), "Delete config", function()
             local current = configDropdownObj.GetSelected()
-            if Window:DeleteConfig(current) then
-                configDropdownObj.RefreshOptions(GetConfigList())
-                configDropdownObj.SetSelected("DEFAULT", false)
-                if Window:GetAutoloadConfig() == current then
-                    Window:SetAutoloadConfig(nil)
-                    if autoloadBtn and autoloadBtn.TextLabel then
-                        autoloadBtn.TextLabel.Text = GetAutoloadButtonLabel()
+            if not current or current == "" or current:upper() == "DEFAULT" then
+                Window:Notify("Config error", "Default config cannot be deleted!", 3)
+                return
+            end
+            Window:Confirm({
+                Title = "Delete Config",
+                Message = "Are you sure you want to delete '" .. current .. "'?\nThis action cannot be undone.",
+                ConfirmText = "Delete",
+                CancelText = "Cancel",
+                OnConfirm = function()
+                    if Window:DeleteConfig(current) then
+                        configDropdownObj.RefreshOptions(GetConfigList())
+                        configDropdownObj.SetSelected("DEFAULT", false)
+                        if Window:GetAutoloadConfig() == current then
+                            Window:SetAutoloadConfig(nil)
+                            if autoloadBtn and autoloadBtn.TextLabel then
+                                autoloadBtn.TextLabel.Text = GetAutoloadButtonLabel()
+                            end
+                        end
                     end
                 end
-            end
+            })
         end)
 
         -- 4. Row 2: Left = Overwrite config, Right = Load config
@@ -1295,7 +1608,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Window:LoadConfig(current)
         end)
 
-        -- 5. Row 3: Single Long Button for Autoload config
+        -- 5. Row 3: Clipboard Export & Import
+        local Row3 = Instance.new("Frame")
+        Row3.Name = "ConfigRow3"
+        Row3.Size = UDim2.new(1, 0, 0, 44)
+        Row3.BackgroundTransparency = 1
+        Row3.BorderSizePixel = 0
+        Row3.ZIndex = 4
+        Row3.Parent = SectionFrame
+
+        Window:CreateMDButtonLong(Row3, UDim2.new(0, 0, 0, 0), UDim2.new(0.485, -4, 1, 0), "Export Clipboard", function()
+            Window:ExportConfigToClipboard()
+        end)
+
+        Window:CreateMDButtonLong(Row3, UDim2.new(0.515, 4, 0, 0), UDim2.new(0.485, -4, 1, 0), "Import Clipboard", function()
+            Window:ImportConfigFromClipboard()
+        end)
+
+        -- 6. Row 4: Single Long Button for Autoload config
         autoloadBtn = Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 44), GetAutoloadButtonLabel(), function()
             local selected = configDropdownObj.GetSelected()
             local currentAuto = Window:GetAutoloadConfig()
@@ -1341,6 +1671,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LoadCenterFrame.ZIndex = 100
     LoadCenterFrame.Parent = LoadingUI
 
+    local LoadScale = Instance.new("UIScale")
+    LoadScale.Name = "LoadScale"
+    LoadScale.Scale = 1
+    LoadScale.Parent = LoadCenterFrame
+
     local Loadbarempty = Instance.new("Frame")
     Loadbarempty.Name = "Loadbarempty"
     Loadbarempty.Size = UDim2.new(0, 326, 0, 23)
@@ -1348,7 +1683,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Loadbarempty.BackgroundColor3 = Color3.fromRGB(106, 106, 106)
     Loadbarempty.BackgroundTransparency = 0.15
     Loadbarempty.BorderSizePixel = 0
-    Loadbarempty.ClipsDescendants = false
+    Loadbarempty.ClipsDescendants = true
     Loadbarempty.ZIndex = 101
     Loadbarempty.Parent = LoadCenterFrame
 
@@ -1363,47 +1698,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LoadbaremptyStroke.Transparency = 0
     LoadbaremptyStroke.Parent = Loadbarempty
 
-
-    local LoadbaremptyBG = Instance.new("ImageLabel")
-    LoadbaremptyBG.Size = UDim2.new(0, 326, 0, 23)
-    LoadbaremptyBG.Image = "rbxassetid://139688890190075"
-    LoadbaremptyBG.ScaleType = Enum.ScaleType.Tile
-    LoadbaremptyBG.Name = "emptyBG"
-    LoadbaremptyBG.TileSize = UDim2.new(0, 25, 1, 0)
-    LoadbaremptyBG.Parent = Loadbarempty
-
-    local LoadbaremptyCornerBG = Instance.new("UICorner")
-    LoadbaremptyCornerBG.CornerRadius = UDim.new(0, 8)
-    LoadbaremptyCornerBG.Parent = LoadbaremptyBG
-
-    local LoadbaremptyStrokeBG = Instance.new("UIStroke")
-    LoadbaremptyStrokeBG.Parent = LoadbaremptyBG
-    LoadbaremptyStrokeBG.CornerRadius = UDim.new(0, 8)
-
-
-    local LoadbaremptyStrokeGradientBG = Instance.new("UIGradient")
-    LoadbaremptyStrokeGradientBG.Rotation = 90
-    LoadbaremptyStrokeGradientBG.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.769),
-        NumberSequenceKeypoint.new(0.359, 1),
-        NumberSequenceKeypoint.new(0.623, 1),
-        NumberSequenceKeypoint.new(1, 0.637)
-    })
-    LoadbaremptyStrokeGradientBG.Parent = LoadbaremptyStrokeBG
-
-
     AddUIShadow(Loadbarempty, 20, 0.5, Color3.fromRGB(255, 255, 255))
 
     local Loadbar = Instance.new("Frame")
     Loadbar.Name = "Loadbar"
-    Loadbar.Size = UDim2.new(0, 0, 0, 23)
-    Loadbar.Position = UDim2.new(0.5, -163, 0.5, -5)
+    Loadbar.Size = UDim2.new(0, 0, 1, 0)
+    Loadbar.Position = UDim2.new(0, 0, 0, 0)
     Loadbar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     Loadbar.BackgroundTransparency = 0.15
     Loadbar.BorderSizePixel = 0
     Loadbar.ClipsDescendants = true
     Loadbar.ZIndex = 102
-    Loadbar.Parent = LoadCenterFrame
+    Loadbar.Parent = Loadbarempty
 
     local LoadbarCorner = Instance.new("UICorner")
     LoadbarCorner.CornerRadius = UDim.new(0, 8)
@@ -1441,14 +1747,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     function Window:UpdateLoadingProgress(pct, statusText)
         if isFinishedLoading then return end
-        pct = math.clamp(pct, 0, 100)
+        pct = math.clamp(pct or 0, 0, 100)
         percloaded.Text = string.format("%d %%", math.floor(pct))
         if statusText then
             Loadingtext.Text = statusText
         end
         local targetWidth = math.floor(326 * (pct / 100))
         TweenService:Create(Loadbar, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, targetWidth, 0, 23)
+            Size = UDim2.new(0, targetWidth, 1, 0)
         }):Play()
     end
 
@@ -1457,12 +1763,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         isFinishedLoading = true
 
         Window:UpdateLoadingProgress(100, "Loaded!")
-        task.wait(0.3)
-        local shrinkTween = TweenService:Create(LoadCenterFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 0, 0, 0)
-        })
-        shrinkTween:Play()
-        shrinkTween.Completed:Wait()
+        task.wait(0.25)
+        if LoadScale and LoadScale.Parent then
+            local shrinkTween = TweenService:Create(LoadScale, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                Scale = 0
+            })
+            shrinkTween:Play()
+            pcall(function() shrinkTween.Completed:Wait() end)
+        end
         if LoadingUI and LoadingUI.Parent then
             LoadingUI:Destroy()
         end
@@ -1484,7 +1792,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end)
 
-        task.delay(2.0, function()
+        task.delay(1.5, function()
             if Window and ScriptUi and ScriptUi.Enabled then
                 Window:SetBackgroundBlur(Window.BackgroundBlurEnabled)
             end
@@ -2102,6 +2410,41 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local isDragging = false
         local currentVal = defaultVal
+        local displayedVal = defaultVal
+        local counterThread = nil
+        local sliderData = nil
+
+        local function AnimateValueLabel(targetVal, targetPct)
+            local lbl = (sliderData and sliderData.ValueLabel) or ValueLabel
+            if not lbl then return end
+            if counterThread then
+                task.cancel(counterThread)
+                counterThread = nil
+            end
+            counterThread = task.spawn(function()
+                local startVal = displayedVal
+                local diff = targetVal - startVal
+                if math.abs(diff) <= 0.01 then
+                    displayedVal = targetVal
+                    lbl.Text = GetFormattedValue(targetVal, targetPct)
+                    return
+                end
+                local duration = 0.12
+                local startTime = os.clock()
+                while true do
+                    local elapsed = os.clock() - startTime
+                    local alpha = math.clamp(elapsed / duration, 0, 1)
+                    local eased = 1 - math.pow(1 - alpha, 3)
+                    displayedVal = math.floor(startVal + (diff * eased) + 0.5)
+                    local curPct = (maxVal > minVal) and ((displayedVal - minVal) / (maxVal - minVal)) or 0
+                    lbl.Text = GetFormattedValue(displayedVal, curPct)
+                    if alpha >= 1 then break end
+                    task.wait()
+                end
+                displayedVal = targetVal
+                lbl.Text = GetFormattedValue(targetVal, targetPct)
+            end)
+        end
 
         local function UpdateSlider(inputPos)
             local trackAbsPos = TrackFrame.AbsolutePosition.X
@@ -2113,9 +2456,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
 
             currentVal = math.floor(minVal + (pct * (maxVal - minVal)))
-            if ValueLabel then
-                ValueLabel.Text = GetFormattedValue(currentVal, pct)
-            end
+            AnimateValueLabel(currentVal, pct)
             if onValueChange then
                 pcall(onValueChange, currentVal, pct)
             end
@@ -2141,7 +2482,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end))
 
         local sliderName = identifier or ("Slider_" .. (#Window.RegisteredMDSliders + 1))
-        local sliderData = {
+        sliderData = {
             Name = sliderName,
             Track = TrackFrame,
             FilledPart = FilledPart,
@@ -2155,11 +2496,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local pct = (maxVal > minVal) and ((val - minVal) / (maxVal - minVal)) or 0
                 FilledPart.Size = UDim2.new(pct, 0, 1, 0)
                 HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
-                if sliderData.ValueLabel then
-                    sliderData.ValueLabel.Text = GetFormattedValue(currentVal, pct)
-                elseif ValueLabel then
-                    ValueLabel.Text = GetFormattedValue(currentVal, pct)
-                end
+                AnimateValueLabel(currentVal, pct)
                 if triggerCallback and onValueChange then
                     pcall(onValueChange, currentVal, pct)
                 end
@@ -2180,6 +2517,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if ValueLabel then
                     ValueLabel.TextColor3 = theme.Text
                 end
+            end,
+            WithCallback = function(self, cb)
+                onValueChange = cb
+                return self
+            end,
+            WithTooltip = function(self, tt)
+                if Window.AttachTooltip and TrackFrame then
+                    Window:AttachTooltip(TrackFrame, tt)
+                end
+                return self
+            end,
+            WithSaveKey = function(self, key)
+                if key and key ~= "" then
+                    Window.RegisteredSliders[key] = self
+                end
+                return self
+            end,
+            WithValue = function(self, val)
+                self.SetValue(val, true)
+                return self
             end
         }
         Window.RegisteredSliders[sliderName] = sliderData
@@ -2601,7 +2958,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local function CloseModal()
             PlayClickSFX()
             if endConn then endConn:Disconnect() end
-            TweenService:Create(ModalBackdrop, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
             local t = TweenService:Create(ModalCard, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
                 Position = UDim2.new(0.5, 0, 0.5, 40),
                 Size = UDim2.new(0, 270, 0, 290)
@@ -2630,8 +2986,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CloseModal()
         end)
 
-        -- Animate In
-        TweenService:Create(ModalBackdrop, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.45}):Play()
+        -- Animate In (No dark background!)
+        ModalBackdrop.BackgroundTransparency = 1
         TweenService:Create(ModalCard, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
             Position = UDim2.new(0.5, 0, 0.5, 0),
             Size = UDim2.new(0, 290, 0, 310)
@@ -2639,6 +2995,157 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         RefreshAll("init")
     end
+
+    -- Lightweight Confirm Dialog (No dark background, follows theme)
+    function Window:Confirm(titleOrOptions, message, onYes, onNo)
+        local title, desc, yesText, noText
+        if type(titleOrOptions) == "table" then
+            title = titleOrOptions.Title or titleOrOptions.title or "Confirm"
+            desc = titleOrOptions.Message or titleOrOptions.Description or titleOrOptions.text or message or "Are you sure?"
+            yesText = titleOrOptions.ConfirmText or titleOrOptions.YesText or "Confirm"
+            noText = titleOrOptions.CancelText or titleOrOptions.NoText or "Cancel"
+            onYes = titleOrOptions.OnConfirm or titleOrOptions.onConfirm or onYes
+            onNo = titleOrOptions.OnCancel or titleOrOptions.onCancel or onNo
+        else
+            title = titleOrOptions or "Confirm"
+            desc = message or "Are you sure?"
+            yesText = "Confirm"
+            noText = "Cancel"
+        end
+
+        local ConfirmBackdrop = Instance.new("TextButton")
+        ConfirmBackdrop.Name = "ConfirmBackdrop"
+        ConfirmBackdrop.Size = UDim2.new(1, 0, 1, 0)
+        ConfirmBackdrop.Position = UDim2.new(0, 0, 0, 0)
+        ConfirmBackdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        ConfirmBackdrop.BackgroundTransparency = 1
+        ConfirmBackdrop.Text = ""
+        ConfirmBackdrop.AutoButtonColor = false
+        ConfirmBackdrop.ZIndex = 120
+        ConfirmBackdrop.Parent = ScriptUi
+
+        local ModalCard = Instance.new("Frame")
+        ModalCard.Name = "ConfirmModal"
+        ModalCard.Size = UDim2.new(0, 320, 0, 150)
+        ModalCard.AnchorPoint = Vector2.new(0.5, 0.5)
+        ModalCard.Position = UDim2.new(0.5, 0, 0.5, 20)
+        ModalCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+        ModalCard.BackgroundTransparency = 0.02
+        ModalCard.BorderSizePixel = 0
+        ModalCard.ZIndex = 121
+        ModalCard.Parent = ConfirmBackdrop
+
+        local ModalCorner = Instance.new("UICorner")
+        ModalCorner.CornerRadius = UDim.new(0, 10)
+        ModalCorner.Parent = ModalCard
+
+        local ModalStroke = Instance.new("UIStroke")
+        ModalStroke.Thickness = 1.3
+        ModalStroke.Color = Color3.fromRGB(255, 255, 255)
+        ModalStroke.Transparency = 0.8
+        ModalStroke.Parent = ModalCard
+
+        AddUIShadow(ModalCard, 24, 0.55)
+
+        local TitleLabel = Instance.new("TextLabel")
+        TitleLabel.Size = UDim2.new(1, -24, 0, 26)
+        TitleLabel.Position = UDim2.new(0, 12, 0, 10)
+        TitleLabel.BackgroundTransparency = 1
+        TitleLabel.FontFace = FontMichromaBold
+        TitleLabel.Text = title
+        TitleLabel.TextColor3 = Window.CurrentTheme.Text
+        TitleLabel.TextSize = 13
+        TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TitleLabel.ZIndex = 122
+        TitleLabel.Parent = ModalCard
+
+        local DescLabel = Instance.new("TextLabel")
+        DescLabel.Size = UDim2.new(1, -24, 0, 52)
+        DescLabel.Position = UDim2.new(0, 12, 0, 38)
+        DescLabel.BackgroundTransparency = 1
+        DescLabel.FontFace = FontMichromaRegular
+        DescLabel.Text = desc
+        DescLabel.TextColor3 = Window.CurrentTheme.SubText
+        DescLabel.TextSize = 11
+        DescLabel.TextWrapped = true
+        DescLabel.TextXAlignment = Enum.TextXAlignment.Left
+        DescLabel.TextYAlignment = Enum.TextYAlignment.Top
+        DescLabel.ZIndex = 122
+        DescLabel.Parent = ModalCard
+
+        local BtnRow = Instance.new("Frame")
+        BtnRow.Size = UDim2.new(1, -24, 0, 32)
+        BtnRow.Position = UDim2.new(0, 12, 1, -42)
+        BtnRow.BackgroundTransparency = 1
+        BtnRow.ZIndex = 122
+        BtnRow.Parent = ModalCard
+
+        local CancelBtn = Instance.new("TextButton")
+        CancelBtn.Size = UDim2.new(0.48, 0, 1, 0)
+        CancelBtn.Position = UDim2.new(0, 0, 0, 0)
+        CancelBtn.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(35, 38, 48)
+        CancelBtn.BorderSizePixel = 0
+        CancelBtn.FontFace = FontMichromaRegular
+        CancelBtn.Text = noText
+        CancelBtn.TextColor3 = Window.CurrentTheme.Text
+        CancelBtn.TextSize = 11
+        CancelBtn.ZIndex = 123
+        CancelBtn.Parent = BtnRow
+
+        local CancelCorner = Instance.new("UICorner")
+        CancelCorner.CornerRadius = UDim.new(0, 6)
+        CancelCorner.Parent = CancelBtn
+
+        local YesBtn = Instance.new("TextButton")
+        YesBtn.Size = UDim2.new(0.48, 0, 1, 0)
+        YesBtn.Position = UDim2.new(0.52, 0, 0, 0)
+        YesBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
+        YesBtn.BorderSizePixel = 0
+        YesBtn.FontFace = FontMichromaBold
+        YesBtn.Text = yesText
+        YesBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        YesBtn.TextSize = 11
+        YesBtn.ZIndex = 123
+        YesBtn.Parent = BtnRow
+
+        local YesCorner = Instance.new("UICorner")
+        YesCorner.CornerRadius = UDim.new(0, 6)
+        YesCorner.Parent = YesBtn
+
+        local function Close()
+            PlayClickSFX()
+            TweenService:Create(ModalCard, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                Position = UDim2.new(0.5, 0, 0.5, 20),
+                Size = UDim2.new(0, 300, 0, 130)
+            }):Play()
+            task.delay(0.18, function()
+                if ConfirmBackdrop and ConfirmBackdrop.Parent then
+                    ConfirmBackdrop:Destroy()
+                end
+            end)
+        end
+
+        CancelBtn.MouseButton1Click:Connect(function()
+            Close()
+            if onNo then pcall(onNo) end
+        end)
+
+        YesBtn.MouseButton1Click:Connect(function()
+            Close()
+            if onYes then pcall(onYes) end
+        end)
+
+        ConfirmBackdrop.MouseButton1Click:Connect(function()
+            Close()
+            if onNo then pcall(onNo) end
+        end)
+
+        TweenService:Create(ModalCard, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            Size = UDim2.new(0, 320, 0, 150)
+        }):Play()
+    end
+    Window.PromptConfirm = Window.Confirm
 
     function Window:CreateMDColorPicker(parent, position, size, title, defaultColor, onColorChanged, identifier)
         size = size or UDim2.new(1, 0, 0, 44)
@@ -2722,6 +3229,28 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TitleLabel.TextColor3 = theme.Text
             end
         }
+
+        colorPickerData.WithCallback = function(self, cb)
+            onColorChanged = cb
+            return self
+        end
+        colorPickerData.WithTooltip = function(self, tt)
+            if Window.AttachTooltip and CardFrame then
+                Window:AttachTooltip(CardFrame, tt)
+            end
+            return self
+        end
+        colorPickerData.WithSaveKey = function(self, key)
+            if key and key ~= "" then
+                self.SaveKey = key
+                Window.RegisteredColorPickers[key] = self
+            end
+            return self
+        end
+        colorPickerData.WithColor = function(self, col, triggerCb)
+            self.SetColor(col, triggerCb)
+            return self
+        end
 
         TrackConn(SwatchButton.MouseButton1Click:Connect(function()
             PlayClickSFX()
@@ -2908,11 +3437,36 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Stroke = Stroke,
             Trigger = ClickBtn,
             BaseSize = size,
+            SetText = function(self, newTxt)
+                BtnText.Text = tostring(newTxt or "")
+            end,
             RefreshTheme = function(theme)
                 BtnFrame.BackgroundColor3 = theme.ButtonBG
                 BtnText.TextColor3 = theme.Text
             end
         }
+
+        btnData.WithCallback = function(self, cb)
+            onClick = cb
+            return self
+        end
+        btnData.WithTooltip = function(self, tt)
+            if Window.AttachTooltip and BtnFrame then
+                Window:AttachTooltip(BtnFrame, tt)
+            end
+            return self
+        end
+        btnData.WithSaveKey = function(self, key)
+            if key and key ~= "" then
+                self.SaveKey = key
+            end
+            return self
+        end
+        btnData.WithText = function(self, txt)
+            self:SetText(txt)
+            return self
+        end
+
         table.insert(Window.RegisteredMDButtons, btnData)
 
         return btnData
@@ -3200,6 +3754,51 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return sliderTrack
         end
 
+        toggleData.WithKeybind = function(self, keyOrConfig, cb)
+            if not self.Keybind then
+                local defaultKey = (type(keyOrConfig) == "table" and (keyOrConfig.Default or keyOrConfig.Bind)) or (keyOrConfig ~= true and keyOrConfig or nil)
+                local keyPos = (self.ConnectedSlider or CardFrame.Size.Y.Offset > 50) and UDim2.new(1, -96, 0, 11) or UDim2.new(1, -96, 0.5, -11)
+                self.Keybind = Window:CreateKeybindBadge(CardFrame, keyPos, UDim2.new(0, 36, 0, 22), defaultKey, function()
+                    self.SetState(not isToggled, true)
+                    if cb then pcall(cb, not isToggled) end
+                end, toggleName)
+            end
+            return self
+        end
+        toggleData.WithSlider = function(self, sliderConfig, cb)
+            if type(sliderConfig) == "table" then
+                if cb and not sliderConfig.Callback then
+                    sliderConfig.Callback = cb
+                end
+                self:AddSlider(sliderConfig)
+            end
+            return self
+        end
+        toggleData.WithCallback = function(self, cb)
+            onToggle = cb
+            return self
+        end
+        toggleData.WithTooltip = function(self, tt)
+            if Window.AttachTooltip and CardFrame then
+                Window:AttachTooltip(CardFrame, tt)
+            end
+            return self
+        end
+        toggleData.WithSaveKey = function(self, key)
+            if key and key ~= "" then
+                Window.RegisteredToggles[key] = self
+            end
+            return self
+        end
+        toggleData.WithState = function(self, state)
+            self.SetState(state, true)
+            return self
+        end
+        toggleData.WithImages = function(self, onImg, offImg)
+            self:SetBackgroundImage(onImg, offImg)
+            return self
+        end
+
         if hasKeybind then
             local defaultKey = (type(keybindConfig) == "table" and (keybindConfig.Default or keybindConfig.Bind)) or (keybindConfig ~= true and keybindConfig or nil)
             local keyPos = (toggleData.ConnectedSlider or CardFrame.Size.Y.Offset > 50) and UDim2.new(1, -96, 0, 11) or UDim2.new(1, -96, 0.5, -11)
@@ -3452,6 +4051,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Hitbox.ZIndex = 110
         Hitbox.Parent = BtnFrame
 
+        local isVisibleInitial = (config.Visible ~= false)
+        BtnFrame.Visible = isVisibleInitial
+
         local ButtonObj = {
             Frame = BtnFrame,
             Hitbox = Hitbox,
@@ -3466,6 +4068,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             IsLocked = (config.Locked == true),
             IsDraggable = isDraggable,
             State = currentState,
+            Visible = isVisibleInitial,
+            SaveKey = config.SaveKey or config.saveKey or (text ~= "" and text) or nil,
             FollowTheme = followTheme,
             CustomBgColor = customBgColor,
             CustomTextColor = customTextColor,
@@ -3558,6 +4162,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         TrackConn(Hitbox.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                if not BtnFrame.Visible then return end
                 if not ButtonObj.IsDraggable or Window.MobileButtonsLocked or ButtonObj.IsLocked then
                     dragging = false
                     pressStartTime = os.clock()
@@ -3581,6 +4186,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         TrackConn(UserInputService.InputChanged:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                if not BtnFrame.Visible then
+                    dragging = false
+                    return
+                end
                 if not ButtonObj.IsDraggable or Window.MobileButtonsLocked or ButtonObj.IsLocked then return end
                 if dragging and dragStart and startPos then
                     local delta = input.Position - dragStart
@@ -3601,6 +4210,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         TrackConn(Hitbox.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                if not BtnFrame.Visible then return end
                 if not ButtonObj.IsDraggable or Window.MobileButtonsLocked or ButtonObj.IsLocked then
                     if (os.clock() - pressStartTime) < 0.45 then
                         TriggerAction()
@@ -3682,7 +4292,23 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         function ButtonObj:SetVisible(isVisible)
-            BtnFrame.Visible = (isVisible ~= false)
+            local vis = (isVisible ~= false)
+            BtnFrame.Visible = vis
+            ButtonObj.Visible = vis
+            Hitbox.Active = vis
+            if not vis then
+                dragging = false
+            end
+        end
+
+        function ButtonObj:GetVisible()
+            return BtnFrame.Visible == true
+        end
+
+        function ButtonObj:SetEnabled(isEnabled)
+            local en = (isEnabled ~= false)
+            Hitbox.Active = en
+            BtnFrame.BackgroundTransparency = en and (isToggle and (currentState and 0.05 or 0.25) or 0.1) or 0.6
         end
 
         function ButtonObj:SetLocked(locked)
@@ -3695,6 +4321,43 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         function ButtonObj:SetCallback(fn)
             callback = fn
+        end
+
+        ButtonObj.WithCallback = function(self, fn)
+            self:SetCallback(fn)
+            return self
+        end
+        ButtonObj.WithState = function(self, st, triggerCb)
+            self:SetState(st, triggerCb)
+            return self
+        end
+        ButtonObj.WithVisible = function(self, vis)
+            self:SetVisible(vis)
+            return self
+        end
+        ButtonObj.WithLocked = function(self, locked)
+            self:SetLocked(locked)
+            return self
+        end
+        ButtonObj.WithDraggable = function(self, drag)
+            self:SetDraggable(drag)
+            return self
+        end
+        ButtonObj.WithPosition = function(self, pos)
+            if pos then BtnFrame.Position = pos end
+            return self
+        end
+        ButtonObj.WithTooltip = function(self, tt)
+            if Window.AttachTooltip and BtnFrame then
+                Window:AttachTooltip(BtnFrame, tt)
+            end
+            return self
+        end
+        ButtonObj.WithSaveKey = function(self, key)
+            if key and key ~= "" then
+                self.SaveKey = key
+            end
+            return self
         end
 
         function ButtonObj:Destroy()
@@ -3754,6 +4417,111 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     DropdownOverlay.ZIndex = 500
     DropdownOverlay.Parent = MainContainer
     Window.DropdownOverlay = DropdownOverlay
+
+    -- =========================================================================
+    -- GLOBAL FLOATING TOOLTIP ENGINE
+    -- =========================================================================
+    local TooltipFrame = Instance.new("Frame")
+    TooltipFrame.Name = "MDTooltipFrame"
+    TooltipFrame.Size = UDim2.new(0, 100, 0, 24)
+    TooltipFrame.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
+    TooltipFrame.BackgroundTransparency = 1
+    TooltipFrame.BorderSizePixel = 0
+    TooltipFrame.ZIndex = 10000
+    TooltipFrame.Visible = false
+    TooltipFrame.Parent = ScriptUi
+
+    local TooltipCorner = Instance.new("UICorner")
+    TooltipCorner.CornerRadius = UDim.new(0, 6)
+    TooltipCorner.Parent = TooltipFrame
+
+    local TooltipStroke = Instance.new("UIStroke")
+    TooltipStroke.Thickness = 1.1
+    TooltipStroke.Color = Color3.fromRGB(255, 255, 255)
+    TooltipStroke.Transparency = 1
+    TooltipStroke.Parent = TooltipFrame
+
+    local TooltipPadding = Instance.new("UIPadding")
+    TooltipPadding.PaddingLeft = UDim.new(0, 8)
+    TooltipPadding.PaddingRight = UDim.new(0, 8)
+    TooltipPadding.PaddingTop = UDim.new(0, 4)
+    TooltipPadding.PaddingBottom = UDim.new(0, 4)
+    TooltipPadding.Parent = TooltipFrame
+
+    local TooltipText = Instance.new("TextLabel")
+    TooltipText.Name = "TooltipText"
+    TooltipText.Size = UDim2.new(1, 0, 1, 0)
+    TooltipText.BackgroundTransparency = 1
+    TooltipText.FontFace = FontMichromaRegular
+    TooltipText.Text = ""
+    TooltipText.TextColor3 = Color3.fromRGB(235, 240, 255)
+    TooltipText.TextSize = 11
+    TooltipText.TextXAlignment = Enum.TextXAlignment.Center
+    TooltipText.TextYAlignment = Enum.TextYAlignment.Center
+    TooltipText.TextTransparency = 1
+    TooltipText.ZIndex = 10001
+    TooltipText.Parent = TooltipFrame
+
+    local activeTooltipTarget = nil
+    local tooltipTween = nil
+
+    function Window:AttachTooltip(guiObject, text)
+        if not guiObject or not text or text == "" then return end
+        guiObject._TooltipContent = text
+
+        TrackConn(guiObject.MouseEnter:Connect(function()
+            if not guiObject or not guiObject._TooltipContent or guiObject._TooltipContent == "" then return end
+            activeTooltipTarget = guiObject
+            TooltipText.Text = tostring(guiObject._TooltipContent)
+
+            local TextService = game:GetService("TextService")
+            local bounds = TextService:GetTextSize(TooltipText.Text, 11, Enum.Font.Michroma or Enum.Font.SourceSansBold, Vector2.new(320, 120))
+            local tw = math.clamp(bounds.X + 20, 50, 340)
+            local th = math.clamp(bounds.Y + 10, 22, 120)
+            TooltipFrame.Size = UDim2.new(0, tw, 0, th)
+
+            local mousePos = UserInputService:GetMouseLocation()
+            local inset = game:GetService("GuiService"):GetGuiInset()
+            TooltipFrame.Position = UDim2.new(0, mousePos.X + 12, 0, mousePos.Y - inset.Y + 12)
+            TooltipFrame.BackgroundColor3 = (Window.CurrentTheme and Window.CurrentTheme.CardBG) or Color3.fromRGB(18, 20, 26)
+            TooltipText.TextColor3 = (Window.CurrentTheme and Window.CurrentTheme.Text) or Color3.fromRGB(235, 240, 255)
+            TooltipFrame.Visible = true
+
+            if tooltipTween then tooltipTween:Cancel() end
+            tooltipTween = TweenService:Create(TooltipFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                BackgroundTransparency = 0.08
+            })
+            tooltipTween:Play()
+            TweenService:Create(TooltipStroke, TweenInfo.new(0.15), {Transparency = 0.75}):Play()
+            TweenService:Create(TooltipText, TweenInfo.new(0.15), {TextTransparency = 0}):Play()
+        end))
+
+        TrackConn(guiObject.MouseMoved:Connect(function()
+            if activeTooltipTarget == guiObject and TooltipFrame.Visible then
+                local mousePos = UserInputService:GetMouseLocation()
+                local inset = game:GetService("GuiService"):GetGuiInset()
+                TooltipFrame.Position = UDim2.new(0, mousePos.X + 12, 0, mousePos.Y - inset.Y + 12)
+            end
+        end))
+
+        TrackConn(guiObject.MouseLeave:Connect(function()
+            if activeTooltipTarget == guiObject then
+                activeTooltipTarget = nil
+                if tooltipTween then tooltipTween:Cancel() end
+                tooltipTween = TweenService:Create(TooltipFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = 1
+                })
+                tooltipTween:Play()
+                TweenService:Create(TooltipStroke, TweenInfo.new(0.15), {Transparency = 1}):Play()
+                TweenService:Create(TooltipText, TweenInfo.new(0.15), {TextTransparency = 1}):Play()
+                task.delay(0.16, function()
+                    if activeTooltipTarget == nil then
+                        TooltipFrame.Visible = false
+                    end
+                end)
+            end
+        end))
+    end
 
     -- =========================================================================
     -- LOCAL UI-ONLY BACKGROUND BLUR ENGINE
@@ -4959,6 +5727,72 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return DivideFrameSmall
     end
 
+    function Window:SetSidebarWidth(width)
+        Window.SidebarWidth = math.max(width or 175, 40)
+        if not Window.SidebarCollapsed then
+            local w = Window.SidebarWidth
+            LeftFrame.Size = UDim2.new(0, w, 1, -94)
+            MainFrame.Size = UDim2.new(1, -w, 1, -94)
+            MainFrame.Position = UDim2.new(0, w, 0, 42)
+            SidebarScroll.Size = UDim2.new(0, w, 1, 0)
+            MainContentFrame.Size = UDim2.new(1, -w, 1, 0)
+            MainContentFrame.Position = UDim2.new(0, w, 0, 0)
+        end
+    end
+
+    function Window:SetSidebarCollapsed(collapsed)
+        Window.SidebarCollapsed = (collapsed == true)
+        local targetW = Window.SidebarCollapsed and (Window.CollapsedSidebarWidth or 48) or (Window.SidebarWidth or 175)
+        local animTime = 0.22
+        local ease = TweenInfo.new(animTime, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+
+        TweenService:Create(LeftFrame, ease, {Size = UDim2.new(0, targetW, 1, -94)}):Play()
+        TweenService:Create(MainFrame, ease, {Size = UDim2.new(1, -targetW, 1, -94), Position = UDim2.new(0, targetW, 0, 42)}):Play()
+        TweenService:Create(SidebarScroll, ease, {Size = UDim2.new(0, targetW, 1, 0)}):Play()
+        TweenService:Create(MainContentFrame, ease, {Size = UDim2.new(1, -targetW, 1, 0), Position = UDim2.new(0, targetW, 0, 0)}):Play()
+
+        for name, tab in pairs(Window.Tabs) do
+            if tab.Container then
+                TweenService:Create(tab.Container, ease, {Size = UDim2.new(0, targetW - 8, 0, 34)}):Play()
+            end
+            if tab.Button then
+                if Window.SidebarCollapsed then
+                    if tab.Icon then
+                        tab.Button.Visible = false
+                        TweenService:Create(tab.Icon, ease, {Position = UDim2.new(0.5, -9, 0.5, -9)}):Play()
+                    else
+                        tab.Button.Size = UDim2.new(1, 0, 1, 0)
+                        tab.Button.Position = UDim2.new(0, 0, 0, 0)
+                        tab.Button.TextSize = 11
+                    end
+                else
+                    if tab.Icon then
+                        tab.Button.Visible = true
+                        tab.Button.Size = UDim2.new(1, -38, 1, 0)
+                        tab.Button.Position = UDim2.new(0, 34, 0, 0)
+                        TweenService:Create(tab.Icon, ease, {Position = UDim2.new(0, 10, 0.5, -9)}):Play()
+                    else
+                        tab.Button.Visible = true
+                        tab.Button.Size = UDim2.new(1, 0, 1, 0)
+                        tab.Button.Position = UDim2.new(0, 0, 0, 0)
+                        tab.Button.TextSize = 15
+                    end
+                end
+            end
+        end
+
+        for _, div in ipairs(Window.SidebarDividers) do
+            if div and div.Parent then
+                local divW = Window.SidebarCollapsed and (targetW - 14) or (div.Name == "DIVIDEFRAME" and 140 or 115)
+                TweenService:Create(div, ease, {Size = UDim2.new(0, divW, 0, div.Size.Y.Offset)}):Play()
+            end
+        end
+    end
+
+    function Window:ToggleSidebar()
+        Window:SetSidebarCollapsed(not Window.SidebarCollapsed)
+    end
+
     function Window:CreateTab(arg1, arg2, arg3, arg4)
         local tabName, layoutOrder, tabIcon, autoDivider
         if type(arg1) == "table" then
@@ -5076,6 +5910,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local TabObj = {
             Name = tabName,
+            Container = TabContainer,
             Button = TabButton,
             HoverGlow = HoverGlow,
             Icon = TabIcon,
@@ -5147,6 +5982,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         function TabObj:AddButton(title, desc, callback)
+            local btnTitle, btnDesc, btnCb, btnOpts
+            if type(title) == "table" and not title.IsA then
+                btnTitle = title.Title or title.Name or title.Text or title[1] or "Button"
+                btnDesc = title.Desc or title.Description or title[2] or ""
+                btnCb = title.Callback or title.OnClick or title.callback or title[3]
+                btnOpts = title
+            else
+                btnTitle = title or "Button"
+                btnDesc = desc or ""
+                btnCb = callback
+                btnOpts = {}
+            end
+
             local CardFrame = Instance.new("Frame")
             CardFrame.Size = UDim2.new(1, -10, 0, 60)
             CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
@@ -5157,12 +6005,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CardCorner.CornerRadius = UDim.new(0, 8)
             CardCorner.Parent = CardFrame
 
-            local hasDesc = desc and desc ~= ""
+            local hasDesc = btnDesc and btnDesc ~= ""
 
             local TitleLabel = Instance.new("TextLabel")
             TitleLabel.BackgroundTransparency = 1
             TitleLabel.FontFace = FontMichromaBold
-            TitleLabel.Text = title
+            TitleLabel.Text = btnTitle
             TitleLabel.TextColor3 = Window.CurrentTheme.Text
             TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
             TitleLabel.Parent = CardFrame
@@ -5184,34 +6032,1167 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             DescLabel.Position = UDim2.new(0, 12, 0, 29)
             DescLabel.BackgroundTransparency = 1
             DescLabel.FontFace = FontMichromaRegular
-            DescLabel.Text = hasDesc and desc or ""
+            DescLabel.Text = hasDesc and btnDesc or ""
             DescLabel.TextColor3 = Window.CurrentTheme.SubText
             DescLabel.TextSize = 10
             DescLabel.TextXAlignment = Enum.TextXAlignment.Left
             DescLabel.Visible = hasDesc
             DescLabel.Parent = CardFrame
 
-            Window:CreateMDButton(CardFrame, UDim2.new(0, 110, 0, 30), UDim2.new(1, -120, 0.5, -15), "Execute", function()
-                Window:Notify("Executing", "Running " .. title .. "...", 2.5)
+            local function ExecuteAction()
+                Window:Notify("Executing", "Running " .. btnTitle .. "...", 2.5)
                 task.spawn(function()
-                    if type(callback) == "function" then
-                        pcall(callback)
-                    elseif type(callback) == "string" then
-                        pcall(function() loadstring(callback)() end)
+                    if type(btnCb) == "function" then
+                        pcall(btnCb)
+                    elseif type(btnCb) == "string" then
+                        pcall(function() loadstring(btnCb)() end)
                     end
                 end)
-            end, true)
+            end
+
+            local ActionBtn = Window:CreateMDButton(CardFrame, UDim2.new(0, 110, 0, 30), UDim2.new(1, -120, 0.5, -15), (btnOpts and btnOpts.ButtonText) or "Execute", ExecuteAction, true)
+
+            local buttonData = {
+                CardFrame = CardFrame,
+                TitleLabel = TitleLabel,
+                DescLabel = DescLabel,
+                Button = ActionBtn,
+                Execute = ExecuteAction,
+                SetText = function(self, newTitle)
+                    btnTitle = tostring(newTitle or "")
+                    TitleLabel.Text = btnTitle
+                end,
+                SetDescription = function(self, newDesc)
+                    btnDesc = tostring(newDesc or "")
+                    local hd = btnDesc ~= ""
+                    DescLabel.Text = btnDesc
+                    DescLabel.Visible = hd
+                    if hd then
+                        TitleLabel.Size = UDim2.new(1, -125, 0, 22)
+                        TitleLabel.Position = UDim2.new(0, 12, 0, 7)
+                        TitleLabel.TextSize = 12
+                    else
+                        TitleLabel.Size = UDim2.new(1, -125, 1, 0)
+                        TitleLabel.Position = UDim2.new(0, 12, 0, 0)
+                        TitleLabel.TextSize = 14
+                    end
+                end,
+                RefreshTheme = function(theme)
+                    CardFrame.BackgroundColor3 = theme.CardBG
+                    TitleLabel.TextColor3 = theme.Text
+                    DescLabel.TextColor3 = theme.SubText
+                end
+            }
+
+            buttonData.WithCallback = function(self, cb)
+                btnCb = cb
+                return self
+            end
+            buttonData.WithTooltip = function(self, tt)
+                if Window.AttachTooltip and CardFrame then
+                    Window:AttachTooltip(CardFrame, tt)
+                end
+                return self
+            end
+            buttonData.WithSaveKey = function(self, key)
+                if key and key ~= "" then
+                    self.SaveKey = key
+                end
+                return self
+            end
+            buttonData.WithText = function(self, txt)
+                self:SetText(txt)
+                return self
+            end
+            buttonData.WithDescription = function(self, d)
+                self:SetDescription(d)
+                return self
+            end
+
+            if btnOpts and type(btnOpts) == "table" and (btnOpts.Tooltip or btnOpts.tooltip) then
+                buttonData:WithTooltip(btnOpts.Tooltip or btnOpts.tooltip)
+            end
+            if btnOpts and type(btnOpts) == "table" and (btnOpts.SaveKey or btnOpts.saveKey) then
+                buttonData:WithSaveKey(btnOpts.SaveKey or btnOpts.saveKey)
+            end
 
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
 
             table.insert(Window.SearchableItems, {
                 Type = "Button",
-                Name = title or "Button",
-                Desc = desc or "",
+                Name = btnTitle or "Button",
+                Desc = btnDesc or "",
                 TabName = tabName,
                 Instance = CardFrame,
-                Callback = callback
+                Callback = btnCb
             })
+
+            return buttonData
+        end
+
+        function TabObj:AddLabel(textOrConfig, options)
+            local labelText, descText, textColor, labelOptions
+            if type(textOrConfig) == "table" and not textOrConfig.IsA then
+                labelText = textOrConfig.Text or textOrConfig.Title or textOrConfig.Name or textOrConfig[1] or "Section Header"
+                descText = textOrConfig.Desc or textOrConfig.Description or textOrConfig.SubText or textOrConfig[2]
+                textColor = textOrConfig.Color or textOrConfig.TextColor
+                labelOptions = textOrConfig
+            else
+                labelText = tostring(textOrConfig or "Section Header")
+                if type(options) == "table" then
+                    descText = options.Desc or options.Description or options.SubText
+                    textColor = options.Color or options.TextColor
+                    labelOptions = options
+                elseif type(options) == "string" then
+                    descText = options
+                end
+            end
+
+            local hasDesc = descText and descText ~= ""
+            local frameHeight = hasDesc and 40 or 26
+
+            local LabelFrame = Instance.new("Frame")
+            LabelFrame.Name = "MDLabelFrame_" .. labelText:gsub("%s+", "_")
+            LabelFrame.Size = UDim2.new(1, -10, 0, frameHeight)
+            LabelFrame.BackgroundTransparency = 1
+            LabelFrame.BorderSizePixel = 0
+            LabelFrame.ZIndex = 3
+            LabelFrame.Parent = ContentFrame
+
+            local TitleLabel = Instance.new("TextLabel")
+            TitleLabel.Name = "LabelTitle"
+            TitleLabel.Size = UDim2.new(1, -12, 0, 20)
+            TitleLabel.Position = UDim2.new(0, 6, 0, 2)
+            TitleLabel.BackgroundTransparency = 1
+            TitleLabel.FontFace = FontMichromaBold
+            TitleLabel.Text = labelText
+            TitleLabel.TextColor3 = textColor or Window.CurrentTheme.Text
+            TitleLabel.TextSize = 13
+            TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+            TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
+            TitleLabel.ZIndex = 4
+            TitleLabel.Parent = LabelFrame
+
+            local DescLabel = nil
+            if hasDesc then
+                DescLabel = Instance.new("TextLabel")
+                DescLabel.Name = "LabelDesc"
+                DescLabel.Size = UDim2.new(1, -12, 0, 16)
+                DescLabel.Position = UDim2.new(0, 6, 0, 22)
+                DescLabel.BackgroundTransparency = 1
+                DescLabel.FontFace = FontMichromaRegular
+                DescLabel.Text = descText
+                DescLabel.TextColor3 = Window.CurrentTheme.SubText
+                DescLabel.TextSize = 10
+                DescLabel.TextXAlignment = Enum.TextXAlignment.Left
+                DescLabel.TextYAlignment = Enum.TextYAlignment.Center
+                DescLabel.ZIndex = 4
+                DescLabel.Parent = LabelFrame
+            end
+
+            local labelObj = {
+                Frame = LabelFrame,
+                TitleLabel = TitleLabel,
+                DescLabel = DescLabel,
+                SetText = function(self, newText)
+                    TitleLabel.Text = tostring(newText or "")
+                end,
+                SetDescription = function(self, newDesc)
+                    if DescLabel then
+                        DescLabel.Text = tostring(newDesc or "")
+                    end
+                end,
+                SetColor = function(self, newCol)
+                    if newCol then
+                        TitleLabel.TextColor3 = newCol
+                    end
+                end,
+                RefreshTheme = function(theme)
+                    if not textColor then
+                        TitleLabel.TextColor3 = theme.Text
+                    end
+                    if DescLabel then
+                        DescLabel.TextColor3 = theme.SubText
+                    end
+                end
+            }
+
+            labelObj.WithTooltip = function(self, tt)
+                if Window.AttachTooltip and LabelFrame then
+                    Window:AttachTooltip(LabelFrame, tt)
+                end
+                return self
+            end
+            labelObj.WithText = function(self, txt)
+                self:SetText(txt)
+                return self
+            end
+            labelObj.WithColor = function(self, col)
+                self:SetColor(col)
+                return self
+            end
+
+            if labelOptions and type(labelOptions) == "table" and (labelOptions.Tooltip or labelOptions.tooltip) then
+                labelObj:WithTooltip(labelOptions.Tooltip or labelOptions.tooltip)
+            end
+
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            return labelObj
+        end
+
+        function TabObj:AddDivider(options)
+            local divHeight = (type(options) == "table" and (options.Height or options.height)) or (type(options) == "number" and options) or 8
+            local divThickness = (type(options) == "table" and (options.Thickness or options.thickness)) or 1.2
+            local divColor = type(options) == "table" and (options.Color or options.color) or nil
+
+            local DividerContainer = Instance.new("Frame")
+            DividerContainer.Name = "MDContentDivider"
+            DividerContainer.Size = UDim2.new(1, -10, 0, divHeight)
+            DividerContainer.BackgroundTransparency = 1
+            DividerContainer.BorderSizePixel = 0
+            DividerContainer.ZIndex = 3
+            DividerContainer.Parent = ContentFrame
+
+            local Line = Instance.new("Frame")
+            Line.Name = "Line"
+            Line.Size = UDim2.new(1, -16, 0, divThickness)
+            Line.Position = UDim2.new(0, 8, 0.5, -math.floor(divThickness / 2))
+            Line.BackgroundColor3 = divColor or Window.CurrentTheme.Divider or Window.CurrentTheme.CardBG
+            Line.BackgroundTransparency = 0.4
+            Line.BorderSizePixel = 0
+            Line.ZIndex = 4
+            Line.Parent = DividerContainer
+
+            local LineCorner = Instance.new("UICorner")
+            LineCorner.CornerRadius = UDim.new(1, 0)
+            LineCorner.Parent = Line
+
+            local dividerObj = {
+                Frame = DividerContainer,
+                Line = Line,
+                SetVisible = function(self, vis)
+                    DividerContainer.Visible = (vis ~= false)
+                end,
+                SetColor = function(self, col)
+                    Line.BackgroundColor3 = col
+                end,
+                RefreshTheme = function(theme)
+                    if not divColor then
+                        Line.BackgroundColor3 = theme.Divider or theme.CardBG
+                    end
+                end
+            }
+
+            dividerObj.WithVisible = function(self, vis)
+                self:SetVisible(vis)
+                return self
+            end
+
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            return dividerObj
+        end
+
+        function TabObj:AddNumberInput(titleOrConfig, options, callback, parentRow, position, sizeFraction)
+            local title, minVal, maxVal, defaultVal, stepVal, cb, inputOpts
+            if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                title = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Number Input"
+                minVal = titleOrConfig.Min or titleOrConfig.min or 0
+                maxVal = titleOrConfig.Max or titleOrConfig.max or 100
+                defaultVal = titleOrConfig.Default or titleOrConfig.default or minVal
+                stepVal = titleOrConfig.Step or titleOrConfig.step or 1
+                cb = titleOrConfig.Callback or titleOrConfig.callback or titleOrConfig.OnChanged or titleOrConfig[2]
+                inputOpts = titleOrConfig
+                parentRow = titleOrConfig.Parent or titleOrConfig.Row or parentRow
+                position = titleOrConfig.Position or position
+                sizeFraction = titleOrConfig.Size or titleOrConfig.Fraction or sizeFraction
+            else
+                title = tostring(titleOrConfig or "Number Input")
+                if type(options) == "table" then
+                    minVal = options.Min or options.min or 0
+                    maxVal = options.Max or options.max or 100
+                    defaultVal = options.Default or options.default or minVal
+                    stepVal = options.Step or options.step or 1
+                    cb = options.Callback or options.callback or callback
+                    inputOpts = options
+                else
+                    minVal = 0
+                    maxVal = 100
+                    defaultVal = tonumber(options) or 0
+                    stepVal = 1
+                    cb = callback
+                    inputOpts = {}
+                end
+            end
+
+            local targetParent = parentRow or ContentFrame
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
+            local cardSize = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 52) or UDim2.new(1, -10, 0, 52))
+            local pos = position or UDim2.new(0, 0, 0, 0)
+            local suffix = (inputOpts and inputOpts.Suffix) or ""
+
+            local currentValue = math.clamp(tonumber(defaultVal) or minVal, minVal, maxVal)
+
+            local CardFrame = Instance.new("Frame")
+            CardFrame.Name = "MDNumberInputCard_" .. title:gsub("%s+", "_")
+            CardFrame.Size = cardSize
+            CardFrame.Position = pos
+            CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
+            CardFrame.BackgroundTransparency = 0.05
+            CardFrame.BorderSizePixel = 0
+            CardFrame.ZIndex = 10
+            CardFrame.Parent = targetParent
+
+            local CardCorner = Instance.new("UICorner")
+            CardCorner.CornerRadius = UDim.new(0, 8)
+            CardCorner.Parent = CardFrame
+
+            AddUIShadow(CardFrame, 20, 0.5)
+
+            local CardStroke = Instance.new("UIStroke")
+            CardStroke.Name = "UIStroke"
+            CardStroke.Color = Color3.fromRGB(255, 255, 255)
+            CardStroke.Thickness = 1.2
+            CardStroke.Transparency = 0
+            CardStroke.Parent = CardFrame
+
+            local TitleLabel = Instance.new("TextLabel")
+            TitleLabel.Name = "TitleLabel"
+            TitleLabel.Size = UDim2.new(1, -145, 1, 0)
+            TitleLabel.Position = UDim2.new(0, 14, 0, 0)
+            TitleLabel.BackgroundTransparency = 1
+            TitleLabel.FontFace = FontMichromaRegular
+            TitleLabel.Text = title
+            TitleLabel.TextColor3 = Window.CurrentTheme.Text
+            TitleLabel.TextSize = 12
+            TitleLabel.TextWrapped = true
+            TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+            TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
+            TitleLabel.ZIndex = 11
+            TitleLabel.Parent = CardFrame
+
+            local ControlBox = Instance.new("Frame")
+            ControlBox.Name = "ControlBox"
+            ControlBox.Size = UDim2.new(0, 126, 0, 32)
+            ControlBox.Position = UDim2.new(1, -136, 0.5, -16)
+            ControlBox.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(230, 234, 242) or Color3.fromRGB(20, 22, 28)
+            ControlBox.BackgroundTransparency = 0.1
+            ControlBox.BorderSizePixel = 0
+            ControlBox.ZIndex = 11
+            ControlBox.Parent = CardFrame
+
+            local ControlCorner = Instance.new("UICorner")
+            ControlCorner.CornerRadius = UDim.new(0, 6)
+            ControlCorner.Parent = ControlBox
+
+            local ControlStroke = Instance.new("UIStroke")
+            ControlStroke.Thickness = 1.0
+            ControlStroke.Color = Color3.fromRGB(255, 255, 255)
+            ControlStroke.Transparency = 0.8
+            ControlStroke.Parent = ControlBox
+
+            local MinusBtn = Instance.new("TextButton")
+            MinusBtn.Name = "MinusBtn"
+            MinusBtn.Size = UDim2.new(0, 30, 1, 0)
+            MinusBtn.Position = UDim2.new(0, 0, 0, 0)
+            MinusBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
+            MinusBtn.BackgroundTransparency = 0.2
+            MinusBtn.BorderSizePixel = 0
+            MinusBtn.FontFace = FontMichromaBold
+            MinusBtn.Text = "-"
+            MinusBtn.TextColor3 = Window.CurrentTheme.Text
+            MinusBtn.TextSize = 16
+            MinusBtn.ZIndex = 12
+            MinusBtn.Parent = ControlBox
+
+            local MinusCorner = Instance.new("UICorner")
+            MinusCorner.CornerRadius = UDim.new(0, 6)
+            MinusCorner.Parent = MinusBtn
+
+            local PlusBtn = Instance.new("TextButton")
+            PlusBtn.Name = "PlusBtn"
+            PlusBtn.Size = UDim2.new(0, 30, 1, 0)
+            PlusBtn.Position = UDim2.new(1, -30, 0, 0)
+            PlusBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
+            PlusBtn.BackgroundTransparency = 0.2
+            PlusBtn.BorderSizePixel = 0
+            PlusBtn.FontFace = FontMichromaBold
+            PlusBtn.Text = "+"
+            PlusBtn.TextColor3 = Window.CurrentTheme.Text
+            PlusBtn.TextSize = 15
+            PlusBtn.ZIndex = 12
+            PlusBtn.Parent = ControlBox
+
+            local PlusCorner = Instance.new("UICorner")
+            PlusCorner.CornerRadius = UDim.new(0, 6)
+            PlusCorner.Parent = PlusBtn
+
+            local NumberBox = Instance.new("TextBox")
+            NumberBox.Name = "NumberBox"
+            NumberBox.Size = UDim2.new(1, -64, 1, 0)
+            NumberBox.Position = UDim2.new(0, 32, 0, 0)
+            NumberBox.BackgroundTransparency = 1
+            NumberBox.FontFace = FontMichromaRegular
+            NumberBox.Text = tostring(currentValue) .. suffix
+            NumberBox.TextColor3 = Window.CurrentTheme.Text
+            NumberBox.TextSize = 11
+            NumberBox.TextXAlignment = Enum.TextXAlignment.Center
+            NumberBox.ClearTextOnFocus = false
+            NumberBox.ZIndex = 12
+            NumberBox.Parent = ControlBox
+
+            local function FormatDisplay(val)
+                return tostring(val) .. suffix
+            end
+
+            local saveKey = (inputOpts and (inputOpts.SaveKey or inputOpts.saveKey)) or title
+            local numberObj = {
+                Name = title,
+                SaveKey = saveKey,
+                TabName = tabName,
+                CardFrame = CardFrame,
+                TitleLabel = TitleLabel,
+                ControlBox = ControlBox,
+                NumberBox = NumberBox,
+                MinusBtn = MinusBtn,
+                PlusBtn = PlusBtn,
+                GetValue = function() return currentValue end,
+                SetValue = function(self, newVal, triggerCb)
+                    local parsed = tonumber(newVal)
+                    if parsed then
+                        currentValue = math.clamp(parsed, minVal, maxVal)
+                        if stepVal >= 1 and math.floor(stepVal) == stepVal then
+                            currentValue = math.floor(currentValue + 0.5)
+                        end
+                    end
+                    NumberBox.Text = FormatDisplay(currentValue)
+                    if triggerCb and cb then
+                        pcall(cb, currentValue)
+                    end
+                end,
+                RefreshTheme = function(theme)
+                    CardFrame.BackgroundColor3 = theme.CardBG
+                    TitleLabel.TextColor3 = theme.Text
+                    ControlBox.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(230, 234, 242) or Color3.fromRGB(20, 22, 28)
+                    MinusBtn.BackgroundColor3 = theme.ButtonBG
+                    MinusBtn.TextColor3 = theme.Text
+                    PlusBtn.BackgroundColor3 = theme.ButtonBG
+                    PlusBtn.TextColor3 = theme.Text
+                    NumberBox.TextColor3 = theme.Text
+                end
+            }
+
+            local function StepValue(delta)
+                PlayClickSFX()
+                local newVal = math.clamp(currentValue + delta, minVal, maxVal)
+                if stepVal >= 1 and math.floor(stepVal) == stepVal then
+                    newVal = math.floor(newVal + 0.5)
+                end
+                currentValue = newVal
+                NumberBox.Text = FormatDisplay(currentValue)
+                if cb then
+                    pcall(cb, currentValue)
+                end
+            end
+
+            TrackConn(MinusBtn.MouseButton1Click:Connect(function()
+                StepValue(-stepVal)
+            end))
+
+            TrackConn(PlusBtn.MouseButton1Click:Connect(function()
+                StepValue(stepVal)
+            end))
+
+            TrackConn(NumberBox.FocusLost:Connect(function()
+                local cleanText = NumberBox.Text:gsub("[^%-%d%.]", "")
+                local parsed = tonumber(cleanText)
+                if parsed then
+                    currentValue = math.clamp(parsed, minVal, maxVal)
+                    if stepVal >= 1 and math.floor(stepVal) == stepVal then
+                        currentValue = math.floor(currentValue + 0.5)
+                    end
+                end
+                NumberBox.Text = FormatDisplay(currentValue)
+                if cb then
+                    pcall(cb, currentValue)
+                end
+            end))
+
+            numberObj.WithCallback = function(self, fn)
+                cb = fn
+                return self
+            end
+            numberObj.WithTooltip = function(self, tt)
+                if Window.AttachTooltip and CardFrame then
+                    Window:AttachTooltip(CardFrame, tt)
+                end
+                return self
+            end
+            numberObj.WithSaveKey = function(self, key)
+                if key and key ~= "" then
+                    self.SaveKey = key
+                    Window.RegisteredNumberInputs[key] = self
+                end
+                return self
+            end
+            numberObj.WithValue = function(self, v, triggerCb)
+                self:SetValue(v, triggerCb)
+                return self
+            end
+            numberObj.WithMin = function(self, mn)
+                minVal = mn
+                return self
+            end
+            numberObj.WithMax = function(self, mx)
+                maxVal = mx
+                return self
+            end
+            numberObj.WithStep = function(self, st)
+                stepVal = st
+                return self
+            end
+
+            if inputOpts and type(inputOpts) == "table" and (inputOpts.Tooltip or inputOpts.tooltip) then
+                numberObj:WithTooltip(inputOpts.Tooltip or inputOpts.tooltip)
+            end
+            if inputOpts and type(inputOpts) == "table" and (inputOpts.SaveKey or inputOpts.saveKey) then
+                numberObj:WithSaveKey(inputOpts.SaveKey or inputOpts.saveKey)
+            end
+
+            if saveKey and saveKey ~= "" then
+                Window.RegisteredNumberInputs[saveKey] = numberObj
+            end
+            table.insert(Window.RegisteredNumberInputsList, numberObj)
+
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            table.insert(Window.SearchableItems, {
+                Type = "NumberInput",
+                Name = title or "NumberInput",
+                Desc = "",
+                TabName = tabName,
+                Instance = CardFrame
+            })
+
+            return numberObj
+        end
+        TabObj.AddSpinbox = TabObj.AddNumberInput
+
+        function TabObj:AddMultiDropdown(titleOrConfig, options, defaultSelections, onSelect, parentRow, position, sizeFraction)
+            local title, dropOpts, defSels, cb, multiOpts
+            if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                title = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Select Options"
+                dropOpts = titleOrConfig.Options or titleOrConfig.options or titleOrConfig[2] or {}
+                defSels = titleOrConfig.Default or titleOrConfig.default or titleOrConfig.Selections or titleOrConfig[3] or {}
+                cb = titleOrConfig.Callback or titleOrConfig.OnSelect or titleOrConfig.callback or titleOrConfig[4]
+                multiOpts = titleOrConfig
+                parentRow = titleOrConfig.Parent or titleOrConfig.Row or parentRow
+                position = titleOrConfig.Position or position
+                sizeFraction = titleOrConfig.Size or titleOrConfig.Fraction or sizeFraction
+            else
+                title = tostring(titleOrConfig or "Select Options")
+                dropOpts = options or {}
+                defSels = defaultSelections or {}
+                cb = onSelect
+                multiOpts = {}
+            end
+
+            local targetParent = parentRow or ContentFrame
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
+            local cardSize = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
+            local pos = position or UDim2.new(0, 0, 0, 0)
+
+            local selectedMap = {}
+            if type(defSels) == "table" then
+                for k, v in pairs(defSels) do
+                    if type(k) == "number" then
+                        selectedMap[tostring(v)] = true
+                    elseif v == true then
+                        selectedMap[tostring(k)] = true
+                    end
+                end
+            elseif type(defSels) == "string" then
+                selectedMap[defSels] = true
+            end
+
+            local function GetSelectedList()
+                local list = {}
+                for opt, isSel in pairs(selectedMap) do
+                    if isSel then table.insert(list, opt) end
+                end
+                table.sort(list)
+                return list
+            end
+
+            local CardFrame = Instance.new("Frame")
+            CardFrame.Name = "MDMultiDropdownCard_" .. title:gsub("%s+", "_")
+            CardFrame.Size = cardSize
+            CardFrame.Position = pos
+            CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
+            CardFrame.BackgroundTransparency = 0.05
+            CardFrame.BorderSizePixel = 0
+            CardFrame.ZIndex = 10
+            CardFrame.Parent = targetParent
+
+            local CardCorner = Instance.new("UICorner")
+            CardCorner.CornerRadius = UDim.new(0, 8)
+            CardCorner.Parent = CardFrame
+
+            AddUIShadow(CardFrame, 20, 0.5)
+
+            local CardStroke = Instance.new("UIStroke")
+            CardStroke.Name = "UIStroke"
+            CardStroke.Color = Color3.fromRGB(255, 255, 255)
+            CardStroke.Thickness = 1.2
+            CardStroke.Transparency = 0
+            CardStroke.Parent = CardFrame
+
+            local TitleLabel = Instance.new("TextLabel")
+            TitleLabel.Name = "DropdownTitle"
+            TitleLabel.Size = UDim2.new(1, -40, 1, 0)
+            TitleLabel.Position = UDim2.new(0, 14, 0, 0)
+            TitleLabel.BackgroundTransparency = 1
+            TitleLabel.FontFace = FontMichromaRegular
+            TitleLabel.Text = title
+            TitleLabel.TextColor3 = Window.CurrentTheme.Text
+            TitleLabel.TextSize = 12
+            TitleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+            TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+            TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
+            TitleLabel.ZIndex = 11
+            TitleLabel.Parent = CardFrame
+
+            local ArrowIcon = Instance.new("ImageLabel")
+            ArrowIcon.Name = "ArrowIcon"
+            ArrowIcon.Size = UDim2.new(0, 14, 0, 14)
+            ArrowIcon.Position = UDim2.new(1, -26, 0.5, -7)
+            ArrowIcon.BackgroundTransparency = 1
+            ArrowIcon.Image = "rbxassetid://6031091004"
+            ArrowIcon.ImageColor3 = Window.CurrentTheme.Text
+            ArrowIcon.ZIndex = 11
+            ArrowIcon.Parent = CardFrame
+
+            local ClickButton = Instance.new("TextButton")
+            ClickButton.Name = "ClickButton"
+            ClickButton.Size = UDim2.new(1, 0, 1, 0)
+            ClickButton.BackgroundTransparency = 1
+            ClickButton.Text = ""
+            ClickButton.ZIndex = 12
+            ClickButton.Parent = CardFrame
+
+            local function UpdateTitleDisplay()
+                local count = 0
+                for _, sel in pairs(selectedMap) do
+                    if sel then count = count + 1 end
+                end
+                if count == 0 then
+                    TitleLabel.Text = title .. ": None"
+                elseif count == 1 then
+                    local single = GetSelectedList()[1] or "1 selected"
+                    TitleLabel.Text = title .. ": " .. single
+                else
+                    TitleLabel.Text = title .. ": (" .. tostring(count) .. " Selected)"
+                end
+            end
+            UpdateTitleDisplay()
+
+            local DropdownMenu = Instance.new("Frame")
+            DropdownMenu.Name = "MDMultiDropdownMenu"
+            DropdownMenu.Size = UDim2.new(0, 200, 0, 0)
+            DropdownMenu.BackgroundColor3 = Window.CurrentTheme.CardBG
+            DropdownMenu.BackgroundTransparency = 0.05
+            DropdownMenu.BorderSizePixel = 0
+            DropdownMenu.ClipsDescendants = true
+            DropdownMenu.ZIndex = 600
+            DropdownMenu.Visible = false
+            DropdownMenu.Parent = Window.DropdownOverlay or ScriptUi
+
+            local MenuCorner = Instance.new("UICorner")
+            MenuCorner.CornerRadius = UDim.new(0, 8)
+            MenuCorner.Parent = DropdownMenu
+
+            local MenuStroke = Instance.new("UIStroke")
+            MenuStroke.Thickness = 1.2
+            MenuStroke.Color = Color3.fromRGB(255, 255, 255)
+            MenuStroke.Transparency = 0.6
+            MenuStroke.Parent = DropdownMenu
+
+            AddUIShadow(DropdownMenu, 20, 0.5)
+
+            local MenuScroll = Instance.new("ScrollingFrame")
+            MenuScroll.Size = UDim2.new(1, -8, 1, -8)
+            MenuScroll.Position = UDim2.new(0, 4, 0, 4)
+            MenuScroll.BackgroundTransparency = 1
+            MenuScroll.BorderSizePixel = 0
+            MenuScroll.ScrollBarThickness = 2
+            MenuScroll.ScrollBarImageColor3 = Window.CurrentTheme.Divider
+            MenuScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            MenuScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+            MenuScroll.ZIndex = 601
+            MenuScroll.Parent = DropdownMenu
+
+            local MenuLayout = Instance.new("UIListLayout")
+            MenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            MenuLayout.Padding = UDim.new(0, 4)
+            MenuLayout.Parent = MenuScroll
+
+            local isOpen = false
+
+            local function RefreshOptions()
+                for _, child in ipairs(MenuScroll:GetChildren()) do
+                    if child:IsA("GuiObject") then child:Destroy() end
+                end
+
+                for _, opt in ipairs(dropOpts) do
+                    local optStr = tostring(opt)
+                    local isSelected = selectedMap[optStr] == true
+
+                    local itemBtn = Instance.new("TextButton")
+                    itemBtn.Name = "Option_" .. optStr
+                    itemBtn.Size = UDim2.new(1, 0, 0, 28)
+                    itemBtn.BackgroundColor3 = isSelected and Window.CurrentTheme.ButtonBG or Color3.fromRGB(0, 0, 0)
+                    itemBtn.BackgroundTransparency = isSelected and 0.15 or 0.8
+                    itemBtn.Text = ""
+                    itemBtn.ZIndex = 602
+                    itemBtn.Parent = MenuScroll
+
+                    local itemCorner = Instance.new("UICorner")
+                    itemCorner.CornerRadius = UDim.new(0, 6)
+                    itemCorner.Parent = itemBtn
+
+                    local checkIcon = Instance.new("TextLabel")
+                    checkIcon.Size = UDim2.new(0, 20, 1, 0)
+                    checkIcon.Position = UDim2.new(0, 4, 0, 0)
+                    checkIcon.BackgroundTransparency = 1
+                    checkIcon.FontFace = FontMichromaBold
+                    checkIcon.Text = isSelected and "[✓]" or "[  ]"
+                    checkIcon.TextColor3 = isSelected and Color3.fromRGB(80, 255, 140) or Window.CurrentTheme.SubText
+                    checkIcon.TextSize = 10
+                    checkIcon.ZIndex = 603
+                    checkIcon.Parent = itemBtn
+
+                    local itemLabel = Instance.new("TextLabel")
+                    itemLabel.Size = UDim2.new(1, -30, 1, 0)
+                    itemLabel.Position = UDim2.new(0, 26, 0, 0)
+                    itemLabel.BackgroundTransparency = 1
+                    itemLabel.FontFace = FontMichromaRegular
+                    itemLabel.Text = optStr
+                    itemLabel.TextColor3 = isSelected and Window.CurrentTheme.Text or Window.CurrentTheme.SubText
+                    itemLabel.TextSize = 11
+                    itemLabel.TextXAlignment = Enum.TextXAlignment.Left
+                    itemLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                    itemLabel.ZIndex = 603
+                    itemLabel.Parent = itemBtn
+
+                    TrackConn(itemBtn.MouseButton1Click:Connect(function()
+                        PlayClickSFX()
+                        selectedMap[optStr] = not selectedMap[optStr]
+                        local nowSel = selectedMap[optStr]
+                        checkIcon.Text = nowSel and "[✓]" or "[  ]"
+                        checkIcon.TextColor3 = nowSel and Color3.fromRGB(80, 255, 140) or Window.CurrentTheme.SubText
+                        itemLabel.TextColor3 = nowSel and Window.CurrentTheme.Text or Window.CurrentTheme.SubText
+                        itemBtn.BackgroundColor3 = nowSel and Window.CurrentTheme.ButtonBG or Color3.fromRGB(0, 0, 0)
+                        itemBtn.BackgroundTransparency = nowSel and 0.15 or 0.8
+                        UpdateTitleDisplay()
+                        if cb then
+                            pcall(cb, GetSelectedList(), optStr, nowSel)
+                        end
+                    end))
+                end
+            end
+
+            local function CloseDropdown()
+                if not isOpen then return end
+                isOpen = false
+                TweenService:Create(ArrowIcon, TweenInfo.new(0.2), {Rotation = 0}):Play()
+                TweenService:Create(DropdownMenu, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(0, DropdownMenu.Size.X.Offset, 0, 0)
+                }):Play()
+                task.delay(0.21, function()
+                    if not isOpen then DropdownMenu.Visible = false end
+                end)
+            end
+
+            local function OpenDropdown()
+                if isOpen then
+                    CloseDropdown()
+                    return
+                end
+                if Window.ActiveDropdown and Window.ActiveDropdown.Close then
+                    pcall(function() Window.ActiveDropdown.Close() end)
+                end
+                Window.ActiveDropdown = { Close = CloseDropdown }
+
+                RefreshOptions()
+                isOpen = true
+                local absPos = CardFrame.AbsolutePosition
+                local absSize = CardFrame.AbsoluteSize
+                local overlayPos = (Window.DropdownOverlay and Window.DropdownOverlay.AbsolutePosition) or Vector2.new(0, 0)
+                local scale = (UIScaleConstraint and UIScaleConstraint.Scale > 0) and UIScaleConstraint.Scale or 1.0
+
+                local relX = (absPos.X - overlayPos.X) / scale
+                local relY = (absPos.Y - overlayPos.Y + absSize.Y + 4) / scale
+                local width = absSize.X / scale
+                local height = math.min(#dropOpts * 32 + 10, 160)
+
+                DropdownMenu.Position = UDim2.new(0, relX, 0, relY)
+                DropdownMenu.Size = UDim2.new(0, width, 0, 0)
+                DropdownMenu.Visible = true
+
+                TweenService:Create(ArrowIcon, TweenInfo.new(0.2), {Rotation = 180}):Play()
+                TweenService:Create(DropdownMenu, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(0, width, 0, height)
+                }):Play()
+            end
+
+            TrackConn(ClickButton.MouseButton1Click:Connect(function()
+                PlayClickSFX()
+                OpenDropdown()
+            end))
+
+            local saveKey = (multiOpts and (multiOpts.SaveKey or multiOpts.saveKey)) or title
+            local multiDropData = {
+                Name = title,
+                SaveKey = saveKey,
+                TabName = tabName,
+                CardFrame = CardFrame,
+                Menu = DropdownMenu,
+                Close = CloseDropdown,
+                Open = OpenDropdown,
+                GetSelections = GetSelectedList,
+                SetSelections = function(self, listOrMap, triggerCb)
+                    selectedMap = {}
+                    if type(listOrMap) == "table" then
+                        for k, v in pairs(listOrMap) do
+                            if type(k) == "number" then
+                                selectedMap[tostring(v)] = true
+                            elseif v == true then
+                                selectedMap[tostring(k)] = true
+                            end
+                        end
+                    elseif type(listOrMap) == "string" then
+                        selectedMap[listOrMap] = true
+                    end
+                    UpdateTitleDisplay()
+                    RefreshOptions()
+                    if triggerCb and cb then
+                        pcall(cb, GetSelectedList(), nil, nil)
+                    end
+                end,
+                Select = function(self, opt, triggerCb)
+                    selectedMap[tostring(opt)] = true
+                    UpdateTitleDisplay()
+                    RefreshOptions()
+                    if triggerCb and cb then pcall(cb, GetSelectedList(), opt, true) end
+                end,
+                Deselect = function(self, opt, triggerCb)
+                    selectedMap[tostring(opt)] = nil
+                    UpdateTitleDisplay()
+                    RefreshOptions()
+                    if triggerCb and cb then pcall(cb, GetSelectedList(), opt, false) end
+                end,
+                Toggle = function(self, opt, triggerCb)
+                    local cur = selectedMap[tostring(opt)] == true
+                    selectedMap[tostring(opt)] = not cur
+                    UpdateTitleDisplay()
+                    RefreshOptions()
+                    if triggerCb and cb then pcall(cb, GetSelectedList(), opt, not cur) end
+                end,
+                RefreshTheme = function(theme)
+                    CardFrame.BackgroundColor3 = theme.CardBG
+                    TitleLabel.TextColor3 = theme.Text
+                    ArrowIcon.ImageColor3 = theme.Text
+                    DropdownMenu.BackgroundColor3 = theme.CardBG
+                    MenuScroll.ScrollBarImageColor3 = theme.Divider
+                    RefreshOptions()
+                end
+            }
+
+            multiDropData.WithCallback = function(self, fn)
+                cb = fn
+                return self
+            end
+            multiDropData.WithTooltip = function(self, tt)
+                if Window.AttachTooltip and CardFrame then
+                    Window:AttachTooltip(CardFrame, tt)
+                end
+                return self
+            end
+            multiDropData.WithSaveKey = function(self, key)
+                if key and key ~= "" then
+                    self.SaveKey = key
+                    Window.RegisteredMultiDropdowns[key] = self
+                end
+                return self
+            end
+            multiDropData.WithSelections = function(self, sels, triggerCb)
+                self:SetSelections(sels, triggerCb)
+                return self
+            end
+
+            if multiOpts and type(multiOpts) == "table" and (multiOpts.Tooltip or multiOpts.tooltip) then
+                multiDropData:WithTooltip(multiOpts.Tooltip or multiOpts.tooltip)
+            end
+            if multiOpts and type(multiOpts) == "table" and (multiOpts.SaveKey or multiOpts.saveKey) then
+                multiDropData:WithSaveKey(multiOpts.SaveKey or multiOpts.saveKey)
+            end
+
+            if saveKey and saveKey ~= "" then
+                Window.RegisteredMultiDropdowns[saveKey] = multiDropData
+            end
+            table.insert(Window.RegisteredMultiDropdownsList, multiDropData)
+
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            table.insert(Window.SearchableItems, {
+                Type = "MultiDropdown",
+                Name = title or "MultiDropdown",
+                Desc = "",
+                TabName = tabName,
+                Instance = CardFrame
+            })
+
+            return multiDropData
+        end
+
+        function TabObj:AddProgressBar(titleOrConfig, options)
+            local title, initialPct, statusText, cardOpts
+            if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                title = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Progress"
+                initialPct = titleOrConfig.Progress or titleOrConfig.Value or titleOrConfig.Default or titleOrConfig[2] or 0
+                statusText = titleOrConfig.Status or titleOrConfig.Desc or titleOrConfig[3] or ""
+                cardOpts = titleOrConfig
+            else
+                title = tostring(titleOrConfig or "Progress")
+                if type(options) == "table" then
+                    initialPct = options.Progress or options.Value or options.Default or 0
+                    statusText = options.Status or options.Desc or ""
+                    cardOpts = options
+                elseif type(options) == "number" then
+                    initialPct = options
+                    statusText = ""
+                    cardOpts = {}
+                else
+                    initialPct = 0
+                    statusText = tostring(options or "")
+                    cardOpts = {}
+                end
+            end
+
+            if initialPct > 1 then initialPct = initialPct / 100 end
+            initialPct = math.clamp(initialPct, 0, 1)
+
+            local CardFrame = Instance.new("Frame")
+            CardFrame.Name = "MDProgressBarCard_" .. title:gsub("%s+", "_")
+            CardFrame.Size = UDim2.new(1, -10, 0, 52)
+            CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
+            CardFrame.BackgroundTransparency = 0.05
+            CardFrame.BorderSizePixel = 0
+            CardFrame.ZIndex = 10
+            CardFrame.Parent = ContentFrame
+
+            local CardCorner = Instance.new("UICorner")
+            CardCorner.CornerRadius = UDim.new(0, 8)
+            CardCorner.Parent = CardFrame
+
+            AddUIShadow(CardFrame, 20, 0.5)
+
+            local CardStroke = Instance.new("UIStroke")
+            CardStroke.Thickness = 1.2
+            CardStroke.Color = Color3.fromRGB(255, 255, 255)
+            CardStroke.Transparency = 0
+            CardStroke.Parent = CardFrame
+
+            local TitleLabel = Instance.new("TextLabel")
+            TitleLabel.Name = "ProgressTitle"
+            TitleLabel.Size = UDim2.new(1, -120, 0, 20)
+            TitleLabel.Position = UDim2.new(0, 14, 0, 7)
+            TitleLabel.BackgroundTransparency = 1
+            TitleLabel.FontFace = FontMichromaRegular
+            TitleLabel.Text = title
+            TitleLabel.TextColor3 = Window.CurrentTheme.Text
+            TitleLabel.TextSize = 12
+            TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+            TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
+            TitleLabel.ZIndex = 11
+            TitleLabel.Parent = CardFrame
+
+            local StatusLabel = Instance.new("TextLabel")
+            StatusLabel.Name = "ProgressStatus"
+            StatusLabel.Size = UDim2.new(0, 100, 0, 20)
+            StatusLabel.Position = UDim2.new(1, -14, 0, 7)
+            StatusLabel.AnchorPoint = Vector2.new(1, 0)
+            StatusLabel.BackgroundTransparency = 1
+            StatusLabel.FontFace = FontMichromaRegular
+            StatusLabel.Text = (statusText ~= "" and statusText) or (tostring(math.floor(initialPct * 100)) .. "%")
+            StatusLabel.TextColor3 = Window.CurrentTheme.SubText
+            StatusLabel.TextSize = 11
+            StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
+            StatusLabel.TextYAlignment = Enum.TextYAlignment.Center
+            StatusLabel.ZIndex = 11
+            StatusLabel.Parent = CardFrame
+
+            local TrackFrame = Instance.new("Frame")
+            TrackFrame.Name = "TrackFrame"
+            TrackFrame.Size = UDim2.new(1, -28, 0, 8)
+            TrackFrame.Position = UDim2.new(0, 14, 0, 32)
+            TrackFrame.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(25, 28, 36)
+            TrackFrame.BackgroundTransparency = 0.2
+            TrackFrame.BorderSizePixel = 0
+            TrackFrame.ClipsDescendants = true
+            TrackFrame.ZIndex = 11
+            TrackFrame.Parent = CardFrame
+
+            local TrackCorner = Instance.new("UICorner")
+            TrackCorner.CornerRadius = UDim.new(1, 0)
+            TrackCorner.Parent = TrackFrame
+
+            local FillBar = Instance.new("Frame")
+            FillBar.Name = "FillBar"
+            FillBar.Size = UDim2.new(initialPct, 0, 1, 0)
+            FillBar.Position = UDim2.new(0, 0, 0, 0)
+            FillBar.BackgroundColor3 = (cardOpts and cardOpts.Color) or Window.CurrentTheme.Divider or Window.CurrentTheme.AccentBG
+            FillBar.BorderSizePixel = 0
+            FillBar.ZIndex = 12
+            FillBar.Parent = TrackFrame
+
+            local FillCorner = Instance.new("UICorner")
+            FillCorner.CornerRadius = UDim.new(1, 0)
+            FillCorner.Parent = FillBar
+
+            local currentProgress = initialPct
+
+            local progressObj = {
+                CardFrame = CardFrame,
+                TitleLabel = TitleLabel,
+                StatusLabel = StatusLabel,
+                Track = TrackFrame,
+                Fill = FillBar,
+                GetProgress = function() return currentProgress end,
+                SetProgress = function(self, pct, newStatus, animated)
+                    if pct > 1 then pct = pct / 100 end
+                    currentProgress = math.clamp(pct, 0, 1)
+                    local targetSize = UDim2.new(currentProgress, 0, 1, 0)
+                    if animated ~= false then
+                        TweenService:Create(FillBar, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                            Size = targetSize
+                        }):Play()
+                    else
+                        FillBar.Size = targetSize
+                    end
+                    if newStatus ~= nil then
+                        StatusLabel.Text = tostring(newStatus)
+                    else
+                        StatusLabel.Text = tostring(math.floor(currentProgress * 100)) .. "%"
+                    end
+                end,
+                SetStatus = function(self, newStatus)
+                    StatusLabel.Text = tostring(newStatus or "")
+                end,
+                SetTitle = function(self, newTitle)
+                    TitleLabel.Text = tostring(newTitle or "")
+                end,
+                SetColor = function(self, col)
+                    FillBar.BackgroundColor3 = col
+                end,
+                RefreshTheme = function(theme)
+                    CardFrame.BackgroundColor3 = theme.CardBG
+                    TitleLabel.TextColor3 = theme.Text
+                    StatusLabel.TextColor3 = theme.SubText
+                    TrackFrame.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(25, 28, 36)
+                    if not (cardOpts and cardOpts.Color) then
+                        FillBar.BackgroundColor3 = theme.Divider or theme.AccentBG
+                    end
+                end
+            }
+
+            progressObj.WithProgress = function(self, pct, stat, anim)
+                self:SetProgress(pct, stat, anim)
+                return self
+            end
+            progressObj.WithStatus = function(self, stat)
+                self:SetStatus(stat)
+                return self
+            end
+            progressObj.WithTooltip = function(self, tt)
+                if Window.AttachTooltip and CardFrame then
+                    Window:AttachTooltip(CardFrame, tt)
+                end
+                return self
+            end
+
+            if cardOpts and type(cardOpts) == "table" and (cardOpts.Tooltip or cardOpts.tooltip) then
+                progressObj:WithTooltip(cardOpts.Tooltip or cardOpts.tooltip)
+            end
+
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            table.insert(Window.SearchableItems, {
+                Type = "ProgressBar",
+                Name = title or "Progress",
+                Desc = statusText,
+                TabName = tabName,
+                Instance = CardFrame
+            })
+
+            return progressObj
+        end
+        TabObj.AddStatusCard = TabObj.AddProgressBar
+
+        function TabObj:AddItems(itemList)
+            if type(itemList) ~= "table" then return {} end
+            local created = {}
+            for idx, item in ipairs(itemList) do
+                if type(item) == "table" then
+                    local iType = (item.Type or item.type or "Button"):lower()
+                    local element = nil
+
+                    if iType == "toggle" then
+                        element = TabObj:AddToggle(item)
+                    elseif iType == "slider" then
+                        element = TabObj:AddSlider(item)
+                    elseif iType == "button" then
+                        element = TabObj:AddButton(item.Name or item.Title or item.Text or ("Button " .. idx), item.Desc or item.Description, item.Callback or item.OnClick)
+                    elseif iType == "longbutton" then
+                        element = TabObj:AddLongButton(item)
+                    elseif iType == "dropdown" then
+                        element = TabObj:AddDropdown(item.Title or item.Name or ("Dropdown " .. idx), item.Options or item.options or {}, item.Default or item.default, item.Callback or item.OnSelect)
+                    elseif iType == "multidropdown" or iType == "multiselect" then
+                        element = TabObj:AddMultiDropdown(item)
+                    elseif iType == "numberinput" or iType == "spinbox" or iType == "number" then
+                        element = TabObj:AddNumberInput(item)
+                    elseif iType == "textbox" or iType == "input" then
+                        element = TabObj:AddTextbox(item)
+                    elseif iType == "colorpicker" or iType == "color" then
+                        element = TabObj:AddColorPicker(item.Title or item.Name or "Color", item.Default or item.Color or Color3.fromRGB(255, 255, 255), item.Callback)
+                    elseif iType == "progressbar" or iType == "progress" or iType == "status" then
+                        element = TabObj:AddProgressBar(item)
+                    elseif iType == "label" or iType == "header" or iType == "section" then
+                        element = TabObj:AddLabel(item)
+                    elseif iType == "divider" or iType == "separator" then
+                        element = TabObj:AddDivider(item)
+                    elseif iType == "toggleslider" then
+                        element = TabObj:AddToggleSlider(item)
+                    elseif iType == "togglegroup" then
+                        element = TabObj:AddToggleGroup(item.Toggles or item.List or item)
+                    elseif iType == "mobilebutton" then
+                        element = Window:CreateMobileButton(item)
+                    end
+
+                    if element then
+                        table.insert(created, element)
+                        local key = item.Name or item.Title or item.SaveKey or item.Text
+                        if key and key ~= "" then
+                            created[key] = element
+                        end
+                    end
+                end
+            end
+            return created
+        end
+        TabObj.AddElements = TabObj.AddItems
+
+        function TabObj:SaveConfig(configName)
+            return Window:SaveTabConfig(tabName, configName)
+        end
+        function TabObj:LoadConfig(configName)
+            return Window:LoadTabConfig(tabName, configName)
         end
 
         function TabObj:AddRow(height, padding)
@@ -5246,6 +7227,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
             function RowFrame:AddDropdown(title, options, defaultOption, onSelect, sizeFraction)
                 return TabObj:AddDropdown(title, options, defaultOption, onSelect, RowFrame, nil, sizeFraction or 0.5)
+            end
+            function RowFrame:AddMultiDropdown(titleOrConfig, options, defaultSelections, onSelect, sizeFraction)
+                return TabObj:AddMultiDropdown(titleOrConfig, options, defaultSelections, onSelect, RowFrame, nil, sizeFraction or 0.5)
+            end
+            function RowFrame:AddNumberInput(titleOrConfig, options, callback, sizeFraction)
+                return TabObj:AddNumberInput(titleOrConfig, options, callback, RowFrame, nil, sizeFraction or 0.5)
+            end
+            function RowFrame:AddSpinbox(titleOrConfig, options, callback, sizeFraction)
+                return TabObj:AddNumberInput(titleOrConfig, options, callback, RowFrame, nil, sizeFraction or 0.5)
             end
             function RowFrame:AddTextbox(title, placeholder, defaultText, onSubmit, sizeFraction)
                 return TabObj:AddTextbox(title, placeholder, defaultText, onSubmit, RowFrame, nil, sizeFraction or 0.5)
