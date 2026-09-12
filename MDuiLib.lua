@@ -3382,13 +3382,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnText.Size = UDim2.new(1, -12, 1, 0)
         BtnText.Position = UDim2.new(0, 6, 0, 0)
         BtnText.BackgroundTransparency = 1
-        BtnText.FontFace = FontMichromaRegular
+        BtnText.FontFace = FontMichromaBold
         BtnText.RichText = true
         BtnText.Text = text or "Function"
         BtnText.TextColor3 = Window.CurrentTheme.Text
-        BtnText.TextScaled = false
-        BtnText.TextSize = 11
-        BtnText.TextWrapped = true
+        BtnText.TextScaled = true
         BtnText.TextWrapped = true
         BtnText.TextXAlignment = Enum.TextXAlignment.Center
         BtnText.TextYAlignment = Enum.TextYAlignment.Center
@@ -4016,18 +4014,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TextLabel.BackgroundTransparency = 1
             TextLabel.FontFace = FontMichromaBold
             TextLabel.Text = text
-            TextLabel.TextSize = config.TextSize or 12
+            TextLabel.TextScaled = true
+            TextLabel.TextWrapped = true
             TextLabel.ZIndex = 103
             TextLabel.Parent = BtnFrame
 
             if IconImage then
-                TextLabel.Size = UDim2.new(1, -38, 1, 0)
-                TextLabel.Position = UDim2.new(0, 32, 0, 0)
+                TextLabel.Size = UDim2.new(1, -38, 0.6, 0)
+                TextLabel.Position = UDim2.new(0, 32, 0.2, 0)
                 TextLabel.TextXAlignment = Enum.TextXAlignment.Left
                 TextLabel.TextYAlignment = Enum.TextYAlignment.Center
             else
-                TextLabel.Size = UDim2.new(1, 0, 1, 0)
-                TextLabel.Position = UDim2.new(0, 0, 0, 0)
+                TextLabel.Size = UDim2.new(1, -8, 0.7, 0)
+                TextLabel.Position = UDim2.new(0, 4, 0.15, 0)
                 TextLabel.TextXAlignment = Enum.TextXAlignment.Center
                 TextLabel.TextYAlignment = Enum.TextYAlignment.Center
             end
@@ -4227,7 +4226,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TextLabel.BackgroundTransparency = 1
                 TextLabel.FontFace = FontMichromaBold
                 TextLabel.Text = newText
-                TextLabel.TextSize = config.TextSize or 12
+                TextLabel.TextScaled = true
+                TextLabel.TextWrapped = true
+                TextLabel.Size = UDim2.new(1, -8, 0.7, 0)
+                TextLabel.Position = UDim2.new(0, 4, 0.15, 0)
+                TextLabel.TextXAlignment = Enum.TextXAlignment.Center
+                TextLabel.TextYAlignment = Enum.TextYAlignment.Center
                 TextLabel.ZIndex = 103
                 TextLabel.Parent = BtnFrame
                 ButtonObj.TextLabel = TextLabel
