@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.15"
+Library.Version = "2.16"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -1079,7 +1079,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleLabel.FontFace = FontMichromaBold
         TitleLabel.Text = title or "Input"
         TitleLabel.TextColor3 = Window.CurrentTheme.Text
-        TitleLabel.TextSize = 12
+        TitleLabel.TextSize = 13
         TitleLabel.TextWrapped = true
         TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
         TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
@@ -1099,7 +1099,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         InputBox.PlaceholderColor3 = Window.CurrentTheme.SubText
         InputBox.Text = defaultText or ""
         InputBox.TextColor3 = Window.CurrentTheme.Text
-        InputBox.TextSize = 12
+        InputBox.TextSize = 13
         InputBox.TextWrapped = true
         InputBox.ClipsDescendants = true
         InputBox.ClearTextOnFocus = false
@@ -1222,7 +1222,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleText.Text = displayTitle
         TitleText.TextColor3 = Window.CurrentTheme.Text
         TitleText.TextScaled = false
-        TitleText.TextSize = 12
+        TitleText.TextSize = 13
         TitleText.TextWrapped = true
         TitleText.TextXAlignment = Enum.TextXAlignment.Left
         TitleText.TextYAlignment = Enum.TextYAlignment.Center
@@ -1342,7 +1342,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ItemBtn.RichText = true
                 ItemBtn.Text = opt
                 ItemBtn.TextColor3 = Window.CurrentTheme.Text
-                ItemBtn.TextSize = 12
+                ItemBtn.TextSize = 13
                 ItemBtn.ZIndex = 503
                 ItemBtn.Parent = InnerScroll
 
@@ -1880,15 +1880,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnText.RichText = true
         BtnText.Text = text or "Button"
         BtnText.TextColor3 = Window.CurrentTheme.Text
-        BtnText.TextScaled = true
+        BtnText.TextScaled = false
+        BtnText.TextSize = 13
         BtnText.TextWrapped = true
         BtnText.ZIndex = 11
         BtnText.Parent = MDTextFolder
 
         local ArrowIcon = nil
         if showArrow then
-            BtnText.Size = UDim2.new(1, -30, 1, -6)
-            BtnText.Position = UDim2.new(0, 8, 0, 3)
+            BtnText.Size = UDim2.new(1, -30, 1, 0)
+            BtnText.Position = UDim2.new(0, 8, 0, 0)
             BtnText.TextXAlignment = Enum.TextXAlignment.Left
 
             ArrowIcon = Instance.new("ImageLabel")
@@ -1901,8 +1902,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ArrowIcon.ZIndex = 11
             ArrowIcon.Parent = BtnFrame
         else
-            BtnText.Size = UDim2.new(1, -6, 1, -6)
-            BtnText.Position = UDim2.new(0, 3, 0, 3)
+            BtnText.Size = UDim2.new(1, -6, 1, 0)
+            BtnText.Position = UDim2.new(0, 3, 0, 0)
             BtnText.TextXAlignment = Enum.TextXAlignment.Center
             BtnText.TextYAlignment = Enum.TextYAlignment.Center
         end
@@ -2358,7 +2359,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ValueLabel.BackgroundTransparency = 1
             ValueLabel.FontFace = FontMichromaRegular
             ValueLabel.TextColor3 = Window.CurrentTheme.Text
-            ValueLabel.TextSize = 11
+            ValueLabel.TextSize = 12
             ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
             ValueLabel.TextYAlignment = Enum.TextYAlignment.Center
             ValueLabel.Text = GetFormattedValue(defaultVal, initialPct)
@@ -3180,7 +3181,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleLabel.FontFace = FontMichromaRegular
         TitleLabel.Text = title or "Color"
         TitleLabel.TextColor3 = Window.CurrentTheme.Text
-        TitleLabel.TextSize = 12
+        TitleLabel.TextSize = 14
         TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
         TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
         TitleLabel.ZIndex = 11
@@ -3385,7 +3386,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnText.RichText = true
         BtnText.Text = text or "Function"
         BtnText.TextColor3 = Window.CurrentTheme.Text
-        BtnText.TextScaled = true
+        BtnText.TextScaled = false
+        BtnText.TextSize = 13
         BtnText.TextWrapped = true
         BtnText.TextXAlignment = Enum.TextXAlignment.Center
         BtnText.TextYAlignment = Enum.TextYAlignment.Center
@@ -3546,7 +3548,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleText.RichText = true
         TitleText.Text = text or "Function"
         TitleText.TextColor3 = Window.CurrentTheme.Text
-        TitleText.TextSize = 13
+        TitleText.TextSize = 14
         TitleText.TextWrapped = true
         TitleText.TextXAlignment = Enum.TextXAlignment.Left
         TitleText.TextYAlignment = Enum.TextYAlignment.Center
@@ -3877,16 +3879,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local customStrokeColor = config.StrokeColor or config.strokeColor
 
         local btnCount = #Window.RegisteredMobileButtons
-        local defaultSize = config.Size
-        if not defaultSize then
-            if text ~= "" and iconAsset then
-                defaultSize = UDim2.new(0, 118, 0, 42)
-            elseif text ~= "" then
-                defaultSize = UDim2.new(0, 100, 0, 40)
-            else
-                defaultSize = UDim2.new(0, 48, 0, 48)
-            end
-        end
+        local defaultSize = config.Size or UDim2.new(0, 48, 0, 48)
 
         local defaultPos = config.Position
         if not defaultPos then
@@ -3919,14 +3912,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Corner.Name = "BtnCorner"
         if config.CornerRadius then
             Corner.CornerRadius = UDim.new(0, config.CornerRadius)
-        elseif shape == "circle" then
-            Corner.CornerRadius = UDim.new(1, 0)
-        elseif shape == "square" then
-            Corner.CornerRadius = UDim.new(0, 4)
-        elseif shape == "round" then
-            Corner.CornerRadius = UDim.new(0, 10)
         else
-            Corner.CornerRadius = UDim.new(0, 22)
+            Corner.CornerRadius = UDim.new(1, 0)
         end
         Corner.Parent = BtnFrame
 
@@ -3997,8 +3984,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             IconImage.Parent = BtnFrame
 
             if text ~= "" then
-                IconImage.Size = UDim2.new(0, 20, 0, 20)
-                IconImage.Position = UDim2.new(0, 10, 0.5, -10)
+                IconImage.Size = UDim2.new(0, 18, 0, 18)
+                IconImage.Position = UDim2.new(0.5, -9, 0, 4)
             else
                 IconImage.Size = UDim2.new(0, 24, 0, 24)
                 IconImage.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -4013,19 +4000,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TextLabel.BackgroundTransparency = 1
             TextLabel.FontFace = FontMichromaBold
             TextLabel.Text = text
-            TextLabel.TextScaled = true
+            TextLabel.TextScaled = false
+            TextLabel.TextSize = config.TextSize or 11
             TextLabel.TextWrapped = true
             TextLabel.ZIndex = 103
             TextLabel.Parent = BtnFrame
 
             if IconImage then
-                TextLabel.Size = UDim2.new(1, -38, 0.6, 0)
-                TextLabel.Position = UDim2.new(0, 32, 0.2, 0)
-                TextLabel.TextXAlignment = Enum.TextXAlignment.Left
+                TextLabel.Size = UDim2.new(1, -4, 0, 14)
+                TextLabel.Position = UDim2.new(0, 2, 1, -16)
+                TextLabel.TextXAlignment = Enum.TextXAlignment.Center
                 TextLabel.TextYAlignment = Enum.TextYAlignment.Center
             else
-                TextLabel.Size = UDim2.new(1, -8, 0.7, 0)
-                TextLabel.Position = UDim2.new(0, 4, 0.15, 0)
+                TextLabel.Size = UDim2.new(1, -4, 1, 0)
+                TextLabel.Position = UDim2.new(0, 2, 0, 0)
                 TextLabel.TextXAlignment = Enum.TextXAlignment.Center
                 TextLabel.TextYAlignment = Enum.TextYAlignment.Center
             end
@@ -4125,7 +4113,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end)
         end
 
+        local lastTriggerTime = 0
         local function TriggerAction()
+            if (os.clock() - lastTriggerTime) < 0.22 then return end
+            lastTriggerTime = os.clock()
             PlayClickSFX()
             PlayBounceAnim()
             if isToggle then
@@ -4152,24 +4143,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TrackConn(Hitbox.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 if not BtnFrame.Visible then return end
+                pressStartTime = os.clock()
+                hasMoved = false
                 if not ButtonObj.IsDraggable or Window.MobileButtonsLocked or ButtonObj.IsLocked then
                     dragging = false
-                    pressStartTime = os.clock()
                     return
                 end
                 dragging = true
                 dragStart = input.Position
                 startPos = BtnFrame.Position
-                hasMoved = false
-                pressStartTime = os.clock()
-
-                local changedConn
-                changedConn = input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        dragging = false
-                        if changedConn then changedConn:Disconnect() end
-                    end
-                end)
             end
         end))
 
@@ -4182,7 +4164,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if not ButtonObj.IsDraggable or Window.MobileButtonsLocked or ButtonObj.IsLocked then return end
                 if dragging and dragStart and startPos then
                     local delta = input.Position - dragStart
-                    if math.abs(delta.X) > 6 or math.abs(delta.Y) > 6 then
+                    if math.abs(delta.X) > 8 or math.abs(delta.Y) > 8 then
                         hasMoved = true
                     end
                     if hasMoved then
@@ -4197,21 +4179,34 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end))
 
-        TrackConn(Hitbox.InputEnded:Connect(function(input)
+        TrackConn(UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                if not BtnFrame.Visible then return end
-                if not ButtonObj.IsDraggable or Window.MobileButtonsLocked or ButtonObj.IsLocked then
-                    if (os.clock() - pressStartTime) < 0.45 then
-                        TriggerAction()
-                    end
+                if not BtnFrame.Visible then
+                    dragging = false
                     return
                 end
-                if dragging then
+                if dragging or pressStartTime > 0 then
                     dragging = false
-                    if not hasMoved and (os.clock() - pressStartTime) < 0.45 then
+                    local elapsed = os.clock() - pressStartTime
+                    pressStartTime = 0
+                    if not hasMoved and elapsed < 0.65 then
                         TriggerAction()
                     end
                 end
+            end
+        end))
+
+        TrackConn(Hitbox.Activated:Connect(function()
+            if not BtnFrame.Visible then return end
+            if not hasMoved then
+                TriggerAction()
+            end
+        end))
+
+        TrackConn(Hitbox.TouchTap:Connect(function()
+            if not BtnFrame.Visible then return end
+            if not hasMoved then
+                TriggerAction()
             end
         end))
 
@@ -4225,10 +4220,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TextLabel.BackgroundTransparency = 1
                 TextLabel.FontFace = FontMichromaBold
                 TextLabel.Text = newText
-                TextLabel.TextScaled = true
+                TextLabel.TextScaled = false
+                TextLabel.TextSize = config.TextSize or 11
                 TextLabel.TextWrapped = true
-                TextLabel.Size = UDim2.new(1, -8, 0.7, 0)
-                TextLabel.Position = UDim2.new(0, 4, 0.15, 0)
+                TextLabel.Size = UDim2.new(1, -4, 1, 0)
+                TextLabel.Position = UDim2.new(0, 2, 0, 0)
                 TextLabel.TextXAlignment = Enum.TextXAlignment.Center
                 TextLabel.TextYAlignment = Enum.TextYAlignment.Center
                 TextLabel.ZIndex = 103
@@ -5420,6 +5416,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local MinimizedStroke = Instance.new("UIStroke")
     MinimizedStroke.Color = Color3.fromRGB(255, 255, 255)
     MinimizedStroke.Thickness = 3
+    MinimizedStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    MinimizedStroke.LineJoinMode = Enum.LineJoinMode.Round
     MinimizedStroke.Parent = MinimizedImage
 
     local MinimizedGradient = Instance.new("UIGradient")
@@ -5647,9 +5645,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Window.ActiveTab = tabName
 
         -- 1. Animate Sidebar Tab Buttons
+        local oldTargetSize = Window.SidebarCollapsed and 11 or 15
+        local newTargetSize = Window.SidebarCollapsed and 11 or 18
+
         if oldTab and oldTab.Button then
             TweenService:Create(oldTab.Button, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                TextSize = 15,
+                TextSize = oldTargetSize,
                 TextColor3 = Window.CurrentTheme.SubText
             }):Play()
             oldTab.Button.FontFace = FontMichromaRegular
@@ -5667,7 +5668,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         if newTab and newTab.Button then
             TweenService:Create(newTab.Button, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                TextSize = 18,
+                TextSize = newTargetSize,
                 TextColor3 = Window.CurrentTheme.Text
             }):Play()
             newTab.Button.FontFace = FontMichromaBold
@@ -5766,26 +5767,31 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TweenService:Create(tab.Container, ease, {Size = UDim2.new(0, targetW - 8, 0, 34)}):Play()
             end
             if tab.Button then
+                local fullTabName = tostring(tab.Name or name)
                 if Window.SidebarCollapsed then
                     if tab.Icon then
                         tab.Button.Visible = false
                         TweenService:Create(tab.Icon, ease, {Position = UDim2.new(0.5, -9, 0.5, -9)}):Play()
                     else
+                        tab.Button.Visible = true
                         tab.Button.Size = UDim2.new(1, 0, 1, 0)
                         tab.Button.Position = UDim2.new(0, 0, 0, 0)
                         tab.Button.TextSize = 11
+                        tab.Button.Text = (string.len(fullTabName) > 4) and (string.sub(fullTabName, 1, 4) .. ".") or fullTabName
                     end
                 else
                     if tab.Icon then
                         tab.Button.Visible = true
                         tab.Button.Size = UDim2.new(1, -38, 1, 0)
                         tab.Button.Position = UDim2.new(0, 34, 0, 0)
+                        tab.Button.Text = fullTabName
                         TweenService:Create(tab.Icon, ease, {Position = UDim2.new(0, 10, 0.5, -9)}):Play()
                     else
                         tab.Button.Visible = true
                         tab.Button.Size = UDim2.new(1, 0, 1, 0)
                         tab.Button.Position = UDim2.new(0, 0, 0, 0)
-                        tab.Button.TextSize = 15
+                        tab.Button.TextSize = (Window.ActiveTab == name or Window.ActiveTab == tab.Name) and 18 or 15
+                        tab.Button.Text = fullTabName
                     end
                 end
             end
@@ -6028,12 +6034,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if hasDesc then
                 TitleLabel.Size = UDim2.new(1, -125, 0, 22)
                 TitleLabel.Position = UDim2.new(0, 12, 0, 7)
-                TitleLabel.TextSize = 12
+                TitleLabel.TextSize = 13
                 TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
             else
                 TitleLabel.Size = UDim2.new(1, -125, 1, 0)
                 TitleLabel.Position = UDim2.new(0, 12, 0, 0)
-                TitleLabel.TextSize = 14
+                TitleLabel.TextSize = 15
                 TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
             end
 
@@ -6044,7 +6050,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             DescLabel.FontFace = FontMichromaRegular
             DescLabel.Text = hasDesc and btnDesc or ""
             DescLabel.TextColor3 = Window.CurrentTheme.SubText
-            DescLabel.TextSize = 10
+            DescLabel.TextSize = 11
             DescLabel.TextXAlignment = Enum.TextXAlignment.Left
             DescLabel.Visible = hasDesc
             DescLabel.Parent = CardFrame
@@ -6080,11 +6086,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     if hd then
                         TitleLabel.Size = UDim2.new(1, -125, 0, 22)
                         TitleLabel.Position = UDim2.new(0, 12, 0, 7)
-                        TitleLabel.TextSize = 12
+                        TitleLabel.TextSize = 13
                     else
                         TitleLabel.Size = UDim2.new(1, -125, 1, 0)
                         TitleLabel.Position = UDim2.new(0, 12, 0, 0)
-                        TitleLabel.TextSize = 14
+                        TitleLabel.TextSize = 15
                     end
                 end,
                 RefreshTheme = function(theme)
@@ -6178,7 +6184,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleLabel.FontFace = FontMichromaBold
             TitleLabel.Text = labelText
             TitleLabel.TextColor3 = textColor or Window.CurrentTheme.Text
-            TitleLabel.TextSize = 13
+            TitleLabel.TextSize = 14
             TitleLabel.TextWrapped = true
             TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
             TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
@@ -6195,7 +6201,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 DescLabel.FontFace = FontMichromaRegular
                 DescLabel.Text = descText
                 DescLabel.TextColor3 = Window.CurrentTheme.SubText
-                DescLabel.TextSize = 10
+                DescLabel.TextSize = 11
                 DescLabel.TextWrapped = true
                 DescLabel.TextXAlignment = Enum.TextXAlignment.Left
                 DescLabel.TextYAlignment = Enum.TextYAlignment.Center
@@ -6369,7 +6375,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleLabel.FontFace = FontMichromaRegular
             TitleLabel.Text = title
             TitleLabel.TextColor3 = Window.CurrentTheme.Text
-            TitleLabel.TextSize = 12
+            TitleLabel.TextSize = 13
             TitleLabel.TextWrapped = true
             TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
             TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
@@ -6440,7 +6446,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             NumberBox.FontFace = FontMichromaRegular
             NumberBox.Text = tostring(currentValue) .. suffix
             NumberBox.TextColor3 = Window.CurrentTheme.Text
-            NumberBox.TextSize = 11
+            NumberBox.TextSize = 12
             NumberBox.TextXAlignment = Enum.TextXAlignment.Center
             NumberBox.ClearTextOnFocus = false
             NumberBox.ZIndex = 12
@@ -6652,7 +6658,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleLabel.FontFace = FontMichromaRegular
             TitleLabel.Text = title
             TitleLabel.TextColor3 = Window.CurrentTheme.Text
-            TitleLabel.TextSize = 12
+            TitleLabel.TextSize = 13
             TitleLabel.TextTruncate = Enum.TextTruncate.AtEnd
             TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
             TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
@@ -6775,7 +6781,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     itemLabel.FontFace = FontMichromaRegular
                     itemLabel.Text = optStr
                     itemLabel.TextColor3 = isSelected and Window.CurrentTheme.Text or Window.CurrentTheme.SubText
-                    itemLabel.TextSize = 11
+                    itemLabel.TextSize = 12
                     itemLabel.TextXAlignment = Enum.TextXAlignment.Left
                     itemLabel.TextTruncate = Enum.TextTruncate.AtEnd
                     itemLabel.ZIndex = 603
@@ -7006,7 +7012,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleLabel.FontFace = FontMichromaRegular
             TitleLabel.Text = title
             TitleLabel.TextColor3 = Window.CurrentTheme.Text
-            TitleLabel.TextSize = 12
+            TitleLabel.TextSize = 13
             TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
             TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
             TitleLabel.ZIndex = 11
@@ -7021,7 +7027,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             StatusLabel.FontFace = FontMichromaRegular
             StatusLabel.Text = (statusText ~= "" and statusText) or (tostring(math.floor(initialPct * 100)) .. "%")
             StatusLabel.TextColor3 = Window.CurrentTheme.SubText
-            StatusLabel.TextSize = 11
+            StatusLabel.TextSize = 12
             StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
             StatusLabel.TextYAlignment = Enum.TextYAlignment.Center
             StatusLabel.ZIndex = 11
@@ -7806,7 +7812,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NotifLabel.FontFace = FontMichromaBold
         NotifLabel.Text = "Enable notifications"
         NotifLabel.TextColor3 = Window.CurrentTheme.Text
-        NotifLabel.TextSize = 12
+        NotifLabel.TextSize = 13
         NotifLabel.TextXAlignment = Enum.TextXAlignment.Left
         NotifLabel.ZIndex = 4
         NotifLabel.Parent = NotifCard
@@ -7840,7 +7846,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         SoundLabel.FontFace = FontMichromaBold
         SoundLabel.Text = "Enable UI sounds"
         SoundLabel.TextColor3 = Window.CurrentTheme.Text
-        SoundLabel.TextSize = 12
+        SoundLabel.TextSize = 13
         SoundLabel.TextXAlignment = Enum.TextXAlignment.Left
         SoundLabel.ZIndex = 4
         SoundLabel.Parent = SoundCard
@@ -7875,7 +7881,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local currentVolPct = math.floor((Window.SoundVolume or 0.8) * 100)
         VolumeLabel.Text = string.format("UI sound volume : %d%%", currentVolPct)
         VolumeLabel.TextColor3 = Window.CurrentTheme.Text
-        VolumeLabel.TextSize = 11
+        VolumeLabel.TextSize = 12
         VolumeLabel.TextXAlignment = Enum.TextXAlignment.Left
         VolumeLabel.ZIndex = 4
         VolumeLabel.Parent = VolumeCard
@@ -8006,7 +8012,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local currentTransPct = math.floor((Window.CustomBGTransparency or 0.10) * 100)
         TransLabel.Text = string.format("Background transparency : %d%%", currentTransPct)
         TransLabel.TextColor3 = Window.CurrentTheme.Text
-        TransLabel.TextSize = 11
+        TransLabel.TextSize = 12
         TransLabel.TextXAlignment = Enum.TextXAlignment.Left
         TransLabel.ZIndex = 4
         TransLabel.Parent = TransCard
