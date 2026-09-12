@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.17"
+Library.Version = "2.18"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -1928,6 +1928,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end))
     end
 
+    local function BrightenColor(col, factor)
+        if not col then return col end
+        local h, s, v = col:ToHSV()
+        return Color3.fromHSV(h, math.clamp(s * 0.96, 0, 1), math.clamp(v * (factor or 1.12), 0, 1))
+    end
+
     -- Ultra-Smooth Button Generator Helper
     function Window:CreateMDButton(parent, size, position, text, onClick, showArrow)
         local BtnFrame = Instance.new("Frame")
@@ -1946,6 +1952,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Corner.Parent = BtnFrame
 
         AddUIShadow(BtnFrame, 20, 0.5)
+
+        -- UIScale drives hover/press scaling so UIStroke naturally
+        -- scales with the frame. AnchorPoint 0.5,0.5 keeps the button centered while scaling.
+        BtnFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+        BtnFrame.Position = UDim2.new(
+            (position or UDim2.new(0,0,0,0)).X.Scale + 0.5 * (size or UDim2.new(0,260,0,62)).X.Scale,
+            (position or UDim2.new(0,0,0,0)).X.Offset + math.floor((size or UDim2.new(0,260,0,62)).X.Offset * 0.5),
+            (position or UDim2.new(0,0,0,0)).Y.Scale + 0.5 * (size or UDim2.new(0,260,0,62)).Y.Scale,
+            (position or UDim2.new(0,0,0,0)).Y.Offset + math.floor((size or UDim2.new(0,260,0,62)).Y.Offset * 0.5)
+        )
+
+        local BtnScale = Instance.new("UIScale")
+        BtnScale.Scale = 1.0
+        BtnScale.Parent = BtnFrame
 
         local Stroke = Instance.new("UIStroke")
         Stroke.Name = "UIStroke"
@@ -2007,34 +2027,35 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TrackConn(ClickBtn.MouseEnter:Connect(function()
             _hoverActive = true
             PlayHoverSFX()
-            local hoverSize = UDim2.new(size.X.Scale, math.floor(size.X.Offset * 1.02), size.Y.Scale, math.floor(size.Y.Offset * 1.02))
+            local baseBg = Window.CurrentTheme.ButtonBG
+            local hoverBg = BrightenColor(baseBg, 1.12)
             TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 2.0}):Play()
-            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = hoverSize}):Play()
+            TweenService:Create(BtnScale, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = 1.02}):Play()
+            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = hoverBg}):Play()
         end))
 
         TrackConn(ClickBtn.MouseLeave:Connect(function()
             _hoverActive = false
             _pressActive = false
+            local baseBg = Window.CurrentTheme.ButtonBG
             TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 1.2}):Play()
-            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = size}):Play()
+            TweenService:Create(BtnScale, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = 1.0}):Play()
+            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = baseBg}):Play()
         end))
 
         TrackConn(ClickBtn.MouseButton1Down:Connect(function()
             _pressActive = true
             PlayClickSFX()
-            local pressedSize = UDim2.new(size.X.Scale, math.floor(size.X.Offset * 0.95), size.Y.Scale, math.floor(size.Y.Offset * 0.95))
-            TweenService:Create(BtnFrame, TweenInfo.new(0.09, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = pressedSize}):Play()
+            TweenService:Create(BtnScale, TweenInfo.new(0.09, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = 0.95}):Play()
         end))
 
         TrackConn(ClickBtn.MouseButton1Up:Connect(function()
             if not _pressActive then return end
             _pressActive = false
-            -- spring back: Back Out gives +1% overshoot then settles at 100%
-            local targetSize = _hoverActive
-                and UDim2.new(size.X.Scale, math.floor(size.X.Offset * 1.02), size.Y.Scale, math.floor(size.Y.Offset * 1.02))
-                or size
-            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = targetSize}):Play()
-            -- fire click here (on up), not on down
+            -- spring back: Back Out gives +1% overshoot then settles at 100% (or 102% if still hovering)
+            local targetScale = _hoverActive and 1.02 or 1.0
+            TweenService:Create(BtnScale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = targetScale}):Play()
+            -- fire click on up, not on down
             if onClick then
                 pcall(onClick)
             end
@@ -2664,14 +2685,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local curH, curS, curV = initialColor:ToHSV()
         local selectedColor = initialColor
 
-        local ModalBackdrop = Instance.new("TextButton")
+        local ModalBackdrop = Instance.new("Frame")
         ModalBackdrop.Name = "ColorPickerBackdrop"
         ModalBackdrop.Size = UDim2.new(1, 0, 1, 0)
         ModalBackdrop.Position = UDim2.new(0, 0, 0, 0)
-        ModalBackdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         ModalBackdrop.BackgroundTransparency = 1
-        ModalBackdrop.Text = ""
-        ModalBackdrop.AutoButtonColor = false
+        ModalBackdrop.BorderSizePixel = 0
         ModalBackdrop.ZIndex = 80
         ModalBackdrop.Parent = ScriptUi
 
@@ -2711,20 +2730,23 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         HeaderLabel.TextColor3 = Window.CurrentTheme.Text
         HeaderLabel.TextSize = 12
         HeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
+        HeaderLabel.Active = true
         HeaderLabel.ZIndex = 82
         HeaderLabel.Parent = ModalCard
 
-        local CloseModalBtn = Instance.new("TextButton")
+        AttachUniversalDrag(HeaderLabel, ModalCard)
+
+        local CloseModalBtn = Instance.new("ImageButton")
         CloseModalBtn.Name = "CloseBtn"
-        CloseModalBtn.Size = UDim2.new(0, 24, 0, 24)
-        CloseModalBtn.Position = UDim2.new(1, -32, 0, 8)
+        CloseModalBtn.Size = UDim2.new(0, 22, 0, 22)
+        CloseModalBtn.Position = UDim2.new(1, -30, 0, 8)
         CloseModalBtn.BackgroundTransparency = 1
-        CloseModalBtn.FontFace = FontMichromaBold
-        CloseModalBtn.Text = "X"
-        CloseModalBtn.TextColor3 = Window.CurrentTheme.SubText
-        CloseModalBtn.TextSize = 13
+        CloseModalBtn.Image = "rbxassetid://132261474823036"
+        CloseModalBtn.ImageColor3 = Window.CurrentTheme.Text or Color3.fromRGB(245, 245, 250)
         CloseModalBtn.ZIndex = 83
         CloseModalBtn.Parent = ModalCard
+
+        TrackConn(CloseModalBtn.MouseEnter:Connect(PlayHoverSFX))
 
         -- SV 2D Canvas (Saturation & Value)
         local SVBox = Instance.new("Frame")
@@ -3079,9 +3101,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         CloseModalBtn.MouseButton1Click:Connect(CloseModal)
-        ModalBackdrop.MouseButton1Click:Connect(function()
-            CloseModal()
-        end)
+
 
         ApplyBtn.MouseButton1Click:Connect(function()
             PlayClickSFX()
@@ -3453,7 +3473,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local BtnFrame = Instance.new("Frame")
         BtnFrame.Name = "MDButtonCard"
         BtnFrame.Size = size
-        BtnFrame.Position = position
+        BtnFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+        BtnFrame.Position = UDim2.new(
+            position.X.Scale + 0.5 * size.X.Scale,
+            position.X.Offset + math.floor(size.X.Offset * 0.5),
+            position.Y.Scale + 0.5 * size.Y.Scale,
+            position.Y.Offset + math.floor(size.Y.Offset * 0.5)
+        )
         BtnFrame.BackgroundColor3 = Window.CurrentTheme.ButtonBG
         BtnFrame.BackgroundTransparency = 0.05
         BtnFrame.BorderSizePixel = 0
@@ -3465,6 +3491,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Corner.Parent = BtnFrame
 
         AddUIShadow(BtnFrame, 20, 0.5)
+
+        local BtnScale = Instance.new("UIScale")
+        BtnScale.Scale = 1.0
+        BtnScale.Parent = BtnFrame
 
         local Stroke = Instance.new("UIStroke")
         Stroke.Name = "UIStroke"
@@ -3508,32 +3538,33 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TrackConn(ClickBtn.MouseEnter:Connect(function()
             _hoverActive = true
             PlayHoverSFX()
-            local hoverSize = UDim2.new(size.X.Scale, math.floor(size.X.Offset * 1.02), size.Y.Scale, math.floor(size.Y.Offset * 1.02))
-            TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 2.0}):Play()
-            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = hoverSize}):Play()
+            local baseBg = Window.CurrentTheme.ButtonBG
+            local hoverBg = BrightenColor(baseBg, 1.12)
+            TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 2.2}):Play()
+            TweenService:Create(BtnScale, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = 1.02}):Play()
+            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = hoverBg}):Play()
         end))
 
         TrackConn(ClickBtn.MouseLeave:Connect(function()
             _hoverActive = false
             _pressActive = false
+            local baseBg = Window.CurrentTheme.ButtonBG
             TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 1.5}):Play()
-            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = size}):Play()
+            TweenService:Create(BtnScale, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = 1.0}):Play()
+            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = baseBg}):Play()
         end))
 
         TrackConn(ClickBtn.MouseButton1Down:Connect(function()
             _pressActive = true
             PlayClickSFX()
-            local pressedSize = UDim2.new(size.X.Scale, math.floor(size.X.Offset * 0.95), size.Y.Scale, math.floor(size.Y.Offset * 0.95))
-            TweenService:Create(BtnFrame, TweenInfo.new(0.09, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = pressedSize}):Play()
+            TweenService:Create(BtnScale, TweenInfo.new(0.09, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = 0.95}):Play()
         end))
 
         TrackConn(ClickBtn.MouseButton1Up:Connect(function()
             if not _pressActive then return end
             _pressActive = false
-            local targetSize = _hoverActive
-                and UDim2.new(size.X.Scale, math.floor(size.X.Offset * 1.02), size.Y.Scale, math.floor(size.Y.Offset * 1.02))
-                or size
-            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+            local targetScale = _hoverActive and 1.02 or 1.0
+            TweenService:Create(BtnScale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = targetScale}):Play()
             if onClick then
                 pcall(onClick)
             end
@@ -9207,24 +9238,85 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Window.CustomThemeColor = baseColor
         local h, s, v = baseColor:ToHSV()
 
-        local buttonBG = Color3.fromHSV(h, math.clamp(s * 0.95, 0.4, 1), math.clamp(v * 0.9, 0.4, 0.95))
-        local accentBG = Color3.fromHSV(h, math.clamp(s * 0.75, 0.2, 0.8), math.clamp(v * 0.45, 0.15, 0.45))
-        local topBG = Color3.fromHSV(h, math.clamp(s * 0.7, 0.2, 0.75), math.clamp(v * 0.35, 0.12, 0.38))
-        local bottomBG = topBG
-        local mainBG = Color3.fromHSV(h, math.clamp(s * 0.65, 0.15, 0.6), math.clamp(v * 0.22, 0.08, 0.24))
-        local cardBG = Color3.fromHSV(h, math.clamp(s * 0.6, 0.15, 0.55), math.clamp(v * 0.15, 0.05, 0.16))
-        local divider = Color3.fromHSV(h, math.clamp(s * 0.9, 0.3, 0.95), math.clamp(v * 0.7, 0.3, 0.85))
+        local mainBG, accentBG, topBG, bottomBG, cardBG, buttonBG, divider, text, subText
+        local bot1, bot2, bot3, min1, min2, min3
 
-        local text = Color3.fromRGB(245, 245, 250)
-        local subText = Color3.fromHSV(h, math.clamp(s * 0.25, 0.05, 0.35), 0.85)
+        if s <= 0.05 then
+            -- Grayscale / Monochrome selection (Black, Grey, White)
+            local isDark = (v < 0.55)
+            if v <= 0.10 then
+                -- Pure / Deep Black theme
+                mainBG = Color3.fromRGB(13, 13, 16)
+                accentBG = Color3.fromRGB(19, 19, 24)
+                topBG = Color3.fromRGB(24, 24, 28)
+                bottomBG = topBG
+                cardBG = Color3.fromRGB(16, 16, 20)
+                buttonBG = Color3.fromRGB(34, 34, 42)
+                divider = Color3.fromRGB(55, 55, 65)
+                text = Color3.fromRGB(245, 245, 250)
+                subText = Color3.fromRGB(150, 150, 165)
+                bot1 = Color3.fromRGB(22, 22, 28)
+                bot2 = Color3.fromRGB(36, 36, 46)
+                bot3 = Color3.fromRGB(18, 18, 24)
+                min1 = Color3.fromRGB(32, 32, 40)
+                min2 = Color3.fromRGB(50, 50, 62)
+                min3 = Color3.fromRGB(28, 28, 36)
+            elseif v >= 0.88 then
+                -- Pure / Light White theme
+                mainBG = Color3.fromRGB(238, 240, 246)
+                accentBG = Color3.fromRGB(224, 228, 236)
+                topBG = Color3.fromRGB(246, 248, 252)
+                bottomBG = topBG
+                cardBG = Color3.fromRGB(255, 255, 255)
+                buttonBG = Color3.fromRGB(210, 216, 228)
+                divider = Color3.fromRGB(175, 182, 196)
+                text = Color3.fromRGB(20, 22, 28)
+                subText = Color3.fromRGB(90, 95, 110)
+                bot1 = Color3.fromRGB(220, 225, 236)
+                bot2 = Color3.fromRGB(245, 247, 252)
+                bot3 = Color3.fromRGB(210, 216, 228)
+                min1 = Color3.fromRGB(215, 220, 232)
+                min2 = Color3.fromRGB(250, 252, 255)
+                min3 = Color3.fromRGB(205, 212, 225)
+            else
+                -- Intermediate Grey theme (No red tint!)
+                mainBG = Color3.fromHSV(0, 0, math.clamp(v * 0.45 + 0.05, 0.10, 0.70))
+                accentBG = Color3.fromHSV(0, 0, math.clamp(v * 0.60 + 0.08, 0.14, 0.76))
+                topBG = Color3.fromHSV(0, 0, math.clamp(v * 0.65 + 0.10, 0.16, 0.82))
+                bottomBG = topBG
+                cardBG = Color3.fromHSV(0, 0, math.clamp(v * 0.40 + 0.06, 0.08, 0.90))
+                buttonBG = Color3.fromHSV(0, 0, math.clamp(v * 0.85 + 0.15, 0.22, 0.88))
+                divider = Color3.fromHSV(0, 0, math.clamp(v * 0.70 + 0.20, 0.25, 0.85))
+                text = isDark and Color3.fromRGB(245, 245, 250) or Color3.fromRGB(20, 22, 28)
+                subText = isDark and Color3.fromRGB(160, 165, 180) or Color3.fromRGB(85, 90, 105)
+                bot1 = Color3.fromHSV(0, 0, math.clamp(v * 0.50 + 0.08, 0.15, 0.75))
+                bot2 = Color3.fromHSV(0, 0, math.clamp(v * 0.75 + 0.12, 0.25, 0.85))
+                bot3 = Color3.fromHSV(0, 0, math.clamp(v * 0.45 + 0.06, 0.12, 0.70))
+                min1 = Color3.fromHSV(0, 0, math.clamp(v * 0.60 + 0.10, 0.20, 0.80))
+                min2 = Color3.fromHSV(0, 0, math.clamp(v * 0.90 + 0.10, 0.35, 0.98))
+                min3 = Color3.fromHSV(0, 0, math.clamp(v * 0.55 + 0.08, 0.18, 0.75))
+            end
+        else
+            -- Chromatic / Colored theme
+            buttonBG = Color3.fromHSV(h, math.clamp(s * 0.95, 0.05, 1), math.clamp(v * 0.92, 0.25, 0.95))
+            accentBG = Color3.fromHSV(h, math.clamp(s * 0.75, 0.04, 0.8), math.clamp(v * 0.45, 0.12, 0.55))
+            topBG = Color3.fromHSV(h, math.clamp(s * 0.70, 0.04, 0.75), math.clamp(v * 0.38, 0.10, 0.50))
+            bottomBG = topBG
+            mainBG = Color3.fromHSV(h, math.clamp(s * 0.65, 0.03, 0.60), math.clamp(v * 0.24, 0.06, 0.38))
+            cardBG = Color3.fromHSV(h, math.clamp(s * 0.60, 0.03, 0.55), math.clamp(v * 0.16, 0.04, 0.28))
+            divider = Color3.fromHSV(h, math.clamp(s * 0.90, 0.05, 0.95), math.clamp(v * 0.75, 0.20, 0.85))
 
-        local bot1 = Color3.fromHSV(h, math.clamp(s * 0.8, 0.25, 0.85), math.clamp(v * 0.35, 0.15, 0.4))
-        local bot2 = Color3.fromHSV(h, math.clamp(s * 0.85, 0.3, 0.9), math.clamp(v * 0.55, 0.25, 0.65))
-        local bot3 = Color3.fromHSV(h, math.clamp(s * 0.8, 0.25, 0.85), math.clamp(v * 0.3, 0.12, 0.35))
+            text = Color3.fromRGB(245, 245, 250)
+            subText = Color3.fromHSV(h, math.clamp(s * 0.25, 0.02, 0.35), 0.85)
 
-        local min1 = Color3.fromHSV(h, math.clamp(s * 0.9, 0.4, 0.95), math.clamp(v * 0.65, 0.35, 0.8))
-        local min2 = Color3.fromHSV(h, math.clamp(s * 0.75, 0.3, 0.8), math.clamp(v * 0.95, 0.6, 1.0))
-        local min3 = Color3.fromHSV(h, math.clamp(s * 0.9, 0.4, 0.95), math.clamp(v * 0.7, 0.4, 0.85))
+            bot1 = Color3.fromHSV(h, math.clamp(s * 0.80, 0.05, 0.85), math.clamp(v * 0.35, 0.10, 0.45))
+            bot2 = Color3.fromHSV(h, math.clamp(s * 0.85, 0.05, 0.90), math.clamp(v * 0.55, 0.18, 0.65))
+            bot3 = Color3.fromHSV(h, math.clamp(s * 0.80, 0.05, 0.85), math.clamp(v * 0.30, 0.08, 0.40))
+
+            min1 = Color3.fromHSV(h, math.clamp(s * 0.90, 0.08, 0.95), math.clamp(v * 0.65, 0.25, 0.80))
+            min2 = Color3.fromHSV(h, math.clamp(s * 0.75, 0.05, 0.80), math.clamp(v * 0.95, 0.45, 1.0))
+            min3 = Color3.fromHSV(h, math.clamp(s * 0.90, 0.08, 0.95), math.clamp(v * 0.70, 0.28, 0.85))
+        end
 
         local customTheme = {
             Name = "Custom",
