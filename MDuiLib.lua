@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.13"
+Library.Version = "2.14"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -1698,6 +1698,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LoadbaremptyStroke.Transparency = 0
     LoadbaremptyStroke.Parent = Loadbarempty
 
+    local LoadbarBGImage = Instance.new("ImageLabel")
+    LoadbarBGImage.Name = "LoadbarBGImage"
+    LoadbarBGImage.Size = UDim2.new(1, 0, 1, 0)
+    LoadbarBGImage.Position = UDim2.new(0, 0, 0, 0)
+    LoadbarBGImage.BackgroundTransparency = 1
+    LoadbarBGImage.Image = "rbxassetid://139688890190075"
+    LoadbarBGImage.ScaleType = Enum.ScaleType.Tile
+    LoadbarBGImage.TileSize = UDim2.new(0, 25, 1, 0)
+    LoadbarBGImage.ImageTransparency = 0.4
+    LoadbarBGImage.ZIndex = 101
+    LoadbarBGImage.Parent = Loadbarempty
+
     AddUIShadow(Loadbarempty, 20, 0.5, Color3.fromRGB(255, 255, 255))
 
     local Loadbar = Instance.new("Frame")
@@ -2325,13 +2337,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Corner.Parent = TrackFrame
 
         AddUIShadow(TrackFrame, 20, 0.5)
-
-        local Stroke = Instance.new("UIStroke")
-        Stroke.Name = "UIStroke"
-        Stroke.Color = Color3.fromRGB(255, 255, 255)
-        Stroke.Thickness = 1.2
-        Stroke.Transparency = 0
-        Stroke.Parent = TrackFrame
 
         local initialPct = (maxVal > minVal) and math.clamp((defaultVal - minVal) / (maxVal - minVal), 0, 1) or 0
         local knobSize = 22
@@ -3168,13 +3173,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         AddUIShadow(CardFrame, 20, 0.5)
 
-        local Stroke = Instance.new("UIStroke")
-        Stroke.Name = "UIStroke"
-        Stroke.Color = Color3.fromRGB(255, 255, 255)
-        Stroke.Thickness = 1.2
-        Stroke.Transparency = 0.8
-        Stroke.Parent = CardFrame
-
         local TitleLabel = Instance.new("TextLabel")
         TitleLabel.Name = "TitleLabel"
         TitleLabel.Size = UDim2.new(1, -65, 1, 0)
@@ -3500,13 +3498,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Corner.Parent = CardFrame
 
         AddUIShadow(CardFrame, 20, 0.5)
-
-        local Stroke = Instance.new("UIStroke")
-        Stroke.Name = "UIStroke"
-        Stroke.Color = Color3.fromRGB(255, 255, 255)
-        Stroke.Thickness = 1.5
-        Stroke.Transparency = 0
-        Stroke.Parent = CardFrame
 
         local MDTextFolder = Instance.new("Folder")
         MDTextFolder.Name = "Text"
@@ -6348,13 +6339,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             AddUIShadow(CardFrame, 20, 0.5)
 
-            local CardStroke = Instance.new("UIStroke")
-            CardStroke.Name = "UIStroke"
-            CardStroke.Color = Color3.fromRGB(255, 255, 255)
-            CardStroke.Thickness = 1.2
-            CardStroke.Transparency = 0
-            CardStroke.Parent = CardFrame
-
             local TitleLabel = Instance.new("TextLabel")
             TitleLabel.Name = "TitleLabel"
             TitleLabel.Size = UDim2.new(1, -145, 1, 0)
@@ -6637,13 +6621,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CardCorner.Parent = CardFrame
 
             AddUIShadow(CardFrame, 20, 0.5)
-
-            local CardStroke = Instance.new("UIStroke")
-            CardStroke.Name = "UIStroke"
-            CardStroke.Color = Color3.fromRGB(255, 255, 255)
-            CardStroke.Thickness = 1.2
-            CardStroke.Transparency = 0
-            CardStroke.Parent = CardFrame
 
             local TitleLabel = Instance.new("TextLabel")
             TitleLabel.Name = "DropdownTitle"
@@ -6994,13 +6971,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             AddUIShadow(CardFrame, 20, 0.5)
 
-            local CardStroke = Instance.new("UIStroke")
-            CardStroke.Thickness = 1.2
-            CardStroke.Color = Color3.fromRGB(255, 255, 255)
-            CardStroke.Transparency = 0
-            CardStroke.Parent = CardFrame
-
-            local TitleLabel = Instance.new("TextLabel")
             TitleLabel.Name = "ProgressTitle"
             TitleLabel.Size = UDim2.new(1, -120, 0, 20)
             TitleLabel.Position = UDim2.new(0, 14, 0, 7)
@@ -7627,13 +7597,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                 AddUIShadow(SliderCard, 20, 0.5)
 
-                local CardStroke = Instance.new("UIStroke")
-                CardStroke.Name = "UIStroke"
-                CardStroke.Color = Color3.fromRGB(255, 255, 255)
-                CardStroke.Thickness = 1.2
-                CardStroke.Transparency = 0
-                CardStroke.Parent = SliderCard
-
                 local TitleLabel = Instance.new("TextLabel")
                 TitleLabel.Name = "SliderTitle"
                 TitleLabel.Size = UDim2.new(1, -95, 0, 20)
@@ -7686,7 +7649,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 sliderData.CardFrame = SliderCard
                 sliderData.TitleLabel = TitleLabel
                 sliderData.ValueLabel = ValueLabel
-                sliderData.Stroke = CardStroke
 
                 local oldRefresh = sliderData.RefreshTheme
                 sliderData.RefreshTheme = function(theme)
