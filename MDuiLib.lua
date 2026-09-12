@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.16.1"
+Library.Version = "2.17"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -1607,22 +1607,107 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Window:LoadConfig(current)
         end)
 
-        -- 5. Row 3: Clipboard Export & Import
-        local Row3 = Instance.new("Frame")
-        Row3.Name = "ConfigRow3"
-        Row3.Size = UDim2.new(1, 0, 0, 44)
-        Row3.BackgroundTransparency = 1
-        Row3.BorderSizePixel = 0
-        Row3.ZIndex = 4
-        Row3.Parent = SectionFrame
+        -- 5. Row 3: Config share — paste JSON textbox + Export/Import buttons
+        local ShareSection = Instance.new("Frame")
+        ShareSection.Name = "ConfigShareSection"
+        ShareSection.Size = UDim2.new(1, 0, 0, 104)
+        ShareSection.BackgroundTransparency = 1
+        ShareSection.BorderSizePixel = 0
+        ShareSection.ZIndex = 4
+        ShareSection.Parent = SectionFrame
 
-        Window:CreateMDButtonLong(Row3, UDim2.new(0, 0, 0, 0), UDim2.new(0.485, -4, 1, 0), "Export Clipboard", function()
-            Window:ExportConfigToClipboard()
+        local ShareLayout = Instance.new("UIListLayout")
+        ShareLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        ShareLayout.Padding = UDim.new(0, 6)
+        ShareLayout.Parent = ShareSection
+
+        -- Paste box label
+        local PasteLabel = Instance.new("TextLabel")
+        PasteLabel.Name = "PasteLabel"
+        PasteLabel.Size = UDim2.new(1, 0, 0, 16)
+        PasteLabel.LayoutOrder = 1
+        PasteLabel.BackgroundTransparency = 1
+        PasteLabel.FontFace = FontMichromaRegular
+        PasteLabel.Text = "Paste config JSON here to import:"
+        PasteLabel.TextColor3 = Window.CurrentTheme.SubText
+        PasteLabel.TextSize = 11
+        PasteLabel.TextXAlignment = Enum.TextXAlignment.Left
+        PasteLabel.ZIndex = 5
+        PasteLabel.Parent = ShareSection
+
+        -- Multiline paste input box
+        local PasteBoxFrame = Instance.new("Frame")
+        PasteBoxFrame.Name = "PasteBoxFrame"
+        PasteBoxFrame.Size = UDim2.new(1, 0, 0, 44)
+        PasteBoxFrame.LayoutOrder = 2
+        PasteBoxFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
+        PasteBoxFrame.BackgroundTransparency = 0.1
+        PasteBoxFrame.BorderSizePixel = 0
+        PasteBoxFrame.ZIndex = 5
+        PasteBoxFrame.Parent = ShareSection
+
+        local PasteBoxCorner = Instance.new("UICorner")
+        PasteBoxCorner.CornerRadius = UDim.new(0, 8)
+        PasteBoxCorner.Parent = PasteBoxFrame
+
+        local PasteBoxStroke = Instance.new("UIStroke")
+        PasteBoxStroke.Thickness = 1
+        PasteBoxStroke.Transparency = 0.6
+        PasteBoxStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(80, 85, 100)
+        PasteBoxStroke.Parent = PasteBoxFrame
+
+        local PasteInput = Instance.new("TextBox")
+        PasteInput.Name = "PasteInput"
+        PasteInput.Size = UDim2.new(1, -16, 1, -8)
+        PasteInput.Position = UDim2.new(0, 8, 0, 4)
+        PasteInput.BackgroundTransparency = 1
+        PasteInput.BorderSizePixel = 0
+        PasteInput.FontFace = FontMichromaRegular
+        PasteInput.PlaceholderText = "{\"...\"}"
+        PasteInput.PlaceholderColor3 = Window.CurrentTheme.SubText
+        PasteInput.Text = ""
+        PasteInput.TextColor3 = Window.CurrentTheme.Text
+        PasteInput.TextSize = 11
+        PasteInput.TextWrapped = true
+        PasteInput.MultiLine = true
+        PasteInput.ClearTextOnFocus = false
+        PasteInput.ClipsDescendants = true
+        PasteInput.ZIndex = 6
+        PasteInput.Parent = PasteBoxFrame
+
+        -- Export + Import button row
+        local ShareBtnRow = Instance.new("Frame")
+        ShareBtnRow.Name = "ShareBtnRow"
+        ShareBtnRow.Size = UDim2.new(1, 0, 0, 36)
+        ShareBtnRow.LayoutOrder = 3
+        ShareBtnRow.BackgroundTransparency = 1
+        ShareBtnRow.BorderSizePixel = 0
+        ShareBtnRow.ZIndex = 4
+        ShareBtnRow.Parent = ShareSection
+
+        -- "Copy Export" — writes to clipboard so user can share
+        Window:CreateMDButtonLong(ShareBtnRow, UDim2.new(0, 0, 0, 0), UDim2.new(0.485, -4, 1, 0), "Copy Config", function()
+            local jsonString = Window:ExportConfigToClipboard()
+            if jsonString then
+                -- Also populate the paste box so user can see/edit what was exported
+                PasteInput.Text = jsonString
+            end
         end)
 
-        Window:CreateMDButtonLong(Row3, UDim2.new(0.515, 4, 0, 0), UDim2.new(0.485, -4, 1, 0), "Import Clipboard", function()
-            Window:ImportConfigFromClipboard()
+        -- "Import" — reads from the textbox, NOT getclipboard
+        Window:CreateMDButtonLong(ShareBtnRow, UDim2.new(0.515, 4, 0, 0), UDim2.new(0.485, -4, 1, 0), "Import Config", function()
+            local text = PasteInput.Text
+            if not text or text == "" then
+                Window:Notify("Import", "Paste your config JSON into the box first", 3)
+                return
+            end
+            local ok = Window:ImportConfigFromClipboard(text)
+            if ok then
+                PasteInput.Text = ""
+            end
         end)
+
+
 
         -- 6. Row 4: Single Long Button for Autoload config
         autoloadBtn = Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 44), GetAutoloadButtonLabel(), function()
@@ -1916,31 +2001,46 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ClickBtn.ZIndex = 12
         ClickBtn.Parent = BtnFrame
 
+        local _hoverActive = false
+        local _pressActive = false
+
         TrackConn(ClickBtn.MouseEnter:Connect(function()
+            _hoverActive = true
             PlayHoverSFX()
-            TweenService:Create(Stroke, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 2.0}):Play()
-            local hoverSize = UDim2.new(size.X.Scale, math.floor(size.X.Offset * 1.03), size.Y.Scale, math.floor(size.Y.Offset * 1.03))
-            TweenService:Create(BtnFrame, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = hoverSize}):Play()
+            local hoverSize = UDim2.new(size.X.Scale, math.floor(size.X.Offset * 1.02), size.Y.Scale, math.floor(size.Y.Offset * 1.02))
+            TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 2.0}):Play()
+            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = hoverSize}):Play()
         end))
 
         TrackConn(ClickBtn.MouseLeave:Connect(function()
-            TweenService:Create(Stroke, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 1.2}):Play()
-            TweenService:Create(BtnFrame, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = size}):Play()
+            _hoverActive = false
+            _pressActive = false
+            TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 1.2}):Play()
+            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = size}):Play()
         end))
 
         TrackConn(ClickBtn.MouseButton1Down:Connect(function()
+            _pressActive = true
             PlayClickSFX()
-            local pressedSize = UDim2.new(size.X.Scale, math.floor(size.X.Offset * 0.94), size.Y.Scale, math.floor(size.Y.Offset * 0.94))
-            TweenService:Create(BtnFrame, TweenInfo.new(0.14, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = pressedSize}):Play()
+            local pressedSize = UDim2.new(size.X.Scale, math.floor(size.X.Offset * 0.95), size.Y.Scale, math.floor(size.Y.Offset * 0.95))
+            TweenService:Create(BtnFrame, TweenInfo.new(0.09, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = pressedSize}):Play()
         end))
 
         TrackConn(ClickBtn.MouseButton1Up:Connect(function()
-            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = size}):Play()
+            if not _pressActive then return end
+            _pressActive = false
+            -- spring back: Back Out gives +1% overshoot then settles at 100%
+            local targetSize = _hoverActive
+                and UDim2.new(size.X.Scale, math.floor(size.X.Offset * 1.02), size.Y.Scale, math.floor(size.Y.Offset * 1.02))
+                or size
+            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+            -- fire click here (on up), not on down
+            if onClick then
+                pcall(onClick)
+            end
         end))
 
-        if onClick then
-            TrackConn(ClickBtn.MouseButton1Click:Connect(onClick))
-        end
+
 
         local btnData = {
             Frame = BtnFrame,
@@ -3402,31 +3502,44 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ClickBtn.ZIndex = 12
         ClickBtn.Parent = BtnFrame
 
+        local _hoverActive = false
+        local _pressActive = false
+
         TrackConn(ClickBtn.MouseEnter:Connect(function()
+            _hoverActive = true
             PlayHoverSFX()
-            TweenService:Create(Stroke, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 2.2}):Play()
             local hoverSize = UDim2.new(size.X.Scale, math.floor(size.X.Offset * 1.02), size.Y.Scale, math.floor(size.Y.Offset * 1.02))
-            TweenService:Create(BtnFrame, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = hoverSize}):Play()
+            TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 2.0}):Play()
+            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = hoverSize}):Play()
         end))
 
         TrackConn(ClickBtn.MouseLeave:Connect(function()
-            TweenService:Create(Stroke, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 1.5}):Play()
-            TweenService:Create(BtnFrame, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = size}):Play()
+            _hoverActive = false
+            _pressActive = false
+            TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 1.5}):Play()
+            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = size}):Play()
         end))
 
         TrackConn(ClickBtn.MouseButton1Down:Connect(function()
+            _pressActive = true
             PlayClickSFX()
-            local pressedSize = UDim2.new(size.X.Scale, math.floor(size.X.Offset * 0.96), size.Y.Scale, math.floor(size.Y.Offset * 0.96))
-            TweenService:Create(BtnFrame, TweenInfo.new(0.14, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = pressedSize}):Play()
+            local pressedSize = UDim2.new(size.X.Scale, math.floor(size.X.Offset * 0.95), size.Y.Scale, math.floor(size.Y.Offset * 0.95))
+            TweenService:Create(BtnFrame, TweenInfo.new(0.09, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = pressedSize}):Play()
         end))
 
         TrackConn(ClickBtn.MouseButton1Up:Connect(function()
-            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = size}):Play()
+            if not _pressActive then return end
+            _pressActive = false
+            local targetSize = _hoverActive
+                and UDim2.new(size.X.Scale, math.floor(size.X.Offset * 1.02), size.Y.Scale, math.floor(size.Y.Offset * 1.02))
+                or size
+            TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+            if onClick then
+                pcall(onClick)
+            end
         end))
 
-        if onClick then
-            TrackConn(ClickBtn.MouseButton1Click:Connect(onClick))
-        end
+
 
         local btnData = {
             Frame = BtnFrame,
@@ -3604,7 +3717,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local ClickBtn = Instance.new("TextButton")
         ClickBtn.Name = "ClickTrigger"
-        ClickBtn.Size = UDim2.new(1, 0, 0, 44)
+        -- Only cover the toggle pill area (right side), not the whole card
+        ClickBtn.Size = UDim2.new(0, 56, 0, 36)
+        ClickBtn.Position = UDim2.new(1, -58, 0.5, -18)
+        ClickBtn.AnchorPoint = Vector2.new(0, 0)
         ClickBtn.BackgroundTransparency = 1
         ClickBtn.Text = ""
         ClickBtn.ZIndex = 14
@@ -4181,29 +4297,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         TrackConn(UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                if not BtnFrame.Visible then
-                    dragging = false
-                    return
-                end
-                if dragging or pressStartTime > 0 then
-                    dragging = false
-                    local elapsed = os.clock() - pressStartTime
+                dragging = false
+                task.delay(0.05, function()
+                    hasMoved = false
                     pressStartTime = 0
-                    if not hasMoved and elapsed < 0.65 then
-                        TriggerAction()
-                    end
-                end
+                end)
             end
         end))
 
         TrackConn(Hitbox.Activated:Connect(function()
-            if not BtnFrame.Visible then return end
-            if not hasMoved then
-                TriggerAction()
-            end
-        end))
-
-        TrackConn(Hitbox.TouchTap:Connect(function()
             if not BtnFrame.Visible then return end
             if not hasMoved then
                 TriggerAction()
