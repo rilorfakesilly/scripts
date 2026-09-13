@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.20"
+Library.Version = "2.21"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -565,8 +565,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
         for name, mdrop in pairs(Window.RegisteredMultiDropdowns) do
             pcall(function()
-                if mdrop and mdrop.GetSelected then
-                    data.MultiDropdowns[name] = mdrop.GetSelected()
+                if mdrop and mdrop.GetSelections then
+                    data.MultiDropdowns[name] = mdrop.GetSelections()
                 end
             end)
         end
@@ -703,8 +703,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if data.MultiDropdowns then
             for name, selected in pairs(data.MultiDropdowns) do
                 local mdrop = Window.RegisteredMultiDropdowns[name]
-                if mdrop and mdrop.SetSelected then
-                    pcall(function() mdrop.SetSelected(selected, true) end)
+                if mdrop and mdrop.SetSelections then
+                    pcall(function() mdrop.SetSelections(selected, true) end)
                 end
             end
         end
@@ -1350,7 +1350,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ItemCorner.CornerRadius = UDim.new(0, 6)
                 ItemCorner.Parent = ItemBtn
 
-                TrackConn(ItemBtn.MouseButton1Click:Connect(function()
+                ItemBtn.MouseButton1Click:Connect(function()
                     PlayClickSFX()
                     selectedOption = opt
                     local newDisplay = (title and title ~= "") and (title .. ": " .. selectedOption) or selectedOption
@@ -1359,7 +1359,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     CloseDropdown()
 
                     if onSelect then onSelect(selectedOption) end
-                end))
+                end)
             end
             InnerScroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
         end
@@ -1436,6 +1436,44 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if triggerCallback and onSelect then onSelect(selectedOption) end
             end,
             RefreshOptions = RefreshOptions,
+            SetOptions = function(selfOrOpts, maybeOpts)
+                local newOpts = (type(selfOrOpts) == "table" and selfOrOpts ~= dropObj) and selfOrOpts or maybeOpts or {}
+                options = newOpts
+                RefreshOptions(options)
+                return dropObj
+            end,
+            AddOption = function(selfOrOpt, maybeOpt)
+                local newOpt = (type(selfOrOpt) == "string" or type(selfOrOpt) == "number") and selfOrOpt or maybeOpt
+                if newOpt then
+                    table.insert(options, tostring(newOpt))
+                    RefreshOptions(options)
+                end
+                return dropObj
+            end,
+            RemoveOption = function(selfOrOpt, maybeOpt)
+                local optToRemove = (type(selfOrOpt) == "string" or type(selfOrOpt) == "number") and tostring(selfOrOpt) or tostring(maybeOpt or "")
+                for i, v in ipairs(options) do
+                    if tostring(v) == optToRemove then
+                        table.remove(options, i)
+                        break
+                    end
+                end
+                if tostring(selectedOption) == optToRemove then
+                    selectedOption = options[1] or ""
+                    local newDisplay = (title and title ~= "") and (title .. ": " .. tostring(selectedOption or "")) or tostring(selectedOption or "")
+                    TitleText.Text = newDisplay
+                end
+                RefreshOptions(options)
+                return dropObj
+            end,
+            ClearOptions = function()
+                options = {}
+                selectedOption = ""
+                local newDisplay = (title and title ~= "") and (title .. ": ") or ""
+                TitleText.Text = newDisplay
+                RefreshOptions(options)
+                return dropObj
+            end,
             RefreshTheme = function(theme)
                 DropdownFrame.BackgroundColor3 = theme.CardBG
                 TitleText.TextColor3 = theme.Text
@@ -2609,7 +2647,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end)
         end
 
-        local function UpdateSlider(inputPos)
+        local function UpdateSlider(inputPos, isFirstClick)
             local trackAbsPos = TrackFrame.AbsolutePosition.X
             local trackAbsSize = TrackFrame.AbsoluteSize.X
             if trackAbsSize <= 0 then return end
@@ -2621,7 +2659,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             FilledPart.Size = UDim2.new(pct, 0, 1, 0)
             HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
 
-            if snappedVal ~= currentVal then
+            if snappedVal ~= currentVal or isFirstClick then
                 currentVal = snappedVal
                 AnimateValueLabel(currentVal, pct)
                 if onValueChange then
@@ -2633,13 +2671,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TrackConn(Trigger.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 isDragging = true
-                UpdateSlider(input.Position.X)
+                UpdateSlider(input.Position.X, true)
             end
         end))
 
         TrackConn(UserInputService.InputChanged:Connect(function(input)
             if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                UpdateSlider(input.Position.X)
+                UpdateSlider(input.Position.X, false)
             end
         end))
 
@@ -3879,7 +3917,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleText = TitleText,
             BaseCircle = BaseCircle,
             Overlay = OverlayCircle,
-            Stroke = Stroke,
             Corner = Corner,
             CardBgImage = CardBgImage,
             GetState = function() return isToggled end,
@@ -3922,15 +3959,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local maxVal = sliderConfig.Max or sliderConfig.max or 100
             local defVal = sliderConfig.Default or sliderConfig.default or minVal
             local cb = sliderConfig.Callback or sliderConfig.callback or sliderConfig.OnChanged
-            local suffix = sliderConfig.Suffix or (sliderConfig.ValueFormat == "percent" and "%") or "%"
+            local suffix = sliderConfig.Suffix or (sliderConfig.ValueFormat == "percent" and "%") or ""
+            local prefix = sliderConfig.Prefix or ""
             local showVal = sliderConfig.ShowValue ~= false
+            local inc = sliderConfig.Increment or sliderConfig.increment or sliderConfig.Step or sliderConfig.step or 1
+            local prec = sliderConfig.Precision or sliderConfig.precision or sliderConfig.Decimals or sliderConfig.decimals
 
             -- Expand card to contain slider underneath (Screenshot 2 style)
             CardFrame.Size = UDim2.new(size.X.Scale, size.X.Offset, 0, 76)
             TitleText.Size = hasKeybind and UDim2.new(1, -190, 0, 44) or UDim2.new(1, -145, 0, 44)
             ToggleFrame.Position = UDim2.new(1, -54, 0, 10)
-            if toggleData.Keybind then
-                local kb = toggleData.Keybind.Container or toggleData.Keybind.Badge or toggleData.Keybind.Frame or (toggleData.Keybind.IsA and toggleData.Keybind:IsA("GuiObject") and toggleData.Keybind)
+            local kbObj = self.Keybind or toggleData.Keybind
+            if kbObj then
+                local kb = kbObj.Container or kbObj.Badge or kbObj.Frame or (kbObj.IsA and kbObj:IsA("GuiObject") and kbObj)
                 if kb then
                     kb.Position = UDim2.new(1, -96, 0, 11)
                 end
@@ -3951,34 +3992,59 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ValueLabel.TextYAlignment = Enum.TextYAlignment.Center
                 ValueLabel.ZIndex = 11
                 ValueLabel.Parent = CardFrame
-
-                local function FormatVal(val, pct)
-                    if suffix == "%" or sliderConfig.ValueFormat == "percent" then
-                        return tostring(math.floor(pct * 100)) .. "%"
-                    else
-                        return tostring(val) .. suffix
-                    end
-                end
-                local initialPct = (maxVal > minVal) and math.clamp((defVal - minVal) / (maxVal - minVal), 0, 1) or 0
-                ValueLabel.Text = FormatVal(defVal, initialPct)
             end
 
-            local sliderTrack = Window:CreateMDSlider(CardFrame, UDim2.new(0, 14, 0, 50), UDim2.new(1, -28, 0, 12), minVal, maxVal, defVal, function(val, pct)
+            local sliderTrack
+            sliderTrack = Window:CreateMDSlider(CardFrame, UDim2.new(0, 14, 0, 50), UDim2.new(1, -28, 0, 12), minVal, maxVal, defVal, function(val, pct)
                 if ValueLabel then
-                    if suffix == "%" or sliderConfig.ValueFormat == "percent" then
-                        ValueLabel.Text = tostring(math.floor(pct * 100)) .. "%"
-                    else
-                        ValueLabel.Text = tostring(val) .. suffix
-                    end
+                    ValueLabel.Text = sliderTrack and sliderTrack.GetFormattedValue(val, pct) or (prefix .. tostring(val) .. suffix)
                 end
                 if cb then cb(val, pct) end
             end, toggleName .. "_Slider", {
-                ShowValue = false
+                ShowValue = false,
+                Increment = inc,
+                Precision = prec,
+                Suffix = suffix,
+                Prefix = prefix,
+                ValueFormat = sliderConfig.ValueFormat or (suffix == "%" and "percent") or "number"
             })
 
             if ValueLabel then
+                ValueLabel.Text = sliderTrack.GetFormattedValue(defVal)
                 sliderTrack.ValueLabel = ValueLabel
             end
+
+            local oldSetSuffix = sliderTrack.SetSuffix
+            sliderTrack.SetSuffix = function(newSuffix)
+                if oldSetSuffix then oldSetSuffix(newSuffix) end
+                if ValueLabel then ValueLabel.Text = sliderTrack.GetFormattedValue() end
+            end
+            local oldSetPrefix = sliderTrack.SetPrefix
+            sliderTrack.SetPrefix = function(newPrefix)
+                if oldSetPrefix then oldSetPrefix(newPrefix) end
+                if ValueLabel then ValueLabel.Text = sliderTrack.GetFormattedValue() end
+            end
+            local oldSetValueFormat = sliderTrack.SetValueFormat
+            sliderTrack.SetValueFormat = function(format, newSuffix, newPrefix)
+                if oldSetValueFormat then oldSetValueFormat(format, newSuffix, newPrefix) end
+                if ValueLabel then ValueLabel.Text = sliderTrack.GetFormattedValue() end
+            end
+            local oldSetValue = sliderTrack.SetValue
+            sliderTrack.SetValue = function(val, triggerCallback)
+                if oldSetValue then oldSetValue(val, triggerCallback) end
+                if ValueLabel then ValueLabel.Text = sliderTrack.GetFormattedValue() end
+            end
+            local oldSetIncrement = sliderTrack.SetIncrement
+            sliderTrack.SetIncrement = function(newInc, newPrec)
+                if oldSetIncrement then oldSetIncrement(newInc, newPrec) end
+                if ValueLabel then ValueLabel.Text = sliderTrack.GetFormattedValue() end
+            end
+            local oldSetPrecision = sliderTrack.SetPrecision
+            sliderTrack.SetPrecision = function(newPrec)
+                if oldSetPrecision then oldSetPrecision(newPrec) end
+                if ValueLabel then ValueLabel.Text = sliderTrack.GetFormattedValue() end
+            end
+
             toggleData.ConnectedSlider = sliderTrack
             toggleData.ValueLabel = ValueLabel
             return sliderTrack
@@ -3990,7 +4056,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local keyPos = (self.ConnectedSlider or CardFrame.Size.Y.Offset > 50) and UDim2.new(1, -96, 0, 11) or UDim2.new(1, -96, 0.5, -11)
                 self.Keybind = Window:CreateKeybindBadge(CardFrame, keyPos, UDim2.new(0, 36, 0, 22), defaultKey, function()
                     self.SetState(not isToggled, true)
-                    if cb then pcall(cb, not isToggled) end
+                    if cb then pcall(cb, isToggled) end
                 end, toggleName)
             end
             return self
@@ -7044,7 +7110,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     itemLabel.ZIndex = 603
                     itemLabel.Parent = itemBtn
 
-                    TrackConn(itemBtn.MouseButton1Click:Connect(function()
+                    itemBtn.MouseButton1Click:Connect(function()
                         PlayClickSFX()
                         selectedMap[optStr] = not selectedMap[optStr]
                         local nowSel = selectedMap[optStr]
@@ -7057,7 +7123,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         if cb then
                             pcall(cb, GetSelectedList(), optStr, nowSel)
                         end
-                    end))
+                    end)
                 end
             end
 
@@ -7162,6 +7228,41 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     UpdateTitleDisplay()
                     RefreshOptions()
                     if triggerCb and cb then pcall(cb, GetSelectedList(), opt, not cur) end
+                end,
+                RefreshOptions = RefreshOptions,
+                SetOptions = function(selfOrOpts, maybeOpts)
+                    local newOpts = (type(selfOrOpts) == "table" and selfOrOpts ~= multiDropData) and selfOrOpts or maybeOpts or {}
+                    dropOpts = newOpts
+                    RefreshOptions()
+                    return multiDropData
+                end,
+                AddOption = function(selfOrOpt, maybeOpt)
+                    local newOpt = (type(selfOrOpt) == "string" or type(selfOrOpt) == "number") and selfOrOpt or maybeOpt
+                    if newOpt then
+                        table.insert(dropOpts, tostring(newOpt))
+                        RefreshOptions()
+                    end
+                    return multiDropData
+                end,
+                RemoveOption = function(selfOrOpt, maybeOpt)
+                    local optToRemove = (type(selfOrOpt) == "string" or type(selfOrOpt) == "number") and tostring(selfOrOpt) or tostring(maybeOpt or "")
+                    for i, v in ipairs(dropOpts) do
+                        if tostring(v) == optToRemove then
+                            table.remove(dropOpts, i)
+                            break
+                        end
+                    end
+                    selectedMap[optToRemove] = nil
+                    UpdateTitleDisplay()
+                    RefreshOptions()
+                    return multiDropData
+                end,
+                ClearOptions = function()
+                    dropOpts = {}
+                    selectedMap = {}
+                    UpdateTitleDisplay()
+                    RefreshOptions()
+                    return multiDropData
                 end,
                 RefreshTheme = function(theme)
                     CardFrame.BackgroundColor3 = theme.CardBG
