@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.21"
+Library.Version = "2.22"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -11,14 +11,78 @@ local Debris = game:GetService("Debris")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
-local ParentGui = CoreGui
-if gethui then
-    ParentGui = gethui()
-elseif syn and syn.protect_gui then
-    ParentGui = Instance.new("Folder")
-    syn.protect_gui(ParentGui)
-    ParentGui.Parent = CoreGui
+local function GenerateSafeName(prefix)
+    local chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    local res = {}
+    for i = 1, 8 do
+        local r = math.random(1, #chars)
+        table.insert(res, chars:sub(r, r))
+    end
+    local id = table.concat(res)
+    return prefix and (tostring(prefix) .. "_" .. id) or id
 end
+
+local function GetSafeParentGui()
+    local success, hui = pcall(function()
+        if gethui then return gethui() end
+        if get_hidden_gui then return get_hidden_gui() end
+    end)
+    if success and hui then return hui end
+
+    if syn and syn.protect_gui then
+        local protectedFolder = nil
+        pcall(function()
+            protectedFolder = Instance.new("Folder")
+            syn.protect_gui(protectedFolder)
+            local cg = (cloneref and cloneref(CoreGui)) or CoreGui
+            protectedFolder.Parent = cg
+        end)
+        if protectedFolder then return protectedFolder end
+    elseif protectgui then
+        local protectedFolder = nil
+        pcall(function()
+            protectedFolder = Instance.new("Folder")
+            protectgui(protectedFolder)
+            local cg = (cloneref and cloneref(CoreGui)) or CoreGui
+            protectedFolder.Parent = cg
+        end)
+        if protectedFolder then return protectedFolder end
+    end
+
+    local cgSuccess, cg = pcall(function()
+        return (cloneref and cloneref(CoreGui)) or CoreGui
+    end)
+    if cgSuccess and cg then
+        local testOk = pcall(function()
+            local t = Instance.new("Folder")
+            t.Parent = cg
+            t:Destroy()
+        end)
+        if testOk then return cg end
+    end
+
+    if LocalPlayer then
+        local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui") or LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then return pg end
+    end
+
+    return CoreGui
+end
+
+local ParentGui = GetSafeParentGui()
+
+local function ProtectGui(gui)
+    if not gui then return end
+    pcall(function()
+        if syn and syn.protect_gui then
+            syn.protect_gui(gui)
+        elseif protectgui then
+            protectgui(gui)
+        end
+    end)
+end
+
+Library.ActiveGuis = Library.ActiveGuis or {}
 
 local FontMichromaBold = Font.new("rbxasset://fonts/families/Michroma.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
 local FontMichromaRegular = Font.new("rbxasset://fonts/families/Michroma.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
@@ -295,12 +359,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
     local autoSmallDividers = type(arg1) == "table" and (arg1.AutoSmallDividers == true or arg1.AutoDividers == true)
 
-    if ParentGui:FindFirstChild("ScriptUi") then ParentGui:FindFirstChild("ScriptUi"):Destroy() end
-    if ParentGui:FindFirstChild("MinimisedUI") then ParentGui:FindFirstChild("MinimisedUI"):Destroy() end
-    if ParentGui:FindFirstChild("NotificationUI") then ParentGui:FindFirstChild("NotificationUI"):Destroy() end
-    if ParentGui:FindFirstChild("ParticleLayer") then ParentGui:FindFirstChild("ParticleLayer"):Destroy() end
-    if ParentGui:FindFirstChild("MDMobileUI") then ParentGui:FindFirstChild("MDMobileUI"):Destroy() end
-    if ParentGui:FindFirstChild("MobileUI") then ParentGui:FindFirstChild("MobileUI"):Destroy() end
+    if Library.ActiveGuis then
+        for _, gui in ipairs(Library.ActiveGuis) do
+            pcall(function()
+                if gui and gui.Parent then gui:Destroy() end
+            end)
+        end
+    end
+    Library.ActiveGuis = {}
 
     local Window = {
         ScriptName = scriptName or hubTitle or "MD_Script",
@@ -1191,7 +1257,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         defaultOption = defaultOption or options[1] or "Select..."
 
         local DropdownFrame = Instance.new("Frame")
-        DropdownFrame.Name = "Dropdown"
+        DropdownFrame.Name = GenerateSafeName("Dropdown")
         DropdownFrame.Size = size
         DropdownFrame.Position = position
         DropdownFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
@@ -1208,7 +1274,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         AddUIShadow(DropdownFrame, 20, 0.5)
 
         local MDTextFolder = Instance.new("Folder")
-        MDTextFolder.Name = "Text"
+        MDTextFolder.Name = GenerateSafeName("Text")
         MDTextFolder.Parent = DropdownFrame
 
         local TitleText = Instance.new("TextLabel")
@@ -1230,7 +1296,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleText.Parent = MDTextFolder
 
         local ArrowIcon = Instance.new("ImageLabel")
-        ArrowIcon.Name = "ImageLabel"
+        ArrowIcon.Name = GenerateSafeName("Icon")
         ArrowIcon.Size = UDim2.new(0, 36, 0, 36)
         ArrowIcon.Position = UDim2.new(1, -46, 0.5, -18)
         ArrowIcon.BackgroundTransparency = 1
@@ -1240,7 +1306,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ArrowIcon.Parent = DropdownFrame
 
         local HeaderTrigger = Instance.new("TextButton")
-        HeaderTrigger.Name = "HeaderTrigger"
+        HeaderTrigger.Name = GenerateSafeName("Trigger")
         HeaderTrigger.Size = UDim2.new(1, 0, 1, 0)
         HeaderTrigger.BackgroundTransparency = 1
         HeaderTrigger.Text = ""
@@ -1249,7 +1315,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         -- Dropdown Content List Frame (Parented to Window.DropdownOverlay or MainContainer)
         local DropdownContent = Instance.new("Frame")
-        DropdownContent.Name = "DropdownContent"
+        DropdownContent.Name = GenerateSafeName("Content")
         DropdownContent.Size = UDim2.new(0, 0, 0, 0)
         DropdownContent.Position = UDim2.new(0, 0, 0, 0)
         DropdownContent.BackgroundColor3 = Window.CurrentTheme.CardBG
@@ -1267,7 +1333,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         AddUIShadow(DropdownContent, 20, 0.5)
 
         local InnerScroll = Instance.new("ScrollingFrame")
-        InnerScroll.Name = "DropdownContentcontents"
+        InnerScroll.Name = GenerateSafeName("Scroll")
         InnerScroll.Size = UDim2.new(1, -10, 1, -10)
         InnerScroll.Position = UDim2.new(0, 5, 0, 5)
         InnerScroll.BackgroundTransparency = 1
@@ -1334,7 +1400,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             for idx, opt in ipairs(options) do
                 local ItemBtn = Instance.new("TextButton")
-                ItemBtn.Name = "drpdwncntnts"
+                ItemBtn.Name = GenerateSafeName("Item")
                 ItemBtn.Size = UDim2.new(1, -6, 0, 34)
                 ItemBtn.BackgroundColor3 = (opt == selectedOption) and Window.CurrentTheme.ButtonBG or Window.CurrentTheme.AccentBG
                 ItemBtn.BackgroundTransparency = 0.1
@@ -1774,14 +1840,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- =========================================================================
     -- LOADING SCREEN ENGINE (Centered on screen, progress bar, shrink tween & destroy)
     -- =========================================================================
-    if ParentGui:FindFirstChild("LoadingUI") then ParentGui:FindFirstChild("LoadingUI"):Destroy() end
+    if Library.ActiveLoadingUI and Library.ActiveLoadingUI.Parent then
+        pcall(function() Library.ActiveLoadingUI:Destroy() end)
+    end
 
     local LoadingUI = Instance.new("ScreenGui")
-    LoadingUI.Name = "LoadingUI"
+    LoadingUI.Name = GenerateSafeName("UI")
     LoadingUI.ResetOnSpawn = false
     LoadingUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     LoadingUI.DisplayOrder = 100
+    ProtectGui(LoadingUI)
     LoadingUI.Parent = ParentGui
+    Library.ActiveLoadingUI = LoadingUI
+    table.insert(Library.ActiveGuis, LoadingUI)
 
     local LoadCenterFrame = Instance.new("Frame")
     LoadCenterFrame.Name = "LoadCenterFrame"
@@ -2371,7 +2442,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         KnobFrame.Parent = ToggleFrame
 
         local BaseCircle = Instance.new("ImageLabel")
-        BaseCircle.Name = "ToggleThingLikeCircle"
+        BaseCircle.Name = GenerateSafeName("Knob")
         BaseCircle.Size = UDim2.new(1, 0, 1, 0)
         BaseCircle.BackgroundTransparency = 1
         BaseCircle.Image = "rbxassetid://118376432250064"
@@ -2379,7 +2450,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BaseCircle.Parent = KnobFrame
 
         local OverlayCircle = Instance.new("ImageLabel")
-        OverlayCircle.Name = "ThethingOnTopThatMatchesBGofIt"
+        OverlayCircle.Name = GenerateSafeName("Overlay")
         OverlayCircle.Size = UDim2.new(1, 0, 1, 0)
         OverlayCircle.BackgroundTransparency = 1
         OverlayCircle.Image = "rbxassetid://100354746235648"
@@ -2516,7 +2587,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         defaultVal = SnapToIncrement(math.clamp(defaultVal or minVal or 0, minVal, maxVal))
 
         local TrackFrame = Instance.new("Frame")
-        TrackFrame.Name = "SliderTrackFrame"
+        TrackFrame.Name = GenerateSafeName("Track")
         TrackFrame.Size = size
         TrackFrame.Position = position or UDim2.new(0, 0, 0, 0)
         TrackFrame.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(20, 22, 28)
@@ -2585,7 +2656,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         HandleFrame.Parent = TrackFrame
 
         local BaseCircle = Instance.new("ImageLabel")
-        BaseCircle.Name = "ToggleThingLikeCircle"
+        BaseCircle.Name = GenerateSafeName("Knob")
         BaseCircle.Size = UDim2.new(1, 0, 1, 0)
         BaseCircle.BackgroundTransparency = 1
         BaseCircle.Image = "rbxassetid://118376432250064"
@@ -2593,7 +2664,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BaseCircle.Parent = HandleFrame
 
         local OverlayCircle = Instance.new("ImageLabel")
-        OverlayCircle.Name = "ThethingOnTopThatMatchesBGofIt"
+        OverlayCircle.Name = GenerateSafeName("Overlay")
         OverlayCircle.Size = UDim2.new(1, 0, 1, 0)
         OverlayCircle.BackgroundTransparency = 1
         OverlayCircle.Image = "rbxassetid://100354746235648"
@@ -2817,11 +2888,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local selectedColor = initialColor
 
         local ModalBackdrop = Instance.new("Frame")
-        ModalBackdrop.Name = "ColorPickerBackdrop"
+        ModalBackdrop.Name = GenerateSafeName("Backdrop")
         ModalBackdrop.Size = UDim2.new(1, 0, 1, 0)
         ModalBackdrop.Position = UDim2.new(0, 0, 0, 0)
         ModalBackdrop.BackgroundTransparency = 1
         ModalBackdrop.BorderSizePixel = 0
+        ModalBackdrop.Active = false
         ModalBackdrop.ZIndex = 80
         ModalBackdrop.Parent = ScriptUi
 
@@ -3269,14 +3341,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             noText = "Cancel"
         end
 
-        local ConfirmBackdrop = Instance.new("TextButton")
-        ConfirmBackdrop.Name = "ConfirmBackdrop"
+        local ConfirmBackdrop = Instance.new("Frame")
+        ConfirmBackdrop.Name = GenerateSafeName("Backdrop")
         ConfirmBackdrop.Size = UDim2.new(1, 0, 1, 0)
         ConfirmBackdrop.Position = UDim2.new(0, 0, 0, 0)
         ConfirmBackdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         ConfirmBackdrop.BackgroundTransparency = 1
-        ConfirmBackdrop.Text = ""
-        ConfirmBackdrop.AutoButtonColor = false
+        ConfirmBackdrop.BorderSizePixel = 0
+        ConfirmBackdrop.Active = false
         ConfirmBackdrop.ZIndex = 120
         ConfirmBackdrop.Parent = ScriptUi
 
@@ -3389,11 +3461,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         YesBtn.MouseButton1Click:Connect(function()
             Close()
             if onYes then pcall(onYes) end
-        end)
-
-        ConfirmBackdrop.MouseButton1Click:Connect(function()
-            Close()
-            if onNo then pcall(onNo) end
         end)
 
         TweenService:Create(ModalCard, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
@@ -3750,7 +3817,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         position = position or UDim2.new(0, 0, 0, 0)
 
         local CardFrame = Instance.new("Frame")
-        CardFrame.Name = "MDToggleCard"
+        CardFrame.Name = GenerateSafeName("Card")
         CardFrame.Size = size
         CardFrame.Position = position
         CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
@@ -3857,7 +3924,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         local BaseCircle = Instance.new("ImageLabel")
-        BaseCircle.Name = "ToggleThingLikeCircle"
+        BaseCircle.Name = GenerateSafeName("Knob")
         BaseCircle.AnchorPoint = Vector2.new(0.5, 0.5)
         BaseCircle.Size = UDim2.new(0, 18, 0, 18)
         BaseCircle.Position = isToggled and UDim2.new(1, -12, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
@@ -3867,7 +3934,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BaseCircle.Parent = KnobFolder
 
         local OverlayCircle = Instance.new("ImageLabel")
-        OverlayCircle.Name = "ThethingOnTopThatMatchesBGofIt"
+        OverlayCircle.Name = GenerateSafeName("Overlay")
         OverlayCircle.AnchorPoint = Vector2.new(0.5, 0.5)
         OverlayCircle.Size = UDim2.new(0, 18, 0, 18)
         OverlayCircle.Position = isToggled and UDim2.new(1, -12, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
@@ -4111,35 +4178,43 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
 
     ScriptUi = Instance.new("ScreenGui")
-    ScriptUi.Name = "ScriptUi"
+    ScriptUi.Name = GenerateSafeName("UI")
     ScriptUi.ResetOnSpawn = false
     ScriptUi.Enabled = false
     ScriptUi.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScriptUi.DisplayOrder = 10
+    ProtectGui(ScriptUi)
     ScriptUi.Parent = ParentGui
+    table.insert(Library.ActiveGuis, ScriptUi)
 
     MinimisedUI = Instance.new("ScreenGui")
-    MinimisedUI.Name = "MinimisedUI"
+    MinimisedUI.Name = GenerateSafeName("UI")
     MinimisedUI.ResetOnSpawn = false
     MinimisedUI.Enabled = false
     MinimisedUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     MinimisedUI.DisplayOrder = 25
+    ProtectGui(MinimisedUI)
     MinimisedUI.Parent = ParentGui
+    table.insert(Library.ActiveGuis, MinimisedUI)
 
     NotificationUI = Instance.new("ScreenGui")
-    NotificationUI.Name = "NotificationUI"
+    NotificationUI.Name = GenerateSafeName("UI")
     NotificationUI.ResetOnSpawn = false
     NotificationUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     NotificationUI.DisplayOrder = 30
+    ProtectGui(NotificationUI)
     NotificationUI.Parent = ParentGui
+    table.insert(Library.ActiveGuis, NotificationUI)
 
     local MobileUI = Instance.new("ScreenGui")
-    MobileUI.Name = "MDMobileUI"
+    MobileUI.Name = GenerateSafeName("UI")
     MobileUI.ResetOnSpawn = false
     MobileUI.Enabled = false
     MobileUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     MobileUI.DisplayOrder = 22
+    ProtectGui(MobileUI)
     MobileUI.Parent = ParentGui
+    table.insert(Library.ActiveGuis, MobileUI)
     Window.MobileUI = MobileUI
 
     -- =========================================================================
@@ -4206,7 +4281,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         local BtnFrame = Instance.new("Frame")
-        BtnFrame.Name = "MDMobileBtn_" .. (text ~= "" and text:gsub("%s+", "_") or tostring(btnCount + 1))
+        BtnFrame.Name = GenerateSafeName("Btn")
         BtnFrame.Size = defaultSize
         BtnFrame.Position = defaultPos
         BtnFrame.BorderSizePixel = 0
@@ -4712,7 +4787,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- GLOBAL FLOATING TOOLTIP ENGINE
     -- =========================================================================
     local TooltipFrame = Instance.new("Frame")
-    TooltipFrame.Name = "MDTooltipFrame"
+    TooltipFrame.Name = GenerateSafeName("Tooltip")
     TooltipFrame.Size = UDim2.new(0, 100, 0, 24)
     TooltipFrame.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
     TooltipFrame.BackgroundTransparency = 1
@@ -6958,7 +7033,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
 
             local CardFrame = Instance.new("Frame")
-            CardFrame.Name = "MDMultiDropdownCard_" .. title:gsub("%s+", "_")
+            CardFrame.Name = GenerateSafeName("Card")
             CardFrame.Size = cardSize
             CardFrame.Position = pos
             CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
@@ -7023,7 +7098,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             UpdateTitleDisplay()
 
             local DropdownMenu = Instance.new("Frame")
-            DropdownMenu.Name = "MDMultiDropdownMenu"
+            DropdownMenu.Name = GenerateSafeName("Menu")
             DropdownMenu.Size = UDim2.new(0, 200, 0, 0)
             DropdownMenu.BackgroundColor3 = Window.CurrentTheme.CardBG
             DropdownMenu.BackgroundTransparency = 0.05
