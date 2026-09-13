@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.18"
+Library.Version = "2.19"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -592,7 +592,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     local pos = mb.Frame and mb.Frame.Position
                     data.MobileButtons[key] = {
                         Visible = (mb.GetVisible and mb:GetVisible()) or (mb.Frame and mb.Frame.Visible),
-                        State = mb.State,
+                        State = mb.IsToggle and mb.State or nil,
                         Position = pos and {
                             XScale = pos.X.Scale,
                             XOffset = pos.X.Offset,
@@ -741,8 +741,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         if info.Visible ~= nil and mb.SetVisible then
                             mb:SetVisible(info.Visible)
                         end
-                        if info.State ~= nil and mb.SetState then
-                            mb:SetState(info.State, true)
+                        if mb.IsToggle and info.State ~= nil and mb.SetState then
+                            mb:SetState(info.State, false)
                         end
                         if info.Position and mb.Frame then
                             mb.Frame.Position = UDim2.new(
@@ -3977,7 +3977,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local MobileUI = Instance.new("ScreenGui")
     MobileUI.Name = "MDMobileUI"
     MobileUI.ResetOnSpawn = false
-    MobileUI.Enabled = true
+    MobileUI.Enabled = false
     MobileUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     MobileUI.DisplayOrder = 22
     MobileUI.Parent = ParentGui
@@ -4281,6 +4281,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
+        local creationTime = os.clock()
+        local isPressed = false
         local dragging = false
         local dragStart = nil
         local startPos = nil
@@ -4290,6 +4292,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TrackConn(Hitbox.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 if not BtnFrame.Visible then return end
+                isPressed = true
                 pressStartTime = os.clock()
                 hasMoved = false
                 if not ButtonObj.IsDraggable or Window.MobileButtonsLocked or ButtonObj.IsLocked then
@@ -4331,6 +4334,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 dragging = false
                 task.delay(0.05, function()
                     hasMoved = false
+                    isPressed = false
                     pressStartTime = 0
                 end)
             end
@@ -4338,6 +4342,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         TrackConn(Hitbox.Activated:Connect(function()
             if not BtnFrame.Visible then return end
+            if (os.clock() - creationTime) < 1.0 then return end
+            if not isPressed then return end
+            isPressed = false
             if not hasMoved then
                 TriggerAction()
             end
@@ -4401,6 +4408,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ButtonObj.SetToggleImages = ButtonObj.SetBackgroundImage
 
         function ButtonObj:SetState(newState, triggerCb)
+            if not isToggle then return end
             currentState = (newState == true)
             ButtonObj.State = currentState
             RefreshAppearance(Window.CurrentTheme)
@@ -5990,6 +5998,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local HoverCorner = Instance.new("UICorner")
         HoverCorner.CornerRadius = UDim.new(0, 6)
         HoverCorner.Parent = HoverGlow
+
+        local HoverGradient = Instance.new("UIGradient")
+        HoverGradient.Name = "HoverGradient"
+        HoverGradient.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0.0, 0.4),
+            NumberSequenceKeypoint.new(0.2, 0.0),
+            NumberSequenceKeypoint.new(0.8, 0.0),
+            NumberSequenceKeypoint.new(1.0, 0.4)
+        })
+        HoverGradient.Parent = HoverGlow
 
         local TabIcon = nil
         if tabIcon and tabIcon ~= "" and tabIcon ~= false then
