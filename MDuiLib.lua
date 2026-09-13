@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.19"
+Library.Version = "2.19.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -5799,6 +5799,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TweenService:Create(oldTab.HoverGlow, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                     BackgroundTransparency = 1
                 }):Play()
+                if oldTab.HoverGradient then
+                    oldTab.HoverGradient.Transparency = NumberSequence.new(1)
+                end
             end
             if oldTab.Icon then
                 TweenService:Create(oldTab.Icon, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
@@ -5814,9 +5817,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             }):Play()
             newTab.Button.FontFace = FontMichromaBold
             if newTab.HoverGlow then
+                -- Active tab: 0.5 transparency at ends, 0.0 in center
                 TweenService:Create(newTab.HoverGlow, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                    BackgroundTransparency = 0.85
+                    BackgroundTransparency = 0
                 }):Play()
+                if newTab.HoverGradient then
+                    newTab.HoverGradient.Transparency = NumberSequence.new({
+                        NumberSequenceKeypoint.new(0.0, 0.5),
+                        NumberSequenceKeypoint.new(0.2, 0.0),
+                        NumberSequenceKeypoint.new(0.8, 0.0),
+                        NumberSequenceKeypoint.new(1.0, 0.5)
+                    })
+                end
             end
             if newTab.Icon then
                 TweenService:Create(newTab.Icon, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
@@ -6002,10 +6014,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local HoverGradient = Instance.new("UIGradient")
         HoverGradient.Name = "HoverGradient"
         HoverGradient.Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0.0, 0.4),
+            NumberSequenceKeypoint.new(0.0, 0.85),
             NumberSequenceKeypoint.new(0.2, 0.0),
             NumberSequenceKeypoint.new(0.8, 0.0),
-            NumberSequenceKeypoint.new(1.0, 0.4)
+            NumberSequenceKeypoint.new(1.0, 0.85)
         })
         HoverGradient.Parent = HoverGlow
 
@@ -6080,6 +6092,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Container = TabContainer,
             Button = TabButton,
             HoverGlow = HoverGlow,
+            HoverGradient = HoverGradient,
             Icon = TabIcon,
             ContentFrame = ContentFrame,
             Layout = ContentLayout
@@ -7871,7 +7884,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TrackConn(TabButton.MouseEnter:Connect(function()
             PlayHoverSFX()
             if Window.ActiveTab ~= tabName then
-                TweenService:Create(HoverGlow, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.90}):Play()
+                -- Hover on inactive tab: 0.85 transparency at ends, 0.0 in center
+                HoverGlow.BackgroundTransparency = 0
+                HoverGradient.Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0.0, 0.85),
+                    NumberSequenceKeypoint.new(0.2, 0.0),
+                    NumberSequenceKeypoint.new(0.8, 0.0),
+                    NumberSequenceKeypoint.new(1.0, 0.85)
+                })
                 TweenService:Create(TabButton, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextColor3 = Window.CurrentTheme.Text}):Play()
                 if TabIcon then
                     TweenService:Create(TabIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {ImageColor3 = Window.CurrentTheme.Text}):Play()
@@ -7881,7 +7901,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         TrackConn(TabButton.MouseLeave:Connect(function()
             if Window.ActiveTab ~= tabName then
+                -- Leaving inactive tab: hide glow entirely
                 TweenService:Create(HoverGlow, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
+                HoverGradient.Transparency = NumberSequence.new(1)
                 TweenService:Create(TabButton, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextColor3 = Window.CurrentTheme.SubText}):Play()
                 if TabIcon then
                     TweenService:Create(TabIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {ImageColor3 = Window.CurrentTheme.SubText}):Play()
@@ -7905,6 +7927,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     if oldTabData.HoverGlow then
                         oldTabData.HoverGlow.BackgroundTransparency = 1
                     end
+                    if oldTabData.HoverGradient then
+                        oldTabData.HoverGradient.Transparency = NumberSequence.new(1)
+                    end
                     local oldTarget = oldTabData.TabGroup or oldTabData.ContentFrame
                     if oldTarget then
                         oldTarget.Visible = false
@@ -7921,7 +7946,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TabButton.TextColor3 = Window.CurrentTheme.Text
             TabButton.TextSize = 18
             TabButton.FontFace = FontMichromaBold
-            HoverGlow.BackgroundTransparency = 0.85
+            HoverGlow.BackgroundTransparency = 0
+            HoverGradient.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0.0, 0.5),
+                NumberSequenceKeypoint.new(0.2, 0.0),
+                NumberSequenceKeypoint.new(0.8, 0.0),
+                NumberSequenceKeypoint.new(1.0, 0.5)
+            })
         else
             ContentFrame.Visible = false
             ContentFrame.Position = UDim2.new(0, 0, 0, 0)
@@ -7929,6 +7960,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TabButton.TextSize = 15
             TabButton.FontFace = FontMichromaRegular
             HoverGlow.BackgroundTransparency = 1
+            HoverGradient.Transparency = NumberSequence.new(1)
         end
 
         return TabObj
