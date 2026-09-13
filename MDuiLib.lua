@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.19.1"
+Library.Version = "2.19.2"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -7887,10 +7887,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 -- Hover on inactive tab: 0.85 transparency at ends, 0.0 in center
                 HoverGlow.BackgroundTransparency = 0
                 HoverGradient.Transparency = NumberSequence.new({
-                    NumberSequenceKeypoint.new(0.0, 0.85),
-                    NumberSequenceKeypoint.new(0.2, 0.0),
-                    NumberSequenceKeypoint.new(0.8, 0.0),
-                    NumberSequenceKeypoint.new(1.0, 0.85)
+                    NumberSequenceKeypoint.new(0.0, 0.98),
+                    NumberSequenceKeypoint.new(0.2, 0.80),
+                    NumberSequenceKeypoint.new(0.8, 0.80),
+                    NumberSequenceKeypoint.new(1.0, 0.98)
                 })
                 TweenService:Create(TabButton, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextColor3 = Window.CurrentTheme.Text}):Play()
                 if TabIcon then
@@ -7948,10 +7948,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TabButton.FontFace = FontMichromaBold
             HoverGlow.BackgroundTransparency = 0
             HoverGradient.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0.0, 0.5),
-                NumberSequenceKeypoint.new(0.2, 0.0),
-                NumberSequenceKeypoint.new(0.8, 0.0),
-                NumberSequenceKeypoint.new(1.0, 0.5)
+                NumberSequenceKeypoint.new(0.0, 0.87),
+                NumberSequenceKeypoint.new(0.2, 0.7),
+                NumberSequenceKeypoint.new(0.8, 0.7),
+                NumberSequenceKeypoint.new(1.0, 0.87)
             })
         else
             ContentFrame.Visible = false
