@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.19.3"
+Library.Version = "2.20"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -2422,18 +2422,32 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         size = size or UDim2.new(0, 210, 0, 14)
         minVal = minVal or 0
         maxVal = maxVal or 100
-        defaultVal = math.clamp(defaultVal or 80, minVal, maxVal)
 
         local showValue = false
         local valueFormat = "number"
         local suffix = ""
         local prefix = ""
+        local increment = 1
+        local precision = 0
+
+        local function GetDecimalPlaces(num)
+            local s = tostring(num)
+            local dot = s:find("%.")
+            if dot then return #s - dot end
+            return 0
+        end
 
         if type(sliderOptions) == "table" then
             showValue = (sliderOptions.ShowValue ~= false)
             valueFormat = sliderOptions.ValueFormat or (sliderOptions.IsPercent and "percent") or (sliderOptions.Suffix == "%" and "percent") or "number"
             suffix = sliderOptions.Suffix or (valueFormat == "percent" and "%" or "")
             prefix = sliderOptions.Prefix or ""
+            increment = tonumber(sliderOptions.Increment or sliderOptions.increment or sliderOptions.Step or sliderOptions.step or sliderOptions.StepAmount or sliderOptions.IncrementAmount) or 1
+            if increment <= 0 then increment = 1 end
+            precision = tonumber(sliderOptions.Precision or sliderOptions.precision or sliderOptions.Decimals or sliderOptions.decimals) or GetDecimalPlaces(increment)
+        elseif type(sliderOptions) == "number" then
+            increment = sliderOptions > 0 and sliderOptions or 1
+            precision = GetDecimalPlaces(increment)
         elseif type(sliderOptions) == "string" then
             showValue = true
             suffix = sliderOptions
@@ -2441,6 +2455,27 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         elseif sliderOptions == true then
             showValue = true
         end
+
+        local function RoundToPrecision(val, prec)
+            if (prec or 0) <= 0 then
+                return math.floor(val + 0.5)
+            else
+                local mult = 10 ^ prec
+                return math.floor((val * mult) + 0.5) / mult
+            end
+        end
+
+        local function SnapToIncrement(val)
+            if increment and increment > 0 then
+                local steps = math.floor(((val - minVal) / increment) + 0.5)
+                local snapped = minVal + (steps * increment)
+                snapped = math.clamp(snapped, minVal, maxVal)
+                return RoundToPrecision(snapped, precision)
+            end
+            return RoundToPrecision(val, precision)
+        end
+
+        defaultVal = SnapToIncrement(math.clamp(defaultVal or minVal or 0, minVal, maxVal))
 
         local TrackFrame = Instance.new("Frame")
         TrackFrame.Name = "SliderTrackFrame"
@@ -2464,10 +2499,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local function GetFormattedValue(val, pct)
             if valueFormat == "percent" or valueFormat == "%" or suffix == "%" then
-                local pctVal = math.floor(pct * 100)
-                return prefix .. tostring(pctVal) .. "%"
+                local pctVal = (precision > 0) and RoundToPrecision(pct * 100, precision) or math.floor(pct * 100 + 0.5)
+                local strPct = (precision > 0) and string.format("%." .. precision .. "f", pctVal) or tostring(pctVal)
+                return prefix .. strPct .. "%"
             else
-                return prefix .. tostring(val) .. suffix
+                local strVal = (precision > 0) and string.format("%." .. precision .. "f", val) or tostring(val)
+                return prefix .. strVal .. suffix
             end
         end
 
@@ -2550,7 +2587,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             counterThread = task.spawn(function()
                 local startVal = displayedVal
                 local diff = targetVal - startVal
-                if math.abs(diff) <= 0.01 then
+                if math.abs(diff) <= (0.01 * increment) then
                     displayedVal = targetVal
                     lbl.Text = GetFormattedValue(targetVal, targetPct)
                     return
@@ -2561,7 +2598,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     local elapsed = os.clock() - startTime
                     local alpha = math.clamp(elapsed / duration, 0, 1)
                     local eased = 1 - math.pow(1 - alpha, 3)
-                    displayedVal = math.floor(startVal + (diff * eased) + 0.5)
+                    displayedVal = SnapToIncrement(startVal + (diff * eased))
                     local curPct = (maxVal > minVal) and ((displayedVal - minVal) / (maxVal - minVal)) or 0
                     lbl.Text = GetFormattedValue(displayedVal, curPct)
                     if alpha >= 1 then break end
@@ -2576,15 +2613,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local trackAbsPos = TrackFrame.AbsolutePosition.X
             local trackAbsSize = TrackFrame.AbsoluteSize.X
             if trackAbsSize <= 0 then return end
-            local pct = math.clamp((inputPos - trackAbsPos) / trackAbsSize, 0, 1)
+            local rawPct = math.clamp((inputPos - trackAbsPos) / trackAbsSize, 0, 1)
+            local rawVal = minVal + (rawPct * (maxVal - minVal))
+            local snappedVal = SnapToIncrement(rawVal)
+            local pct = (maxVal > minVal) and math.clamp((snappedVal - minVal) / (maxVal - minVal), 0, 1) or 0
 
             FilledPart.Size = UDim2.new(pct, 0, 1, 0)
             HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
 
-            currentVal = math.floor(minVal + (pct * (maxVal - minVal)))
-            AnimateValueLabel(currentVal, pct)
-            if onValueChange then
-                pcall(onValueChange, currentVal, pct)
+            if snappedVal ~= currentVal then
+                currentVal = snappedVal
+                AnimateValueLabel(currentVal, pct)
+                if onValueChange then
+                    pcall(onValueChange, currentVal, pct)
+                end
             end
         end
 
@@ -2616,10 +2658,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Stroke = Stroke,
             ValueLabel = ValueLabel,
             GetValue = function() return currentVal end,
+            GetFormattedValue = function(val, pct)
+                val = val or currentVal
+                pct = pct or ((maxVal > minVal) and ((val - minVal) / (maxVal - minVal)) or 0)
+                return GetFormattedValue(val, pct)
+            end,
+            GetIncrement = function() return increment end,
+            SetIncrement = function(newInc, newPrec)
+                increment = tonumber(newInc) or increment
+                if increment <= 0 then increment = 1 end
+                if newPrec ~= nil then
+                    precision = tonumber(newPrec) or 0
+                else
+                    precision = GetDecimalPlaces(increment)
+                end
+                sliderData.SetValue(currentVal, false)
+            end,
             SetValue = function(val, triggerCallback)
-                val = math.clamp(val, minVal, maxVal)
+                val = SnapToIncrement(math.clamp(val, minVal, maxVal))
                 currentVal = val
-                local pct = (maxVal > minVal) and ((val - minVal) / (maxVal - minVal)) or 0
+                local pct = (maxVal > minVal) and math.clamp((val - minVal) / (maxVal - minVal), 0, 1) or 0
                 FilledPart.Size = UDim2.new(pct, 0, 1, 0)
                 HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
                 AnimateValueLabel(currentVal, pct)
@@ -2627,10 +2685,45 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     pcall(onValueChange, currentVal, pct)
                 end
             end,
+            SetSuffix = function(newSuffix)
+                suffix = tostring(newSuffix or "")
+                if suffix == "%" then
+                    valueFormat = "percent"
+                elseif valueFormat == "percent" and suffix ~= "%" then
+                    valueFormat = "number"
+                end
+                local pct = (maxVal > minVal) and ((currentVal - minVal) / (maxVal - minVal)) or 0
+                if ValueLabel then
+                    ValueLabel.Text = GetFormattedValue(currentVal, pct)
+                end
+            end,
+            GetSuffix = function()
+                return suffix
+            end,
+            SetPrefix = function(newPrefix)
+                prefix = tostring(newPrefix or "")
+                local pct = (maxVal > minVal) and ((currentVal - minVal) / (maxVal - minVal)) or 0
+                if ValueLabel then
+                    ValueLabel.Text = GetFormattedValue(currentVal, pct)
+                end
+            end,
+            GetPrefix = function()
+                return prefix
+            end,
+            SetPrecision = function(newPrec)
+                precision = tonumber(newPrec) or precision
+                local pct = (maxVal > minVal) and ((currentVal - minVal) / (maxVal - minVal)) or 0
+                if ValueLabel then
+                    ValueLabel.Text = GetFormattedValue(currentVal, pct)
+                end
+            end,
+            GetPrecision = function()
+                return precision
+            end,
             SetValueFormat = function(format, newSuffix, newPrefix)
                 valueFormat = format or valueFormat
-                suffix = newSuffix or suffix
-                prefix = newPrefix or prefix
+                if newSuffix ~= nil then suffix = tostring(newSuffix) end
+                if newPrefix ~= nil then prefix = tostring(newPrefix) end
                 local pct = (maxVal > minVal) and ((currentVal - minVal) / (maxVal - minVal)) or 0
                 if ValueLabel then
                     ValueLabel.Text = GetFormattedValue(currentVal, pct)
@@ -7772,7 +7865,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 pos = (typeof(arg6) == "UDim2" and arg6) or (typeof(arg7) == "UDim2" and arg7) or pos
             end
 
-            local suffix = (type(sliderOptions) == "table" and (sliderOptions.Suffix or (sliderOptions.ValueFormat == "percent" and "%"))) or (type(sliderOptions) == "string" and sliderOptions) or "%"
+            local suffix = (type(sliderOptions) == "table" and (sliderOptions.Suffix or (sliderOptions.ValueFormat == "percent" and "%") or ""))
+                or (type(sliderOptions) == "string" and sliderOptions)
+                or ""
             local isCard = not customParent or targetParent == ContentFrame or (targetParent and targetParent.Name == "RowFrame")
 
             if isCard and (type(sliderOptions) ~= "table" or sliderOptions.AsCard ~= false) then
@@ -7824,29 +7919,61 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ValueLabel.ZIndex = 11
                 ValueLabel.Parent = SliderCard
 
-                local function FormatVal(val, pct)
-                    if suffix == "%" or (type(sliderOptions) == "table" and sliderOptions.ValueFormat == "percent") then
-                        return tostring(math.floor(pct * 100)) .. "%"
-                    else
-                        return tostring(val) .. suffix
+                local effectiveOpts = {}
+                if type(sliderOptions) == "table" then
+                    for k, v in pairs(sliderOptions) do
+                        effectiveOpts[k] = v
                     end
+                elseif type(sliderOptions) == "string" then
+                    effectiveOpts.Suffix = sliderOptions
+                elseif type(sliderOptions) == "number" then
+                    effectiveOpts.Increment = sliderOptions
                 end
+                effectiveOpts.ShowValue = false
 
-                local initialPct = (maxVal > minVal) and math.clamp((defaultVal - minVal) / (maxVal - minVal), 0, 1) or 0
-                ValueLabel.Text = FormatVal(defaultVal, initialPct)
-
-                local sliderData = Window:CreateMDSlider(SliderCard, UDim2.new(0, 14, 0, 34), UDim2.new(1, -28, 0, 12), minVal, maxVal, defaultVal, function(val, pct)
-                    ValueLabel.Text = FormatVal(val, pct)
+                local sliderData
+                sliderData = Window:CreateMDSlider(SliderCard, UDim2.new(0, 14, 0, 34), UDim2.new(1, -28, 0, 12), minVal, maxVal, defaultVal, function(val, pct)
+                    ValueLabel.Text = sliderData and sliderData.GetFormattedValue(val, pct) or (tostring(val) .. suffix)
                     if onValueChange then
                         pcall(onValueChange, val, pct)
                     end
-                end, sliderName, {
-                    ShowValue = false
-                })
+                end, sliderName, effectiveOpts)
+
+                ValueLabel.Text = sliderData.GetFormattedValue(sliderData.GetValue())
 
                 sliderData.CardFrame = SliderCard
                 sliderData.TitleLabel = TitleLabel
                 sliderData.ValueLabel = ValueLabel
+
+                local oldSetSuffix = sliderData.SetSuffix
+                sliderData.SetSuffix = function(newSuffix)
+                    if oldSetSuffix then oldSetSuffix(newSuffix) end
+                    ValueLabel.Text = sliderData.GetFormattedValue()
+                end
+
+                local oldSetPrefix = sliderData.SetPrefix
+                sliderData.SetPrefix = function(newPrefix)
+                    if oldSetPrefix then oldSetPrefix(newPrefix) end
+                    ValueLabel.Text = sliderData.GetFormattedValue()
+                end
+
+                local oldSetValueFormat = sliderData.SetValueFormat
+                sliderData.SetValueFormat = function(format, newSuffix, newPrefix)
+                    if oldSetValueFormat then oldSetValueFormat(format, newSuffix, newPrefix) end
+                    ValueLabel.Text = sliderData.GetFormattedValue()
+                end
+
+                local oldSetValue = sliderData.SetValue
+                sliderData.SetValue = function(val, triggerCallback)
+                    if oldSetValue then oldSetValue(val, triggerCallback) end
+                    ValueLabel.Text = sliderData.GetFormattedValue()
+                end
+
+                local oldSetIncrement = sliderData.SetIncrement
+                sliderData.SetIncrement = function(newInc, newPrec)
+                    if oldSetIncrement then oldSetIncrement(newInc, newPrec) end
+                    ValueLabel.Text = sliderData.GetFormattedValue()
+                end
 
                 local oldRefresh = sliderData.RefreshTheme
                 sliderData.RefreshTheme = function(theme)
