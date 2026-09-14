@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.22"
+Library.Version = "2.23"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -9318,8 +9318,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return
             end
 
-            -- 2. Trigger active keybinds
-            if not gameProcessed and ScriptUi and ScriptUi.Enabled then
+            -- 2. Trigger active keybinds (works when UI is open or minimized)
+            if not gameProcessed and ((ScriptUi and ScriptUi.Enabled) or (MinimisedUI and MinimisedUI.Enabled)) then
                 local boundBadge = Window.KeybindMap[input.KeyCode]
                 if boundBadge and boundBadge.OnTrigger then
                     local now = os.clock()
