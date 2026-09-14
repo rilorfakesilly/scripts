@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.23"
+Library.Version = "2.23.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -2513,8 +2513,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         }
 
-        if keybindConfig then
-            local defaultKey = (type(keybindConfig) == "table" and (keybindConfig.Default or keybindConfig.Bind)) or (keybindConfig ~= true and keybindConfig or nil)
+        local keybindProp = nil
+        if type(keybindConfig) == "table" then
+            keybindProp = keybindConfig.Bind or keybindConfig.Keybind or keybindConfig.DefaultBind or keybindConfig.Key or keybindConfig.KeyBind or keybindConfig.DefaultKey
+            if keybindProp == nil and keybindConfig.Default ~= nil and typeof(keybindConfig.Default) ~= "boolean" then
+                keybindProp = keybindConfig.Default
+            end
+        elseif keybindConfig ~= nil and keybindConfig ~= false and keybindConfig ~= true then
+            keybindProp = keybindConfig
+        end
+
+        if keybindProp then
+            local defaultKey = keybindProp
             local pos = position or UDim2.new(0, 0, 0, 0)
             local badgePos = UDim2.new(pos.X.Scale, pos.X.Offset - 42, pos.Y.Scale, pos.Y.Offset + 2)
             toggleData.Keybind = Window:CreateKeybindBadge(parent, badgePos, UDim2.new(0, 36, 0, 22), defaultKey, function()
@@ -3879,7 +3889,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        local hasKeybind = keybindConfig ~= nil and keybindConfig ~= false and (type(keybindConfig) ~= "table" or keybindConfig.Default ~= nil or keybindConfig.Bind ~= nil)
+        local keybindProp = nil
+        if type(keybindConfig) == "table" then
+            keybindProp = keybindConfig.Bind or keybindConfig.Keybind or keybindConfig.DefaultBind or keybindConfig.Key or keybindConfig.KeyBind or keybindConfig.DefaultKey
+            if keybindProp == nil and keybindConfig.Default ~= nil and typeof(keybindConfig.Default) ~= "boolean" then
+                keybindProp = keybindConfig.Default
+            end
+        elseif keybindConfig ~= nil and keybindConfig ~= false and keybindConfig ~= true then
+            keybindProp = keybindConfig
+        end
+
+        local hasKeybind = (keybindProp ~= nil and keybindProp ~= false and keybindProp ~= "")
 
         local TitleText = Instance.new("TextLabel")
         TitleText.Name = "btntext"
@@ -4119,7 +4139,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         toggleData.WithKeybind = function(self, keyOrConfig, cb)
             if not self.Keybind then
-                local defaultKey = (type(keyOrConfig) == "table" and (keyOrConfig.Default or keyOrConfig.Bind)) or (keyOrConfig ~= true and keyOrConfig or nil)
+                local kbProp = nil
+                if type(keyOrConfig) == "table" then
+                    kbProp = keyOrConfig.Bind or keyOrConfig.Keybind or keyOrConfig.DefaultBind or keyOrConfig.Key or keyOrConfig.KeyBind or keyOrConfig.DefaultKey
+                    if kbProp == nil and keyOrConfig.Default ~= nil and typeof(keyOrConfig.Default) ~= "boolean" then
+                        kbProp = keyOrConfig.Default
+                    end
+                elseif keyOrConfig ~= nil and keyOrConfig ~= false and keyOrConfig ~= true then
+                    kbProp = keyOrConfig
+                end
+                local defaultKey = kbProp
                 local keyPos = (self.ConnectedSlider or CardFrame.Size.Y.Offset > 50) and UDim2.new(1, -96, 0, 11) or UDim2.new(1, -96, 0.5, -11)
                 self.Keybind = Window:CreateKeybindBadge(CardFrame, keyPos, UDim2.new(0, 36, 0, 22), defaultKey, function()
                     self.SetState(not isToggled, true)
@@ -4163,7 +4192,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         if hasKeybind then
-            local defaultKey = (type(keybindConfig) == "table" and (keybindConfig.Default or keybindConfig.Bind)) or (keybindConfig ~= true and keybindConfig or nil)
+            local defaultKey = keybindProp
             local keyPos = (toggleData.ConnectedSlider or CardFrame.Size.Y.Offset > 50) and UDim2.new(1, -96, 0, 11) or UDim2.new(1, -96, 0.5, -11)
             toggleData.Keybind = Window:CreateKeybindBadge(CardFrame, keyPos, UDim2.new(0, 36, 0, 22), defaultKey, function()
                 toggleData.SetState(not isToggled, true)
