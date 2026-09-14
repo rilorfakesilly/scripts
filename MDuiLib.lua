@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.23.2"
+Library.Version = "2.23.3"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -6402,7 +6402,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             end
 
-            local pName = (LocalPlayer and (LocalPlayer.DisplayName or LocalPlayer.Name)) or "User"
+            local pName = "User"
+            if LocalPlayer then
+                local dn = LocalPlayer.DisplayName
+                local n  = LocalPlayer.Name
+                if dn and dn ~= "" then
+                    pName = dn
+                elseif n and n ~= "" then
+                    pName = n
+                end
+            end
             local WelcomeMsg = Instance.new("TextLabel")
             WelcomeMsg.Name = "Welcomemsg"
             WelcomeMsg.Size = UDim2.new(0, 360, 0, 45)
