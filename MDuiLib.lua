@@ -4922,23 +4922,23 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- =========================================================================
     local Lighting = game:GetService("Lighting")
     for _, item in ipairs(Lighting:GetChildren()) do
-        if item.Name == "ScriptHubBlur" or item.Name == "ScriptHubDOF" or item.Name == "MDScriptHubBlur" or item.Name == "MDScriptHubDOF" then
+        if item.Name == "skriptHabBlur" or item.Name == "skriptHabDeOfFi" or item.Name == "MDkriptHabBlur" or item.Name == "MDskriptHabDeOfFi" then
             pcall(function() item:Destroy() end)
         end
     end
     for _, item in ipairs(Camera:GetChildren()) do
-        if item.Name == "ScriptHubBlur" or item.Name == "ScriptHubBlurCam" or item.Name == "ScriptHubDOF" or item.Name == "LocalUIBlurPart" or item.Name == "MDScriptHubBlur" or item.Name == "MDScriptHubBlurCam" or item.Name == "MDScriptHubDOF" or item.Name == "MD_LocalUIBlurPart" then
+        if item.Name == "skriptHabBlur" or item.Name == "ZkriptHabBlerCam" or item.Name == "skriptHabDeOfFi" or item.Name == "LokalUIDaBlurPart" or item.Name == "MDkriptHabBlur" or item.Name == "MDZkriptHabBlerCam" or item.Name == "MDskriptHabDeOfFi" or item.Name == "MD_LokalUIDaBlurPart" then
             pcall(function() item:Destroy() end)
         end
     end
     for _, item in ipairs(workspace:GetChildren()) do
-        if item.Name == "LocalUIBlurPart" or item.Name == "MD_LocalUIBlurPart" then
+        if item.Name == "LokalUIDaBlurPart" or item.Name == "MD_LokalUIDaBlurPart" then
             pcall(function() item:Destroy() end)
         end
     end
 
     local BackgroundDOF = Instance.new("DepthOfFieldEffect")
-    BackgroundDOF.Name = "ScriptHubDOF"
+    BackgroundDOF.Name = "skriptHabDeOfFi"
     BackgroundDOF.FocusDistance = 2.5
     BackgroundDOF.InFocusRadius = 0
     BackgroundDOF.NearIntensity = 1.0
@@ -4947,7 +4947,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     BackgroundDOF.Parent = Lighting
 
     local LocalUIBlurPart = Instance.new("Part")
-    LocalUIBlurPart.Name = "LocalUIBlurPart"
+    LocalUIBlurPart.Name = "LokalUIDaBlurPart"
     LocalUIBlurPart.Material = Enum.Material.Glass
     LocalUIBlurPart.Transparency = 1 -- Fully transparent during loading screen
     LocalUIBlurPart.Color = Color3.fromRGB(255, 255, 255)
@@ -9758,7 +9758,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             BackgroundDOF.Enabled = enabled
         elseif enabled then
             BackgroundDOF = Instance.new("DepthOfFieldEffect")
-            BackgroundDOF.Name = "ScriptHubDOF"
+            BackgroundDOF.Name = "skriptHabDeOfFi"
             BackgroundDOF.FocusDistance = 2.5
             BackgroundDOF.InFocusRadius = 0
             BackgroundDOF.NearIntensity = 1.0
@@ -9772,7 +9772,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             LocalUIBlurPart.Transparency = enabled and 0.98 or 1
         elseif enabled then
             LocalUIBlurPart = Instance.new("Part")
-            LocalUIBlurPart.Name = "LocalUIBlurPart"
+            LocalUIBlurPart.Name = "LokalUIDaBlurPart"
             LocalUIBlurPart.Material = Enum.Material.Glass
             LocalUIBlurPart.Transparency = 0.98
             LocalUIBlurPart.Color = Color3.fromRGB(255, 255, 255)
