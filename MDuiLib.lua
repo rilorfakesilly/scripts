@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.25"
+Library.Version = "2.25.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -5949,14 +5949,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedFrame.ZIndex = 100
     MinimizedFrame.Parent = MinimisedUI
 
-    -- 2nd bigger layer spinning just a bit faster counter-clockwise (rbxassetid://95108160130077)
+    -- 2nd bigger layer spinning counter-clockwise at -28 deg/sec (rbxassetid://137088387997132)
     local MinLayer2_Big = Instance.new("ImageLabel")
     MinLayer2_Big.Name = "MinLayer2_Big"
     MinLayer2_Big.AnchorPoint = Vector2.new(0.5, 0.5)
     MinLayer2_Big.Position = UDim2.new(0.5, 0, 0.5, 0)
     MinLayer2_Big.Size = UDim2.new(1, 28, 1, 28)
     MinLayer2_Big.BackgroundTransparency = 1
-    MinLayer2_Big.Image = "rbxassetid://95108160130077"
+    MinLayer2_Big.Image = "rbxassetid://137088387997132"
     MinLayer2_Big.ZIndex = 98
     MinLayer2_Big.Parent = MinimizedFrame
 
@@ -5964,14 +5964,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinGrad2.Rotation = 0
     MinGrad2.Parent = MinLayer2_Big
 
-    -- 1st smaller layer spinning slowly clockwise (rbxassetid://137088387997132)
+    -- 1st smaller layer spinning slowly clockwise (rbxassetid://95108160130077)
     local MinLayer1_Small = Instance.new("ImageLabel")
     MinLayer1_Small.Name = "MinLayer1_Small"
     MinLayer1_Small.AnchorPoint = Vector2.new(0.5, 0.5)
     MinLayer1_Small.Position = UDim2.new(0.5, 0, 0.5, 0)
     MinLayer1_Small.Size = UDim2.new(1, 14, 1, 14)
     MinLayer1_Small.BackgroundTransparency = 1
-    MinLayer1_Small.Image = "rbxassetid://137088387997132"
+    MinLayer1_Small.Image = "rbxassetid://95108160130077"
     MinLayer1_Small.ZIndex = 99
     MinLayer1_Small.Parent = MinimizedFrame
 
@@ -6000,7 +6000,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TrackConn(RunService.RenderStepped:Connect(function(dt)
         if MinimisedUI.Enabled then
             rot1 = (rot1 + (dt * 30)) % 360
-            rot2 = (rot2 - (dt * 48)) % 360
+            rot2 = (rot2 - (dt * 28)) % 360
             if MinLayer1_Small and MinLayer1_Small.Parent then
                 MinLayer1_Small.Rotation = rot1
             end
