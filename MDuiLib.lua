@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.25.2"
+Library.Version = "2.26"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -5151,40 +5151,69 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return
         end
 
-        local padX = 16
-        local padY = 16
-        local minX = absPos.X + padX
-        local minY = absPos.Y + padY
-        local maxX = absPos.X + absSize.X - padX
-        local maxY = absPos.Y + absSize.Y - padY
+        local minX = absPos.X
+        local minY = absPos.Y
+        local maxX = absPos.X + absSize.X
+        local maxY = absPos.Y + absSize.Y
 
-        local rayTL = Camera:ScreenPointToRay(minX, minY)
-        local rayBR = Camera:ScreenPointToRay(maxX, maxY)
-        local rayC = Camera:ScreenPointToRay((minX + maxX) * 0.5, (minY + maxY) * 0.5)
+        local camCF = Camera.CFrame
+        local camLook = camCF.LookVector
+        if camLook.Magnitude > 0.0001 then
+            camLook = camLook.Unit
+        else
+            camLook = Vector3.new(0, 0, -1)
+        end
 
         local depth = 1.0
-        local dirTL = Camera.CFrame:VectorToObjectSpace(rayTL.Direction)
-        local keyboardR = Camera.CFrame:VectorToObjectSpace(rayBR.Direction)
-        local dirC = Camera.CFrame:VectorToObjectSpace(rayC.Direction)
 
-        if dirTL.Z >= 0 or keyboardR.Z >= 0 or dirC.Z >= 0 then
+        local function getPlaneWorldPos(px, py)
+            local ray = Camera:ScreenPointToRay(px, py)
+            if not ray or not ray.Direction then return nil end
+            local dir = ray.Direction
+            local dot = dir:Dot(camLook)
+            if dot <= 0.0001 then
+                return nil
+            end
+            local dist = depth / dot
+            return ray.Origin + (dir * dist)
+        end
+
+        local pTL = getPlaneWorldPos(minX, minY)
+        local pTR = getPlaneWorldPos(maxX, minY)
+        local pBL = getPlaneWorldPos(minX, maxY)
+        local pBR = getPlaneWorldPos(maxX, maxY)
+
+        if not pTL or not pTR or not pBL or not pBR then
             LocalUIBlurPart.Transparency = 1
             LocalUIBlurPart.CFrame = CFrame.new(0, 999999, 0)
             return
         end
 
-        local x1 = (dirTL.X / -dirTL.Z) * depth
-        local y1 = (dirTL.Y / -dirTL.Z) * depth
-        local x2 = (keyboardR.X / -keyboardR.Z) * depth
-        local y2 = (keyboardR.Y / -keyboardR.Z) * depth
-        local cX = (dirC.X / -dirC.Z) * depth
-        local cY = (dirC.Y / -dirC.Z) * depth
+        local pCenter = (pTL + pTR + pBL + pBR) * 0.25
 
-        local partW = math.abs(x2 - x1)
-        local partH = math.abs(y1 - y2)
+        local vX = (pTR - pTL)
+        local vY = (pTL - pBL) -- upward vector in world space
 
-        LocalUIBlurPart.Size = Vector3.new(partW, partH, 0.01)
-        LocalUIBlurPart.CFrame = Camera.CFrame * CFrame.new(cX, cY, -depth)
+        local width = vX.Magnitude
+        local height = vY.Magnitude
+
+        if width < 0.001 or height < 0.001 then
+            LocalUIBlurPart.Transparency = 1
+            LocalUIBlurPart.CFrame = CFrame.new(0, 999999, 0)
+            return
+        end
+
+        local uX = vX.Unit
+        local uY = vY.Unit
+        local uZ = uX:Cross(uY)
+        if uZ.Magnitude < 0.0001 then
+            uZ = -camLook
+        else
+            uZ = uZ.Unit
+        end
+
+        LocalUIBlurPart.Size = Vector3.new(width, height, 0.01)
+        LocalUIBlurPart.CFrame = CFrame.fromMatrix(pCenter, uX, uY, uZ)
         LocalUIBlurPart.Transparency = 0.98
         if BackgroundDOF and BackgroundDOF.Parent then
             BackgroundDOF.Enabled = true
