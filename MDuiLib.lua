@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.26"
+Library.Version = "2.26.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -5116,6 +5116,27 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Window.BackgroundDOF = BackgroundDOF
     Window.LocalUIBlurPart = LocalUIBlurPart
 
+    local function getVerticalTanHalfFov(cam, viewW, viewH)
+        local fov = cam.FieldOfView or 70
+        local radFov = math.rad(fov)
+        local fovMode = pcall(function() return cam.FieldOfViewMode end) and cam.FieldOfViewMode or nil
+
+        if fovMode == Enum.FieldOfViewMode.Diagonal then
+            local diagTan = math.tan(radFov * 0.5)
+            local aspect = viewW / math.max(viewH, 1)
+            return diagTan / math.sqrt(1 + (aspect * aspect))
+        elseif fovMode == Enum.FieldOfViewMode.MaxAxis then
+            local maxTan = math.tan(radFov * 0.5)
+            if viewW > viewH then
+                return maxTan / (viewW / math.max(viewH, 1))
+            else
+                return maxTan
+            end
+        else
+            return math.tan(radFov * 0.5)
+        end
+    end
+
     local function UpdateLocalUIBlur()
         if not Window.BackgroundBlurEnabled or not ScriptUi or not ScriptUi.Enabled or not MainContainer or not MainContainer.Parent or not LocalUIBlurPart or not LocalUIBlurPart.Parent then
             if LocalUIBlurPart and LocalUIBlurPart.Parent then
@@ -5151,69 +5172,55 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return
         end
 
-        local minX = absPos.X
-        local minY = absPos.Y
-        local maxX = absPos.X + absSize.X
-        local maxY = absPos.Y + absSize.Y
+        local viewW = Camera.ViewportSize.X
+        local viewH = Camera.ViewportSize.Y
+        if viewW <= 0 or viewH <= 0 then return end
 
         local camCF = Camera.CFrame
-        local camLook = camCF.LookVector
-        if camLook.Magnitude > 0.0001 then
-            camLook = camLook.Unit
-        else
-            camLook = Vector3.new(0, 0, -1)
-        end
+        local camPos = camCF.Position
+        local _, _, _, r00, r01, r02, r10, r11, r12, r20, r21, r22 = camCF:GetComponents()
+
+        local vecR = Vector3.new(r00, r10, r20)
+        local vecU = Vector3.new(r01, r11, r21)
+        local vecL = -Vector3.new(r02, r12, r22)
+
+        local sx = vecR.Magnitude
+        if sx < 0.0001 then sx = 1 end
+
+        local sy = vecU.Magnitude
+        if sy < 0.0001 then sy = 1 end
+
+        local sz = vecL.Magnitude
+        if sz < 0.0001 then sz = 1 end
+
+        local uR = vecR / sx
+        local uU = vecU / sy
+        local uL = vecL / sz
 
         local depth = 1.0
+        local tanHalfFovY = getVerticalTanHalfFov(Camera, viewW, viewH)
+        local scaleFactor = (2 * depth * tanHalfFovY) / math.max(viewH, 1)
 
-        local function getPlaneWorldPos(px, py)
-            local ray = Camera:ScreenPointToRay(px, py)
-            if not ray or not ray.Direction then return nil end
-            local dir = ray.Direction
-            local dot = dir:Dot(camLook)
-            if dot <= 0.0001 then
-                return nil
-            end
-            local dist = depth / dot
-            return ray.Origin + (dir * dist)
-        end
+        local minX = absPos.X + 2
+        local minY = absPos.Y + 2
+        local maxX = absPos.X + absSize.X - 2
+        local maxY = absPos.Y + absSize.Y - 2
 
-        local pTL = getPlaneWorldPos(minX, minY)
-        local pTR = getPlaneWorldPos(maxX, minY)
-        local pBL = getPlaneWorldPos(minX, maxY)
-        local pBR = getPlaneWorldPos(maxX, maxY)
+        local uiW = math.max(maxX - minX, 1)
+        local uiH = math.max(maxY - minY, 1)
+        local midX = (minX + maxX) * 0.5
+        local midY = (minY + maxY) * 0.5
 
-        if not pTL or not pTR or not pBL or not pBR then
-            LocalUIBlurPart.Transparency = 1
-            LocalUIBlurPart.CFrame = CFrame.new(0, 999999, 0)
-            return
-        end
+        local partW = (uiW * scaleFactor) / sx
+        local partH = (uiH * scaleFactor) / sy
 
-        local pCenter = (pTL + pTR + pBL + pBR) * 0.25
+        local cX = ((midX - (viewW * 0.5)) * scaleFactor) / sx
+        local cY = (((viewH * 0.5) - midY) * scaleFactor) / sy
 
-        local vX = (pTR - pTL)
-        local vY = (pTL - pBL) -- upward vector in world space
+        local pCenter = camPos + (uR * cX) + (uU * cY) + (uL * depth)
 
-        local width = vX.Magnitude
-        local height = vY.Magnitude
-
-        if width < 0.001 or height < 0.001 then
-            LocalUIBlurPart.Transparency = 1
-            LocalUIBlurPart.CFrame = CFrame.new(0, 999999, 0)
-            return
-        end
-
-        local uX = vX.Unit
-        local uY = vY.Unit
-        local uZ = uX:Cross(uY)
-        if uZ.Magnitude < 0.0001 then
-            uZ = -camLook
-        else
-            uZ = uZ.Unit
-        end
-
-        LocalUIBlurPart.Size = Vector3.new(width, height, 0.01)
-        LocalUIBlurPart.CFrame = CFrame.fromMatrix(pCenter, uX, uY, uZ)
+        LocalUIBlurPart.Size = Vector3.new(partW, partH, 0.01)
+        LocalUIBlurPart.CFrame = CFrame.fromMatrix(pCenter, uR, uU, -uL)
         LocalUIBlurPart.Transparency = 0.98
         if BackgroundDOF and BackgroundDOF.Parent then
             BackgroundDOF.Enabled = true
