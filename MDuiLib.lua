@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.24"
+Library.Version = "2.24.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -80,6 +80,16 @@ local function ProtectGui(gui)
             protectgui(gui)
         end
     end)
+end
+local function ResolveParent(parent)
+    if type(parent) == "table" then
+        if parent.Frame and typeof(parent.Frame) == "Instance" then
+            return parent.Frame
+        elseif parent.Instance and typeof(parent.Instance) == "Instance" then
+            return parent.Instance
+        end
+    end
+    return parent
 end
 
 Library.ActiveGuis = Library.ActiveGuis or {}
@@ -1137,6 +1147,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- TEXTBOX GENERATORS (Full & Half Width)
     -- =========================================================================
     function Window:CreateMDTextbox(parent, position, size, title, placeholder, defaultText, onSubmit, boxOptions)
+        parent = ResolveParent(parent)
         size = size or UDim2.new(1, -10, 0, 50)
         position = position or UDim2.new(0, 0, 0, 0)
 
@@ -1279,6 +1290,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- DROPDOWN GENERATORS (Full-Width & Half-Width from XML Specs)
     -- =========================================================================
     function Window:CreateMDDropdown(parent, position, size, title, options, defaultOption, onSelect, dropConfig)
+        parent = ResolveParent(parent)
         size = size or UDim2.new(1, -10, 0, 62)
         position = position or UDim2.new(0, 0, 0, 0)
         options = options or {}
@@ -2154,6 +2166,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     -- Ultra-Smooth Button Generator Helper
     function Window:CreateMDButton(parent, size, position, text, onClick, showArrow)
+        parent = ResolveParent(parent)
         local BtnFrame = Instance.new("Frame")
         BtnFrame.Name = GenerateSafeName("BtnFrame")
         BtnFrame.Size = size or UDim2.new(0, 260, 0, 62)
@@ -2514,6 +2527,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
     function Window:CreateMDToggle(parent, position, size, initialState, onToggle, identifier, keybindConfig)
+        parent = ResolveParent(parent)
         size = size or UDim2.new(0, 56, 0, 26)
 
         local ToggleFrame = Instance.new("Frame")
@@ -2654,6 +2668,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
     function Window:CreateMDSlider(parent, position, size, minVal, maxVal, defaultVal, onValueChange, identifier, sliderOptions)
+        parent = ResolveParent(parent)
         size = size or UDim2.new(0, 210, 0, 14)
         minVal = minVal or 0
         maxVal = maxVal or 100
@@ -3597,6 +3612,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Window.PromptConfirm = Window.Confirm
 
     function Window:CreateMDColorPicker(parent, position, size, title, defaultColor, onColorChanged, identifier)
+        parent = ResolveParent(parent)
         size = size or UDim2.new(1, 0, 0, 44)
         position = position or UDim2.new(0, 0, 0, 0)
         defaultColor = defaultColor or Color3.fromRGB(255, 255, 255)
@@ -3768,7 +3784,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     function Window:CreateMDButtonLong(parent, position, size, text, onClick)
         local btnText, callback, btnSize, btnPos, targetParent
 
-        if type(parent) == "table" and not parent.IsA then
+        if type(parent) == "table" and not parent.IsA and not parent.Frame and not parent.Instance then
             targetParent = parent.Parent or parent.parent or parent.Row or parent[1]
             btnPos = parent.Position or parent.pos or UDim2.new(0, 0, 0, 0)
             btnSize = parent.Size or parent.size or parent.Fraction or parent[2]
@@ -3808,7 +3824,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnFrame.BackgroundTransparency = 0.05
         BtnFrame.BorderSizePixel = 0
         BtnFrame.ZIndex = 10
-        BtnFrame.Parent = parent
+        BtnFrame.Parent = ResolveParent(targetParent or parent)
 
         local Corner = Instance.new("UICorner")
         Corner.CornerRadius = UDim.new(0, 22)
@@ -3939,6 +3955,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     -- Half-Side Embedded Toggle Generator
     function Window:CreateMDToggleHalf(parent, position, size, text, initialState, onToggle, keybindConfig, connectMode)
+        parent = ResolveParent(parent)
         size = size or UDim2.new(0, 260, 0, 44)
         position = position or UDim2.new(0, 0, 0, 0)
 
@@ -7816,39 +7833,53 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             RowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
             RowLayout.Parent = RowFrame
 
-            function RowFrame:AddButton(text, callback, sizeFraction)
+            local RowObj = {
+                Frame = RowFrame,
+                Instance = RowFrame,
+            }
+
+            function RowObj:AddButton(text, callback, sizeFraction)
                 return TabObj:AddLongButton(text, callback, sizeFraction or 0.5, RowFrame)
             end
-            function RowFrame:AddLongButton(text, callback, sizeFraction)
+            function RowObj:AddLongButton(text, callback, sizeFraction)
                 return TabObj:AddLongButton(text, callback, sizeFraction or 0.5, RowFrame)
             end
-            function RowFrame:AddToggle(titleOrConfig, initialState, onToggle, sizeFraction)
+            function RowObj:AddToggle(titleOrConfig, initialState, onToggle, sizeFraction)
                 return TabObj:AddToggle(titleOrConfig, initialState, onToggle, RowFrame, nil, sizeFraction or 0.5)
             end
-            function RowFrame:AddDropdown(title, options, defaultOption, onSelect, sizeFraction)
+            function RowObj:AddDropdown(title, options, defaultOption, onSelect, sizeFraction)
                 return TabObj:AddDropdown(title, options, defaultOption, onSelect, RowFrame, nil, sizeFraction or 0.5)
             end
-            function RowFrame:AddMultiDropdown(titleOrConfig, options, defaultSelections, onSelect, sizeFraction)
+            function RowObj:AddMultiDropdown(titleOrConfig, options, defaultSelections, onSelect, sizeFraction)
                 return TabObj:AddMultiDropdown(titleOrConfig, options, defaultSelections, onSelect, RowFrame, nil, sizeFraction or 0.5)
             end
-            function RowFrame:AddNumberInput(titleOrConfig, options, callback, sizeFraction)
+            function RowObj:AddNumberInput(titleOrConfig, options, callback, sizeFraction)
                 return TabObj:AddNumberInput(titleOrConfig, options, callback, RowFrame, nil, sizeFraction or 0.5)
             end
-            function RowFrame:AddSpinbox(titleOrConfig, options, callback, sizeFraction)
+            function RowObj:AddSpinbox(titleOrConfig, options, callback, sizeFraction)
                 return TabObj:AddNumberInput(titleOrConfig, options, callback, RowFrame, nil, sizeFraction or 0.5)
             end
-            function RowFrame:AddTextbox(title, placeholder, defaultText, onSubmit, sizeFraction)
+            function RowObj:AddTextbox(title, placeholder, defaultText, onSubmit, sizeFraction)
                 return TabObj:AddTextbox(title, placeholder, defaultText, onSubmit, RowFrame, nil, sizeFraction or 0.5)
             end
-            function RowFrame:AddColorPicker(title, defaultColor, callback, sizeFraction)
+            function RowObj:AddColorPicker(title, defaultColor, callback, sizeFraction)
                 return TabObj:AddColorPicker(title, defaultColor, callback, RowFrame, nil, sizeFraction or 0.5)
             end
-            function RowFrame:AddSlider(title, min, max, default, callback, sizeFraction, options)
+            function RowObj:AddSlider(title, min, max, default, callback, sizeFraction, options)
                 return TabObj:AddSlider(title, min, max, default, callback, options or sizeFraction, RowFrame)
             end
 
+            setmetatable(RowObj, {
+                __index = function(t, k)
+                    return RowFrame[k]
+                end,
+                __newindex = function(t, k, v)
+                    RowFrame[k] = v
+                end,
+            })
+
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
-            return RowFrame
+            return RowObj
         end
 
         function TabObj:AddLongButton(arg1, arg2, arg3, arg4, arg5)
@@ -7862,7 +7893,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             else
                 text = arg1 or "Button"
                 callback = arg2
-                if typeof(arg3) == "Instance" then
+                if typeof(arg3) == "Instance" or (type(arg3) == "table" and (arg3.Frame or arg3.Instance)) then
                     parentRow = arg3
                     position = arg4
                 else
@@ -7872,6 +7903,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             end
 
+            parentRow = ResolveParent(parentRow)
             local fraction, explicitUDim = ResolveSizeFraction(sizeInput, parentRow and 0.5 or 1.0)
             local targetParent = parentRow
             local finalSize
@@ -7983,6 +8015,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 cfg = dropConfig
             end
 
+            parentRow = ResolveParent(parentRow)
             local targetParent = parentRow or ContentFrame
             local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
             local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
@@ -8020,6 +8053,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 opts = boxOptions
             end
 
+            parentRow = ResolveParent(parentRow)
             local targetParent = parentRow or ContentFrame
             local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
             local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 50) or UDim2.new(1, -10, 0, 50))
@@ -8039,6 +8073,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         function TabObj:AddColorPicker(title, defaultColor, callback, parentRow, position, sizeFraction)
+            parentRow = ResolveParent(parentRow)
             local targetParent = parentRow or ContentFrame
             local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
             local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
@@ -8082,6 +8117,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 bind = bindConfig
             end
 
+            parentRow = ResolveParent(parentRow)
             targetParent = parentRow or ContentFrame
             local isToggleGroup = parentRow and parentRow.Name == "ToggleGroup"
             local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isToggleGroup) and 0.5 or 1.0)
@@ -8222,6 +8258,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 pos = (typeof(arg6) == "UDim2" and arg6) or (typeof(arg7) == "UDim2" and arg7) or pos
             end
 
+            targetParent = ResolveParent(targetParent)
             local suffix = (type(sliderOptions) == "table" and (sliderOptions.Suffix or (sliderOptions.ValueFormat == "percent" and "%") or ""))
                 or (type(sliderOptions) == "string" and sliderOptions)
                 or ""
