@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.24.1"
+Library.Version = "2.24.2"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -5070,12 +5070,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- =========================================================================
     local Lighting = game:GetService("Lighting")
     for _, item in ipairs(Lighting:GetChildren()) do
-        if item.Name == "ScriptHubBlur" or item.Name == "ScriptHubDOF" or item.Name == "MDScriptHubBlur" or item.Name == "MDScriptHubDOF" then
+        if item.Name == "StHbBlur" or item.Name == "StHbDOF" or item.Name == "MDStHbBlur" or item.Name == "MDStHbDOF" then
             pcall(function() item:Destroy() end)
         end
     end
     for _, item in ipairs(Camera:GetChildren()) do
-        if item.Name == "ScriptHubBlur" or item.Name == "ScriptHubBlurCam" or item.Name == "ScriptHubDOF" or item.Name == "LocalUIBlurPart" or item.Name == "MDScriptHubBlur" or item.Name == "MDScriptHubBlurCam" or item.Name == "MDScriptHubDOF" or item.Name == "MD_LocalUIBlurPart" then
+        if item.Name == "StHbBlur" or item.Name == "StHbBlurCam" or item.Name == "StHbDOF" or item.Name == "LocalUIBlurPart" or item.Name == "MDStHbBlur" or item.Name == "MDStHbBlurCam" or item.Name == "MDStHbDOF" or item.Name == "MD_LocalUIBlurPart" then
             pcall(function() item:Destroy() end)
         end
     end
@@ -5086,7 +5086,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
     local BackgroundDOF = Instance.new("DepthOfFieldEffect")
-    BackgroundDOF.Name = "ScriptHubDOF"
+    BackgroundDOF.Name = "StHbDOF"
     BackgroundDOF.FocusDistance = 2.5
     BackgroundDOF.InFocusRadius = 0
     BackgroundDOF.NearIntensity = 1.0
@@ -9705,7 +9705,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             BackgroundDOF.Enabled = enabled
         elseif enabled then
             BackgroundDOF = Instance.new("DepthOfFieldEffect")
-            BackgroundDOF.Name = "ScriptHubDOF"
+            BackgroundDOF.Name = "StHbDOF"
             BackgroundDOF.FocusDistance = 2.5
             BackgroundDOF.InFocusRadius = 0
             BackgroundDOF.NearIntensity = 1.0
