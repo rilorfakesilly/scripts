@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.26.2"
+Library.Version = "2.26.3"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -5185,10 +5185,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local insetX = ScriptUi.IgnoreGuiInset and 0 or inset.X
         local insetY = ScriptUi.IgnoreGuiInset and 0 or inset.Y
 
-        local minX = absPos.X + insetX
-        local minY = absPos.Y + insetY
-        local uiW = absSize.X
-        local uiH = absSize.Y
+        local padX = 10
+        local padY = 4
+
+        local minX = absPos.X + insetX + padX
+        local minY = absPos.Y + insetY + padY
+        local uiW = math.max(absSize.X - (padX * 2), 1)
+        local uiH = math.max(absSize.Y - (padY * 2), 1)
 
         local midX = minX + (uiW * 0.5)
         local midY = minY + (uiH * 0.5)
