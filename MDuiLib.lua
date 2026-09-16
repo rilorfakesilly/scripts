@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.25.1"
+Library.Version = "2.25.2"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -5949,7 +5949,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedFrame.ZIndex = 100
     MinimizedFrame.Parent = MinimisedUI
 
-    -- 2nd bigger layer spinning counter-clockwise at -28 deg/sec (rbxassetid://137088387997132)
+    -- 2nd bigger layer spinning just a bit faster counter-clockwise (rbxassetid://95108160130077)
     local MinLayer2_Big = Instance.new("ImageLabel")
     MinLayer2_Big.Name = "MinLayer2_Big"
     MinLayer2_Big.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -5964,7 +5964,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinGrad2.Rotation = 0
     MinGrad2.Parent = MinLayer2_Big
 
-    -- 1st smaller layer spinning slowly clockwise (rbxassetid://95108160130077)
+    -- 1st smaller layer spinning slowly clockwise (rbxassetid://137088387997132)
     local MinLayer1_Small = Instance.new("ImageLabel")
     MinLayer1_Small.Name = "MinLayer1_Small"
     MinLayer1_Small.AnchorPoint = Vector2.new(0.5, 0.5)
