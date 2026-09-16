@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.24.2"
+Library.Version = "2.25"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -596,7 +596,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Sounds = Window.UISoundsEnabled,
                 SoundVolume = Window.SoundVolume or 0.8,
                 Notifications = Window.NotificationsEnabled,
-                CustomThemeColor = Window.CustomThemeColor and Window.CustomThemeColor:ToHex() or nil,
+                CustomThemeColor = (Window.IsCustomTheme and Window.CustomThemeColor) and Window.CustomThemeColor:ToHex() or nil,
                 BGTransparency = Window.CustomBGTransparency or 0.10,
                 ClickEffects = Window.ClickEffectsEnabled,
                 ClickParticle = Window.ClickParticleType or "Theme default",
@@ -690,12 +690,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if not data then return end
 
         -- 1. Apply Theme Preset or Custom Theme First
-        if data.Settings and data.Settings.CustomThemeColor and Window.ApplyCustomTheme then
+        if data.Settings and data.Settings.CustomThemeColor and data.Settings.CustomThemeColor ~= "" and Window.ApplyCustomTheme then
             pcall(function()
                 local col = Color3.fromHex(data.Settings.CustomThemeColor)
                 Window:ApplyCustomTheme(col)
             end)
-        elseif data.Theme then
+        elseif data.Theme and data.Theme ~= "Custom" then
             if Window.ApplyTheme then
                 pcall(function() Window:ApplyTheme(data.Theme) end)
             elseif Library.ThemePresets[data.Theme] then
@@ -830,7 +830,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if cp and cp.SetColor then
                     pcall(function()
                         local col = Color3.fromHex(hex)
-                        cp.SetColor(col, true)
+                        if name == "CustomTheme" then
+                            cp.SetColor(col, false)
+                        else
+                            cp.SetColor(col, true)
+                        end
                     end)
                 end
             end
@@ -5070,12 +5074,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- =========================================================================
     local Lighting = game:GetService("Lighting")
     for _, item in ipairs(Lighting:GetChildren()) do
-        if item.Name == "StHbBlur" or item.Name == "StHbDOF" or item.Name == "MDStHbBlur" or item.Name == "MDStHbDOF" then
+        if item.Name == "ScriptHubBlur" or item.Name == "ScriptHubDOF" or item.Name == "MDScriptHubBlur" or item.Name == "MDScriptHubDOF" then
             pcall(function() item:Destroy() end)
         end
     end
     for _, item in ipairs(Camera:GetChildren()) do
-        if item.Name == "StHbBlur" or item.Name == "StHbBlurCam" or item.Name == "StHbDOF" or item.Name == "LocalUIBlurPart" or item.Name == "MDStHbBlur" or item.Name == "MDStHbBlurCam" or item.Name == "MDStHbDOF" or item.Name == "MD_LocalUIBlurPart" then
+        if item.Name == "ScriptHubBlur" or item.Name == "ScriptHubBlurCam" or item.Name == "ScriptHubDOF" or item.Name == "LocalUIBlurPart" or item.Name == "MDScriptHubBlur" or item.Name == "MDScriptHubBlurCam" or item.Name == "MDScriptHubDOF" or item.Name == "MD_LocalUIBlurPart" then
             pcall(function() item:Destroy() end)
         end
     end
@@ -5086,7 +5090,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
     local BackgroundDOF = Instance.new("DepthOfFieldEffect")
-    BackgroundDOF.Name = "StHbDOF"
+    BackgroundDOF.Name = "ScriptHubDOF"
     BackgroundDOF.FocusDistance = 2.5
     BackgroundDOF.InFocusRadius = 0
     BackgroundDOF.NearIntensity = 1.0
@@ -5940,17 +5944,49 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedFrame.Size = UDim2.new(0, 52, 0, 52)
     MinimizedFrame.AnchorPoint = Vector2.new(0.5, 0)
     MinimizedFrame.Position = UDim2.new(0.5, 0, 0, 15)
-    MinimizedFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    MinimizedFrame.BackgroundTransparency = 1
+    MinimizedFrame.ClipsDescendants = false
     MinimizedFrame.ZIndex = 100
     MinimizedFrame.Parent = MinimisedUI
 
-    local MinimizedFrameCorner = Instance.new("UICorner")
-    MinimizedFrameCorner.CornerRadius = UDim.new(1, 0)
-    MinimizedFrameCorner.Parent = MinimizedFrame
+    -- 2nd bigger layer spinning just a bit faster counter-clockwise (rbxassetid://95108160130077)
+    local MinLayer2_Big = Instance.new("ImageLabel")
+    MinLayer2_Big.Name = "MinLayer2_Big"
+    MinLayer2_Big.AnchorPoint = Vector2.new(0.5, 0.5)
+    MinLayer2_Big.Position = UDim2.new(0.5, 0, 0.5, 0)
+    MinLayer2_Big.Size = UDim2.new(1, 28, 1, 28)
+    MinLayer2_Big.BackgroundTransparency = 1
+    MinLayer2_Big.Image = "rbxassetid://95108160130077"
+    MinLayer2_Big.ZIndex = 98
+    MinLayer2_Big.Parent = MinimizedFrame
 
+    local MinGrad2 = Instance.new("UIGradient")
+    MinGrad2.Rotation = 0
+    MinGrad2.Parent = MinLayer2_Big
+
+    -- 1st smaller layer spinning slowly clockwise (rbxassetid://137088387997132)
+    local MinLayer1_Small = Instance.new("ImageLabel")
+    MinLayer1_Small.Name = "MinLayer1_Small"
+    MinLayer1_Small.AnchorPoint = Vector2.new(0.5, 0.5)
+    MinLayer1_Small.Position = UDim2.new(0.5, 0, 0.5, 0)
+    MinLayer1_Small.Size = UDim2.new(1, 14, 1, 14)
+    MinLayer1_Small.BackgroundTransparency = 1
+    MinLayer1_Small.Image = "rbxassetid://137088387997132"
+    MinLayer1_Small.ZIndex = 99
+    MinLayer1_Small.Parent = MinimizedFrame
+
+    local MinGrad1 = Instance.new("UIGradient")
+    MinGrad1.Rotation = 0
+    MinGrad1.Parent = MinLayer1_Small
+
+    -- Center icon button
     local MinimizedImage = Instance.new("ImageButton")
+    MinimizedImage.Name = "MinimizedImage"
+    MinimizedImage.AnchorPoint = Vector2.new(0.5, 0.5)
+    MinimizedImage.Position = UDim2.new(0.5, 0, 0.5, 0)
     MinimizedImage.Size = UDim2.new(1, 0, 1, 0)
     MinimizedImage.BackgroundTransparency = 0
+    MinimizedImage.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     MinimizedImage.Image = minimizedIcon
     MinimizedImage.ZIndex = 101
     MinimizedImage.Parent = MinimizedFrame
@@ -5959,29 +5995,59 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedImageCorner.CornerRadius = UDim.new(1, 0)
     MinimizedImageCorner.Parent = MinimizedImage
 
-    local MinimizedStroke = Instance.new("UIStroke")
-    MinimizedStroke.Color = Color3.fromRGB(255, 255, 255)
-    MinimizedStroke.Thickness = 3
-    MinimizedStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    MinimizedStroke.LineJoinMode = Enum.LineJoinMode.Round
-    MinimizedStroke.Parent = MinimizedImage
-
-    local MinimizedGradient = Instance.new("UIGradient")
-    MinimizedGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Window.CurrentTheme.MinGradient[1]),
-        ColorSequenceKeypoint.new(0.5, Window.CurrentTheme.MinGradient[2]),
-        ColorSequenceKeypoint.new(1, Window.CurrentTheme.MinGradient[3])
-    })
-    MinimizedGradient.Parent = MinimizedStroke
-
+    local rot1 = 0
+    local rot2 = 0
     TrackConn(RunService.RenderStepped:Connect(function(dt)
-        if MinimisedUI.Enabled and MinimizedGradient and MinimizedGradient.Parent then
-            MinimizedGradient.Rotation = (MinimizedGradient.Rotation + (dt * 120)) % 360
+        if MinimisedUI.Enabled then
+            rot1 = (rot1 + (dt * 30)) % 360
+            rot2 = (rot2 - (dt * 48)) % 360
+            if MinLayer1_Small and MinLayer1_Small.Parent then
+                MinLayer1_Small.Rotation = rot1
+            end
+            if MinLayer2_Big and MinLayer2_Big.Parent then
+                MinLayer2_Big.Rotation = rot2
+            end
+
+            local curTheme = Window.CurrentTheme or {}
+            local curGrad = curTheme.MinGradient or curTheme.BottomGradient or {Color3.fromRGB(255, 255, 255), Color3.fromRGB(150, 150, 150), Color3.fromRGB(255, 255, 255)}
+            local c1 = curGrad[1] or Color3.fromRGB(255, 255, 255)
+            local c2 = curGrad[2] or c1
+            local c3 = curGrad[3] or c2
+
+            local shiftSpeed = 3
+            local phase = (tick() * (shiftSpeed * 0.15)) % 1.0
+            local function getSmoothCol(off)
+                local tVal = (math.sin((phase + off) * math.pi * 2) + 1) * 0.5
+                if tVal < 0.5 then
+                    return c1:Lerp(c2, tVal * 2)
+                else
+                    return c2:Lerp(c3, (tVal - 0.5) * 2)
+                end
+            end
+
+            local animSeq = ColorSequence.new({
+                ColorSequenceKeypoint.new(0,    getSmoothCol(0)),
+                ColorSequenceKeypoint.new(0.25, getSmoothCol(0.25)),
+                ColorSequenceKeypoint.new(0.5,  getSmoothCol(0.5)),
+                ColorSequenceKeypoint.new(0.75, getSmoothCol(0.75)),
+                ColorSequenceKeypoint.new(1,    getSmoothCol(1))
+            })
+
+            if MinGrad1 and MinGrad1.Parent then
+                MinGrad1.Color = animSeq
+                MinGrad1.Rotation = 0
+            end
+            if MinGrad2 and MinGrad2.Parent then
+                MinGrad2.Color = animSeq
+                MinGrad2.Rotation = 0
+            end
         end
     end))
 
     AttachUniversalDrag(MinimizedFrame, MinimizedFrame)
     AttachUniversalDrag(MinimizedImage, MinimizedFrame)
+    AttachUniversalDrag(MinLayer1_Small, MinimizedFrame)
+    AttachUniversalDrag(MinLayer2_Big, MinimizedFrame)
 
     -- Notification Engine (Placed at Y = 1, -105)
     function Window:Notify(titleText, contentText, duration)
@@ -9329,7 +9395,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Window.MainContentFrame = MainContentFrame
     Window.BottomFrame = BottomFrame
     Window.BottomGradient = BottomGradient
-    Window.MinimizedGradient = MinimizedGradient
+    Window.MinGrad1 = MinGrad1
+    Window.MinGrad2 = MinGrad2
     Window.MDHUBNAME = MDHUBNAME
     Window.MadebyText = MadebyText
     Window.DiscordBtn = DiscordBtn
@@ -9346,6 +9413,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if not newTheme then return end
         Window.CurrentTheme = newTheme
         Window.CurrentThemeKey = themeKey
+
+        if themeKey == "Custom" then
+            Window.IsCustomTheme = true
+        else
+            Window.IsCustomTheme = false
+            Window.CustomThemeColor = nil
+            if Window.RegisteredColorPickers and Window.RegisteredColorPickers["CustomTheme"] then
+                pcall(function()
+                    Window.RegisteredColorPickers["CustomTheme"].SetColor(newTheme.ButtonBG, false)
+                end)
+            end
+        end
 
         if Window.MainFrame then
             Window.MainFrame.BackgroundColor3 = newTheme.MainBG
@@ -9377,14 +9456,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ColorSequenceKeypoint.new(0, newTheme.BottomGradient[1]),
                 ColorSequenceKeypoint.new(0.496, newTheme.BottomGradient[2]),
                 ColorSequenceKeypoint.new(1, newTheme.BottomGradient[3])
-            })
-        end
-
-        if Window.MinimizedGradient then
-            Window.MinimizedGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, newTheme.MinGradient[1]),
-                ColorSequenceKeypoint.new(0.5, newTheme.MinGradient[2]),
-                ColorSequenceKeypoint.new(1, newTheme.MinGradient[3])
             })
         end
 
@@ -9705,7 +9776,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             BackgroundDOF.Enabled = enabled
         elseif enabled then
             BackgroundDOF = Instance.new("DepthOfFieldEffect")
-            BackgroundDOF.Name = "StHbDOF"
+            BackgroundDOF.Name = "ScriptHubDOF"
             BackgroundDOF.FocusDistance = 2.5
             BackgroundDOF.InFocusRadius = 0
             BackgroundDOF.NearIntensity = 1.0
