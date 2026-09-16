@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.26.1"
+Library.Version = "2.26.2"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -5116,27 +5116,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Window.BackgroundDOF = BackgroundDOF
     Window.LocalUIBlurPart = LocalUIBlurPart
 
-    local function getVerticalTanHalfFov(cam, viewW, viewH)
-        local fov = cam.FieldOfView or 70
-        local radFov = math.rad(fov)
-        local fovMode = pcall(function() return cam.FieldOfViewMode end) and cam.FieldOfViewMode or nil
-
-        if fovMode == Enum.FieldOfViewMode.Diagonal then
-            local diagTan = math.tan(radFov * 0.5)
-            local aspect = viewW / math.max(viewH, 1)
-            return diagTan / math.sqrt(1 + (aspect * aspect))
-        elseif fovMode == Enum.FieldOfViewMode.MaxAxis then
-            local maxTan = math.tan(radFov * 0.5)
-            if viewW > viewH then
-                return maxTan / (viewW / math.max(viewH, 1))
-            else
-                return maxTan
-            end
-        else
-            return math.tan(radFov * 0.5)
-        end
-    end
-
+    local GuiService = game:GetService("GuiService")
     local function UpdateLocalUIBlur()
         if not Window.BackgroundBlurEnabled or not ScriptUi or not ScriptUi.Enabled or not MainContainer or not MainContainer.Parent or not LocalUIBlurPart or not LocalUIBlurPart.Parent then
             if LocalUIBlurPart and LocalUIBlurPart.Parent then
@@ -5198,18 +5178,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local uL = vecL / sz
 
         local depth = 1.0
-        local tanHalfFovY = getVerticalTanHalfFov(Camera, viewW, viewH)
-        local scaleFactor = (2 * depth * tanHalfFovY) / math.max(viewH, 1)
+        local tanHalfFov = math.tan(math.rad(Camera.FieldOfView or 70) * 0.5)
+        local scaleFactor = (2 * depth * tanHalfFov) / math.max(viewH, 1)
 
-        local minX = absPos.X + 2
-        local minY = absPos.Y + 2
-        local maxX = absPos.X + absSize.X - 2
-        local maxY = absPos.Y + absSize.Y - 2
+        local inset = GuiService:GetGuiInset()
+        local insetX = ScriptUi.IgnoreGuiInset and 0 or inset.X
+        local insetY = ScriptUi.IgnoreGuiInset and 0 or inset.Y
 
-        local uiW = math.max(maxX - minX, 1)
-        local uiH = math.max(maxY - minY, 1)
-        local midX = (minX + maxX) * 0.5
-        local midY = (minY + maxY) * 0.5
+        local minX = absPos.X + insetX
+        local minY = absPos.Y + insetY
+        local uiW = absSize.X
+        local uiH = absSize.Y
+
+        local midX = minX + (uiW * 0.5)
+        local midY = minY + (uiH * 0.5)
 
         local partW = (uiW * scaleFactor) / sx
         local partH = (uiH * scaleFactor) / sy
