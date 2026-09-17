@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.27.2"
+Library.Version = "2.28"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -5702,8 +5702,90 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
                 SearchResultsOverlay.Visible = false
                 SearchResultsOverlay.Size = UDim2.new(0, 230, 0, 0)
+                for _, it in ipairs(Window.SearchableItems) do
+                    if it.Instance and it.Instance.Parent then
+                        it.Instance.Visible = true
+                    end
+                end
                 if item.Instance and item.Instance.Parent then
-                    item.Instance.Visible = true
+                    task.defer(function()
+                        local targetCard = item.Instance
+                        if not targetCard or not targetCard.Parent then return end
+
+                        local scrollFrame = (Window.Tabs[item.TabName] and Window.Tabs[item.TabName].ContentFrame) or targetCard:FindFirstAncestorWhichIsA("ScrollingFrame")
+                        if scrollFrame then
+                            local relY = (targetCard.AbsolutePosition.Y - scrollFrame.AbsolutePosition.Y) + scrollFrame.CanvasPosition.Y - 20
+                            local maxCanvasY = math.max(0, scrollFrame.AbsoluteCanvasSize.Y - scrollFrame.AbsoluteWindowSize.Y)
+                            local targetCanvasY = math.clamp(relY, 0, maxCanvasY)
+                            TweenService:Create(scrollFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                                CanvasPosition = Vector2.new(0, targetCanvasY)
+                            }):Play()
+                        end
+
+                        local origZIndex = targetCard.ZIndex
+                        targetCard.ZIndex = math.max(origZIndex, 10) + 5
+
+                        local uiScale = targetCard:FindFirstChild("SearchHighlightScale")
+                        if not uiScale then
+                            uiScale = Instance.new("UIScale")
+                            uiScale.Name = "SearchHighlightScale"
+                            uiScale.Scale = 1.0
+                            uiScale.Parent = targetCard
+                        end
+
+                        local origBg = targetCard.BackgroundColor3
+                        local brightBg = Color3.new(
+                            math.min(1, origBg.R * 1.45 + 0.12),
+                            math.min(1, origBg.G * 1.45 + 0.12),
+                            math.min(1, origBg.B * 1.45 + 0.16)
+                        )
+
+                        local highlightStroke = targetCard:FindFirstChild("SearchHighlightStroke")
+                        if not highlightStroke then
+                            highlightStroke = Instance.new("UIStroke")
+                            highlightStroke.Name = "SearchHighlightStroke"
+                            highlightStroke.Thickness = 1.8
+                            highlightStroke.Color = Window.CurrentTheme.Accent or Color3.fromRGB(0, 170, 255)
+                            highlightStroke.Transparency = 1
+                            highlightStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                            highlightStroke.Parent = targetCard
+                        end
+
+                        TweenService:Create(uiScale, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                            Scale = 1.04
+                        }):Play()
+                        TweenService:Create(targetCard, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                            BackgroundColor3 = brightBg
+                        }):Play()
+                        TweenService:Create(highlightStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                            Transparency = 0.1
+                        }):Play()
+
+                        task.delay(1.2, function()
+                            if targetCard and targetCard.Parent then
+                                local backTween = TweenService:Create(uiScale, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                                    Scale = 1.0
+                                })
+                                local colorTween = TweenService:Create(targetCard, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                                    BackgroundColor3 = origBg
+                                })
+                                local strokeTween = TweenService:Create(highlightStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                                    Transparency = 1.0
+                                })
+                                backTween:Play()
+                                colorTween:Play()
+                                strokeTween:Play()
+
+                                colorTween.Completed:Connect(function()
+                                    if uiScale and uiScale.Parent then uiScale:Destroy() end
+                                    if highlightStroke and highlightStroke.Parent then highlightStroke:Destroy() end
+                                    if targetCard and targetCard.Parent then
+                                        targetCard.ZIndex = origZIndex
+                                    end
+                                end)
+                            end
+                        end)
+                    end)
                 end
             end)
         end
