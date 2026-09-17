@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.26.3"
+Library.Version = "2.26.4"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -1765,7 +1765,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         -- 3. Row 1: Left = Create config, Right = Delete config
         local Row1 = Instance.new("Frame")
         Row1.Name = GenerateSafeName("Row")
-        Row1.Size = UDim2.new(1, 0, 0, 44)
+        Row1.Size = UDim2.new(1, 0, 0, 31)
         Row1.BackgroundTransparency = 1
         Row1.BorderSizePixel = 0
         Row1.ZIndex = 4
@@ -1820,7 +1820,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         -- 4. Row 2: Left = Overwrite config, Right = Load config
         local Row2 = Instance.new("Frame")
         Row2.Name = GenerateSafeName("Row")
-        Row2.Size = UDim2.new(1, 0, 0, 44)
+        Row2.Size = UDim2.new(1, 0, 0, 31)
         Row2.BackgroundTransparency = 1
         Row2.BorderSizePixel = 0
         Row2.ZIndex = 4
@@ -1939,7 +1939,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
 
         -- 6. Row 4: Single Long Button for Autoload config
-        autoloadBtn = Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 44), GetAutoloadButtonLabel(), function()
+        autoloadBtn = Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 31), GetAutoloadButtonLabel(), function()
             local selected = configDropdownObj.GetSelected()
             local currentAuto = Window:GetAutoloadConfig()
             if currentAuto == selected then
@@ -3764,7 +3764,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
     local function ComputeRowItemWidth(fraction, height)
-        height = height or 44
+        height = height or 31
         if not fraction or fraction >= 0.98 then
             return UDim2.new(1, 0, 0, height)
         elseif fraction >= 0.48 and fraction <= 0.52 then
@@ -3806,9 +3806,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if explicitUDim then
             size = explicitUDim
         elseif fraction then
-            size = ComputeRowItemWidth(fraction, 44)
+            size = ComputeRowItemWidth(fraction, 31)
         else
-            size = UDim2.new(1, 0, 0, 44)
+            size = UDim2.new(1, 0, 0, 31)
         end
         position = btnPos or UDim2.new(0, 0, 0, 0)
         text = btnText or "Function"
@@ -7900,7 +7900,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         function TabObj:AddRow(height, padding)
-            height = height or 44
+            height = height or 31
             padding = padding or 8
 
             local RowFrame = Instance.new("Frame")
@@ -7953,6 +7953,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return TabObj:AddColorPicker(title, defaultColor, callback, RowFrame, nil, sizeFraction or 0.5)
             end
             function RowObj:AddSlider(title, min, max, default, callback, sizeFraction, options)
+                if type(title) == "table" then
+                    return TabObj:AddSlider(title, RowFrame, nil, nil, nil, nil, sizeFraction)
+                end
                 return TabObj:AddSlider(title, min, max, default, callback, options or sizeFraction, RowFrame)
             end
 
@@ -7999,7 +8002,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 finalSize = explicitUDim
                 targetParent = targetParent or ContentFrame
             elseif targetParent then
-                finalSize = ComputeRowItemWidth(fraction or 0.5, 44)
+                finalSize = ComputeRowItemWidth(fraction or 0.5, 31)
             else
                 -- Auto-Flow Left-to-Right Sorting Engine
                 if fraction and fraction < 0.98 then
@@ -8011,12 +8014,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end
 
                     if needsNewRow then
-                        TabObj.CurrentAutoRow = TabObj:AddRow(44, 8)
+                        TabObj.CurrentAutoRow = TabObj:AddRow(31, 8)
                         TabObj.CurrentAutoRowRemaining = 1.0
                     end
 
                     targetParent = TabObj.CurrentAutoRow
-                    finalSize = ComputeRowItemWidth(fraction, 44)
+                    finalSize = ComputeRowItemWidth(fraction, 31)
                     TabObj.CurrentAutoRowRemaining = (TabObj.CurrentAutoRowRemaining or 1.0) - fraction
                     if TabObj.CurrentAutoRowRemaining <= 0.05 then
                         TabObj.CurrentAutoRow = nil
@@ -8025,7 +8028,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     TabObj.CurrentAutoRow = nil
                     TabObj.CurrentAutoRowRemaining = 0
                     targetParent = ContentFrame
-                    finalSize = UDim2.new(1, -10, 0, 44)
+                    finalSize = UDim2.new(1, -10, 0, 31)
                 end
             end
 
@@ -8046,7 +8049,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         function TabObj:AddButtonRow(buttonList, height)
-            height = height or 44
+            height = height or 31
             if type(buttonList) ~= "table" then return end
 
             local row = TabObj:AddRow(height, 8)
@@ -8332,7 +8335,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 defaultVal = arg1.Default or arg1.default or minVal
                 onValueChange = arg1.Callback or arg1.callback or arg1.OnChanged
                 sliderOptions = arg1
-                if arg2 then targetParent = arg2 customParent = true end
+                if arg2 then
+                    targetParent = arg2
+                    customParent = true
+                elseif arg1.Parent or arg1.Row or arg1.parentRow then
+                    targetParent = arg1.Parent or arg1.Row or arg1.parentRow
+                    customParent = true
+                end
                 pos = arg3 or pos
             else
                 minVal = arg1 or 0
@@ -8691,7 +8700,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Window.RegisteredToggles["ClickEffects"] = clickToggle
 
         -- 9. Particle Customization Row (Dropdown + Custom Image Textbox)
-        local ParticleRow = SettingsTab:AddRow(44, 8)
+        local ParticleRow = SettingsTab:AddRow(31, 8)
         local particleOptions = {"Theme default", "Leaves", "Gems", "Sparkles", "Rings", "Dots", "Custom image"}
         SettingsTab:AddDropdown({
             Title = "Particle style",
