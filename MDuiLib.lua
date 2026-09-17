@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.27.1"
+Library.Version = "2.27.2"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -6622,6 +6622,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ContentLayout.Padding = UDim.new(0, 10)
         ContentLayout.Parent = ContentFrame
 
+        local _tabItemOrder = 0
+        ContentFrame.ChildAdded:Connect(function(child)
+            if child:IsA("GuiObject") and child.LayoutOrder == 0 then
+                _tabItemOrder = _tabItemOrder + 1
+                child.LayoutOrder = _tabItemOrder
+            end
+        end)
+
         ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 40)
         end)
@@ -7967,30 +7975,59 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             RowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
             RowLayout.Parent = RowFrame
 
+            local _rowItemOrder = 0
+            RowFrame.ChildAdded:Connect(function(child)
+                if child:IsA("GuiObject") and child.LayoutOrder == 0 then
+                    _rowItemOrder = _rowItemOrder + 1
+                    child.LayoutOrder = _rowItemOrder
+                end
+            end)
+
             local RowObj = {
                 Frame = RowFrame,
                 Instance = RowFrame,
             }
 
             function RowObj:AddButton(text, callback, sizeFraction)
+                if type(text) == "table" and not text.IsA then
+                    return TabObj:AddLongButton(text, nil, sizeFraction or 0.5, RowFrame)
+                end
                 return TabObj:AddLongButton(text, callback, sizeFraction or 0.5, RowFrame)
             end
             function RowObj:AddLongButton(text, callback, sizeFraction)
+                if type(text) == "table" and not text.IsA then
+                    return TabObj:AddLongButton(text, nil, sizeFraction or 0.5, RowFrame)
+                end
                 return TabObj:AddLongButton(text, callback, sizeFraction or 0.5, RowFrame)
             end
             function RowObj:AddToggle(titleOrConfig, initialState, onToggle, sizeFraction)
+                if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                    return TabObj:AddToggle(titleOrConfig, nil, nil, RowFrame, nil, sizeFraction or 0.5)
+                end
                 return TabObj:AddToggle(titleOrConfig, initialState, onToggle, RowFrame, nil, sizeFraction or 0.5)
             end
             function RowObj:AddDropdown(title, options, defaultOption, onSelect, sizeFraction)
+                if type(title) == "table" and not title.IsA then
+                    return TabObj:AddDropdown(title, nil, nil, nil, RowFrame, nil, sizeFraction or 0.5)
+                end
                 return TabObj:AddDropdown(title, options, defaultOption, onSelect, RowFrame, nil, sizeFraction or 0.5)
             end
             function RowObj:AddMultiDropdown(titleOrConfig, options, defaultSelections, onSelect, sizeFraction)
+                if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                    return TabObj:AddMultiDropdown(titleOrConfig, nil, nil, nil, RowFrame, nil, sizeFraction or 0.5)
+                end
                 return TabObj:AddMultiDropdown(titleOrConfig, options, defaultSelections, onSelect, RowFrame, nil, sizeFraction or 0.5)
             end
             function RowObj:AddNumberInput(titleOrConfig, options, callback, sizeFraction)
+                if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                    return TabObj:AddNumberInput(titleOrConfig, nil, nil, RowFrame, nil, sizeFraction or 0.5)
+                end
                 return TabObj:AddNumberInput(titleOrConfig, options, callback, RowFrame, nil, sizeFraction or 0.5)
             end
             function RowObj:AddSpinbox(titleOrConfig, options, callback, sizeFraction)
+                if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                    return TabObj:AddNumberInput(titleOrConfig, nil, nil, RowFrame, nil, sizeFraction or 0.5)
+                end
                 return TabObj:AddNumberInput(titleOrConfig, options, callback, RowFrame, nil, sizeFraction or 0.5)
             end
             function RowObj:AddTextInput(...)
@@ -7998,6 +8035,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
 
             function RowObj:AddTextbox(title, placeholder, defaultText, onSubmit, sizeFraction)
+                if type(title) == "table" and not title.IsA then
+                    return TabObj:AddTextbox(title, nil, nil, nil, RowFrame, nil, sizeFraction or 0.5)
+                end
                 return TabObj:AddTextbox(title, placeholder, defaultText, onSubmit, RowFrame, nil, sizeFraction or 0.5)
             end
             function RowObj:AddColorPicker(title, defaultColor, callback, sizeFraction, identifier)
@@ -8007,8 +8047,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return TabObj:AddColorPicker(title, defaultColor, callback, RowFrame, nil, sizeFraction or 0.5, identifier)
             end
             function RowObj:AddSlider(title, min, max, default, callback, sizeFraction, options)
-                if type(title) == "table" then
-                    return TabObj:AddSlider(title, nil, nil, nil, nil, nil, RowFrame, nil, sizeFraction or 0.5)
+                if type(title) == "table" and not title.IsA then
+                    return TabObj:AddSlider(title, RowFrame, nil, sizeFraction or 0.5)
                 end
                 return TabObj:AddSlider(title, min, max, default, callback, options, RowFrame, nil, sizeFraction or 0.5)
             end
