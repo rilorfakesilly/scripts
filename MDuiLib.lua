@@ -1702,10 +1702,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return self
         end
 
-        if title and title ~= "" then
+        local saveKey = (cfg and type(cfg) == "table" and (cfg.SaveKey or cfg.saveKey or cfg.Identifier or cfg.identifier)) or (title and title ~= "" and title) or ("Dropdown_" .. (#Window.RegisteredDropdownsList + 1))
+        dropObj.SaveKey = saveKey
+        dropObj.Name = saveKey
+        Window.RegisteredDropdowns[saveKey] = dropObj
+        if title and title ~= "" and not Window.RegisteredDropdowns[title] then
             Window.RegisteredDropdowns[title] = dropObj
         end
         table.insert(Window.RegisteredDropdownsList, dropObj)
+        if cfg and type(cfg) == "table" and (cfg.Tooltip or cfg.tooltip) then
+            dropObj:WithTooltip(cfg.Tooltip or cfg.tooltip)
+        end
 
         return dropObj
     end
