@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.26.4"
+Library.Version = "2.27"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -612,58 +612,83 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ColorPickers = {},
             MobileButtons = {}
         }
-        for name, toggle in pairs(Window.RegisteredToggles) do
-            pcall(function()
-                if toggle and toggle.GetState then
-                    data.Toggles[name] = toggle.GetState()
-                end
-                if toggle and toggle.Keybind and toggle.Keybind.CurrentKey then
-                    data.ToggleBinds[name] = toggle.Keybind.CurrentKey.Name
-                end
-            end)
+        if Window.RegisteredMDToggles then
+            for _, toggle in ipairs(Window.RegisteredMDToggles) do
+                pcall(function()
+                    local key = toggle.SaveKey or toggle.Name
+                    if key then
+                        if toggle.GetState then
+                            data.Toggles[key] = toggle.GetState()
+                        end
+                        if toggle.Keybind and toggle.Keybind.CurrentKey then
+                            data.ToggleBinds[key] = toggle.Keybind.CurrentKey.Name
+                        end
+                    end
+                end)
+            end
         end
-        for name, slider in pairs(Window.RegisteredSliders) do
-            pcall(function()
-                if slider and slider.GetValue then
-                    data.Sliders[name] = slider.GetValue()
-                end
-            end)
+        if Window.RegisteredMDSliders then
+            for _, slider in ipairs(Window.RegisteredMDSliders) do
+                pcall(function()
+                    local key = slider.SaveKey or slider.Name
+                    if key and slider.GetValue then
+                        data.Sliders[key] = slider.GetValue()
+                    end
+                end)
+            end
         end
-        for name, box in pairs(Window.RegisteredTextboxes) do
-            pcall(function()
-                if box and box.GetText then
-                    data.Textboxes[name] = box.GetText()
-                end
-            end)
+        if Window.RegisteredTextboxesList then
+            for _, box in ipairs(Window.RegisteredTextboxesList) do
+                pcall(function()
+                    local key = box.SaveKey or box.Name
+                    if key and box.GetText then
+                        data.Textboxes[key] = box.GetText()
+                    end
+                end)
+            end
         end
-        for name, drop in pairs(Window.RegisteredDropdowns) do
-            pcall(function()
-                if drop and drop.GetSelected then
-                    data.Dropdowns[name] = drop.GetSelected()
-                end
-            end)
+        if Window.RegisteredDropdownsList then
+            for _, drop in ipairs(Window.RegisteredDropdownsList) do
+                pcall(function()
+                    local key = drop.SaveKey or drop.Name
+                    if key and drop.GetSelected then
+                        data.Dropdowns[key] = drop.GetSelected()
+                    end
+                end)
+            end
         end
-        for name, mdrop in pairs(Window.RegisteredMultiDropdowns) do
-            pcall(function()
-                if mdrop and mdrop.GetSelections then
-                    data.MultiDropdowns[name] = mdrop.GetSelections()
-                end
-            end)
+        if Window.RegisteredMultiDropdownsList then
+            for _, mdrop in ipairs(Window.RegisteredMultiDropdownsList) do
+                pcall(function()
+                    local key = mdrop.SaveKey or mdrop.Name
+                    if key and mdrop.GetSelections then
+                        data.MultiDropdowns[key] = mdrop.GetSelections()
+                    end
+                end)
+            end
         end
-        for name, numInput in pairs(Window.RegisteredNumberInputs) do
-            pcall(function()
-                if numInput and numInput.GetValue then
-                    data.NumberInputs[name] = numInput.GetValue()
-                end
-            end)
+        if Window.RegisteredNumberInputsList then
+            for _, numInput in ipairs(Window.RegisteredNumberInputsList) do
+                pcall(function()
+                    local key = numInput.SaveKey or numInput.Name
+                    if key and numInput.GetValue then
+                        data.NumberInputs[key] = numInput.GetValue()
+                    end
+                end)
+            end
         end
-        for name, cp in pairs(Window.RegisteredColorPickers) do
-            pcall(function()
-                if cp and cp.GetColor then
-                    local c = cp.GetColor()
-                    data.ColorPickers[name] = c:ToHex()
-                end
-            end)
+        if Window.RegisteredColorPickersList then
+            for _, cp in ipairs(Window.RegisteredColorPickersList) do
+                pcall(function()
+                    local key = cp.SaveKey or cp.Name
+                    if key and cp.GetColor then
+                        local c = cp.GetColor()
+                        if typeof(c) == 'Color3' then
+                            data.ColorPickers[key] = c:ToHex()
+                        end
+                    end
+                end)
+            end
         end
         if Window.RegisteredMobileButtons then
             for idx, mb in ipairs(Window.RegisteredMobileButtons) do
@@ -3019,7 +3044,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return self
             end
         }
-        Window.RegisteredSliders[sliderName] = sliderData
+        local actualSliderKey = (type(sliderOptions) == "table" and (sliderOptions.SaveKey or sliderOptions.saveKey or sliderOptions.Identifier or sliderOptions.identifier)) or sliderName
+        sliderData.Name = actualSliderKey
+        Window.RegisteredSliders[actualSliderKey] = sliderData
+        if sliderName and sliderName ~= "" and not Window.RegisteredSliders[sliderName] then
+            Window.RegisteredSliders[sliderName] = sliderData
+        end
         table.insert(Window.RegisteredMDSliders, sliderData)
         return sliderData
     end
@@ -3680,9 +3710,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local currentColor = defaultColor
 
-        local colorPickerName = identifier or ("ColorPicker_" .. (#Window.RegisteredColorPickersList + 1))
+        local colorPickerName = identifier or (title and title ~= "" and title) or ("ColorPicker_" .. (#Window.RegisteredColorPickersList + 1))
         local colorPickerData = {
             Name = colorPickerName,
+            SaveKey = identifier or colorPickerName,
             Frame = CardFrame,
             Swatch = SwatchButton,
             GetColor = function() return currentColor end,
@@ -3729,6 +3760,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end))
 
         Window.RegisteredColorPickers[colorPickerName] = colorPickerData
+        if identifier and identifier ~= colorPickerName then
+            Window.RegisteredColorPickers[identifier] = colorPickerData
+        end
         table.insert(Window.RegisteredColorPickersList, colorPickerData)
         return colorPickerData
     end
@@ -4153,7 +4187,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             PerformToggle(not isToggled, true)
         end))
 
-        local toggleName = text or ("ToggleHalf_" .. (#Window.RegisteredMDToggles + 1))
+        local saveKey = (type(keybindConfig) == "table" and (keybindConfig.SaveKey or keybindConfig.saveKey or keybindConfig.Identifier or keybindConfig.identifier)) or text or ("ToggleHalf_" .. (#Window.RegisteredMDToggles + 1))
+        local toggleName = saveKey
         local toggleData = {
             Name = toggleName,
             CardFrame = CardFrame,
@@ -7953,11 +7988,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             function RowObj:AddSpinbox(titleOrConfig, options, callback, sizeFraction)
                 return TabObj:AddNumberInput(titleOrConfig, options, callback, RowFrame, nil, sizeFraction or 0.5)
             end
+            function RowObj:AddTextInput(...)
+                return self:AddTextbox(...)
+            end
+
             function RowObj:AddTextbox(title, placeholder, defaultText, onSubmit, sizeFraction)
                 return TabObj:AddTextbox(title, placeholder, defaultText, onSubmit, RowFrame, nil, sizeFraction or 0.5)
             end
-            function RowObj:AddColorPicker(title, defaultColor, callback, sizeFraction)
-                return TabObj:AddColorPicker(title, defaultColor, callback, RowFrame, nil, sizeFraction or 0.5)
+            function RowObj:AddColorPicker(title, defaultColor, callback, sizeFraction, identifier)
+                if type(title) == "table" and not title.IsA then
+                    return TabObj:AddColorPicker(title, RowFrame, nil, sizeFraction or 0.5)
+                end
+                return TabObj:AddColorPicker(title, defaultColor, callback, RowFrame, nil, sizeFraction or 0.5, identifier)
             end
             function RowObj:AddSlider(title, min, max, default, callback, sizeFraction, options)
                 if type(title) == "table" then
@@ -8131,6 +8173,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return dropObj
         end
 
+        function TabObj:AddTextInput(...)
+            return self:AddTextbox(...)
+        end
+
         function TabObj:AddTextbox(titleOrConfig, placeholder, defaultText, onSubmit, parentRow, position, sizeFraction, boxOptions)
             local title, ph, def, cb, opts
             if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
@@ -8169,13 +8215,29 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return boxObj
         end
 
-        function TabObj:AddColorPicker(title, defaultColor, callback, parentRow, position, sizeFraction)
+        function TabObj:AddColorPicker(titleOrConfig, defaultColor, callback, parentRow, position, sizeFraction, idParam)
+            local title, defColor, cb, id
+            if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                title = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Color"
+                defColor = titleOrConfig.Default or titleOrConfig.Color or titleOrConfig[2] or Color3.fromRGB(255, 255, 255)
+                cb = titleOrConfig.Callback or titleOrConfig.OnChanged or titleOrConfig[3]
+                parentRow = titleOrConfig.Parent or titleOrConfig.Row or parentRow
+                position = titleOrConfig.Position or position
+                sizeFraction = titleOrConfig.Size or titleOrConfig.Fraction or sizeFraction
+                id = titleOrConfig.SaveKey or titleOrConfig.saveKey or titleOrConfig.Identifier or titleOrConfig.identifier or title
+            else
+                title = titleOrConfig or "Color"
+                defColor = defaultColor or Color3.fromRGB(255, 255, 255)
+                cb = callback
+                id = idParam or title
+            end
+
             parentRow = ResolveParent(parentRow)
             local targetParent = parentRow or ContentFrame
             local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
             local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
             local pos = position or UDim2.new(0, 0, 0, 0)
-            local cpData = Window:CreateMDColorPicker(targetParent, pos, size, title, defaultColor, callback)
+            local cpData = Window:CreateMDColorPicker(targetParent, pos, size, title, defColor, cb, id)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
 
             table.insert(Window.SearchableItems, {
