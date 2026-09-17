@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.27"
+Library.Version = "2.27.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -82,14 +82,19 @@ local function ProtectGui(gui)
     end)
 end
 local function ResolveParent(parent)
+    if typeof(parent) == "Instance" then
+        return parent
+    end
     if type(parent) == "table" then
         if parent.Frame and typeof(parent.Frame) == "Instance" then
             return parent.Frame
         elseif parent.Instance and typeof(parent.Instance) == "Instance" then
             return parent.Instance
+        elseif parent.ContentFrame and typeof(parent.ContentFrame) == "Instance" then
+            return parent.ContentFrame
         end
     end
-    return parent
+    return nil
 end
 
 Library.ActiveGuis = Library.ActiveGuis or {}
@@ -7997,15 +8002,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
             function RowObj:AddColorPicker(title, defaultColor, callback, sizeFraction, identifier)
                 if type(title) == "table" and not title.IsA then
-                    return TabObj:AddColorPicker(title, RowFrame, nil, sizeFraction or 0.5)
+                    return TabObj:AddColorPicker(title, nil, nil, RowFrame, nil, sizeFraction or 0.5, identifier)
                 end
                 return TabObj:AddColorPicker(title, defaultColor, callback, RowFrame, nil, sizeFraction or 0.5, identifier)
             end
             function RowObj:AddSlider(title, min, max, default, callback, sizeFraction, options)
                 if type(title) == "table" then
-                    return TabObj:AddSlider(title, RowFrame, nil, nil, nil, nil, sizeFraction)
+                    return TabObj:AddSlider(title, nil, nil, nil, nil, nil, RowFrame, nil, sizeFraction or 0.5)
                 end
-                return TabObj:AddSlider(title, min, max, default, callback, options or sizeFraction, RowFrame)
+                return TabObj:AddSlider(title, min, max, default, callback, options, RowFrame, nil, sizeFraction or 0.5)
             end
 
             setmetatable(RowObj, {
