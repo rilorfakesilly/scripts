@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.28"
+Library.Version = "2.28.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -477,9 +477,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return conn
     end
 
-    -- =========================================================================
-    -- AUDIO SFX CONTROLLER (Cloned Overlay Engine)
-    -- =========================================================================
+    -- Audio SFX controller
     local SoundFolder = Instance.new("Folder")
     SoundFolder.Name = GenerateSafeName("Sounds")
     SoundFolder.Parent = ParentGui
@@ -520,9 +518,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end)
     end
 
-    -- =========================================================================
-    -- CONTROL REGISTRIES & CONFIG PERSISTENCE ENGINE
-    -- =========================================================================
+    -- Control registries and config persistence
 
 
     local HttpService = game:GetService("HttpService")
@@ -1177,9 +1173,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
     end
 
-    -- =========================================================================
-    -- TEXTBOX GENERATORS (Full & Half Width)
-    -- =========================================================================
+    -- Textbox generator
     function Window:CreateMDTextbox(parent, position, size, title, placeholder, defaultText, onSubmit, boxOptions)
         parent = ResolveParent(parent)
         size = size or UDim2.new(1, -10, 0, 50)
@@ -1320,9 +1314,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return boxObj
     end
 
-    -- =========================================================================
-    -- DROPDOWN GENERATORS (Full-Width & Half-Width from XML Specs)
-    -- =========================================================================
+    -- Dropdown generator
     function Window:CreateMDDropdown(parent, position, size, title, options, defaultOption, onSelect, dropConfig)
         parent = ResolveParent(parent)
         size = size or UDim2.new(1, -10, 0, 62)
@@ -1752,9 +1744,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return Window:CreateMDDropdown(parent, position, size, title, options, defaultOption, onSelect)
     end
 
-    -- =========================================================================
-    -- CONFIG UI SECTION BUILDER
-    -- =========================================================================
+    -- Config UI section builder
     function Window:CreateConfigSection(parentTab)
         local SectionFrame = Instance.new("Frame")
         SectionFrame.Name = GenerateSafeName("ConfigSection")
@@ -1999,9 +1989,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
 
 
-    -- =========================================================================
-    -- LOADING SCREEN ENGINE (Centered on screen, progress bar, shrink tween & destroy)
-    -- =========================================================================
+    -- Loading screen engine
     if Library.ActiveLoadingUI and Library.ActiveLoadingUI.Parent then
         pcall(function() Library.ActiveLoadingUI:Destroy() end)
     end
@@ -2211,8 +2199,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local BtnFrame = Instance.new("Frame")
         BtnFrame.Name = GenerateSafeName("BtnFrame")
         BtnFrame.Size = size or UDim2.new(0, 260, 0, 62)
-        BtnFrame.AutomaticSize = Enum.AutomaticSize.Y or UDim2.new(0, 80, 0, 26)
-        BtnFrame.Position = position or UDim2.new(0, 0, 0, 0)
+                BtnFrame.Position = position or UDim2.new(0, 0, 0, 0)
         BtnFrame.BackgroundColor3 = Window.CurrentTheme.ButtonBG
         BtnFrame.BackgroundTransparency = 0.05
         BtnFrame.BorderSizePixel = 0
@@ -2348,9 +2335,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return btnData
     end
 
-    -- =========================================================================
-    -- KEYBIND BADGE & TOGGLE FUNCTION BIND ENGINE
-    -- =========================================================================
+    -- Keybind badge and toggle binder
     local ActiveListeningBadge = nil
 
     local function ParseKeyCode(input)
@@ -3059,9 +3044,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return sliderData
     end
 
-    -- =========================================================================
-    -- COLOR PICKER MODAL & WIDGET GENERATOR
-    -- =========================================================================
+    -- Color picker modal and widget generator
     local ActiveColorPickerModal = nil
 
     function Window:OpenColorPicker(title, initialColor, onColorSelected)
@@ -3772,9 +3755,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return colorPickerData
     end
 
-    -- =========================================================================
-    -- SCRIPTING QOL: SIZE FRACTIONS & ROW WIDTH ENGINE
-    -- =========================================================================
+    -- Size fractions and row width engine
     local function ResolveSizeFraction(sizeInput, defaultFraction)
         if sizeInput == nil then
             return defaultFraction or 1.0, nil
@@ -4445,9 +4426,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     table.insert(Library.ActiveGuis, MobileUI)
     Window.MobileUI = MobileUI
 
-    -- =========================================================================
-    -- MOBILE FLOATING ACTION & TOGGLE BUTTON ENGINE
-    -- =========================================================================
+    -- Mobile floating action and toggle button engine
     function Window:CreateMobileButton(arg1, arg2, arg3, arg4, arg5)
         local config = {}
         if type(arg1) == "table" then
@@ -5011,9 +4990,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     DropdownOverlay.Parent = MainContainer
     Window.DropdownOverlay = DropdownOverlay
 
-    -- =========================================================================
-    -- GLOBAL FLOATING TOOLTIP ENGINE
-    -- =========================================================================
+    -- Global floating tooltip engine
     local TooltipFrame = Instance.new("Frame")
     TooltipFrame.Name = GenerateSafeName("Tooltip")
     TooltipFrame.Size = UDim2.new(0, 100, 0, 24)
@@ -5116,9 +5093,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end))
     end
 
-    -- =========================================================================
-    -- LOCAL UI-ONLY BACKGROUND BLUR ENGINE
-    -- =========================================================================
+    -- Local background blur engine
     local Lighting = game:GetService("Lighting")
     for _, item in ipairs(Lighting:GetChildren()) do
         if item.Name == "ScriptHubBlur" or item.Name == "ScriptHubDOF" or item.Name == "MDScriptHubBlur" or item.Name == "MDScriptHubDOF" then
@@ -5263,9 +5238,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         UpdateLocalUIBlur()
     end))
 
-    -- =========================================================================
-    -- SPIDERWEB BACKGROUND ENGINE
-    -- =========================================================================
+    -- Spiderweb background engine
     local GuiService = game:GetService("GuiService")
     local function InitSpiderwebBackground(container, screenGui)
         local WebCanvas = Instance.new("Frame")
@@ -5714,7 +5687,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                         local scrollFrame = (Window.Tabs[item.TabName] and Window.Tabs[item.TabName].ContentFrame) or targetCard:FindFirstAncestorWhichIsA("ScrollingFrame")
                         if scrollFrame then
-                            local relY = (targetCard.AbsolutePosition.Y - scrollFrame.AbsolutePosition.Y) + scrollFrame.CanvasPosition.Y - 20
+                            local relY = (targetCard.AbsolutePosition.Y - scrollFrame.AbsolutePosition.Y) + scrollFrame.CanvasPosition.Y - 25
                             local maxCanvasY = math.max(0, scrollFrame.AbsoluteCanvasSize.Y - scrollFrame.AbsoluteWindowSize.Y)
                             local targetCanvasY = math.clamp(relY, 0, maxCanvasY)
                             TweenService:Create(scrollFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
@@ -5723,7 +5696,23 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         end
 
                         local origZIndex = targetCard.ZIndex
-                        targetCard.ZIndex = math.max(origZIndex, 10) + 5
+                        targetCard.ZIndex = math.max(origZIndex, 10) + 10
+
+                        local origAnchor = targetCard.AnchorPoint
+                        local origPos = targetCard.Position
+                        local hasListLayout = targetCard.Parent and targetCard.Parent:FindFirstChildWhichIsA("UIListLayout")
+
+                        if not hasListLayout and origAnchor == Vector2.new(0, 0) then
+                            targetCard.AnchorPoint = Vector2.new(0.5, 0.5)
+                            targetCard.Position = UDim2.new(
+                                origPos.X.Scale,
+                                origPos.X.Offset + math.floor(targetCard.AbsoluteSize.X * 0.5),
+                                origPos.Y.Scale,
+                                origPos.Y.Offset + math.floor(targetCard.AbsoluteSize.Y * 0.5)
+                            )
+                        elseif hasListLayout then
+                            targetCard.AnchorPoint = Vector2.new(0.5, 0.5)
+                        end
 
                         local uiScale = targetCard:FindFirstChild("SearchHighlightScale")
                         if not uiScale then
@@ -5735,17 +5724,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                         local origBg = targetCard.BackgroundColor3
                         local brightBg = Color3.new(
-                            math.min(1, origBg.R * 1.45 + 0.12),
-                            math.min(1, origBg.G * 1.45 + 0.12),
-                            math.min(1, origBg.B * 1.45 + 0.16)
+                            math.min(1, origBg.R * 1.35 + 0.15),
+                            math.min(1, origBg.G * 1.35 + 0.15),
+                            math.min(1, origBg.B * 1.35 + 0.15)
                         )
 
                         local highlightStroke = targetCard:FindFirstChild("SearchHighlightStroke")
                         if not highlightStroke then
                             highlightStroke = Instance.new("UIStroke")
                             highlightStroke.Name = "SearchHighlightStroke"
-                            highlightStroke.Thickness = 1.8
-                            highlightStroke.Color = Window.CurrentTheme.Accent or Color3.fromRGB(0, 170, 255)
+                            highlightStroke.Thickness = 2.0
+                            highlightStroke.Color = Color3.fromRGB(255, 255, 255)
                             highlightStroke.Transparency = 1
                             highlightStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
                             highlightStroke.Parent = targetCard
@@ -5758,7 +5747,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                             BackgroundColor3 = brightBg
                         }):Play()
                         TweenService:Create(highlightStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                            Transparency = 0.1
+                            Transparency = 0.0
                         }):Play()
 
                         task.delay(1.2, function()
@@ -5780,6 +5769,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                                     if uiScale and uiScale.Parent then uiScale:Destroy() end
                                     if highlightStroke and highlightStroke.Parent then highlightStroke:Destroy() end
                                     if targetCard and targetCard.Parent then
+                                        targetCard.AnchorPoint = origAnchor
+                                        if not hasListLayout then
+                                            targetCard.Position = origPos
+                                        end
                                         targetCard.ZIndex = origZIndex
                                     end
                                 end)
@@ -8779,9 +8772,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return TabObj
     end
 
-    -- =========================================================================
-    -- DEFAULT BUILT-IN SETTINGS TAB BUILDER
-    -- =========================================================================
+    -- Default built-in settings tab builder
     local function CreateDefaultSettingsTab()
         Window:AddSidebarBigDivider(998)
         local SettingsTab = Window:CreateTab("Settings", 999)
@@ -9112,9 +9103,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
     end))
 
-    -- =========================================================================
-    -- UI CLICK THEME-SPECIFIC PARTICLE ENGINE (Built into library)
-    -- =========================================================================
+    -- UI click theme-specific particle engine
     local ParticleLayer = Instance.new("Frame")
     ParticleLayer.Name = "ParticleLayer"
     ParticleLayer.Size = UDim2.new(1, 0, 1, 0)
@@ -10039,9 +10028,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Window.SpiderwebBGEnabled = enabled
     end
 
-    -- =========================================================================
-    -- REAL ASSET PRELOADER & INITIALIZATION ENGINE
-    -- =========================================================================
+    -- Asset preloader and initializator
     task.defer(function()
         Window:UpdateLoadingProgress(10, "Initializing...")
 
