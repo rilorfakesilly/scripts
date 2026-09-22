@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.29.7"
+Library.Version = "2.29.8"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -5761,11 +5761,28 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end))
 
     -- Ctrl+F Keyboard Shortcut for Search
+    -- Uses VirtualInputManager to simulate a real click on the SearchInput so
+    -- the TextBox reliably captures focus in executor environments where
+    -- CaptureFocus() alone may be silently ignored.
     TrackConn(UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
         if input.KeyCode == Enum.KeyCode.F and (UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)) then
             if ScriptUi and ScriptUi.Enabled then
-                SearchInput:CaptureFocus()
+                -- Calculate the center of the SearchInput in screen space
+                local abs = SearchInput.AbsolutePosition
+                local sz  = SearchInput.AbsoluteSize
+                local cx  = abs.X + sz.X * 0.5
+                local cy  = abs.Y + sz.Y * 0.5
+
+                -- Simulate a virtual left-click on the TextBox to trigger focus
+                local vim = game:GetService("VirtualInputManager")
+                vim:SendMouseButtonEvent(cx, cy, 0, true,  game, 1)
+                vim:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
+
+                -- Fallback: also call CaptureFocus in case VIM is unavailable
+                task.defer(function()
+                    SearchInput:CaptureFocus()
+                end)
             end
         end
     end))
