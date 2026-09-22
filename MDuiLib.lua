@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.28.1"
+Library.Version = "2.29"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -715,15 +715,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     function Window:ApplyConfigSaveData(data)
         if not data then return end
 
-        -- 1. Apply Theme Preset or Custom Theme First
+        -- 1. Apply Theme Preset or Custom Theme First (without animation to prevent mixing)
         if data.Settings and data.Settings.CustomThemeColor and data.Settings.CustomThemeColor ~= "" and Window.ApplyCustomTheme then
             pcall(function()
                 local col = Color3.fromHex(data.Settings.CustomThemeColor)
-                Window:ApplyCustomTheme(col)
+                Window:ApplyCustomTheme(col, false)
             end)
         elseif data.Theme and data.Theme ~= "Custom" then
             if Window.ApplyTheme then
-                pcall(function() Window:ApplyTheme(data.Theme) end)
+                pcall(function() Window:ApplyTheme(data.Theme, false) end)
             elseif Library.ThemePresets[data.Theme] then
                 Window.CurrentTheme = Library.ThemePresets[data.Theme]
                 Window.CurrentThemeKey = data.Theme
@@ -5518,9 +5518,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local SearchResultsOverlay = Instance.new("Frame")
     SearchResultsOverlay.Name = "SearchResultsOverlay"
     SearchResultsOverlay.Size = UDim2.new(0, 230, 0, 0)
-    SearchResultsOverlay.Position = UDim2.new(0.5, -115, 0, 44)
+    SearchResultsOverlay.Position = UDim2.new(0.5, -115, 0, 36)
     SearchResultsOverlay.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(240, 245, 255) or Color3.fromRGB(20, 22, 28)
-    SearchResultsOverlay.BackgroundTransparency = 0.05
+    SearchResultsOverlay.BackgroundTransparency = 0.15
     SearchResultsOverlay.BorderSizePixel = 0
     SearchResultsOverlay.ClipsDescendants = true
     SearchResultsOverlay.ZIndex = 50
@@ -5530,12 +5530,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local ResultsCorner = Instance.new("UICorner")
     ResultsCorner.CornerRadius = UDim.new(0, 8)
     ResultsCorner.Parent = SearchResultsOverlay
-
-    local ResultsStroke = Instance.new("UIStroke")
-    ResultsStroke.Thickness = 1.2
-    ResultsStroke.Color = Color3.fromRGB(255, 255, 255)
-    ResultsStroke.Transparency = 0.8
-    ResultsStroke.Parent = SearchResultsOverlay
 
     AddUIShadow(SearchResultsOverlay, 20, 0.5)
 
@@ -5801,6 +5795,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         PerformSearch("")
     end))
 
+    -- Ctrl+F Keyboard Shortcut for Search
+    TrackConn(UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == Enum.KeyCode.F and (UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)) then
+            if ScriptUi and ScriptUi.Enabled then
+                SearchInput:CaptureFocus()
+            end
+        end
+    end))
+
     local TopRightFolder = Instance.new("Folder")
     TopRightFolder.Name = "toprightbuttons"
     TopRightFolder.Parent = TopFrame
@@ -5984,7 +5988,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local MadebyText = Instance.new("TextLabel")
     MadebyText.Size = UDim2.new(0, 180, 0, 24)
-    MadebyText.Position = UDim2.new(0.0803, 0, 0.05, 0)
+    MadebyText.Position = UDim2.new(0.0803, 0, 0.12, 0)
     MadebyText.BackgroundTransparency = 1
     MadebyText.FontFace = FontMichromaHeavy
     MadebyText.Text = authorText
@@ -6011,6 +6015,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TrackConn(DiscordBtn.MouseEnter:Connect(function()
         PlayHoverSFX()
         TweenService:Create(DiscordBtn, TweenInfo.new(0.15), {TextColor3 = Window.CurrentTheme.Text}):Play()
+        Window:AttachTooltip(DiscordBtn, "Click to copy")
     end))
 
     TrackConn(DiscordBtn.MouseLeave:Connect(function()
@@ -9623,7 +9628,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Window.ApplyCornerRadii = ApplyCornerRadii
     Window.AddUIShadow = AddUIShadow
 
-    function Window:ApplyTheme(themeKey)
+    function Window:ApplyTheme(themeKey, animated)
+        animated = (animated == nil) and true or animated
         local newTheme = Library.ThemePresets[themeKey]
         if not newTheme then return end
         Window.CurrentTheme = newTheme
@@ -9641,29 +9647,67 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
+        local tweenInfo = TweenInfo.new(animated and 0.35 or 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+
         if Window.MainFrame then
-            Window.MainFrame.BackgroundColor3 = newTheme.MainBG
-            Window.MainFrame.BackgroundTransparency = newTheme.MainTrans
+            if animated then
+                TweenService:Create(Window.MainFrame, tweenInfo, {
+                    BackgroundColor3 = newTheme.MainBG,
+                    BackgroundTransparency = newTheme.MainTrans
+                }):Play()
+            else
+                Window.MainFrame.BackgroundColor3 = newTheme.MainBG
+                Window.MainFrame.BackgroundTransparency = newTheme.MainTrans
+            end
         end
         if Window.LeftFrame then
-            Window.LeftFrame.BackgroundColor3 = newTheme.AccentBG
-            Window.LeftFrame.BackgroundTransparency = newTheme.AccentTrans
+            if animated then
+                TweenService:Create(Window.LeftFrame, tweenInfo, {
+                    BackgroundColor3 = newTheme.AccentBG,
+                    BackgroundTransparency = newTheme.AccentTrans
+                }):Play()
+            else
+                Window.LeftFrame.BackgroundColor3 = newTheme.AccentBG
+                Window.LeftFrame.BackgroundTransparency = newTheme.AccentTrans
+            end
         end
         if Window.TopFrame then
-            Window.TopFrame.BackgroundColor3 = newTheme.TopBG
-            Window.TopFrame.BackgroundTransparency = newTheme.TopTrans
+            if animated then
+                TweenService:Create(Window.TopFrame, tweenInfo, {
+                    BackgroundColor3 = newTheme.TopBG,
+                    BackgroundTransparency = newTheme.TopTrans
+                }):Play()
+            else
+                Window.TopFrame.BackgroundColor3 = newTheme.TopBG
+                Window.TopFrame.BackgroundTransparency = newTheme.TopTrans
+            end
         end
         if Window.BottomFrame then
-            Window.BottomFrame.BackgroundColor3 = newTheme.BottomBG
-            Window.BottomFrame.BackgroundTransparency = newTheme.BottomTrans
+            if animated then
+                TweenService:Create(Window.BottomFrame, tweenInfo, {
+                    BackgroundColor3 = newTheme.BottomBG,
+                    BackgroundTransparency = newTheme.BottomTrans
+                }):Play()
+            else
+                Window.BottomFrame.BackgroundColor3 = newTheme.BottomBG
+                Window.BottomFrame.BackgroundTransparency = newTheme.BottomTrans
+            end
         end
 
         if Window.SidebarScroll then
-            Window.SidebarScroll.ScrollBarImageColor3 = newTheme.Divider
+            if animated then
+                TweenService:Create(Window.SidebarScroll, tweenInfo, {ScrollBarImageColor3 = newTheme.Divider}):Play()
+            else
+                Window.SidebarScroll.ScrollBarImageColor3 = newTheme.Divider
+            end
         end
 
         if Window.SidebarCollapseBtn then
-            Window.SidebarCollapseBtn.ImageColor3 = newTheme.Text
+            if animated then
+                TweenService:Create(Window.SidebarCollapseBtn, tweenInfo, {ImageColor3 = newTheme.Text}):Play()
+            else
+                Window.SidebarCollapseBtn.ImageColor3 = newTheme.Text
+            end
         end
 
         if Window.BottomGradient then
@@ -9677,8 +9721,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if Window.SidebarDividers then
             for _, div in ipairs(Window.SidebarDividers) do
                 if div and div.Parent then
-                    div.BackgroundColor3 = newTheme.Divider
-                    div.BackgroundTransparency = 0
+                    if animated then
+                        TweenService:Create(div, tweenInfo, {BackgroundColor3 = newTheme.Divider, BackgroundTransparency = 0}):Play()
+                    else
+                        div.BackgroundColor3 = newTheme.Divider
+                        div.BackgroundTransparency = 0
+                    end
                 end
             end
         end
@@ -9687,16 +9735,28 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if btnData and btnData.RefreshTheme then
                 pcall(function() btnData.RefreshTheme(newTheme) end)
             elseif btnData and btnData.Frame and btnData.Frame.Parent then
-                btnData.Frame.BackgroundColor3 = newTheme.ButtonBG
+                if animated then
+                    TweenService:Create(btnData.Frame, tweenInfo, {BackgroundColor3 = newTheme.ButtonBG}):Play()
+                else
+                    btnData.Frame.BackgroundColor3 = newTheme.ButtonBG
+                end
                 if btnData.TextLabel then
-                    btnData.TextLabel.TextColor3 = newTheme.Text
+                    if animated then
+                        TweenService:Create(btnData.TextLabel, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+                    else
+                        btnData.TextLabel.TextColor3 = newTheme.Text
+                    end
                 end
                 if btnData.Stroke then
                     btnData.Stroke.Color = Color3.fromRGB(255, 255, 255)
                     btnData.Stroke.Thickness = 1.2
                 end
                 if btnData.ArrowIcon then
-                    btnData.ArrowIcon.ImageColor3 = newTheme.Text
+                    if animated then
+                        TweenService:Create(btnData.ArrowIcon, tweenInfo, {ImageColor3 = newTheme.Text}):Play()
+                    else
+                        btnData.ArrowIcon.ImageColor3 = newTheme.Text
+                    end
                 end
             end
         end
@@ -9705,9 +9765,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if toggle and toggle.RefreshTheme then
                 pcall(function() toggle.RefreshTheme(newTheme) end)
             elseif toggle and toggle.Frame and toggle.Frame.Parent then
-                if toggle.Overlay then toggle.Overlay.ImageColor3 = newTheme.ButtonBG end
+                if toggle.Overlay then
+                    if animated then
+                        TweenService:Create(toggle.Overlay, tweenInfo, {ImageColor3 = newTheme.ButtonBG}):Play()
+                    else
+                        toggle.Overlay.ImageColor3 = newTheme.ButtonBG
+                    end
+                end
                 local isToggled = (toggle.GetState and toggle.GetState())
-                toggle.Frame.BackgroundColor3 = isToggled and newTheme.ButtonBG or ((newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
+                local targetColor = isToggled and newTheme.ButtonBG or ((newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
+                if animated then
+                    TweenService:Create(toggle.Frame, tweenInfo, {BackgroundColor3 = targetColor}):Play()
+                else
+                    toggle.Frame.BackgroundColor3 = targetColor
+                end
             end
         end
 
@@ -9715,10 +9786,33 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if slider and slider.RefreshTheme then
                 pcall(function() slider.RefreshTheme(newTheme) end)
             elseif slider and slider.Track and slider.Track.Parent then
-                slider.Track.BackgroundColor3 = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(20, 22, 28)
-                if slider.FilledPart then slider.FilledPart.BackgroundColor3 = newTheme.ButtonBG end
-                if slider.Overlay then slider.Overlay.ImageColor3 = newTheme.ButtonBG end
-                if slider.ValueLabel then slider.ValueLabel.TextColor3 = newTheme.Text end
+                local trackColor = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(20, 22, 28)
+                if animated then
+                    TweenService:Create(slider.Track, tweenInfo, {BackgroundColor3 = trackColor}):Play()
+                else
+                    slider.Track.BackgroundColor3 = trackColor
+                end
+                if slider.FilledPart then
+                    if animated then
+                        TweenService:Create(slider.FilledPart, tweenInfo, {BackgroundColor3 = newTheme.ButtonBG}):Play()
+                    else
+                        slider.FilledPart.BackgroundColor3 = newTheme.ButtonBG
+                    end
+                end
+                if slider.Overlay then
+                    if animated then
+                        TweenService:Create(slider.Overlay, tweenInfo, {ImageColor3 = newTheme.ButtonBG}):Play()
+                    else
+                        slider.Overlay.ImageColor3 = newTheme.ButtonBG
+                    end
+                end
+                if slider.ValueLabel then
+                    if animated then
+                        TweenService:Create(slider.ValueLabel, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+                    else
+                        slider.ValueLabel.TextColor3 = newTheme.Text
+                    end
+                end
             end
         end
 
@@ -9749,12 +9843,25 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if Window.RegisteredKeybindBadges then
             for _, b in ipairs(Window.RegisteredKeybindBadges) do
                 if b and b.Container and b.Container.Parent then
-                    b.Container.BackgroundColor3 = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(24, 26, 34)
+                    local containerColor = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(24, 26, 34)
+                    if animated then
+                        TweenService:Create(b.Container, tweenInfo, {BackgroundColor3 = containerColor}):Play()
+                    else
+                        b.Container.BackgroundColor3 = containerColor
+                    end
                     if b.Label then
-                        b.Label.TextColor3 = newTheme.Text
+                        if animated then
+                            TweenService:Create(b.Label, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+                        else
+                            b.Label.TextColor3 = newTheme.Text
+                        end
                     end
                     if b.DeleteBtn then
-                        b.DeleteBtn.ImageColor3 = newTheme.Text
+                        if animated then
+                            TweenService:Create(b.DeleteBtn, tweenInfo, {ImageColor3 = newTheme.Text}):Play()
+                        else
+                            b.DeleteBtn.ImageColor3 = newTheme.Text
+                        end
                     end
                 end
             end
@@ -9769,20 +9876,42 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         if SearchBarContainer then
-            SearchBarContainer.BackgroundColor3 = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(22, 24, 30)
+            local searchBarColor = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(22, 24, 30)
+            if animated then
+                TweenService:Create(SearchBarContainer, tweenInfo, {BackgroundColor3 = searchBarColor}):Play()
+            else
+                SearchBarContainer.BackgroundColor3 = searchBarColor
+            end
             if SearchInput then
-                SearchInput.TextColor3 = newTheme.Text
+                if animated then
+                    TweenService:Create(SearchInput, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+                else
+                    SearchInput.TextColor3 = newTheme.Text
+                end
                 SearchInput.PlaceholderColor3 = newTheme.SubText
             end
             if SearchIcon then
-                SearchIcon.ImageColor3 = newTheme.SubText
+                if animated then
+                    TweenService:Create(SearchIcon, tweenInfo, {ImageColor3 = newTheme.SubText}):Play()
+                else
+                    SearchIcon.ImageColor3 = newTheme.SubText
+                end
             end
             if ClearSearchBtn then
-                ClearSearchBtn.TextColor3 = newTheme.SubText
+                if animated then
+                    TweenService:Create(ClearSearchBtn, tweenInfo, {TextColor3 = newTheme.SubText}):Play()
+                else
+                    ClearSearchBtn.TextColor3 = newTheme.SubText
+                end
             end
         end
         if SearchResultsOverlay then
-            SearchResultsOverlay.BackgroundColor3 = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(240, 245, 255) or Color3.fromRGB(20, 22, 28)
+            local searchResultsColor = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(240, 245, 255) or Color3.fromRGB(20, 22, 28)
+            if animated then
+                TweenService:Create(SearchResultsOverlay, tweenInfo, {BackgroundColor3 = searchResultsColor}):Play()
+            else
+                SearchResultsOverlay.BackgroundColor3 = searchResultsColor
+            end
         end
 
         if Window.ThemePresetBtnMap then
@@ -9793,23 +9922,67 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        if Window.MDHUBNAME then Window.MDHUBNAME.TextColor3 = newTheme.Text end
-        if Window.MadebyText then Window.MadebyText.TextColor3 = newTheme.Text end
-        if Window.DiscordBtn then Window.DiscordBtn.TextColor3 = newTheme.SubText end
-        if Window.LocalTime then Window.LocalTime.TextColor3 = newTheme.Text end
-        if Window.WelcomeMsg then Window.WelcomeMsg.TextColor3 = newTheme.Text end
+        if Window.MDHUBNAME then
+            if animated then
+                TweenService:Create(Window.MDHUBNAME, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+            else
+                Window.MDHUBNAME.TextColor3 = newTheme.Text
+            end
+        end
+        if Window.MadebyText then
+            if animated then
+                TweenService:Create(Window.MadebyText, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+            else
+                Window.MadebyText.TextColor3 = newTheme.Text
+            end
+        end
+        if Window.DiscordBtn then
+            if animated then
+                TweenService:Create(Window.DiscordBtn, tweenInfo, {TextColor3 = newTheme.SubText}):Play()
+            else
+                Window.DiscordBtn.TextColor3 = newTheme.SubText
+            end
+        end
+        if Window.LocalTime then
+            if animated then
+                TweenService:Create(Window.LocalTime, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+            else
+                Window.LocalTime.TextColor3 = newTheme.Text
+            end
+        end
+        if Window.WelcomeMsg then
+            if animated then
+                TweenService:Create(Window.WelcomeMsg, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+            else
+                Window.WelcomeMsg.TextColor3 = newTheme.Text
+            end
+        end
 
         if Window.Tabs then
             for name, tabData in pairs(Window.Tabs) do
                 if tabData.Button then
-                    tabData.Button.TextColor3 = (name == Window.ActiveTab) and newTheme.Text or newTheme.SubText
+                    local targetColor = (name == Window.ActiveTab) and newTheme.Text or newTheme.SubText
+                    if animated then
+                        TweenService:Create(tabData.Button, tweenInfo, {TextColor3 = targetColor}):Play()
+                    else
+                        tabData.Button.TextColor3 = targetColor
+                    end
                 end
                 if tabData.Icon then
-                    tabData.Icon.ImageColor3 = (name == Window.ActiveTab) and newTheme.Text or newTheme.SubText
+                    local targetColor = (name == Window.ActiveTab) and newTheme.Text or newTheme.SubText
+                    if animated then
+                        TweenService:Create(tabData.Icon, tweenInfo, {ImageColor3 = targetColor}):Play()
+                    else
+                        tabData.Icon.ImageColor3 = targetColor
+                    end
                 end
 
                 if tabData.ContentFrame then
-                    tabData.ContentFrame.ScrollBarImageColor3 = newTheme.Divider
+                    if animated then
+                        TweenService:Create(tabData.ContentFrame, tweenInfo, {ScrollBarImageColor3 = newTheme.Divider}):Play()
+                    else
+                        tabData.ContentFrame.ScrollBarImageColor3 = newTheme.Divider
+                    end
                     for _, card in ipairs(tabData.ContentFrame:GetChildren()) do
                         if card:IsA("Frame") and card.Name ~= "MainHeaderFrame" and card.Name ~= "DropdownOverlay" then
                             if card.Name == "RowContainer" or card.Name == "RowFrame" or card.Name == "ParticleRow" or card.Name == "ToggleGroup" or card.Name:find("Row") or card.Name:find("Group") then
@@ -9817,14 +9990,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                                 for _, subCard in ipairs(card:GetChildren()) do
                                     if subCard:IsA("Frame") then
                                         if subCard.Name ~= "MDButtonCard" and subCard.Name ~= "TogglePill" and subCard.Name ~= "DropdownContent" then
-                                            subCard.BackgroundColor3 = newTheme.CardBG
+                                            if animated then
+                                                TweenService:Create(subCard, tweenInfo, {BackgroundColor3 = newTheme.CardBG}):Play()
+                                            else
+                                                subCard.BackgroundColor3 = newTheme.CardBG
+                                            end
                                         end
                                         for _, child in ipairs(subCard:GetChildren()) do
                                             if child:IsA("TextLabel") then
                                                 if child.Name == "CardTitle" or child.Name == "btntext" or child.Name == "drpdwntext" or child.Name == "TitleLabel" or child.Name == "SliderTitle" or child.Name == "ValueLabel" or child.Name:find("Title") or child.Name:find("Label") then
-                                                    child.TextColor3 = newTheme.Text
+                                                    if animated then
+                                                        TweenService:Create(child, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+                                                    else
+                                                        child.TextColor3 = newTheme.Text
+                                                    end
                                                 elseif child.Name == "CardBody" or child.Name == "DescLabel" or child.Name:find("Desc") then
-                                                    child.TextColor3 = newTheme.SubText
+                                                    if animated then
+                                                        TweenService:Create(child, tweenInfo, {TextColor3 = newTheme.SubText}):Play()
+                                                    else
+                                                        child.TextColor3 = newTheme.SubText
+                                                    end
                                                 end
                                             elseif child.Name == "CardDividerLine" then
                                                 child.BackgroundTransparency = 1
@@ -9833,15 +10018,31 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                                     end
                                 end
                             elseif card.Name ~= "MDButtonCard" and card.Name ~= "DropdownContent" then
-                                card.BackgroundColor3 = newTheme.CardBG
+                                if animated then
+                                    TweenService:Create(card, tweenInfo, {BackgroundColor3 = newTheme.CardBG}):Play()
+                                else
+                                    card.BackgroundColor3 = newTheme.CardBG
+                                end
                                 for _, child in ipairs(card:GetChildren()) do
                                     if child:IsA("TextLabel") then
                                         if child.Name == "CardTitle" or child.Name == "btntext" or child.Name == "drpdwntext" or child.Name == "TitleLabel" or child.Name == "SliderTitle" or child.Name == "ValueLabel" or child.Name == "ThemeTitle" or child.Name == "SectionTitle" or child.Name == "NotifLabel" or child.Name == "SoundLabel" or child.Name == "VolumeLabel" or child.Name == "WebTitle" or child.Name == "BlurTitle" or child.Name == "TransLabel" or child.Name == "CustomThemeTitle" or child.Name == "ClickEffectsTitle" or child.Name == "Welcomemsg" or child.Name:find("Title") or child.Name:find("Label") then
-                                            child.TextColor3 = newTheme.Text
+                                            if animated then
+                                                TweenService:Create(child, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+                                            else
+                                                child.TextColor3 = newTheme.Text
+                                            end
                                         elseif child.Name == "CardBody" or child.Name == "DescLabel" or child.Name == "WebDesc" or child.Name == "BlurDesc" or child.Name == "CustomThemeDesc" or child.Name == "ClickEffectsDesc" or child.Name:find("Desc") then
-                                            child.TextColor3 = newTheme.SubText
+                                            if animated then
+                                                TweenService:Create(child, tweenInfo, {TextColor3 = newTheme.SubText}):Play()
+                                            else
+                                                child.TextColor3 = newTheme.SubText
+                                            end
                                         elseif child.Name ~= "LocalTime" then
-                                            child.TextColor3 = newTheme.Text
+                                            if animated then
+                                                TweenService:Create(child, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+                                            else
+                                                child.TextColor3 = newTheme.Text
+                                            end
                                         end
                                     end
                                 end
@@ -9855,8 +10056,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Window:Notify("Theme updated", "Applied " .. newTheme.Name .. " theme!", 2.5)
     end
 
-    function Window:ApplyCustomTheme(baseColor)
+    function Window:ApplyCustomTheme(baseColor, animated)
         if not baseColor then return end
+        animated = (animated == nil) and true or animated
         Window.CustomThemeColor = baseColor
         local h, s, v = baseColor:ToHSV()
 
@@ -9960,7 +10162,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         }
 
         Library.ThemePresets["Custom"] = customTheme
-        Window:ApplyTheme("Custom")
+        Window:ApplyTheme("Custom", animated)
     end
 
     function Window:SetBackgroundTransparency(transparency)
