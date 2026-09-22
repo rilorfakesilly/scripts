@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.29.2"
+Library.Version = "2.29.3"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -2041,18 +2041,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LoadbaremptyStroke.Transparency = 0
     LoadbaremptyStroke.Parent = Loadbarempty
 
-    local LoadbarBGImage = Instance.new("ImageLabel")
-    LoadbarBGImage.Name = GenerateSafeName("BarBG")
-    LoadbarBGImage.Size = UDim2.new(1, 0, 1, 0)
-    LoadbarBGImage.Position = UDim2.new(0, 0, 0, 0)
-    LoadbarBGImage.BackgroundTransparency = 1
-    LoadbarBGImage.Image = "rbxassetid://139688890190075"
-    LoadbarBGImage.ScaleType = Enum.ScaleType.Tile
-    LoadbarBGImage.TileSize = UDim2.new(0, 25, 1, 0)
-    LoadbarBGImage.ImageTransparency = 0.4
-    LoadbarBGImage.ZIndex = 101
-    LoadbarBGImage.Parent = Loadbarempty
-
+--    local LoadbarBGImage = Instance.new("ImageLabel")
+--    LoadbarBGImage.Name = GenerateSafeName("BarBG")
+--    LoadbarBGImage.Size = UDim2.new(1, 0, 1, 0)
+--    LoadbarBGImage.Position = UDim2.new(0, 0, 0, 0)
+--    LoadbarBGImage.BackgroundTransparency = 1
+--    LoadbarBGImage.Image = "rbxassetid://139688890190075"
+--    LoadbarBGImage.ScaleType = Enum.ScaleType.Tile
+--    LoadbarBGImage.TileSize = UDim2.new(0, 25, 1, 0)
+--    LoadbarBGImage.ImageTransparency = 0.4
+--    LoadbarBGImage.ZIndex = 101
+--    LoadbarBGImage.Parent = Loadbarempty 
+-- ima think bout returning this later
+    
     AddUIShadow(Loadbarempty, 20, 0.5, Color3.fromRGB(255, 255, 255))
 
     local Loadbar = Instance.new("Frame")
@@ -2073,12 +2074,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local Loadingtext = Instance.new("TextLabel")
     Loadingtext.Name = GenerateSafeName("LoadingText")
     Loadingtext.Size = UDim2.new(0, 180, 0, 33)
-    Loadingtext.Position = UDim2.new(0.5, -163, 0.5, 28)
+    Loadingtext.Position = UDim2.new(0.5, -163, 0.5, 18)
     Loadingtext.BackgroundTransparency = 1
     Loadingtext.FontFace = FontMichromaRegular
     Loadingtext.Text = "Loading..."
     Loadingtext.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Loadingtext.TextSize = 22
+    Loadingtext.TextSize = 24
     Loadingtext.TextWrapped = true
     Loadingtext.TextXAlignment = Enum.TextXAlignment.Left
     Loadingtext.ZIndex = 102
@@ -2087,12 +2088,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local percloaded = Instance.new("TextLabel")
     percloaded.Name = GenerateSafeName("PercLoaded")
     percloaded.Size = UDim2.new(0, 131, 0, 33)
-    percloaded.Position = UDim2.new(0.5, 32, 0.5, -42)
+    percloaded.Position = UDim2.new(0.5, 32, 0.5, -35)
     percloaded.BackgroundTransparency = 1
     percloaded.FontFace = FontMichromaRegular
     percloaded.Text = "0 %"
     percloaded.TextColor3 = Color3.fromRGB(255, 255, 255)
-    percloaded.TextSize = 18
+    percloaded.TextSize = 22
     percloaded.TextWrapped = true
     percloaded.TextXAlignment = Enum.TextXAlignment.Right
     percloaded.ZIndex = 102
@@ -2225,13 +2226,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local BtnScale = Instance.new("UIScale")
         BtnScale.Scale = 1.0
         BtnScale.Parent = BtnFrame
-
-        local Stroke = Instance.new("UIStroke")
-        Stroke.Name = GenerateSafeName("Stroke")
-        Stroke.Color = Color3.fromRGB(255, 255, 255)
-        Stroke.Thickness = 1.2
-        Stroke.Transparency = 0
-        Stroke.Parent = BtnFrame
 
         local MDTextFolder = Instance.new("Folder")
         MDTextFolder.Name = GenerateSafeName("Text")
@@ -5528,7 +5522,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchResultsOverlay.Parent = MainContainer
 
     local ResultsCorner = Instance.new("UICorner")
-    ResultsCorner.CornerRadius = UDim.new(0, 8)
+    ResultsCorner.CornerRadius = UDim.new(0, 22)
     ResultsCorner.Parent = SearchResultsOverlay
 
     AddUIShadow(SearchResultsOverlay, 20, 0.5)
@@ -8569,7 +8563,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 SliderCard.Parent = targetParent
 
                 local CardCorner = Instance.new("UICorner")
-                CardCorner.CornerRadius = UDim.new(0, 8)
+                CardCorner.CornerRadius = UDim.new(0, 22)
                 CardCorner.Parent = SliderCard
 
                 AddUIShadow(SliderCard, 20, 0.5)
@@ -8934,7 +8928,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ThemeCard.Parent = SettingsTab.ContentFrame
 
         local ThemeCardCorner = Instance.new("UICorner")
-        ThemeCardCorner.CornerRadius = UDim.new(0, 8)
+        ThemeCardCorner.CornerRadius = UDim.new(0, 22)
         ThemeCardCorner.Parent = ThemeCard
         AddUIShadow(ThemeCard, 12, 0.45)
 
