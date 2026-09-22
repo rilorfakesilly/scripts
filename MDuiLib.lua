@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.29.6"
+Library.Version = "2.29.7"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -1447,7 +1447,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         InnerScroll.Position = isSearchable and UDim2.new(0, 5, 0, 36) or UDim2.new(0, 5, 0, 5)
         InnerScroll.BackgroundTransparency = 1
         InnerScroll.BorderSizePixel = 0
-        InnerScroll.ScrollBarThickness = 3
+        InnerScroll.ScrollBarThickness = 0
         InnerScroll.ZIndex = 502
         InnerScroll.Parent = DropdownContent
 
@@ -1528,7 +1528,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     ItemBtn.Parent = InnerScroll
 
                     local ItemCorner = Instance.new("UICorner")
-                    ItemCorner.CornerRadius = UDim.new(0, 6)
+                    ApplyCornerRadii(ItemCorner, 0, 22, 0, 22)
                     ItemCorner.Parent = ItemBtn
 
                     ItemBtn.MouseButton1Click:Connect(function()
