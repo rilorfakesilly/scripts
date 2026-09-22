@@ -1412,7 +1412,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         SearchContainer.Parent = DropdownContent
 
         local SearchCorner = Instance.new("UICorner")
-        SearchCorner.CornerRadius = UDim.new(0, 6)
+        ApplyCornerRadii(SearchCorner, 6, 6, 6, 6)
         SearchCorner.Parent = SearchContainer
 
         local SearchIcon = Instance.new("ImageLabel")
@@ -3891,7 +3891,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             PlayHoverSFX()
             local baseBg = Window.CurrentTheme.ButtonBG
             local hoverBg = BrightenColor(baseBg, 1.05)
-            TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 2.2}):Play()
             TweenService:Create(BtnScale, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = 1.02}):Play()
             TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = hoverBg}):Play()
         end))
@@ -3900,7 +3899,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             _hoverActive = false
             _pressActive = false
             local baseBg = Window.CurrentTheme.ButtonBG
-            TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 1.5}):Play()
             TweenService:Create(BtnScale, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = 1.0}):Play()
             TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = baseBg}):Play()
         end))
@@ -4485,6 +4483,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
         Corner.Parent = BtnFrame
 
+        local Stroke = Instance.new("UIStroke")
+        Stroke.Name = "BtnStroke"
+        Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        Stroke.Thickness = 1.2
+        Stroke.Parent = BtnFrame
+
         AddUIShadow(BtnFrame, 14, 0.45)
 
         local BgImageLabel = nil
@@ -4968,16 +4972,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local TooltipFrame = Instance.new("Frame")
     TooltipFrame.Name = GenerateSafeName("Tooltip")
     TooltipFrame.Size = UDim2.new(0, 100, 0, 24)
-    TooltipFrame.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
     TooltipFrame.BackgroundTransparency = 1
     TooltipFrame.BorderSizePixel = 0
     TooltipFrame.ZIndex = 10000
     TooltipFrame.Visible = false
     TooltipFrame.Parent = ScriptUi
-
-    local TooltipCorner = Instance.new("UICorner")
-    TooltipCorner.CornerRadius = UDim.new(0, 6)
-    TooltipCorner.Parent = TooltipFrame
 
     local TooltipPadding = Instance.new("UIPadding")
     TooltipPadding.PaddingLeft = UDim.new(0, 8)
@@ -4991,9 +4990,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TooltipText.Size = UDim2.new(1, 0, 1, 0)
     TooltipText.BackgroundTransparency = 1
     TooltipText.FontFace = FontMichromaRegular
-    TooltipText.Text = ""
-    TooltipText.TextColor3 = Color3.fromRGB(235, 240, 255)
-    TooltipText.TextSize = 15
     TooltipText.Text = ""
     TooltipText.TextColor3 = Color3.fromRGB(235, 240, 255)
     TooltipText.TextSize = 15
@@ -5025,15 +5021,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local mousePos = UserInputService:GetMouseLocation()
             local inset = game:GetService("GuiService"):GetGuiInset()
             TooltipFrame.Position = UDim2.new(0, mousePos.X + 12, 0, mousePos.Y - inset.Y + 12)
-            TooltipFrame.BackgroundColor3 = (Window.CurrentTheme and Window.CurrentTheme.CardBG) or Color3.fromRGB(18, 20, 26)
             TooltipText.TextColor3 = (Window.CurrentTheme and Window.CurrentTheme.Text) or Color3.fromRGB(235, 240, 255)
             TooltipFrame.Visible = true
 
             if tooltipTween then tooltipTween:Cancel() end
-            tooltipTween = TweenService:Create(TooltipFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                BackgroundTransparency = 0.15
-            })
-            tooltipTween:Play()
             TweenService:Create(TooltipText, TweenInfo.new(0.15), {TextTransparency = 0}):Play()
         end))
 
@@ -5049,10 +5040,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if activeTooltipTarget == guiObject then
                 activeTooltipTarget = nil
                 if tooltipTween then tooltipTween:Cancel() end
-                tooltipTween = TweenService:Create(TooltipFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                    BackgroundTransparency = 1
-                })
-                tooltipTween:Play()
                 TweenService:Create(TooltipText, TweenInfo.new(0.15), {TextTransparency = 1}):Play()
                 task.delay(0.16, function()
                     if activeTooltipTarget == nil then
@@ -5442,7 +5429,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchBarContainer.Parent = TopFrame
 
     local SearchCorner = Instance.new("UICorner")
-    SearchCorner.CornerRadius = UDim.new(0, 13)
+    ApplyCornerRadii(SearchCorner, 13, 13, 13, 13)
     SearchCorner.Parent = SearchBarContainer
 
     local SearchIcon = Instance.new("ImageLabel")
@@ -5599,11 +5586,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if maxToShow == 1 then
                 rowCorner.CornerRadius = UDim.new(0, 6)
             elseif i == 1 then
-                rowCorner.CornerRadius = UDim.new(0, 6)
+                ApplyCornerRadii(rowCorner, 6, 6, 0, 0)
             elseif i == maxToShow then
-                rowCorner.CornerRadius = UDim.new(0, 6)
+                ApplyCornerRadii(rowCorner, 0, 0, 6, 6)
             else
-                rowCorner.CornerRadius = UDim.new(0, 0)
+                ApplyCornerRadii(rowCorner, 0, 0, 0, 0)
             end
             rowCorner.Parent = rowBtn
 
