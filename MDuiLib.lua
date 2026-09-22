@@ -8860,7 +8860,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Suffix = "%",
                 Callback = function(val, pct) Window:SetSoundVolume(pct) end
             }
-        }, "Vertical")
+        }, "Horizontal")
         Window.RegisteredToggles["Notifications"] = audioResults[1]
         Window.RegisteredToggles["UISounds"]       = audioResults[2]
         Window.RegisteredSliders["SoundVolume"]    = audioResults[3]
@@ -8894,7 +8894,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Suffix = "%",
                 Callback = function(val, pct) Window:SetBackgroundTransparency(val / 100) end
             }
-        }, "Vertical")
+        }, "Horizontal")
         Window.RegisteredToggles["SpiderwebBG"]     = bgResults[1]
         Window.RegisteredToggles["BackgroundBlur"]  = bgResults[2]
         Window.RegisteredSliders["BGTransparency"]  = bgResults[3]
