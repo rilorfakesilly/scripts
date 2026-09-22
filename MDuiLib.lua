@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.29"
+Library.Version = "2.29.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -1199,7 +1199,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BoxFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 8)
+        Corner.CornerRadius = UDim.new(0, 22)
         Corner.Parent = BoxFrame
 
         AddUIShadow(BoxFrame, 20, 0.5)
@@ -1334,7 +1334,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DropdownFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 8)
+        Corner.CornerRadius = UDim.new(0, 22)
         Corner.Parent = DropdownFrame
 
         AddUIShadow(DropdownFrame, 20, 0.5)
@@ -1363,7 +1363,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local ArrowIcon = Instance.new("ImageLabel")
         ArrowIcon.Name = GenerateSafeName("Icon")
-        ArrowIcon.Size = UDim2.new(0, 36, 0, 36)
+        ArrowIcon.Size = UDim2.new(0, 18, 0, 18)
         ArrowIcon.Position = UDim2.new(1, -46, 0.5, -18)
         ArrowIcon.BackgroundTransparency = 1
         ArrowIcon.Image = "rbxassetid://11552476728"
@@ -1395,7 +1395,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DropdownContent.Parent = Window.DropdownOverlay or MainContainer
 
         local ContentCorner = Instance.new("UICorner")
-        ContentCorner.CornerRadius = UDim.new(0, 8)
+        ContentCorner.CornerRadius = UDim.new(0, 22)
         ContentCorner.Parent = DropdownContent
 
         AddUIShadow(DropdownContent, 20, 0.5)
@@ -1756,7 +1756,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         SectionFrame.Parent = parentTab.ContentFrame
 
         local SectionCorner = Instance.new("UICorner")
-        SectionCorner.CornerRadius = UDim.new(0, 8)
+        SectionCorner.CornerRadius = UDim.new(0, 22)
         SectionCorner.Parent = SectionFrame
         AddUIShadow(SectionFrame, 12, 0.45)
 
@@ -2207,7 +2207,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 6)
+        Corner.CornerRadius = UDim.new(0, 22)
         Corner.Parent = BtnFrame
 
         AddUIShadow(BtnFrame, 20, 0.5)
@@ -2407,7 +2407,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BadgeStroke.Name = GenerateSafeName("Stroke")
         BadgeStroke.Thickness = 1.1
         BadgeStroke.Color = Color3.fromRGB(255, 255, 255)
-        BadgeStroke.Transparency = 0.75
+        BadgeStroke.Transparency = 1 --no comment
         BadgeStroke.Parent = BadgeContainer
 
         local BadgeText = Instance.new("TextLabel")
@@ -3081,13 +3081,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ModalCard.Parent = ModalBackdrop
 
         local ModalCorner = Instance.new("UICorner")
-        ModalCorner.CornerRadius = UDim.new(0, 12)
+        ModalCorner.CornerRadius = UDim.new(0, 22)
         ModalCorner.Parent = ModalCard
 
         local ModalStroke = Instance.new("UIStroke")
         ModalStroke.Thickness = 1.4
         ModalStroke.Color = Color3.fromRGB(255, 255, 255)
-        ModalStroke.Transparency = 0.8
+        ModalStroke.Transparency = 1-- again no comment , might return it tho
         ModalStroke.Parent = ModalCard
 
         AddUIShadow(ModalCard, 28, 0.6)
@@ -3339,7 +3339,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local ApplyBtn = Instance.new("TextButton")
         ApplyBtn.Name = "ApplyButton"
         ApplyBtn.Size = UDim2.new(1, -28, 0, 32)
-        ApplyBtn.Position = UDim2.new(0, 14, 0, 262)
+        ApplyBtn.Position = UDdim2.new(0, 14, 0, 262)
         ApplyBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
         ApplyBtn.BorderSizePixel = 0
         ApplyBtn.FontFace = FontMichromaBold
@@ -3350,7 +3350,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ApplyBtn.Parent = ModalCard
 
         local ApplyCorner = Instance.new("UICorner")
-        ApplyCorner.CornerRadius = UDim.new(0, 6)
+        ApplyCorner.CornerRadius = UDim.new(0, 22)
         ApplyCorner.Parent = ApplyBtn
 
         local isDraggingSV = false
@@ -3445,7 +3445,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local dotStroke = Instance.new("UIStroke")
             dotStroke.Thickness = 1.2
             dotStroke.Color = Color3.fromRGB(255, 255, 255)
-            dotStroke.Transparency = 0.6
+            dotStroke.Transparency = 1
             dotStroke.Parent = dot
 
             dot.MouseButton1Click:Connect(function()
@@ -3657,7 +3657,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CardFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 8)
+        Corner.CornerRadius = UDim.new(0, 22)
         Corner.Parent = CardFrame
 
         AddUIShadow(CardFrame, 20, 0.5)
@@ -5520,7 +5520,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchResultsOverlay.Size = UDim2.new(0, 230, 0, 0)
     SearchResultsOverlay.Position = UDim2.new(0.5, -115, 0, 36)
     SearchResultsOverlay.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(240, 245, 255) or Color3.fromRGB(20, 22, 28)
-    SearchResultsOverlay.BackgroundTransparency = 0.15
+    SearchResultsOverlay.BackgroundTransparency = 1
     SearchResultsOverlay.BorderSizePixel = 0
     SearchResultsOverlay.ClipsDescendants = true
     SearchResultsOverlay.ZIndex = 50
@@ -5602,7 +5602,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             emptyLabel.FontFace = FontMichromaRegular
             emptyLabel.Text = "No results found"
             emptyLabel.TextColor3 = Window.CurrentTheme.SubText
-            emptyLabel.TextSize = 10
+            emptyLabel.TextSize = 13
             emptyLabel.ZIndex = 52
             emptyLabel.Parent = ResultsScroll
 
@@ -5620,7 +5620,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             rowBtn.Name = "SearchResult"
             rowBtn.Size = UDim2.new(1, -4, 0, 30)
             rowBtn.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(30, 33, 42)
-            rowBtn.BackgroundTransparency = 0.4
+            rowBtn.BackgroundTransparency = 0.13
             rowBtn.Text = ""
             rowBtn.ZIndex = 52
             rowBtn.Parent = ResultsScroll
@@ -5629,27 +5629,27 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             rowCorner.CornerRadius = UDim.new(0, 6)
             rowCorner.Parent = rowBtn
 
-            local titleLbl = Instance.new("TextLabel")
+            local titleLbl = Instance.new("titleLbl")
             titleLbl.Size = UDim2.new(1, -12, 0, 15)
             titleLbl.Position = UDim2.new(0, 8, 0, 1)
             titleLbl.BackgroundTransparency = 1
             titleLbl.FontFace = FontMichromaBold
             titleLbl.Text = item.Name
             titleLbl.TextColor3 = Window.CurrentTheme.Text
-            titleLbl.TextSize = 10
+            titleLbl.TextSize = 13
             titleLbl.TextXAlignment = Enum.TextXAlignment.Left
             titleLbl.TextTruncate = Enum.TextTruncate.AtEnd
             titleLbl.ZIndex = 53
             titleLbl.Parent = rowBtn
 
-            local subLbl = Instance.new("TextLabel")
+            local subLbl = Instance.new("subLbl")
             subLbl.Size = UDim2.new(1, -12, 0, 12)
             subLbl.Position = UDim2.new(0, 8, 0, 15)
             subLbl.BackgroundTransparency = 1
             subLbl.FontFace = FontMichromaRegular
             subLbl.Text = item.TabName
             subLbl.TextColor3 = Window.CurrentTheme.SubText
-            subLbl.TextSize = 8
+            subLbl.TextSize = 10
             subLbl.TextXAlignment = Enum.TextXAlignment.Left
             subLbl.TextTruncate = Enum.TextTruncate.AtEnd
             subLbl.ZIndex = 53
@@ -5894,7 +5894,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     ContentOverlay.ZIndex = 3
     ContentOverlay.Parent = MainContainer
 
-    local SidebarScroll = Instance.new("ScrollingFrame")
+    local SidebarScroll = Instance.new("SidebarScroll")
     SidebarScroll.Name = "ScrollingFrame"
     SidebarScroll.Size = UDim2.new(0, 175, 1, 0)
     SidebarScroll.Position = UDim2.new(0, 0, 0, 0)
@@ -6671,7 +6671,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TabButton.FontFace = FontMichromaRegular
         TabButton.Text = tabName
         TabButton.TextColor3 = Window.CurrentTheme.SubText
-        TabButton.TextSize = 16
+        TabButton.TextSize = 23
         TabButton.TextYAlignment = Enum.TextYAlignment.Center
         TabButton.ZIndex = 2
         TabButton.Parent = TabContainer
@@ -8755,7 +8755,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Position = UDim2.new(0, 0, 0, 0)
             }):Play()
             TabButton.TextColor3 = Window.CurrentTheme.Text
-            TabButton.TextSize = 18
+            TabButton.TextSize = 23
             TabButton.FontFace = FontMichromaBold
             HoverGlow.BackgroundTransparency = 0
             HoverGradient.Transparency = NumberSequence.new({
