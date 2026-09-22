@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.31"
+Library.Version = "2.31.2"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -6005,8 +6005,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local ResizeBtnFrame = Instance.new("Frame")
     ResizeBtnFrame.Size = UDim2.new(0, 35, 0, 35)
-    ResizeBtnFrame.Position = UDim2.new(1, -38, 1, -38)
-    ResizeBtnFrame.AnchorPoint = Vector2.new(1, 1)
+    ResizeBtnFrame.Position = UDim2.new(1, -40, 0, 9)
     ResizeBtnFrame.BackgroundTransparency = 1
     ResizeBtnFrame.ZIndex = 6
     ResizeBtnFrame.Parent = BottomFrame
@@ -8831,10 +8830,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Window:AddSidebarBigDivider(998)
         local SettingsTab = Window:CreateTab("Settings", 999)
 
-        -- Group 1: Notification + Sound settings (vertical)
-        local audioResults = SettingsTab:AddGroup({
+        -- Group 1: Notification + Sound settings
+        local audioToggles = SettingsTab:AddToggleGroup({
             {
-                Type = "Toggle",
                 Title = "Enable notifications",
                 Default = Window.NotificationsEnabled,
                 Callback = function(state)
@@ -8843,32 +8841,30 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             },
             {
-                Type = "Toggle",
                 Title = "Enable UI sounds",
                 Default = Window.UISoundsEnabled,
                 Callback = function(state)
                     Window:SetUISounds(state)
                     if state then Window:Notify("Settings", "UI sounds enabled", 2) end
                 end
-            },
-            {
-                Type = "Slider",
-                Title = "UI sound volume",
-                Min = 0,
-                Max = 100,
-                Default = math.floor((Window.SoundVolume or 0.8) * 100),
-                Suffix = "%",
-                Callback = function(val, pct) Window:SetSoundVolume(pct) end
             }
-        }, "Horizontal")
-        Window.RegisteredToggles["Notifications"] = audioResults[1]
-        Window.RegisteredToggles["UISounds"]       = audioResults[2]
-        Window.RegisteredSliders["SoundVolume"]    = audioResults[3]
+        })
+        Window.RegisteredToggles["Notifications"] = audioToggles[1]
+        Window.RegisteredToggles["UISounds"]       = audioToggles[2]
 
-        -- Group 2: Background visual settings (vertical)
-        local bgResults = SettingsTab:AddGroup({
+        local volSlider = SettingsTab:AddSlider({
+            Title = "UI sound volume",
+            Min = 0,
+            Max = 100,
+            Default = math.floor((Window.SoundVolume or 0.8) * 100),
+            Suffix = "%",
+            Callback = function(val, pct) Window:SetSoundVolume(pct) end
+        })
+        Window.RegisteredSliders["SoundVolume"] = volSlider
+
+        -- Group 2: Background visual settings
+        local bgToggles = SettingsTab:AddToggleGroup({
             {
-                Type = "Toggle",
                 Title = "Spiderweb background",
                 Default = Window.SpiderwebBGEnabled,
                 Callback = function(state)
@@ -8877,27 +8873,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             },
             {
-                Type = "Toggle",
                 Title = "Background blur",
                 Default = Window.BackgroundBlurEnabled,
                 Callback = function(state)
                     Window:SetBackgroundBlur(state)
                     Window:Notify("Settings", "Background blur " .. (state and "enabled" or "disabled"), 2)
                 end
-            },
-            {
-                Type = "Slider",
-                Title = "Background transparency",
-                Min = 0,
-                Max = 90,
-                Default = math.floor((Window.CustomBGTransparency or 0.10) * 100),
-                Suffix = "%",
-                Callback = function(val, pct) Window:SetBackgroundTransparency(val / 100) end
             }
-        }, "Horizontal")
-        Window.RegisteredToggles["SpiderwebBG"]     = bgResults[1]
-        Window.RegisteredToggles["BackgroundBlur"]  = bgResults[2]
-        Window.RegisteredSliders["BGTransparency"]  = bgResults[3]
+        })
+        Window.RegisteredToggles["SpiderwebBG"]    = bgToggles[1]
+        Window.RegisteredToggles["BackgroundBlur"] = bgToggles[2]
+
+        local transSlider = SettingsTab:AddSlider({
+            Title = "Background transparency",
+            Min = 0,
+            Max = 90,
+            Default = math.floor((Window.CustomBGTransparency or 0.10) * 100),
+            Suffix = "%",
+            Callback = function(val, pct) Window:SetBackgroundTransparency(val / 100) end
+        })
+        Window.RegisteredSliders["BGTransparency"] = transSlider
 
         -- Custom theme color picker (standalone)
         local customThemeCP = SettingsTab:AddColorPicker(
@@ -8909,7 +8904,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         )
         Window.RegisteredColorPickers["CustomTheme"] = customThemeCP
 
-        -- Particle customization row (dropdown + custom image textbox)
+        -- Click effects + particle customization
+        local clickToggle = SettingsTab:AddToggle({
+            Title = "Enable click effects",
+            Default = Window.ClickEffectsEnabled,
+            Callback = function(state)
+                Window.ClickEffectsEnabled = state
+                Window:Notify("Settings", "Click effects " .. (state and "enabled" or "disabled"), 2)
+            end
+        })
+        Window.RegisteredToggles["ClickEffects"] = clickToggle
+
         local ParticleRow = SettingsTab:AddRow(31, 8)
         local particleOptions = {"Theme default", "Leaves", "Gems", "Sparkles", "Rings", "Dots", "Custom image"}
         SettingsTab:AddDropdown({
@@ -8937,17 +8942,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Parent = ParticleRow,
             Size = 0.5
         })
-
-        -- Click effects toggle (paired logically with particle row above)
-        local clickToggle = SettingsTab:AddToggle({
-            Title = "Enable click effects",
-            Default = Window.ClickEffectsEnabled,
-            Callback = function(state)
-                Window.ClickEffectsEnabled = state
-                Window:Notify("Settings", "Click effects " .. (state and "enabled" or "disabled"), 2)
-            end
-        })
-        Window.RegisteredToggles["ClickEffects"] = clickToggle
 
         -- 10. Configurations Management Section
         SettingsTab:CreateConfigSection()
