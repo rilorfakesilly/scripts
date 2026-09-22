@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.29.1"
+Library.Version = "2.29.2"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -3339,7 +3339,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local ApplyBtn = Instance.new("TextButton")
         ApplyBtn.Name = "ApplyButton"
         ApplyBtn.Size = UDim2.new(1, -28, 0, 32)
-        ApplyBtn.Position = UDdim2.new(0, 14, 0, 262)
+        ApplyBtn.Position = UDim2.new(0, 14, 0, 262)
         ApplyBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
         ApplyBtn.BorderSizePixel = 0
         ApplyBtn.FontFace = FontMichromaBold
@@ -5629,7 +5629,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             rowCorner.CornerRadius = UDim.new(0, 6)
             rowCorner.Parent = rowBtn
 
-            local titleLbl = Instance.new("titleLbl")
+            local titleLbl = Instance.new("TextLabel")
             titleLbl.Size = UDim2.new(1, -12, 0, 15)
             titleLbl.Position = UDim2.new(0, 8, 0, 1)
             titleLbl.BackgroundTransparency = 1
@@ -5894,7 +5894,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     ContentOverlay.ZIndex = 3
     ContentOverlay.Parent = MainContainer
 
-    local SidebarScroll = Instance.new("SidebarScroll")
+    local SidebarScroll = Instance.new("ScrollingFrame")
     SidebarScroll.Name = "ScrollingFrame"
     SidebarScroll.Size = UDim2.new(0, 175, 1, 0)
     SidebarScroll.Position = UDim2.new(0, 0, 0, 0)
