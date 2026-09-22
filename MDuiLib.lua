@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.31.2"
+Library.Version = "2.23.3"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -7496,6 +7496,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local MenuLayout = Instance.new("UIListLayout")
             MenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            MenuLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
             MenuLayout.Padding = UDim.new(0, 4)
             MenuLayout.Parent = MenuScroll
 
@@ -8010,6 +8011,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local RowLayout = Instance.new("UIListLayout")
             RowLayout.Name = "RowLayout"
             RowLayout.FillDirection = Enum.FillDirection.Horizontal
+            RowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
             RowLayout.SortOrder = Enum.SortOrder.LayoutOrder
             RowLayout.Padding = UDim.new(0, padding)
             RowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
@@ -8408,6 +8410,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local GroupLayout = Instance.new("UIListLayout")
             GroupLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            GroupLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
             GroupLayout.Padding = UDim.new(0, 0)
             GroupLayout.Parent = GroupFrame
 
@@ -8459,12 +8462,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if isHorizontal then
                 GroupLayout = Instance.new("UIListLayout")
                 GroupLayout.FillDirection = Enum.FillDirection.Horizontal
-                GroupLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+                GroupLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
                 GroupLayout.SortOrder = Enum.SortOrder.LayoutOrder
                 GroupLayout.Padding = UDim.new(0, 0)
             else
                 GroupLayout = Instance.new("UIListLayout")
                 GroupLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                GroupLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
                 GroupLayout.Padding = UDim.new(0, 0)
             end
             GroupLayout.Parent = GroupFrame
