@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.29.8"
+Library.Version = "2.30"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -5778,11 +5778,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local vim = game:GetService("VirtualInputManager")
                 vim:SendMouseButtonEvent(cx, cy, 0, true,  game, 1)
                 vim:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
-
-                -- Fallback: also call CaptureFocus in case VIM is unavailable
-                task.defer(function()
-                    SearchInput:CaptureFocus()
-                end)
             end
         end
     end))
@@ -5994,10 +5989,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     DiscordBtn.ZIndex = 7
     DiscordBtn.Parent = BottomFrame
 
+    -- Attach tooltip once so its internal MouseEnter fires on the first hover
+    Window:AttachTooltip(DiscordBtn, "Click to copy")
+
     TrackConn(DiscordBtn.MouseEnter:Connect(function()
         PlayHoverSFX()
         TweenService:Create(DiscordBtn, TweenInfo.new(0.15), {TextColor3 = Window.CurrentTheme.Text}):Play()
-        Window:AttachTooltip(DiscordBtn, "Click to copy")
     end))
 
     TrackConn(DiscordBtn.MouseLeave:Connect(function()
