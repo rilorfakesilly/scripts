@@ -5642,7 +5642,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             titleLbl.ZIndex = 53
             titleLbl.Parent = rowBtn
 
-            local subLbl = Instance.new("subLbl")
+            local subLbl = Instance.new("TextLabel")
             subLbl.Size = UDim2.new(1, -12, 0, 12)
             subLbl.Position = UDim2.new(0, 8, 0, 15)
             subLbl.BackgroundTransparency = 1
