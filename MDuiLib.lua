@@ -4969,12 +4969,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TooltipFrame.Name = GenerateSafeName("Tooltip")
     TooltipFrame.Size = UDim2.new(0, 100, 0, 24)
     TooltipFrame.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
-    TooltipFrame.BackgroundTransparency = 1
+    TooltipFrame.BackgroundTransparency = 0
     TooltipFrame.BorderSizePixel = 0
     TooltipFrame.ZIndex = 10000
     TooltipFrame.Visible = false
     TooltipFrame.Parent = ScriptUi
 
+    local TooltipCorner = Instance.new("UICorner")
+    TooltipCorner.CornerRadius = UDim.new(0, 6)
+    TooltipCorner.Parent = TooltipFrame
+
+    local TooltipStroke = Instance.new("UIStroke")
+    TooltipStroke.Thickness = 1.1
+    TooltipStroke.Color = Color3.fromRGB(255, 255, 255)
+    TooltipStroke.Transparency = 0
+    TooltipStroke.Parent = TooltipFrame
 
     local TooltipPadding = Instance.new("UIPadding")
     TooltipPadding.PaddingLeft = UDim.new(0, 8)
@@ -4986,7 +4995,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local TooltipText = Instance.new("TextLabel")
     TooltipText.Name = "TooltipText"
     TooltipText.Size = UDim2.new(1, 0, 1, 0)
-    TooltipText.BackgroundTransparency = 0
+    TooltipText.BackgroundTransparency = 1
     TooltipText.FontFace = FontMichromaRegular
     TooltipText.Text = ""
     TooltipText.TextColor3 = Color3.fromRGB(235, 240, 255)
