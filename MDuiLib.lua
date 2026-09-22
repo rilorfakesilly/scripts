@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.29.4"
+Library.Version = "2.29.5"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -4975,15 +4975,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TooltipFrame.Visible = false
     TooltipFrame.Parent = ScriptUi
 
-    local TooltipCorner = Instance.new("UICorner")
-    TooltipCorner.CornerRadius = UDim.new(0, 6)
-    TooltipCorner.Parent = TooltipFrame
-
-    local TooltipStroke = Instance.new("UIStroke")
-    TooltipStroke.Thickness = 1.1
-    TooltipStroke.Color = Color3.fromRGB(255, 255, 255)
-    TooltipStroke.Transparency = 1
-    TooltipStroke.Parent = TooltipFrame
 
     local TooltipPadding = Instance.new("UIPadding")
     TooltipPadding.PaddingLeft = UDim.new(0, 8)
@@ -4995,11 +4986,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local TooltipText = Instance.new("TextLabel")
     TooltipText.Name = "TooltipText"
     TooltipText.Size = UDim2.new(1, 0, 1, 0)
-    TooltipText.BackgroundTransparency = 1
+    TooltipText.BackgroundTransparency = 0
     TooltipText.FontFace = FontMichromaRegular
     TooltipText.Text = ""
     TooltipText.TextColor3 = Color3.fromRGB(235, 240, 255)
-    TooltipText.TextSize = 11
+    TooltipText.TextSize = 15
     TooltipText.TextXAlignment = Enum.TextXAlignment.Center
     TooltipText.TextYAlignment = Enum.TextYAlignment.Center
     TooltipText.TextTransparency = 1
