@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.29.5"
+Library.Version = "2.29.6"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -4969,7 +4969,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TooltipFrame.Name = GenerateSafeName("Tooltip")
     TooltipFrame.Size = UDim2.new(0, 100, 0, 24)
     TooltipFrame.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
-    TooltipFrame.BackgroundTransparency = 0
+    TooltipFrame.BackgroundTransparency = 1
     TooltipFrame.BorderSizePixel = 0
     TooltipFrame.ZIndex = 10000
     TooltipFrame.Visible = false
@@ -4978,12 +4978,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local TooltipCorner = Instance.new("UICorner")
     TooltipCorner.CornerRadius = UDim.new(0, 6)
     TooltipCorner.Parent = TooltipFrame
-
-    local TooltipStroke = Instance.new("UIStroke")
-    TooltipStroke.Thickness = 1.1
-    TooltipStroke.Color = Color3.fromRGB(255, 255, 255)
-    TooltipStroke.Transparency = 0
-    TooltipStroke.Parent = TooltipFrame
 
     local TooltipPadding = Instance.new("UIPadding")
     TooltipPadding.PaddingLeft = UDim.new(0, 8)
@@ -4997,6 +4991,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TooltipText.Size = UDim2.new(1, 0, 1, 0)
     TooltipText.BackgroundTransparency = 1
     TooltipText.FontFace = FontMichromaRegular
+    TooltipText.Text = ""
+    TooltipText.TextColor3 = Color3.fromRGB(235, 240, 255)
+    TooltipText.TextSize = 15
     TooltipText.Text = ""
     TooltipText.TextColor3 = Color3.fromRGB(235, 240, 255)
     TooltipText.TextSize = 15
@@ -5020,7 +5017,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TooltipText.Text = tostring(tooltipContentMap[guiObject])
 
             local TextService = game:GetService("TextService")
-            local bounds = TextService:GetTextSize(TooltipText.Text, 11, Enum.Font.Michroma or Enum.Font.SourceSansBold, Vector2.new(320, 120))
+            local bounds = TextService:GetTextSize(TooltipText.Text, 15, Enum.Font.Michroma or Enum.Font.SourceSansBold, Vector2.new(320, 120))
             local tw = math.clamp(bounds.X + 20, 50, 340)
             local th = math.clamp(bounds.Y + 10, 22, 120)
             TooltipFrame.Size = UDim2.new(0, tw, 0, th)
@@ -5034,10 +5031,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             if tooltipTween then tooltipTween:Cancel() end
             tooltipTween = TweenService:Create(TooltipFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                BackgroundTransparency = 0.08
+                BackgroundTransparency = 0.15
             })
             tooltipTween:Play()
-            TweenService:Create(TooltipStroke, TweenInfo.new(0.15), {Transparency = 0.75}):Play()
             TweenService:Create(TooltipText, TweenInfo.new(0.15), {TextTransparency = 0}):Play()
         end))
 
@@ -5057,7 +5053,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     BackgroundTransparency = 1
                 })
                 tooltipTween:Play()
-                TweenService:Create(TooltipStroke, TweenInfo.new(0.15), {Transparency = 1}):Play()
                 TweenService:Create(TooltipText, TweenInfo.new(0.15), {TextTransparency = 1}):Play()
                 task.delay(0.16, function()
                     if activeTooltipTarget == nil then
@@ -5595,13 +5590,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             rowBtn.Name = "SearchResult"
             rowBtn.Size = UDim2.new(1, -4, 0, 30)
             rowBtn.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(30, 33, 42)
-            rowBtn.BackgroundTransparency = 0.13
+            rowBtn.BackgroundTransparency = 0
             rowBtn.Text = ""
             rowBtn.ZIndex = 52
             rowBtn.Parent = ResultsScroll
 
             local rowCorner = Instance.new("UICorner")
-            rowCorner.CornerRadius = UDim.new(0, 6)
+            if maxToShow == 1 then
+                rowCorner.CornerRadius = UDim.new(0, 6)
+            elseif i == 1 then
+                rowCorner.CornerRadius = UDim.new(0, 6)
+            elseif i == maxToShow then
+                rowCorner.CornerRadius = UDim.new(0, 6)
+            else
+                rowCorner.CornerRadius = UDim.new(0, 0)
+            end
             rowCorner.Parent = rowBtn
 
             local titleLbl = Instance.new("TextLabel")
@@ -5623,7 +5626,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             subLbl.BackgroundTransparency = 1
             subLbl.FontFace = FontMichromaRegular
             subLbl.Text = item.TabName
-            subLbl.TextColor3 = Window.CurrentTheme.SubText
+            subLbl.TextColor3 = Color3.fromRGB(140, 145, 160)
             subLbl.TextSize = 10
             subLbl.TextXAlignment = Enum.TextXAlignment.Left
             subLbl.TextTruncate = Enum.TextTruncate.AtEnd
@@ -5631,10 +5634,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             subLbl.Parent = rowBtn
 
             rowBtn.MouseEnter:Connect(function()
-                TweenService:Create(rowBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.1}):Play()
+                TweenService:Create(rowBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
             end)
             rowBtn.MouseLeave:Connect(function()
-                TweenService:Create(rowBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.4}):Play()
+                TweenService:Create(rowBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play()
             end)
 
             rowBtn.MouseButton1Click:Connect(function()
@@ -7050,7 +7053,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local Line = Instance.new("Frame")
             Line.Name = "Line"
             Line.Size = UDim2.new(1, -16, 0, divThickness)
-            Line.Position = UDim2.new(0, 8, 0.5, -math.floor(divThickness / 2))
+            Line.Position = UDim2.new(0, 8, 0.5, -(divThickness / 2))
+            Line.AnchorPoint = Vector2.new(0, 0.5)
             Line.BackgroundColor3 = divColor or Window.CurrentTheme.Divider or Window.CurrentTheme.CardBG
             Line.BackgroundTransparency = 0.4
             Line.BorderSizePixel = 0
