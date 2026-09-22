@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.29.3"
+Library.Version = "2.29.4"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -128,7 +128,7 @@ Library.ThemePresets = {
         Text = Color3.fromRGB(240, 240, 245),
         SubText = Color3.fromRGB(180, 185, 200),
         CardBG = Color3.fromRGB(25, 27, 34),
-        ButtonBG = Color3.fromRGB(45, 48, 60),
+        ButtonBG = Color3.fromRGB(30, 32, 40),
     },
     Original = {
         Name = "Original orange",
@@ -154,7 +154,7 @@ Library.ThemePresets = {
         Text = Color3.fromRGB(255, 255, 255),
         SubText = Color3.fromRGB(235, 235, 235),
         CardBG = Color3.fromRGB(110, 48, 12),
-        ButtonBG = Color3.fromRGB(171, 72, 22),
+        ButtonBG = Color3.fromRGB(130, 55, 15),
     },
     White = {
         Name = "White",
@@ -232,7 +232,7 @@ Library.ThemePresets = {
         Text = Color3.fromRGB(255, 255, 255),
         SubText = Color3.fromRGB(225, 200, 245),
         CardBG = Color3.fromRGB(45, 15, 75),
-        ButtonBG = Color3.fromRGB(88, 28, 135),
+        ButtonBG = Color3.fromRGB(60, 20, 90),
     },
     Nature = {
         Name = "Green/nature",
@@ -258,7 +258,7 @@ Library.ThemePresets = {
         Text = Color3.fromRGB(255, 255, 255),
         SubText = Color3.fromRGB(200, 240, 215),
         CardBG = Color3.fromRGB(10, 45, 24),
-        ButtonBG = Color3.fromRGB(20, 83, 45),
+        ButtonBG = Color3.fromRGB(15, 60, 32),
     }
 }
 
@@ -1364,7 +1364,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local ArrowIcon = Instance.new("ImageLabel")
         ArrowIcon.Name = GenerateSafeName("Icon")
         ArrowIcon.Size = UDim2.new(0, 18, 0, 18)
-        ArrowIcon.Position = UDim2.new(1, -46, 0.5, -18)
+        ArrowIcon.Position = UDim2.new(1, -46, 0.5, -8)
         ArrowIcon.BackgroundTransparency = 1
         ArrowIcon.Image = "rbxassetid://11552476728"
         ArrowIcon.ImageColor3 = Window.CurrentTheme.Text
@@ -2566,13 +2566,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Corner.Parent = ToggleFrame
 
         AddUIShadow(ToggleFrame, 20, 0.5)
-
-        local Stroke = Instance.new("UIStroke")
-        Stroke.Name = GenerateSafeName("Stroke")
-        Stroke.Color = Color3.fromRGB(255, 255, 255)
-        Stroke.Thickness = 1.2
-        Stroke.Transparency = 0
-        Stroke.Parent = ToggleFrame
 
         local KnobFrame = Instance.new("Frame")
         KnobFrame.Name = GenerateSafeName("Knob")
@@ -3861,13 +3854,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnScale.Scale = 1.0
         BtnScale.Parent = BtnFrame
 
-        local Stroke = Instance.new("UIStroke")
-        Stroke.Name = GenerateSafeName("Stroke")
-        Stroke.Color = Color3.fromRGB(255, 255, 255)
-        Stroke.Thickness = 1.5
-        Stroke.Transparency = 0
-        Stroke.Parent = BtnFrame
-
         local MDTextFolder = Instance.new("Folder")
         MDTextFolder.Name = GenerateSafeName("Text")
         MDTextFolder.Parent = BtnFrame
@@ -4499,12 +4485,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
         Corner.Parent = BtnFrame
 
-        local Stroke = Instance.new("UIStroke")
-        Stroke.Name = "BtnStroke"
-        Stroke.Thickness = config.StrokeThickness or 1.2
-        Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        Stroke.Parent = BtnFrame
-
         AddUIShadow(BtnFrame, 14, 0.45)
 
         local BgImageLabel = nil
@@ -5028,15 +5008,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local activeTooltipTarget = nil
     local tooltipTween = nil
+    local tooltipContentMap = {}
 
     function Window:AttachTooltip(guiObject, text)
         if not guiObject or not text or text == "" then return end
-        guiObject._TooltipContent = text
+        tooltipContentMap[guiObject] = text
 
         TrackConn(guiObject.MouseEnter:Connect(function()
-            if not guiObject or not guiObject._TooltipContent or guiObject._TooltipContent == "" then return end
+            if not guiObject or not tooltipContentMap[guiObject] or tooltipContentMap[guiObject] == "" then return end
             activeTooltipTarget = guiObject
-            TooltipText.Text = tostring(guiObject._TooltipContent)
+            TooltipText.Text = tostring(tooltipContentMap[guiObject])
 
             local TextService = game:GetService("TextService")
             local bounds = TextService:GetTextSize(TooltipText.Text, 11, Enum.Font.Michroma or Enum.Font.SourceSansBold, Vector2.new(320, 120))
@@ -8471,6 +8452,94 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
             return results
         end
+
+        function TabObj:AddGroup(itemList, direction)
+            if type(itemList) ~= "table" then return {} end
+            local count = #itemList
+            if count == 0 then return {} end
+
+            direction = direction or "Vertical"
+            local isHorizontal = (direction == "Horizontal" or direction == "horizontal" or direction == "H" or direction == "h")
+
+            local GroupFrame = Instance.new("Frame")
+            GroupFrame.Name = isHorizontal and "HorizontalGroup" or "VerticalGroup"
+            GroupFrame.Size = isHorizontal and UDim2.new(1, -10, 0, 0) or UDim2.new(1, -10, 0, 0)
+            GroupFrame.AutomaticSize = Enum.AutomaticSize.Y
+            GroupFrame.BackgroundTransparency = 1
+            GroupFrame.BorderSizePixel = 0
+            GroupFrame.ZIndex = 10
+            GroupFrame.Parent = ContentFrame
+
+            local GroupLayout
+            if isHorizontal then
+                GroupLayout = Instance.new("UIListLayout")
+                GroupLayout.FillDirection = Enum.FillDirection.Horizontal
+                GroupLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+                GroupLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                GroupLayout.Padding = UDim.new(0, 0)
+            else
+                GroupLayout = Instance.new("UIListLayout")
+                GroupLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                GroupLayout.Padding = UDim.new(0, 0)
+            end
+            GroupLayout.Parent = GroupFrame
+
+            local results = {}
+            for i, item in ipairs(itemList) do
+                if type(item) ~= "table" or item.IsA then
+                    item = { Name = tostring(item), Type = "Toggle" }
+                end
+
+                local itemType = item.Type or "Toggle"
+                local connectMode
+
+                if count == 1 then
+                    connectMode = nil
+                elseif isHorizontal then
+                    if i == 1 then
+                        connectMode = "Left"
+                    elseif i == count then
+                        connectMode = "Right"
+                    else
+                        connectMode = "Middle"
+                    end
+                else
+                    if i == 1 then
+                        connectMode = "Top"
+                    elseif i == count then
+                        connectMode = "Bottom"
+                    else
+                        connectMode = "Middle"
+                    end
+                end
+
+                item.Connect = item.Connect or connectMode
+                item.Parent = GroupFrame
+
+                if isHorizontal then
+                    item.Size = item.Size or (1.0 / count)
+                end
+
+                local resultItem
+                if itemType == "Toggle" then
+                    resultItem = TabObj:AddToggle(item)
+                elseif itemType == "Button" then
+                    resultItem = TabObj:AddButton(item)
+                elseif itemType == "Card" then
+                    resultItem = TabObj:AddCard(item)
+                elseif itemType == "Slider" then
+                    resultItem = TabObj:AddSlider(item)
+                end
+
+                if resultItem then
+                    table.insert(results, resultItem)
+                end
+            end
+
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            return results
+        end
+
 
         function TabObj:AddToggleSlider(config)
             if type(config) ~= "table" then return end
