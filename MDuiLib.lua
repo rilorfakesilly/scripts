@@ -3831,7 +3831,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local BtnFrame = Instance.new("Frame")
         BtnFrame.Name = "MDButtonCard"
         BtnFrame.Size = size
-        BtnFrame.Position = position
+        BtnFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+        BtnFrame.Position = UDim2.new(
+            position.X.Scale + 0.5 * size.X.Scale,
+            position.X.Offset + math.floor(size.X.Offset * 0.5),
+            position.Y.Scale + 0.5 * size.Y.Scale,
+            position.Y.Offset + math.floor(size.Y.Offset * 0.5)
+        )
         BtnFrame.BackgroundColor3 = Window.CurrentTheme.ButtonBG
         BtnFrame.BackgroundTransparency = 0.05
         BtnFrame.BorderSizePixel = 0
