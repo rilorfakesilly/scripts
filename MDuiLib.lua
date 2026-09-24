@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.33.6"
+Library.Version = "2.34"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -1198,8 +1198,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BoxFrame.ZIndex = 10
         BoxFrame.Parent = parent
 
+        local connectMode = type(boxOptions) == "table" and (boxOptions.Connect or boxOptions.Connected or boxOptions.connectMode or boxOptions.PositionInGroup)
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 22)
+        if connectMode == "Top" or connectMode == "First" then
+            ApplyCornerRadii(Corner, 22, 22, 0, 0)
+        elseif connectMode == "Middle" then
+            ApplyCornerRadii(Corner, 0, 0, 0, 0)
+        elseif connectMode == "Bottom" or connectMode == "Last" then
+            ApplyCornerRadii(Corner, 0, 0, 22, 22)
+        elseif connectMode == "Left" then
+            ApplyCornerRadii(Corner, 22, 0, 0, 22)
+        elseif connectMode == "Right" then
+            ApplyCornerRadii(Corner, 0, 22, 22, 0)
+        else
+            Corner.CornerRadius = UDim.new(0, 22)
+        end
         Corner.Parent = BoxFrame
 
         AddUIShadow(BoxFrame, 20, 0.5)
@@ -1333,8 +1346,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DropdownFrame.ClipsDescendants = false
         DropdownFrame.Parent = parent
 
+        local connectMode = (type(dropConfig) == "table" and (dropConfig.Connect or dropConfig.Connected or dropConfig.connectMode or dropConfig.PositionInGroup))
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 22)
+        if connectMode == "Top" or connectMode == "First" then
+            ApplyCornerRadii(Corner, 22, 22, 0, 0)
+        elseif connectMode == "Middle" then
+            ApplyCornerRadii(Corner, 0, 0, 0, 0)
+        elseif connectMode == "Bottom" or connectMode == "Last" then
+            ApplyCornerRadii(Corner, 0, 0, 22, 22)
+        elseif connectMode == "Left" then
+            ApplyCornerRadii(Corner, 22, 0, 0, 22)
+        elseif connectMode == "Right" then
+            ApplyCornerRadii(Corner, 0, 22, 22, 0)
+        else
+            Corner.CornerRadius = UDim.new(0, 22)
+        end
         Corner.Parent = DropdownFrame
 
         AddUIShadow(DropdownFrame, 20, 0.5)
@@ -1543,11 +1569,41 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end)
                 end
             end
-            InnerScroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
+            local visibleCount = 0
+            for _, child in ipairs(InnerScroll:GetChildren()) do
+                if child:IsA("TextButton") and child.Visible ~= false then
+                    visibleCount = visibleCount + 1
+                end
+            end
+            local totalContentY = visibleCount > 0 and ((visibleCount * 34) + ((visibleCount - 1) * 5)) or 0
+            InnerScroll.CanvasSize = UDim2.new(0, 0, 0, totalContentY)
+        end
+
+        local function UpdateDropdownHeight()
+            if not isExpanded then return end
+            local visibleCount = 0
+            for _, child in ipairs(InnerScroll:GetChildren()) do
+                if child:IsA("TextButton") and child.Visible ~= false then
+                    visibleCount = visibleCount + 1
+                end
+            end
+            local extraH = isSearchable and 36 or 0
+            local contentH = visibleCount > 0 and ((visibleCount * 34) + ((visibleCount - 1) * 5)) or 34
+            local neededH = contentH + (isSearchable and 41 or 10)
+            local maxH = 205 + extraH
+            local targetHeight = math.min(neededH, maxH)
+
+            local scale = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
+            if scale <= 0 then scale = 1 end
+            local curWidth = DropdownContent.AbsoluteSize.X / scale
+            TweenService:Create(DropdownContent, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, curWidth, 0, targetHeight)
+            }):Play()
         end
 
         TrackConn(SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
             RefreshOptions(options, SearchInput.Text)
+            UpdateDropdownHeight()
         end))
 
         RefreshOptions(options)
@@ -1572,7 +1628,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if scale <= 0 then scale = 1 end
             local width = UpdateDropdownPos() or (DropdownFrame.AbsoluteSize.X / scale)
             local extraH = isSearchable and 36 or 0
-            local targetHeight = math.clamp(#options * 39 + 15 + extraH, 45 + extraH, 220 + extraH)
+            local contentH = #options > 0 and ((#options * 34) + ((#options - 1) * 5)) or 34
+            local neededH = contentH + (isSearchable and 41 or 10)
+            local maxH = 205 + extraH
+            local targetHeight = math.min(neededH, maxH)
 
             DropdownContent.Size = UDim2.new(0, width, 0, 0)
             DropdownContent.Visible = true
@@ -3627,7 +3686,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
     Window.PromptConfirm = Window.Confirm
 
-    function Window:CreateMDColorPicker(parent, position, size, title, defaultColor, onColorChanged, identifier)
+    function Window:CreateMDColorPicker(parent, position, size, title, defaultColor, onColorChanged, identifier, colorConfig)
         parent = ResolveParent(parent)
         size = size or UDim2.new(1, 0, 0, 44)
         position = position or UDim2.new(0, 0, 0, 0)
@@ -3643,8 +3702,27 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CardFrame.ZIndex = 10
         CardFrame.Parent = parent
 
+        local connectMode = nil
+        if type(colorConfig) == "table" then
+            connectMode = colorConfig.Connect or colorConfig.Connected or colorConfig.connectMode or colorConfig.PositionInGroup
+        elseif type(identifier) == "table" then
+            connectMode = identifier.Connect or identifier.Connected or identifier.connectMode or identifier.PositionInGroup
+        end
+
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 22)
+        if connectMode == "Top" or connectMode == "First" then
+            ApplyCornerRadii(Corner, 22, 22, 0, 0)
+        elseif connectMode == "Middle" then
+            ApplyCornerRadii(Corner, 0, 0, 0, 0)
+        elseif connectMode == "Bottom" or connectMode == "Last" then
+            ApplyCornerRadii(Corner, 0, 0, 22, 22)
+        elseif connectMode == "Left" then
+            ApplyCornerRadii(Corner, 22, 0, 0, 22)
+        elseif connectMode == "Right" then
+            ApplyCornerRadii(Corner, 0, 22, 22, 0)
+        else
+            Corner.CornerRadius = UDim.new(0, 22)
+        end
         Corner.Parent = CardFrame
 
         AddUIShadow(CardFrame, 20, 0.5)
@@ -8243,8 +8321,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             parentRow = ResolveParent(parentRow)
             local targetParent = parentRow or ContentFrame
-            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
-            local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
+            local isGroup = parentRow and (parentRow.Name == "ToggleGroup" or parentRow.Name == "VerticalGroup" or parentRow.Name == "HorizontalGroup")
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isGroup) and 0.5 or 1.0)
+            local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, 44)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
             local pos = position or UDim2.new(0, 0, 0, 0)
             local dropObj = Window:CreateMDDropdown(targetParent, pos, size, title, dropOpts, defOpt, cb, cfg)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
@@ -8285,8 +8364,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             parentRow = ResolveParent(parentRow)
             local targetParent = parentRow or ContentFrame
-            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
-            local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 50) or UDim2.new(1, -10, 0, 50))
+            local isGroup = parentRow and (parentRow.Name == "ToggleGroup" or parentRow.Name == "VerticalGroup" or parentRow.Name == "HorizontalGroup")
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isGroup) and 0.5 or 1.0)
+            local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, 50)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, 50) or UDim2.new(1, -10, 0, 50))
             local pos = position or UDim2.new(0, 0, 0, 0)
             local boxObj = Window:CreateMDTextbox(targetParent, pos, size, title, ph, def, cb, opts)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
@@ -8321,10 +8401,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             parentRow = ResolveParent(parentRow)
             local targetParent = parentRow or ContentFrame
-            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
-            local size = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
+            local isGroup = parentRow and (parentRow.Name == "ToggleGroup" or parentRow.Name == "VerticalGroup" or parentRow.Name == "HorizontalGroup")
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isGroup) and 0.5 or 1.0)
+            local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, 44)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
             local pos = position or UDim2.new(0, 0, 0, 0)
-            local cpData = Window:CreateMDColorPicker(targetParent, pos, size, title, defColor, cb, id)
+            local cpData = Window:CreateMDColorPicker(targetParent, pos, size, title, defColor, cb, id, titleOrConfig)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
 
             table.insert(Window.SearchableItems, {
@@ -8479,7 +8560,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     item = { Name = tostring(item), Type = "Toggle" }
                 end
 
-                local itemType = item.Type or "Toggle"
+                local itemType = item.Type
+                if not itemType then
+                    if item.Options or item.Values then
+                        itemType = "Dropdown"
+                    elseif item.Color or (item.Default and typeof(item.Default) == "Color3") then
+                        itemType = "ColorPicker"
+                    elseif item.Min or item.Max then
+                        itemType = "Slider"
+                    elseif item.Placeholder then
+                        itemType = "Input"
+                    else
+                        itemType = "Toggle"
+                    end
+                end
+
                 local connectMode
 
                 if count == 1 then
@@ -8518,6 +8613,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     resultItem = TabObj:AddCard(item)
                 elseif itemType == "Slider" then
                     resultItem = TabObj:AddSlider(item)
+                elseif itemType == "Dropdown" then
+                    resultItem = TabObj:AddDropdown(item)
+                elseif itemType == "ColorPicker" or itemType == "Colorpicker" then
+                    resultItem = TabObj:AddColorPicker(item)
+                elseif itemType == "Input" or itemType == "Textbox" then
+                    resultItem = TabObj:AddTextbox(item)
                 end
 
                 if resultItem then
@@ -8604,11 +8705,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local suffix = (type(sliderOptions) == "table" and (sliderOptions.Suffix or (sliderOptions.ValueFormat == "percent" and "%") or ""))
                 or (type(sliderOptions) == "string" and sliderOptions)
                 or ""
-            local isCard = not customParent or targetParent == ContentFrame or (targetParent and targetParent.Name == "RowFrame")
+            local isGroup = targetParent and (targetParent.Name == "ToggleGroup" or targetParent.Name == "VerticalGroup" or targetParent.Name == "HorizontalGroup")
+            local isCard = not customParent or targetParent == ContentFrame or (targetParent and (targetParent.Name == "RowFrame" or isGroup))
 
             if isCard and (type(sliderOptions) ~= "table" or sliderOptions.AsCard ~= false) then
                 local isRow = targetParent and targetParent.Name == "RowFrame"
-                local cardSize = isRow and UDim2.new(0.485, -4, 0, 56) or UDim2.new(1, -10, 0, 56)
+                local cardSize = isGroup and UDim2.new(1, 0, 0, 56) or (isRow and UDim2.new(0.485, -4, 0, 56) or UDim2.new(1, -10, 0, 56))
 
                 local SliderCard = Instance.new("Frame")
                 SliderCard.Name = (sliderName or "Slider") .. "_Card"
@@ -8620,8 +8722,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 SliderCard.ZIndex = 10
                 SliderCard.Parent = targetParent
 
+                local connectMode = type(sliderOptions) == "table" and (sliderOptions.Connect or sliderOptions.Connected or sliderOptions.connectMode or sliderOptions.PositionInGroup)
                 local CardCorner = Instance.new("UICorner")
-                CardCorner.CornerRadius = UDim.new(0, 22)
+                if connectMode == "Top" or connectMode == "First" then
+                    ApplyCornerRadii(CardCorner, 22, 22, 0, 0)
+                elseif connectMode == "Middle" then
+                    ApplyCornerRadii(CardCorner, 0, 0, 0, 0)
+                elseif connectMode == "Bottom" or connectMode == "Last" then
+                    ApplyCornerRadii(CardCorner, 0, 0, 22, 22)
+                elseif connectMode == "Left" then
+                    ApplyCornerRadii(CardCorner, 22, 0, 0, 22)
+                elseif connectMode == "Right" then
+                    ApplyCornerRadii(CardCorner, 0, 22, 22, 0)
+                else
+                    CardCorner.CornerRadius = UDim.new(0, 22)
+                end
                 CardCorner.Parent = SliderCard
 
                 AddUIShadow(SliderCard, 20, 0.5)
