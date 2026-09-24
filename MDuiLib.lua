@@ -100,9 +100,9 @@ end
 Library.ActiveGuis = Library.ActiveGuis or {}
 Library.Icons = Library.Icons or {}
 
-local FontMichromaBold = Font.new("rbxasset://fonts/families/Prompt.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-local FontMichromaRegular = Font.new("rbxasset://fonts/families/Prompt.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal) -- testing how it looks
-local FontMichromaHeavy = Font.new("rbxasset://fonts/families/Prompt.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+local FontMichromaBold = Font.new("rbxasset://fonts/families/Finger-Paint.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+local FontMichromaRegular = Font.new("rbxasset://fonts/families/Finger-Paint.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal) -- testing how it looks
+local FontMichromaHeavy = Font.new("rbxasset://fonts/families/Finger-Paint.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
 
 Library.ThemePresets = {
     Dark = {
