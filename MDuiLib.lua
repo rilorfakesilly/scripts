@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.34.1"
+Library.Version = "2.35"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -3027,7 +3027,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
                 sliderData.SetValue(currentVal, false)
             end,
-            SetValue = function(val, triggerCallback)
+            SetValue = function(selfOrVal, maybeVal, maybeTrigger)
+                local val, triggerCallback
+                if type(selfOrVal) == "table" and selfOrVal == sliderData then
+                    val = maybeVal
+                    triggerCallback = maybeTrigger
+                else
+                    val = selfOrVal
+                    triggerCallback = maybeVal
+                end
+                val = tonumber(val) or minVal
                 val = SnapToIncrement(math.clamp(val, minVal, maxVal))
                 currentVal = val
                 local pct = (maxVal > minVal) and math.clamp((val - minVal) / (maxVal - minVal), 0, 1) or 0
@@ -3111,7 +3120,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return self
             end
         }
-        local actualSliderKey = (type(sliderOptions) == "table" and (sliderOptions.SaveKey or sliderOptions.saveKey or sliderOptions.Identifier or sliderOptions.identifier)) or sliderName
+        local actualSliderKey = (type(sliderOptions) == "table" and (sliderOptions.Id or sliderOptions.id or sliderOptions.SaveKey or sliderOptions.saveKey or sliderOptions.Identifier or sliderOptions.identifier)) or sliderName
         sliderData.Name = actualSliderKey
         Window.RegisteredSliders[actualSliderKey] = sliderData
         if sliderName and sliderName ~= "" and not Window.RegisteredSliders[sliderName] then
@@ -5959,6 +5968,82 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     ContentOverlay.ZIndex = 3
     ContentOverlay.Parent = MainContainer
 
+    local SidebarIndicatorLayer = Instance.new("Frame")
+    SidebarIndicatorLayer.Name = "SidebarIndicatorLayer"
+    SidebarIndicatorLayer.Size = UDim2.new(0, 175, 1, 0)
+    SidebarIndicatorLayer.Position = UDim2.new(0, 0, 0, 0)
+    SidebarIndicatorLayer.BackgroundTransparency = 1
+    SidebarIndicatorLayer.BorderSizePixel = 0
+    SidebarIndicatorLayer.ClipsDescendants = true
+    SidebarIndicatorLayer.ZIndex = 3
+    SidebarIndicatorLayer.Parent = ContentOverlay
+
+    local ActiveTabGlow = Instance.new("Frame")
+    ActiveTabGlow.Name = "ActiveTabGlow"
+    ActiveTabGlow.Size = UDim2.new(0, 155, 0, 30)
+    ActiveTabGlow.Position = UDim2.new(0, 10, 0, 0)
+    ActiveTabGlow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    ActiveTabGlow.BackgroundTransparency = 1
+    ActiveTabGlow.BorderSizePixel = 0
+    ActiveTabGlow.ZIndex = 3
+    ActiveTabGlow.Visible = false
+    ActiveTabGlow.Parent = SidebarIndicatorLayer
+
+    local ActiveCorner = Instance.new("UICorner")
+    ActiveCorner.CornerRadius = UDim.new(0, 6)
+    ActiveCorner.Parent = ActiveTabGlow
+
+    local ActiveGradient = Instance.new("UIGradient")
+    ActiveGradient.Name = "ActiveGradient"
+    ActiveGradient.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0.0, 1.0),
+        NumberSequenceKeypoint.new(0.2, 0.75),
+        NumberSequenceKeypoint.new(0.8, 0.75),
+        NumberSequenceKeypoint.new(1.0, 1.0)
+    })
+    ActiveGradient.Parent = ActiveTabGlow
+
+    Window.SidebarIndicatorLayer = SidebarIndicatorLayer
+    Window.ActiveTabGlow = ActiveTabGlow
+
+    local function UpdateActiveTabIndicator(instant)
+        if not Window.ActiveTab then return end
+        local curTab = Window.Tabs[Window.ActiveTab]
+        if not curTab or not curTab.Container or not curTab.Container.Parent then return end
+        local container = curTab.Container
+        local scale = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
+        if scale <= 0 then scale = 1 end
+        
+        local targetY = (container.AbsolutePosition.Y - SidebarIndicatorLayer.AbsolutePosition.Y) / scale
+        local targetX = (container.AbsolutePosition.X - SidebarIndicatorLayer.AbsolutePosition.X) / scale
+        local targetW = (container.AbsoluteSize.X / scale) - 10
+        local targetH = (container.AbsoluteSize.Y / scale) - 4
+        if targetW <= 0 or targetH <= 0 then return end
+
+        local targetPos = UDim2.new(0, targetX + 5, 0, targetY + 2)
+        local targetSize = UDim2.new(0, targetW, 0, targetH)
+
+        if not ActiveTabGlow.Visible or instant then
+            ActiveTabGlow.Position = targetPos
+            ActiveTabGlow.Size = targetSize
+            ActiveTabGlow.Visible = true
+            if instant and ActiveTabGlow.BackgroundTransparency > 0 then
+                TweenService:Create(ActiveTabGlow, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = 0
+                }):Play()
+            else
+                ActiveTabGlow.BackgroundTransparency = 0
+            end
+        else
+            TweenService:Create(ActiveTabGlow, TweenInfo.new(0.30, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Position = targetPos,
+                Size = targetSize,
+                BackgroundTransparency = 0
+            }):Play()
+        end
+    end
+    Window.UpdateActiveTabIndicator = UpdateActiveTabIndicator
+
     local SidebarScroll = Instance.new("ScrollingFrame")
     SidebarScroll.Name = "ScrollingFrame"
     SidebarScroll.Size = UDim2.new(0, 175, 1, 0)
@@ -5984,6 +6069,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     SidebarLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         SidebarScroll.CanvasSize = UDim2.new(0, 0, 0, SidebarLayout.AbsoluteContentSize.Y + 20)
+    end)
+
+    SidebarScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+        if ActiveTabGlow and ActiveTabGlow.Visible and Window.ActiveTab then
+            local curTab = Window.Tabs[Window.ActiveTab]
+            if curTab and curTab.Container then
+                local scale = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
+                if scale <= 0 then scale = 1 end
+                local targetY = (curTab.Container.AbsolutePosition.Y - SidebarIndicatorLayer.AbsolutePosition.Y) / scale
+                local targetX = (curTab.Container.AbsolutePosition.X - SidebarIndicatorLayer.AbsolutePosition.X) / scale
+                local targetW = (curTab.Container.AbsoluteSize.X / scale) - 10
+                local targetH = (curTab.Container.AbsoluteSize.Y / scale) - 4
+                if targetW > 0 and targetH > 0 then
+                    ActiveTabGlow.Position = UDim2.new(0, targetX + 5, 0, targetY + 2)
+                    ActiveTabGlow.Size = UDim2.new(0, targetW, 0, targetH)
+                end
+            end
+        end
     end)
 
     local SidebarCollapseBtn = Instance.new("ImageButton")
@@ -6471,6 +6574,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local newTab = Window.Tabs[tabName]
         Window.ActiveTab = tabName
 
+        if Window.UpdateActiveTabIndicator then
+            Window.UpdateActiveTabIndicator(false)
+        end
+
         -- 1. Animate Sidebar Tab Buttons
         local oldTargetSize = Window.SidebarCollapsed and 11 or 15
         local newTargetSize = Window.SidebarCollapsed and 11 or 18
@@ -6485,9 +6592,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TweenService:Create(oldTab.HoverGlow, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                     BackgroundTransparency = 1
                 }):Play()
-                if oldTab.HoverGradient then
-                    oldTab.HoverGradient.Transparency = NumberSequence.new(1)
-                end
             end
             if oldTab.Icon then
                 TweenService:Create(oldTab.Icon, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
@@ -6503,18 +6607,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             }):Play()
             newTab.Button.FontFace = FontMichromaBold
             if newTab.HoverGlow then
-                -- Active tab: invisible (1.0) at ends -> subtle glow (0.75) in middle -> invisible (1.0)
                 TweenService:Create(newTab.HoverGlow, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                    BackgroundTransparency = 0
+                    BackgroundTransparency = 1
                 }):Play()
-                if newTab.HoverGradient then
-                    newTab.HoverGradient.Transparency = NumberSequence.new({
-                        NumberSequenceKeypoint.new(0.0, 1.0),
-                        NumberSequenceKeypoint.new(0.2, 0.75),
-                        NumberSequenceKeypoint.new(0.8, 0.75),
-                        NumberSequenceKeypoint.new(1.0, 1.0)
-                    })
-                end
             end
             if newTab.Icon then
                 TweenService:Create(newTab.Icon, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
@@ -6584,9 +6679,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             LeftFrame.Size = UDim2.new(0, w, 1, -94)
             MainFrame.Size = UDim2.new(1, -w, 1, -94)
             MainFrame.Position = UDim2.new(0, w, 0, 42)
+            SidebarIndicatorLayer.Size = UDim2.new(0, w, 1, 0)
             SidebarScroll.Size = UDim2.new(0, w, 1, 0)
             MainContentFrame.Size = UDim2.new(1, -w, 1, 0)
             MainContentFrame.Position = UDim2.new(0, w, 0, 0)
+            if Window.UpdateActiveTabIndicator then
+                task.defer(function() Window.UpdateActiveTabIndicator(true) end)
+            end
         end
     end
 
@@ -6598,8 +6697,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         TweenService:Create(LeftFrame, ease, {Size = UDim2.new(0, targetW, 1, -94)}):Play()
         TweenService:Create(MainFrame, ease, {Size = UDim2.new(1, -targetW, 1, -94), Position = UDim2.new(0, targetW, 0, 42)}):Play()
+        TweenService:Create(SidebarIndicatorLayer, ease, {Size = UDim2.new(0, targetW, 1, 0)}):Play()
         TweenService:Create(SidebarScroll, ease, {Size = UDim2.new(0, targetW, 1, 0)}):Play()
         TweenService:Create(MainContentFrame, ease, {Size = UDim2.new(1, -targetW, 1, 0), Position = UDim2.new(0, targetW, 0, 0)}):Play()
+
+        task.delay(animTime, function()
+            if Window.UpdateActiveTabIndicator then
+                Window.UpdateActiveTabIndicator(false)
+            end
+        end)
 
         for name, tab in pairs(Window.Tabs) do
             if tab.Container then
@@ -8850,8 +8956,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
 
                 local oldSetValue = sliderData.SetValue
-                sliderData.SetValue = function(val, triggerCallback)
-                    if oldSetValue then oldSetValue(val, triggerCallback) end
+                sliderData.SetValue = function(selfOrVal, maybeVal, maybeTrigger)
+                    if oldSetValue then oldSetValue(selfOrVal, maybeVal, maybeTrigger) end
                     ValueLabel.Text = sliderData.GetFormattedValue()
                 end
 
@@ -8897,29 +9003,32 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TrackConn(TabButton.MouseEnter:Connect(function()
             PlayHoverSFX()
             if Window.ActiveTab ~= tabName then
-                -- Hover on inactive tab: invisible (1.0) at ends -> barely visible (0.90) in middle -> invisible (1.0)
-                HoverGlow.BackgroundTransparency = 0
-                HoverGradient.Transparency = NumberSequence.new({
-                    NumberSequenceKeypoint.new(0.0, 1.0),
-                    NumberSequenceKeypoint.new(0.2, 0.90),
-                    NumberSequenceKeypoint.new(0.8, 0.90),
-                    NumberSequenceKeypoint.new(1.0, 1.0)
-                })
-                TweenService:Create(TabButton, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextColor3 = Window.CurrentTheme.Text}):Play()
+                TweenService:Create(HoverGlow, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = 0
+                }):Play()
+                TweenService:Create(TabButton, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    TextColor3 = Window.CurrentTheme.Text
+                }):Play()
                 if TabIcon then
-                    TweenService:Create(TabIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {ImageColor3 = Window.CurrentTheme.Text}):Play()
+                    TweenService:Create(TabIcon, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        ImageColor3 = Window.CurrentTheme.Text
+                    }):Play()
                 end
             end
         end))
 
         TrackConn(TabButton.MouseLeave:Connect(function()
             if Window.ActiveTab ~= tabName then
-                -- Leaving inactive tab: hide glow entirely
-                TweenService:Create(HoverGlow, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
-                HoverGradient.Transparency = NumberSequence.new(1)
-                TweenService:Create(TabButton, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextColor3 = Window.CurrentTheme.SubText}):Play()
+                TweenService:Create(HoverGlow, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = 1
+                }):Play()
+                TweenService:Create(TabButton, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    TextColor3 = Window.CurrentTheme.SubText
+                }):Play()
                 if TabIcon then
-                    TweenService:Create(TabIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {ImageColor3 = Window.CurrentTheme.SubText}):Play()
+                    TweenService:Create(TabIcon, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        ImageColor3 = Window.CurrentTheme.SubText
+                    }):Play()
                 end
             end
         end))
@@ -8940,9 +9049,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     if oldTabData.HoverGlow then
                         oldTabData.HoverGlow.BackgroundTransparency = 1
                     end
-                    if oldTabData.HoverGradient then
-                        oldTabData.HoverGradient.Transparency = NumberSequence.new(1)
-                    end
                     local oldTarget = oldTabData.TabGroup or oldTabData.ContentFrame
                     if oldTarget then
                         oldTarget.Visible = false
@@ -8959,13 +9065,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TabButton.TextColor3 = Window.CurrentTheme.Text
             TabButton.TextSize = 23
             TabButton.FontFace = FontMichromaBold
-            HoverGlow.BackgroundTransparency = 0
-            HoverGradient.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0.0, 1.0),
-                NumberSequenceKeypoint.new(0.2, 0.75),
-                NumberSequenceKeypoint.new(0.8, 0.75),
-                NumberSequenceKeypoint.new(1.0, 1.0)
-            })
+            HoverGlow.BackgroundTransparency = 1
+            task.defer(function()
+                if Window.UpdateActiveTabIndicator then
+                    Window.UpdateActiveTabIndicator(true)
+                end
+            end)
         else
             ContentFrame.Visible = false
             ContentFrame.Position = UDim2.new(0, 0, 0, 0)
@@ -8973,7 +9078,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TabButton.TextSize = 16
             TabButton.FontFace = FontMichromaRegular
             HoverGlow.BackgroundTransparency = 1
-            HoverGradient.Transparency = NumberSequence.new(1)
         end
 
         return TabObj
