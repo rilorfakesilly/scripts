@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.33.6"
+Library.Version = "2.34"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -86,13 +86,12 @@ local function ResolveParent(parent)
         return parent
     end
     if type(parent) == "table" then
-        if parent.Frame and typeof(parent.Frame) == "Instance" then
-            return parent.Frame
-        elseif parent.Instance and typeof(parent.Instance) == "Instance" then
-            return parent.Instance
-        elseif parent.ContentFrame and typeof(parent.ContentFrame) == "Instance" then
-            return parent.ContentFrame
-        end
+        local f = rawget(parent, "Frame")
+        if f and typeof(f) == "Instance" then return f end
+        local i = rawget(parent, "Instance")
+        if i and typeof(i) == "Instance" then return i end
+        local cf = rawget(parent, "ContentFrame")
+        if cf and typeof(cf) == "Instance" then return cf end
     end
     return nil
 end
@@ -1198,8 +1197,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BoxFrame.ZIndex = 10
         BoxFrame.Parent = parent
 
+        local connectMode = (type(boxOptions) == "table" and (boxOptions.Connect or boxOptions.Connected or boxOptions.PositionInGroup))
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 22)
+        if connectMode == "Top" or connectMode == "First" then
+            ApplyCornerRadii(Corner, 22, 22, 0, 0)
+        elseif connectMode == "Middle" then
+            ApplyCornerRadii(Corner, 0, 0, 0, 0)
+        elseif connectMode == "Bottom" or connectMode == "Last" then
+            ApplyCornerRadii(Corner, 0, 0, 22, 22)
+        else
+            Corner.CornerRadius = UDim.new(0, 22)
+        end
         Corner.Parent = BoxFrame
 
         AddUIShadow(BoxFrame, 20, 0.5)
@@ -1333,8 +1341,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DropdownFrame.ClipsDescendants = false
         DropdownFrame.Parent = parent
 
+        local connectMode = (type(dropConfig) == "table" and (dropConfig.Connect or dropConfig.Connected or dropConfig.PositionInGroup))
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 22)
+        if connectMode == "Top" or connectMode == "First" then
+            ApplyCornerRadii(Corner, 22, 22, 0, 0)
+        elseif connectMode == "Middle" then
+            ApplyCornerRadii(Corner, 0, 0, 0, 0)
+        elseif connectMode == "Bottom" or connectMode == "Last" then
+            ApplyCornerRadii(Corner, 0, 0, 22, 22)
+        else
+            Corner.CornerRadius = UDim.new(0, 22)
+        end
         Corner.Parent = DropdownFrame
 
         AddUIShadow(DropdownFrame, 20, 0.5)
@@ -6776,8 +6793,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CardFrame.BorderSizePixel = 0
             CardFrame.Parent = ContentFrame
 
+            local connectMode = (type(btnOpts) == "table" and (btnOpts.Connect or btnOpts.Connected or btnOpts.PositionInGroup))
             local CardCorner = Instance.new("UICorner")
-            CardCorner.CornerRadius = UDim.new(0, 8)
+            if connectMode == "Top" or connectMode == "First" then
+                ApplyCornerRadii(CardCorner, 22, 22, 0, 0)
+            elseif connectMode == "Middle" then
+                ApplyCornerRadii(CardCorner, 0, 0, 0, 0)
+            elseif connectMode == "Bottom" or connectMode == "Last" then
+                ApplyCornerRadii(CardCorner, 0, 0, 22, 22)
+            else
+                CardCorner.CornerRadius = UDim.new(0, 8)
+            end
             CardCorner.Parent = CardFrame
 
             local hasDesc = btnDesc and btnDesc ~= ""
@@ -8008,14 +8034,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             RowFrame.ClipsDescendants = false
             RowFrame.Parent = ContentFrame
 
-            local RowLayout = Instance.new("UIListLayout")
-            RowLayout.Name = "RowLayout"
-            RowLayout.FillDirection = Enum.FillDirection.Horizontal
-            RowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-            RowLayout.SortOrder = Enum.SortOrder.LayoutOrder
-            RowLayout.Padding = UDim.new(0, padding)
-            RowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-            RowLayout.Parent = RowFrame
+
 
             local _rowItemOrder = 0
             RowFrame.ChildAdded:Connect(function(child)
@@ -8025,10 +8044,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             end)
 
-            local RowObj = {
-                Frame = RowFrame,
-                Instance = RowFrame,
-            }
+            local RowObj = {}
+            rawset(RowObj, "Frame", RowFrame)
+            rawset(RowObj, "Instance", RowFrame)
 
             function RowObj:AddButton(text, callback, sizeFraction)
                 if type(text) == "table" and not text.IsA then
@@ -8095,6 +8113,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return TabObj:AddSlider(title, min, max, default, callback, options, RowFrame, nil, sizeFraction or 0.5)
             end
 
+            -- metatable applied last so rawget(RowObj, "Frame") works correctly in ResolveParent
             setmetatable(RowObj, {
                 __index = function(t, k)
                     return RowFrame[k]
@@ -8408,11 +8427,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             GroupFrame.ZIndex = 10
             GroupFrame.Parent = ContentFrame
 
-            local GroupLayout = Instance.new("UIListLayout")
-            GroupLayout.SortOrder = Enum.SortOrder.LayoutOrder
-            GroupLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-            GroupLayout.Padding = UDim.new(0, 0)
-            GroupLayout.Parent = GroupFrame
+
 
             local results = {}
             for i, item in ipairs(toggleList) do
@@ -8458,20 +8473,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             GroupFrame.ZIndex = 10
             GroupFrame.Parent = ContentFrame
 
-            local GroupLayout
-            if isHorizontal then
-                GroupLayout = Instance.new("UIListLayout")
-                GroupLayout.FillDirection = Enum.FillDirection.Horizontal
-                GroupLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-                GroupLayout.SortOrder = Enum.SortOrder.LayoutOrder
-                GroupLayout.Padding = UDim.new(0, 0)
-            else
-                GroupLayout = Instance.new("UIListLayout")
-                GroupLayout.SortOrder = Enum.SortOrder.LayoutOrder
-                GroupLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-                GroupLayout.Padding = UDim.new(0, 0)
-            end
-            GroupLayout.Parent = GroupFrame
+
 
             local results = {}
             for i, item in ipairs(itemList) do
@@ -8620,8 +8622,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 SliderCard.ZIndex = 10
                 SliderCard.Parent = targetParent
 
+                local connectMode = (type(sliderOptions) == "table" and (sliderOptions.Connect or sliderOptions.Connected or sliderOptions.PositionInGroup))
                 local CardCorner = Instance.new("UICorner")
-                CardCorner.CornerRadius = UDim.new(0, 22)
+                if connectMode == "Top" or connectMode == "First" then
+                    ApplyCornerRadii(CardCorner, 22, 22, 0, 0)
+                elseif connectMode == "Middle" then
+                    ApplyCornerRadii(CardCorner, 0, 0, 0, 0)
+                elseif connectMode == "Bottom" or connectMode == "Last" then
+                    ApplyCornerRadii(CardCorner, 0, 0, 22, 22)
+                else
+                    CardCorner.CornerRadius = UDim.new(0, 22)
+                end
                 CardCorner.Parent = SliderCard
 
                 AddUIShadow(SliderCard, 20, 0.5)
