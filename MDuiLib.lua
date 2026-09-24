@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.34"
+Library.Version = "2.34.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -1332,7 +1332,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         parent = ResolveParent(parent)
         size = size or UDim2.new(1, -10, 0, 62)
         position = position or UDim2.new(0, 0, 0, 0)
+        if (not options or #options == 0) and type(dropConfig) == "table" then
+            options = dropConfig.Options or dropConfig.options or dropConfig.Values or dropConfig.values or dropConfig.List or options
+        end
         options = options or {}
+        if not defaultOption and type(dropConfig) == "table" then
+            defaultOption = dropConfig.Default or dropConfig.default
+        end
         defaultOption = defaultOption or options[1] or "Select..."
 
         local DropdownFrame = Instance.new("Frame")
@@ -1621,14 +1627,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             if isSearchable then
                 SearchInput.Text = ""
-                RefreshOptions(options, "")
             end
+            RefreshOptions(options, isSearchable and SearchInput.Text or "")
 
             local scale = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
             if scale <= 0 then scale = 1 end
             local width = UpdateDropdownPos() or (DropdownFrame.AbsoluteSize.X / scale)
+            local visibleCount = 0
+            for _, child in ipairs(InnerScroll:GetChildren()) do
+                if child:IsA("TextButton") and child.Visible ~= false then
+                    visibleCount = visibleCount + 1
+                end
+            end
             local extraH = isSearchable and 36 or 0
-            local contentH = #options > 0 and ((#options * 34) + ((#options - 1) * 5)) or 34
+            local contentH = visibleCount > 0 and ((visibleCount * 34) + ((visibleCount - 1) * 5)) or 34
             local neededH = contentH + (isSearchable and 41 or 10)
             local maxH = 205 + extraH
             local targetHeight = math.min(neededH, maxH)
@@ -1679,14 +1691,33 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Close = CloseDropdown,
             Open = OpenDropdown,
             GetSelected = function() return selectedOption end,
-            SetSelected = function(opt, triggerCallback)
+            GetValue = function() return selectedOption end,
+            SetSelected = function(selfOrOpt, maybeOpt, maybeTrigger)
+                local opt, trigger
+                if selfOrOpt == dropObj then
+                    opt = maybeOpt
+                    trigger = maybeTrigger
+                else
+                    opt = selfOrOpt
+                    trigger = maybeOpt
+                end
                 selectedOption = opt
-                local newDisplay = (title and title ~= "") and (title .. ": " .. selectedOption) or selectedOption
+                local newDisplay = (title and title ~= "") and (title .. ": " .. tostring(selectedOption or "")) or tostring(selectedOption or "")
                 TitleText.Text = newDisplay
                 RefreshOptions(options)
-                if triggerCallback and onSelect then onSelect(selectedOption) end
+                if trigger and onSelect then onSelect(selectedOption) end
             end,
-            RefreshOptions = RefreshOptions,
+            SetValue = function(selfOrOpt, maybeOpt, maybeTrigger)
+                return dropObj.SetSelected(selfOrOpt, maybeOpt, maybeTrigger)
+            end,
+            RefreshOptions = function(selfOrOpts, maybeOpts)
+                local newOpts = (type(selfOrOpts) == "table" and selfOrOpts ~= dropObj) and selfOrOpts or maybeOpts or options
+                RefreshOptions(newOpts)
+            end,
+            SetValues = function(selfOrOpts, maybeOpts)
+                return dropObj.SetOptions(selfOrOpts, maybeOpts)
+            end,
+            GetValues = function() return options end,
             SetOptions = function(selfOrOpts, maybeOpts)
                 local newOpts = (type(selfOrOpts) == "table" and selfOrOpts ~= dropObj) and selfOrOpts or maybeOpts or {}
                 options = newOpts
@@ -7430,7 +7461,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local title, dropOpts, defSels, cb, multiOpts
             if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
                 title = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Select Options"
-                dropOpts = titleOrConfig.Options or titleOrConfig.options or titleOrConfig[2] or {}
+                dropOpts = titleOrConfig.Options or titleOrConfig.options or titleOrConfig.Values or titleOrConfig.values or titleOrConfig.List or titleOrConfig[2] or {}
                 defSels = titleOrConfig.Default or titleOrConfig.default or titleOrConfig.Selections or titleOrConfig[3] or {}
                 cb = titleOrConfig.Callback or titleOrConfig.OnSelect or titleOrConfig.callback or titleOrConfig[4]
                 multiOpts = titleOrConfig
@@ -8030,7 +8061,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     elseif iType == "longbutton" then
                         element = TabObj:AddLongButton(item)
                     elseif iType == "dropdown" then
-                        element = TabObj:AddDropdown(item.Title or item.Name or ("Dropdown " .. idx), item.Options or item.options or {}, item.Default or item.default, item.Callback or item.OnSelect)
+                        element = TabObj:AddDropdown(item.Title or item.Name or ("Dropdown " .. idx), item.Options or item.options or item.Values or item.values or {}, item.Default or item.default, item.Callback or item.OnSelect)
                     elseif iType == "multidropdown" or iType == "multiselect" then
                         element = TabObj:AddMultiDropdown(item)
                     elseif iType == "numberinput" or iType == "spinbox" or iType == "number" then
@@ -8304,7 +8335,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local title, dropOpts, defOpt, cb, cfg
             if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
                 title = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Dropdown"
-                dropOpts = titleOrConfig.Options or titleOrConfig.options or titleOrConfig[2] or {}
+                dropOpts = titleOrConfig.Options or titleOrConfig.options or titleOrConfig.Values or titleOrConfig.values or titleOrConfig.List or titleOrConfig[2] or {}
                 defOpt = titleOrConfig.Default or titleOrConfig.default or titleOrConfig[3]
                 cb = titleOrConfig.Callback or titleOrConfig.OnSelect or titleOrConfig.callback or titleOrConfig[4]
                 parentRow = titleOrConfig.Parent or titleOrConfig.Row or parentRow
@@ -8317,6 +8348,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 defOpt = defaultOption
                 cb = onSelect
                 cfg = dropConfig
+            end
+            if not defOpt and dropOpts and #dropOpts > 0 then
+                defOpt = dropOpts[1]
             end
 
             parentRow = ResolveParent(parentRow)
@@ -8446,10 +8480,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             parentRow = ResolveParent(parentRow)
             targetParent = parentRow or ContentFrame
-            local isToggleGroup = parentRow and parentRow.Name == "ToggleGroup"
-            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isToggleGroup) and 0.5 or 1.0)
+            local isGroup = parentRow and (parentRow.Name == "ToggleGroup" or parentRow.Name == "VerticalGroup" or parentRow.Name == "HorizontalGroup")
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isGroup) and 0.5 or 1.0)
             local defaultH = sliderConfig and 76 or 44
-            local size = explicitUDim or (isToggleGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
+            local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
             local pos = position or UDim2.new(0, 0, 0, 0)
 
             local toggleData = Window:CreateMDToggleHalf(targetParent, pos, size, text, state, cb, bind, connectMode)
@@ -8562,7 +8596,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                 local itemType = item.Type
                 if not itemType then
-                    if item.Options or item.Values then
+                    if item.Options or item.Values or item.options or item.values or item.List then
                         itemType = "Dropdown"
                     elseif item.Color or (item.Default and typeof(item.Default) == "Color3") then
                         itemType = "ColorPicker"
@@ -8604,20 +8638,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     item.Size = item.Size or (1.0 / count)
                 end
 
+                local itLower = string.lower(tostring(itemType or ""))
                 local resultItem
-                if itemType == "Toggle" then
+                if itLower == "toggle" then
                     resultItem = TabObj:AddToggle(item)
-                elseif itemType == "Button" then
+                elseif itLower == "button" then
                     resultItem = TabObj:AddButton(item)
-                elseif itemType == "Card" then
+                elseif itLower == "card" then
                     resultItem = TabObj:AddCard(item)
-                elseif itemType == "Slider" then
+                elseif itLower == "slider" then
                     resultItem = TabObj:AddSlider(item)
-                elseif itemType == "Dropdown" then
+                elseif itLower == "dropdown" then
                     resultItem = TabObj:AddDropdown(item)
-                elseif itemType == "ColorPicker" or itemType == "Colorpicker" then
+                elseif itLower == "colorpicker" or itLower == "color" then
                     resultItem = TabObj:AddColorPicker(item)
-                elseif itemType == "Input" or itemType == "Textbox" then
+                elseif itLower == "input" or itLower == "textbox" then
                     resultItem = TabObj:AddTextbox(item)
                 end
 
