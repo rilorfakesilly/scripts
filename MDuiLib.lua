@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.35"
+Library.Version = "2.36"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -98,6 +98,7 @@ local function ResolveParent(parent)
 end
 
 Library.ActiveGuis = Library.ActiveGuis or {}
+Library.Icons = Library.Icons or {}
 
 local FontMichromaBold = Font.new("rbxasset://fonts/families/Michroma.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
 local FontMichromaRegular = Font.new("rbxasset://fonts/families/Michroma.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
@@ -388,6 +389,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         AuthorText = authorText,
         DiscordLink = discordLink,
         IconAsset = iconAsset,
+        Icons = Library.Icons,
         MinimizedIcon = minimizedIcon,
         AutoSmallDividers = autoSmallDividers,
         CurrentTheme = Library.ThemePresets.Dark,
@@ -716,18 +718,23 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if not data then return end
 
         -- 1. Apply Theme Preset or Custom Theme First (without animation to prevent mixing)
-        if data.Settings and data.Settings.CustomThemeColor and data.Settings.CustomThemeColor ~= "" and Window.ApplyCustomTheme then
+        if data.Theme == "Custom" and data.Settings and data.Settings.CustomThemeColor and data.Settings.CustomThemeColor ~= "" and Window.ApplyCustomTheme then
             pcall(function()
                 local col = Color3.fromHex(data.Settings.CustomThemeColor)
                 Window:ApplyCustomTheme(col, false)
             end)
-        elseif data.Theme and data.Theme ~= "Custom" then
+        elseif data.Theme and Library.ThemePresets[data.Theme] then
             if Window.ApplyTheme then
                 pcall(function() Window:ApplyTheme(data.Theme, false) end)
-            elseif Library.ThemePresets[data.Theme] then
+            else
                 Window.CurrentTheme = Library.ThemePresets[data.Theme]
                 Window.CurrentThemeKey = data.Theme
             end
+        elseif data.Settings and data.Settings.CustomThemeColor and data.Settings.CustomThemeColor ~= "" and Window.ApplyCustomTheme then
+            pcall(function()
+                local col = Color3.fromHex(data.Settings.CustomThemeColor)
+                Window:ApplyCustomTheme(col, false)
+            end)
         end
 
         -- 2. Apply Global Settings
@@ -852,11 +859,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         -- 9. Apply Color Pickers
         if data.ColorPickers then
             for name, hex in pairs(data.ColorPickers) do
-                local cp = Window.RegisteredColorPickers[name]
+                local cp = Window.RegisteredColorPickers[name] or (name == "Custom theme" and Window.RegisteredColorPickers["CustomTheme"]) or (name == "CustomTheme" and Window.RegisteredColorPickers["Custom theme"])
                 if cp and cp.SetColor then
                     pcall(function()
                         local col = Color3.fromHex(hex)
-                        if name == "CustomTheme" then
+                        local isThemeCP = (name == "CustomTheme" or name == "Custom theme" or name:lower():gsub("%s+", "") == "customtheme")
+                        if isThemeCP then
                             cp.SetColor(col, false)
                         else
                             cp.SetColor(col, true)
@@ -1215,7 +1223,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
         Corner.Parent = BoxFrame
 
-        AddUIShadow(BoxFrame, 20, 0.5)
+        if not connectMode then
+            AddUIShadow(BoxFrame, 20, 0.5)
+        end
 
         local TitleLabel = Instance.new("TextLabel")
         TitleLabel.Name = GenerateSafeName("TitleLabel")
@@ -1348,7 +1358,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DropdownFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
         DropdownFrame.BackgroundTransparency = 0.05
         DropdownFrame.BorderSizePixel = 0
-        DropdownFrame.ZIndex = 4
+        DropdownFrame.ZIndex = 10
         DropdownFrame.ClipsDescendants = false
         DropdownFrame.Parent = parent
 
@@ -1369,7 +1379,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
         Corner.Parent = DropdownFrame
 
-        AddUIShadow(DropdownFrame, 20, 0.5)
+        if not connectMode then
+            AddUIShadow(DropdownFrame, 20, 0.5)
+        end
 
         local MDTextFolder = Instance.new("Folder")
         MDTextFolder.Name = GenerateSafeName("Text")
@@ -1390,7 +1402,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleText.TextWrapped = true
         TitleText.TextXAlignment = Enum.TextXAlignment.Left
         TitleText.TextYAlignment = Enum.TextYAlignment.Center
-        TitleText.ZIndex = 5
+        TitleText.ZIndex = 11
         TitleText.Parent = MDTextFolder
 
         local ArrowIcon = Instance.new("ImageLabel")
@@ -1400,7 +1412,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ArrowIcon.BackgroundTransparency = 1
         ArrowIcon.Image = "rbxassetid://11552476728"
         ArrowIcon.ImageColor3 = Window.CurrentTheme.Text
-        ArrowIcon.ZIndex = 5
+        ArrowIcon.ZIndex = 11
         ArrowIcon.Parent = DropdownFrame
 
         local HeaderTrigger = Instance.new("TextButton")
@@ -1408,7 +1420,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         HeaderTrigger.Size = UDim2.new(1, 0, 1, 0)
         HeaderTrigger.BackgroundTransparency = 1
         HeaderTrigger.Text = ""
-        HeaderTrigger.ZIndex = 6
+        HeaderTrigger.ZIndex = 12
         HeaderTrigger.Parent = DropdownFrame
 
         local isSearchable = (type(dropConfig) == "table" and (dropConfig.Searchable or dropConfig.Search or dropConfig.searchable)) or false
@@ -3623,12 +3635,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ModalCorner.CornerRadius = UDim.new(0, 10)
         ModalCorner.Parent = ModalCard
 
-        local ModalStroke = Instance.new("UIStroke")
-        ModalStroke.Thickness = 1.3
-        ModalStroke.Color = Color3.fromRGB(255, 255, 255)
-        ModalStroke.Transparency = 0.8
-        ModalStroke.Parent = ModalCard
-
         AddUIShadow(ModalCard, 24, 0.55)
 
         local TitleLabel = Instance.new("TextLabel")
@@ -3677,7 +3683,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CancelBtn.Parent = BtnRow
 
         local CancelCorner = Instance.new("UICorner")
-        CancelCorner.CornerRadius = UDim.new(0, 6)
+        CancelCorner.CornerRadius = UDim.new(0, 22)
         CancelCorner.Parent = CancelBtn
 
         local YesBtn = Instance.new("TextButton")
@@ -3693,7 +3699,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         YesBtn.Parent = BtnRow
 
         local YesCorner = Instance.new("UICorner")
-        YesCorner.CornerRadius = UDim.new(0, 6)
+        YesCorner.CornerRadius = UDim.new(0, 22)
         YesCorner.Parent = YesBtn
 
         local function Close()
@@ -3765,7 +3771,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
         Corner.Parent = CardFrame
 
-        AddUIShadow(CardFrame, 20, 0.5)
+        if not connectMode then
+            AddUIShadow(CardFrame, 20, 0.5)
+        end
 
         local TitleLabel = Instance.new("TextLabel")
         TitleLabel.Name = "TitleLabel"
@@ -4103,12 +4111,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ApplyCornerRadii(Corner, 0, 0, 0, 0)
         elseif connectMode == "Bottom" or connectMode == "Last" then
             ApplyCornerRadii(Corner, 0, 0, 22, 22)
+        elseif connectMode == "Left" then
+            ApplyCornerRadii(Corner, 22, 0, 0, 22)
+        elseif connectMode == "Right" then
+            ApplyCornerRadii(Corner, 0, 22, 22, 0)
         else
             Corner.CornerRadius = UDim.new(0, 22)
         end
         Corner.Parent = CardFrame
 
-        AddUIShadow(CardFrame, 20, 0.5)
+        if not connectMode then
+            AddUIShadow(CardFrame, 20, 0.5)
+        end
 
         local MDTextFolder = Instance.new("Folder")
         MDTextFolder.Name = "Text"
@@ -6089,6 +6103,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
     end)
 
+    if UIScaleConstraint then
+        TrackConn(UIScaleConstraint:GetPropertyChangedSignal("Scale"):Connect(function()
+            if ActiveTabGlow and ActiveTabGlow.Visible and Window.ActiveTab and ScriptUi.Enabled and not IsAnimatingMinimize then
+                UpdateActiveTabIndicator(true)
+            end
+        end))
+    end
+
     local SidebarCollapseBtn = Instance.new("ImageButton")
     SidebarCollapseBtn.Name = "SidebarCollapseBtn"
     SidebarCollapseBtn.Size = UDim2.new(0, 20, 0, 20)
@@ -6315,10 +6337,25 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local rot1 = 0
     local rot2 = 0
+    local circleSpinBoost = 0
+
+    local function TriggerCircleSpinBurst()
+        circleSpinBoost = 750
+    end
+    Window.TriggerCircleSpinBurst = TriggerCircleSpinBurst
+
     TrackConn(RunService.RenderStepped:Connect(function(dt)
         if MinimisedUI.Enabled then
-            rot1 = (rot1 + (dt * 30)) % 360
-            rot2 = (rot2 - (dt * 28)) % 360
+            if circleSpinBoost > 0 then
+                circleSpinBoost = math.max(0, circleSpinBoost - dt * (circleSpinBoost * 2.2 + 80))
+            end
+
+            local speed1 = 30 + circleSpinBoost
+            local speed2 = -28 - (circleSpinBoost * 0.95)
+
+            rot1 = (rot1 + (dt * speed1)) % 360
+            rot2 = (rot2 + (dt * speed2)) % 360
+
             if MinLayer1_Small and MinLayer1_Small.Parent then
                 MinLayer1_Small.Rotation = rot1
             end
@@ -6332,10 +6369,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local c2 = curGrad[2] or c1
             local c3 = curGrad[3] or c2
 
-            local shiftSpeed = 3
-            local phase = (tick() * (shiftSpeed * 0.15)) % 1.0
-            local function getSmoothCol(off)
-                local tVal = (math.sin((phase + off) * math.pi * 2) + 1) * 0.5
+            -- Smooth left-to-right gradient wave
+            local phase = (tick() * 0.55) % 1.0
+            local function getSmoothCol(xRatio)
+                local tVal = (math.sin((phase - xRatio * 0.8) * math.pi * 2) + 1) * 0.5
                 if tVal < 0.5 then
                     return c1:Lerp(c2, tVal * 2)
                 else
@@ -6351,13 +6388,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ColorSequenceKeypoint.new(1,    getSmoothCol(1))
             })
 
+            -- Maintain fixed horizontal left-to-right gradient by counter-rotating against spinning layers
             if MinGrad1 and MinGrad1.Parent then
                 MinGrad1.Color = animSeq
-                MinGrad1.Rotation = 0
+                MinGrad1.Rotation = -rot1
             end
             if MinGrad2 and MinGrad2.Parent then
                 MinGrad2.Color = animSeq
-                MinGrad2.Rotation = 0
+                MinGrad2.Rotation = -rot2
             end
         end
     end))
@@ -6815,6 +6853,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local TabIcon = nil
         if tabIcon and tabIcon ~= "" and tabIcon ~= false then
+            if Library.Icons and Library.Icons[tabIcon] then
+                tabIcon = Library.Icons[tabIcon]
+            elseif Window.Icons and Window.Icons[tabIcon] then
+                tabIcon = Window.Icons[tabIcon]
+            end
             if type(tabIcon) == "number" or tostring(tabIcon):match("^%d+$") then
                 tabIcon = "rbxassetid://" .. tostring(tabIcon)
             end
@@ -8629,6 +8672,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             GroupFrame.ZIndex = 10
             GroupFrame.Parent = ContentFrame
 
+            if count > 1 then
+                local GroupCorner = Instance.new("UICorner")
+                GroupCorner.CornerRadius = UDim.new(0, 22)
+                GroupCorner.Parent = GroupFrame
+                AddUIShadow(GroupFrame, 20, 0.5)
+            end
+
             local GroupLayout = Instance.new("UIListLayout")
             GroupLayout.SortOrder = Enum.SortOrder.LayoutOrder
             GroupLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -8678,6 +8728,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             GroupFrame.BorderSizePixel = 0
             GroupFrame.ZIndex = 10
             GroupFrame.Parent = ContentFrame
+
+            if count > 1 then
+                local GroupCorner = Instance.new("UICorner")
+                GroupCorner.CornerRadius = UDim.new(0, 22)
+                GroupCorner.Parent = GroupFrame
+                AddUIShadow(GroupFrame, 20, 0.5)
+            end
 
             local GroupLayout
             if isHorizontal then
@@ -8880,7 +8937,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
                 CardCorner.Parent = SliderCard
 
-                AddUIShadow(SliderCard, 20, 0.5)
+                if not connectMode then
+                    AddUIShadow(SliderCard, 20, 0.5)
+                end
 
                 local TitleLabel = Instance.new("TextLabel")
                 TitleLabel.Name = "SliderTitle"
@@ -9316,7 +9375,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         LastWindowPos = MainContainer.Position
         local targetPos = MinimizedFrame.Position
 
+        if Window.ActiveTabGlow then
+            Window.ActiveTabGlow.Visible = false
+        end
+
         MinimisedUI.Enabled = true
+        TriggerCircleSpinBurst()
+        MinimizedFrame.Size = UDim2.new(0, 0, 0, 0)
+        TweenService:Create(MinimizedFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 52, 0, 52)
+        }):Play()
+
         MinimizedImage.Rotation = 0
         local spinTween = TweenService:Create(MinimizedImage, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             Rotation = 360
@@ -9354,8 +9423,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BackgroundDOF.Enabled = Window.BackgroundBlurEnabled
         LocalUIBlurPart.Transparency = Window.BackgroundBlurEnabled and 0.98 or 1
 
-        -- HIDE MINIMIZED FLOATING ICON IMMEDIATELY (Zero delay!)
-        MinimisedUI.Enabled = false
+        TriggerCircleSpinBurst()
+        local iconTween = TweenService:Create(MinimizedFrame, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0)
+        })
+        iconTween:Play()
+        task.delay(0.30, function()
+            if not ScriptUi.Enabled then return end
+            MinimisedUI.Enabled = false
+            MinimizedFrame.Size = UDim2.new(0, 52, 0, 52)
+        end)
         MinimizedImage.Rotation = 0
 
         local targetScale = GetTargetViewportScale()
@@ -9373,6 +9450,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         scaleTween.Completed:Wait()
         if Window.BackgroundBlurEnabled and UpdateLocalUIBlur then
             pcall(UpdateLocalUIBlur)
+        end
+        task.wait(0.04)
+        if Window.UpdateActiveTabIndicator then
+            pcall(function() Window.UpdateActiveTabIndicator(true) end)
         end
         IsAnimatingMinimize = false
     end
@@ -9909,11 +9990,25 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Window.ApplyCornerRadii = ApplyCornerRadii
     Window.AddUIShadow = AddUIShadow
 
+    local activeThemeTweens = {}
+    local function cancelActiveThemeTweens()
+        for _, tw in ipairs(activeThemeTweens) do
+            pcall(function() tw:Cancel() end)
+        end
+        table.clear(activeThemeTweens)
+    end
+
     function Window:ApplyTheme(themeKey, animated)
+        cancelActiveThemeTweens()
         animated = (animated == nil) and true or animated
         local newTheme = Library.ThemePresets[themeKey]
         if not newTheme then return end
-        Window.CurrentTheme = newTheme
+
+        local themeCopy = {}
+        for k, v in pairs(newTheme) do
+            themeCopy[k] = v
+        end
+        Window.CurrentTheme = themeCopy
         Window.CurrentThemeKey = themeKey
 
         if themeKey == "Custom" then
@@ -9921,12 +10016,28 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         else
             Window.IsCustomTheme = false
             Window.CustomThemeColor = nil
-            if Window.RegisteredColorPickers and Window.RegisteredColorPickers["CustomTheme"] then
-                pcall(function()
-                    Window.RegisteredColorPickers["CustomTheme"].SetColor(newTheme.ButtonBG, false)
-                end)
+            if Window.RegisteredColorPickers then
+                if Window.RegisteredColorPickers["CustomTheme"] then
+                    pcall(function()
+                        Window.RegisteredColorPickers["CustomTheme"].SetColor(newTheme.ButtonBG, false)
+                    end)
+                end
+                if Window.RegisteredColorPickers["Custom theme"] then
+                    pcall(function()
+                        Window.RegisteredColorPickers["Custom theme"].SetColor(newTheme.ButtonBG, false)
+                    end)
+                end
             end
         end
+
+        local RealTweenService = game:GetService("TweenService")
+        local TweenService = {
+            Create = function(_, inst, info, props)
+                local tw = RealTweenService:Create(inst, info, props)
+                table.insert(activeThemeTweens, tw)
+                return tw
+            end
+        }
 
         local tweenInfo = TweenInfo.new(animated and 0.35 or 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
