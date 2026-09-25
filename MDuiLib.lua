@@ -5145,7 +5145,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TooltipText.Text = tostring(tooltipContentMap[guiObject])
 
             local TextService = game:GetService("TextService")
-            local bounds = TextService:GetTextSize(TooltipText.Text, 15, Enum.Font.Fingerpaint or Enum.Font.SourceSansBold, Vector2.new(320, 120))
+            local bounds = TextService:GetTextSize(TooltipText.Text, 15, Enum.Font.Michroma or Enum.Font.SourceSansBold, Vector2.new(320, 120))
             local tw = math.clamp(bounds.X + 20, 50, 340)
             local th = math.clamp(bounds.Y + 10, 22, 120)
             TooltipFrame.Size = UDim2.new(0, tw, 0, th)
