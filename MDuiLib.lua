@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.36"
+Library.Version = "2.36.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -100,9 +100,9 @@ end
 Library.ActiveGuis = Library.ActiveGuis or {}
 Library.Icons = Library.Icons or {}
 
-local FontMichromaBold = Font.new("rbxasset://fonts/families/DotGothic16.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-local FontMichromaRegular = Font.new("rbxasset://fonts/families/DotGothic16.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal) -- testing how it looks "rbxassetid://12187375716"-not bad 
-local FontMichromaHeavy = Font.new("rbxasset://fonts/families/DotGothic16.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+local FontMichromaBold = Font.new("rbxassetid://12187375716", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+local FontMichromaRegular = Font.new("rbxassetid://12187375716", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+local FontMichromaHeavy = Font.new("rbxassetid://12187375716", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
 
 Library.ThemePresets = {
     Dark = {
