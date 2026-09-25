@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.39.6"
+Library.Version = "2.39.7"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -420,6 +420,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         RegisteredMDToggles = {},
         RegisteredMDSliders = {},
         RegisteredMobileButtons = {},
+        RegisteredSections = {},
+        RegisteredLabels = {},
+        RegisteredDividers = {},
         MobileButtonsLocked = false,
         MobileButtonsLayout = {
             BaseOffsetX = 70,
@@ -7328,6 +7331,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 labelObj:WithTooltip(labelOptions.Tooltip or labelOptions.tooltip)
             end
 
+            Window.RegisteredLabels = Window.RegisteredLabels or {}
+            table.insert(Window.RegisteredLabels, labelObj)
+
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
             return labelObj
         end
@@ -7383,6 +7389,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 self:SetVisible(vis)
                 return self
             end
+
+            Window.RegisteredDividers = Window.RegisteredDividers or {}
+            table.insert(Window.RegisteredDividers, dividerObj)
 
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
             return dividerObj
@@ -8965,12 +8974,39 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Header = HeaderFrame,
                 TitleLabel = TitleLabel,
                 ArrowIcon = ArrowIcon,
+                HeaderLine = HeaderLine,
+                Stroke = SectionStroke,
                 ToggleCollapse = ToggleCollapse,
                 SetCollapsed = function(self, state)
                     ToggleCollapse(state)
                 end,
                 IsCollapsed = function(self)
                     return isCollapsed
+                end,
+                RefreshTheme = function(self, theme, animated)
+                    local twInfo = TweenInfo.new(animated and 0.35 or 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    local divColor = theme.Divider or Color3.fromRGB(65, 70, 88)
+                    if animated then
+                        TweenService:Create(SectionCard, twInfo, {BackgroundColor3 = theme.CardBG}):Play()
+                        if SectionStroke then
+                            TweenService:Create(SectionStroke, twInfo, {Color = divColor}):Play()
+                        end
+                        if HeaderLine then
+                            TweenService:Create(HeaderLine, twInfo, {BackgroundColor3 = divColor}):Play()
+                        end
+                        if TitleLabel then
+                            TweenService:Create(TitleLabel, twInfo, {TextColor3 = theme.Text}):Play()
+                        end
+                        if ArrowIcon then
+                            TweenService:Create(ArrowIcon, twInfo, {ImageColor3 = isCollapsed and theme.SubText or theme.Text}):Play()
+                        end
+                    else
+                        SectionCard.BackgroundColor3 = theme.CardBG
+                        if SectionStroke then SectionStroke.Color = divColor end
+                        if HeaderLine then HeaderLine.BackgroundColor3 = divColor end
+                        if TitleLabel then TitleLabel.TextColor3 = theme.Text end
+                        if ArrowIcon then ArrowIcon.ImageColor3 = isCollapsed and theme.SubText or theme.Text end
+                    end
                 end,
             }
 
@@ -9019,6 +9055,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             function SectionObj:AddDivider(arg1)
                 return TabObj:AddDivider(arg1, ItemContainer)
             end
+
+            Window.RegisteredSections = Window.RegisteredSections or {}
+            table.insert(Window.RegisteredSections, SectionObj)
 
             return SectionObj
         end
@@ -10696,6 +10735,30 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             for _, mb in ipairs(Window.RegisteredMobileButtons) do
                 if mb and mb.RefreshTheme then
                     pcall(function() mb.RefreshTheme(newTheme) end)
+                end
+            end
+        end
+
+        if Window.RegisteredSections then
+            for _, sec in ipairs(Window.RegisteredSections) do
+                if sec and sec.RefreshTheme then
+                    pcall(function() sec:RefreshTheme(newTheme, animated) end)
+                end
+            end
+        end
+
+        if Window.RegisteredLabels then
+            for _, lbl in ipairs(Window.RegisteredLabels) do
+                if lbl and lbl.RefreshTheme then
+                    pcall(function() lbl:RefreshTheme(newTheme) end)
+                end
+            end
+        end
+
+        if Window.RegisteredDividers then
+            for _, div in ipairs(Window.RegisteredDividers) do
+                if div and div.RefreshTheme then
+                    pcall(function() div:RefreshTheme(newTheme) end)
                 end
             end
         end
