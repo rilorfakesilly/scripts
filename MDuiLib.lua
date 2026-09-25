@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.39.7"
+Library.Version = "2.39.4"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -2869,7 +2869,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         AddUIShadow(TrackFrame, 20, 0.5)
 
         local initialPct = (maxVal > minVal) and math.clamp((defaultVal - minVal) / (maxVal - minVal), 0, 1) or 0
-        local knobSize = 22
+        local knobSize = (type(sliderOptions) == "table" and sliderOptions.KnobSize) or 22
 
         local function GetFormattedValue(val, pct)
             if valueFormat == "percent" or valueFormat == "%" or suffix == "%" then
@@ -5555,13 +5555,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local MDHUBNAME = Instance.new("TextLabel")
     MDHUBNAME.Name = "HubName"
-    MDHUBNAME.Size = UDim2.new(0, 180, 0, 46)
-    MDHUBNAME.Position = UDim2.new(0.0259, 0, -0.052, 0)
+    MDHUBNAME.Size = UDim2.new(0, 180, 0, 36)
+    MDHUBNAME.Position = UDim2.new(0.0259, 0, 0.1, 0)
     MDHUBNAME.BackgroundTransparency = 1
     MDHUBNAME.FontFace = FontFingerPaintHeavy
     MDHUBNAME.Text = hubTitle
     MDHUBNAME.TextColor3 = Window.CurrentTheme.Text
-    MDHUBNAME.TextSize = 15
+    MDHUBNAME.TextSize = 25
     MDHUBNAME.TextXAlignment = Enum.TextXAlignment.Left
     MDHUBNAME.ZIndex = 5
     MDHUBNAME.Parent = MDTextFolder
@@ -6243,7 +6243,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local LocalTime = Instance.new("TextLabel")
     LocalTime.Size = UDim2.new(0, 210, 1, 0)
-    LocalTime.Position = UDim2.new(0.58, 0, 0, 0)
+    LocalTime.Position = UDim2.new(0.75, 0, 0, 0)
     LocalTime.BackgroundTransparency = 1
     LocalTime.FontFace = FontFingerPaintRegular
     LocalTime.Text = "Local time: 5:33 AM"
@@ -8974,14 +8974,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end,
             }
 
-            function SectionObj:AddToggle(...)
-                return TabObj:AddToggle(..., ItemContainer)
+            function SectionObj:AddToggle(arg1, arg2, arg3, arg4, arg5)
+                return TabObj:AddToggle(arg1, arg2, arg3, ItemContainer, arg5)
             end
-            function SectionObj:AddSlider(...)
-                return TabObj:AddSlider(..., ItemContainer)
+            function SectionObj:AddSlider(arg1, arg2, arg3)
+                return TabObj:AddSlider(arg1, ItemContainer, arg3)
             end
-            function SectionObj:AddDropdown(...)
-                return TabObj:AddDropdown(..., ItemContainer)
+            function SectionObj:AddDropdown(arg1, arg2, arg3, arg4)
+                return TabObj:AddDropdown(arg1, arg2, arg3, arg4, ItemContainer)
             end
             function SectionObj:AddButton(arg1, arg2, arg3)
                 return TabObj:AddLongButton(arg1, arg2, arg3 or 1.0, ItemContainer)
@@ -8992,17 +8992,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             function SectionObj:AddButtonRow(buttonList, height)
                 return TabObj:AddButtonRow(buttonList, height or 24, ItemContainer)
             end
-            function SectionObj:AddColorPicker(...)
-                return TabObj:AddColorPicker(..., ItemContainer)
+            function SectionObj:AddColorPicker(arg1, arg2, arg3)
+                return TabObj:AddColorPicker(arg1, arg2, arg3, ItemContainer)
             end
-            function SectionObj:AddTextbox(...)
-                return TabObj:AddTextbox(..., ItemContainer)
+            function SectionObj:AddTextbox(arg1, arg2, arg3, arg4)
+                return TabObj:AddTextbox(arg1, arg2, arg3, arg4, ItemContainer)
             end
-            function SectionObj:AddTextInput(...)
-                return TabObj:AddTextInput(..., ItemContainer)
+            function SectionObj:AddTextInput(arg1, arg2, arg3, arg4)
+                return TabObj:AddTextInput(arg1, arg2, arg3, arg4, ItemContainer)
             end
-            function SectionObj:AddNumberInput(...)
-                return TabObj:AddNumberInput(..., ItemContainer)
+            function SectionObj:AddNumberInput(arg1, arg2, arg3, arg4)
+                return TabObj:AddNumberInput(arg1, arg2, arg3, arg4, ItemContainer)
             end
             function SectionObj:AddToggleGroup(toggleList)
                 return TabObj:AddToggleGroup(toggleList, ItemContainer)
@@ -9013,11 +9013,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             function SectionObj:AddRow(height, padding)
                 return TabObj:AddRow(height or 24, padding or 6, ItemContainer)
             end
-            function SectionObj:AddLabel(...)
-                return TabObj:AddLabel(..., ItemContainer)
+            function SectionObj:AddLabel(arg1, arg2)
+                return TabObj:AddLabel(arg1, arg2, ItemContainer)
             end
-            function SectionObj:AddDivider(...)
-                return TabObj:AddDivider(..., ItemContainer)
+            function SectionObj:AddDivider(arg1)
+                return TabObj:AddDivider(arg1, ItemContainer)
             end
 
             return SectionObj
@@ -9332,7 +9332,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             if isCard and (type(sliderOptions) ~= "table" or sliderOptions.AsCard ~= false) then
                 local isRow = targetParent and targetParent.Name == "RowFrame"
-                local sliderH = isGroup and 50 or 56
+                local isInSection = customParent and targetParent ~= ContentFrame
+                local sliderH = isGroup and (isInSection and 40 or 50) or (isInSection and 45 or 56)
                 local cardSize = isGroup and UDim2.new(1, 0, 0, sliderH) or (isRow and UDim2.new(0.485, -4, 0, sliderH) or UDim2.new(1, -10, 0, sliderH))
 
                 local SliderCard = Instance.new("Frame")
@@ -9366,15 +9367,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     AddUIShadow(SliderCard, 20, 0.5)
                 end
 
+                local titleY = isInSection and 5 or 8
                 local TitleLabel = Instance.new("TextLabel")
                 TitleLabel.Name = "SliderTitle"
                 TitleLabel.Size = UDim2.new(1, -95, 0, 20)
-                TitleLabel.Position = UDim2.new(0, 14, 0, 8)
+                TitleLabel.Position = UDim2.new(0, 14, 0, titleY)
                 TitleLabel.BackgroundTransparency = 1
                 TitleLabel.FontFace = FontFingerPaintRegular
                 TitleLabel.Text = sliderName or "Slider"
                 TitleLabel.TextColor3 = Window.CurrentTheme.Text
-                TitleLabel.TextSize = 14
+                TitleLabel.TextSize = isInSection and 12 or 14
                 TitleLabel.TextWrapped = true
                 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
                 TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
@@ -9384,12 +9386,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local ValueLabel = Instance.new("TextLabel")
                 ValueLabel.Name = "ValueLabel"
                 ValueLabel.Size = UDim2.new(0, 80, 0, 20)
-                ValueLabel.Position = UDim2.new(1, -14, 0, 8)
+                ValueLabel.Position = UDim2.new(1, -14, 0, titleY)
                 ValueLabel.AnchorPoint = Vector2.new(1, 0)
                 ValueLabel.BackgroundTransparency = 1
                 ValueLabel.FontFace = FontFingerPaintRegular
                 ValueLabel.TextColor3 = Window.CurrentTheme.Text
-                ValueLabel.TextSize = 11
+                ValueLabel.TextSize = isInSection and 10 or 11
                 ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
                 ValueLabel.TextYAlignment = Enum.TextYAlignment.Center
                 ValueLabel.ZIndex = 11
@@ -9406,9 +9408,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     effectiveOpts.Increment = sliderOptions
                 end
                 effectiveOpts.ShowValue = false
+                if isInSection then
+                    effectiveOpts.KnobSize = 18
+                end
 
+                local trackY = isInSection and 26 or 34
+                local trackH = isInSection and 10 or 12
+                local trackPadX = isInSection and 26 or 28
                 local sliderData
-                sliderData = Window:CreateMDSlider(SliderCard, UDim2.new(0, 14, 0, 34), UDim2.new(1, -28, 0, 12), minVal, maxVal, defaultVal, function(val, pct)
+                sliderData = Window:CreateMDSlider(SliderCard, UDim2.new(0, 14, 0, trackY), UDim2.new(1, -trackPadX, 0, trackH), minVal, maxVal, defaultVal, function(val, pct)
                     ValueLabel.Text = sliderData and sliderData.GetFormattedValue(val, pct) or (tostring(val) .. suffix)
                     if onValueChange then
                         pcall(onValueChange, val, pct)
