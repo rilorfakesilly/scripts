@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.36.1"
+Library.Version = "2.37"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -100,9 +100,9 @@ end
 Library.ActiveGuis = Library.ActiveGuis or {}
 Library.Icons = Library.Icons or {}
 
-local FontMichromaBold = Font.new("rbxassetid://12187375716", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-local FontMichromaRegular = Font.new("rbxassetid://12187375716", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
-local FontMichromaHeavy = Font.new("rbxassetid://12187375716", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+local FontFingerPaintBold = Font.new("rbxassetid://12187375716", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+local FontFingerPaintRegular = Font.new("rbxassetid://12187375716", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+local FontFingerPaintHeavy = Font.new("rbxassetid://12187375716", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
 
 Library.ThemePresets = {
     Dark = {
@@ -1232,7 +1232,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleLabel.Size = titleWidth and UDim2.new(0, titleWidth, 1, 0) or UDim2.new(1, -(boxWidth + 24), 1, 0)
         TitleLabel.Position = UDim2.new(0, 12, 0, 0)
         TitleLabel.BackgroundTransparency = 1
-        TitleLabel.FontFace = FontMichromaBold
+        TitleLabel.FontFace = FontFingerPaintBold
         TitleLabel.Text = title or "Input"
         TitleLabel.TextColor3 = Window.CurrentTheme.Text
         TitleLabel.TextSize = 14
@@ -1250,7 +1250,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         InputBox.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
         InputBox.BackgroundTransparency = 0.2
         InputBox.BorderSizePixel = 0
-        InputBox.FontFace = FontMichromaRegular
+        InputBox.FontFace = FontFingerPaintRegular
         InputBox.PlaceholderText = placeholder or "Type here..."
         InputBox.PlaceholderColor3 = Window.CurrentTheme.SubText
         InputBox.Text = defaultText or ""
@@ -1392,7 +1392,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleText.Size = UDim2.new(1, -70, 0, 39)
         TitleText.Position = UDim2.new(0, 14, 0.5, -19)
         TitleText.BackgroundTransparency = 1
-        TitleText.FontFace = FontMichromaRegular
+        TitleText.FontFace = FontFingerPaintRegular
         TitleText.RichText = true
         local displayTitle = (title and title ~= "") and (title .. ": " .. defaultOption) or defaultOption
         TitleText.Text = displayTitle
@@ -1474,7 +1474,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         SearchInput.Size = UDim2.new(1, -26, 1, 0)
         SearchInput.Position = UDim2.new(0, 24, 0, 0)
         SearchInput.BackgroundTransparency = 1
-        SearchInput.FontFace = FontMichromaRegular
+        SearchInput.FontFace = FontFingerPaintRegular
         SearchInput.PlaceholderText = "Search..."
         SearchInput.PlaceholderColor3 = Window.CurrentTheme.SubText
         SearchInput.Text = ""
@@ -1563,7 +1563,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     ItemBtn.Size = UDim2.new(1, -6, 0, 34)
                     ItemBtn.BackgroundColor3 = (opt == selectedOption) and Window.CurrentTheme.ButtonBG or Window.CurrentTheme.AccentBG
                     ItemBtn.BackgroundTransparency = 0.1
-                    ItemBtn.FontFace = FontMichromaRegular
+                    ItemBtn.FontFace = FontFingerPaintRegular
                     ItemBtn.RichText = true
                     ItemBtn.Text = optStr
                     ItemBtn.TextColor3 = Window.CurrentTheme.Text
@@ -1877,7 +1877,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local SectionTitle = Instance.new("TextLabel")
         SectionTitle.Size = UDim2.new(1, 0, 0, 24)
         SectionTitle.BackgroundTransparency = 1
-        SectionTitle.FontFace = FontMichromaBold
+        SectionTitle.FontFace = FontFingerPaintBold
         SectionTitle.Text = "Configurations"
         SectionTitle.TextColor3 = Window.CurrentTheme.Text
         SectionTitle.TextSize = 15
@@ -1985,7 +1985,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         PasteLabel.Size = UDim2.new(1, 0, 0, 16)
         PasteLabel.LayoutOrder = 1
         PasteLabel.BackgroundTransparency = 1
-        PasteLabel.FontFace = FontMichromaRegular
+        PasteLabel.FontFace = FontFingerPaintRegular
         PasteLabel.Text = "Paste config JSON here to import:"
         PasteLabel.TextColor3 = Window.CurrentTheme.SubText
         PasteLabel.TextSize = 11
@@ -2020,7 +2020,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         PasteInput.Position = UDim2.new(0, 8, 0, 4)
         PasteInput.BackgroundTransparency = 1
         PasteInput.BorderSizePixel = 0
-        PasteInput.FontFace = FontMichromaRegular
+        PasteInput.FontFace = FontFingerPaintRegular
         PasteInput.PlaceholderText = "{\"...\"}"
         PasteInput.PlaceholderColor3 = Window.CurrentTheme.SubText
         PasteInput.Text = ""
@@ -2178,7 +2178,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Loadingtext.Size = UDim2.new(0, 180, 0, 33)
     Loadingtext.Position = UDim2.new(0.5, -163, 0.5, 18)
     Loadingtext.BackgroundTransparency = 1
-    Loadingtext.FontFace = FontMichromaRegular
+    Loadingtext.FontFace = FontFingerPaintRegular
     Loadingtext.Text = "Loading..."
     Loadingtext.TextColor3 = Color3.fromRGB(255, 255, 255)
     Loadingtext.TextSize = 24
@@ -2192,7 +2192,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     percloaded.Size = UDim2.new(0, 131, 0, 33)
     percloaded.Position = UDim2.new(0.5, 32, 0.5, -35)
     percloaded.BackgroundTransparency = 1
-    percloaded.FontFace = FontMichromaRegular
+    percloaded.FontFace = FontFingerPaintRegular
     percloaded.Text = "0 %"
     percloaded.TextColor3 = Color3.fromRGB(255, 255, 255)
     percloaded.TextSize = 22
@@ -2336,7 +2336,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local BtnText = Instance.new("TextLabel")
         BtnText.Name = GenerateSafeName("btnTitle")
         BtnText.BackgroundTransparency = 1
-        BtnText.FontFace = FontMichromaBold
+        BtnText.FontFace = FontFingerPaintBold
         BtnText.RichText = true
         BtnText.Text = text or "Button"
         BtnText.TextColor3 = Window.CurrentTheme.Text
@@ -2511,7 +2511,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BadgeText.Size = UDim2.new(1, -6, 1, 0)
         BadgeText.Position = UDim2.new(0, 3, 0, 0)
         BadgeText.BackgroundTransparency = 1
-        BadgeText.FontFace = FontMichromaRegular
+        BadgeText.FontFace = FontFingerPaintRegular
         BadgeText.Text = GetKeyDisplayName(initialKey)
         BadgeText.TextColor3 = Window.CurrentTheme.Text
         BadgeText.TextSize = 10
@@ -2880,7 +2880,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ValueLabel.Size = UDim2.new(0, 60, 0, 14)
             ValueLabel.Position = UDim2.new(1, -64, 0, -16)
             ValueLabel.BackgroundTransparency = 1
-            ValueLabel.FontFace = FontMichromaRegular
+            ValueLabel.FontFace = FontFingerPaintRegular
             ValueLabel.TextColor3 = Window.CurrentTheme.Text
             ValueLabel.TextSize = 12
             ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -3196,7 +3196,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         HeaderLabel.Size = UDim2.new(1, -50, 0, 32)
         HeaderLabel.Position = UDim2.new(0, 14, 0, 4)
         HeaderLabel.BackgroundTransparency = 1
-        HeaderLabel.FontFace = FontMichromaBold
+        HeaderLabel.FontFace = FontFingerPaintBold
         HeaderLabel.Text = title or "Select color"
         HeaderLabel.TextColor3 = Window.CurrentTheme.Text
         HeaderLabel.TextSize = 12
@@ -3396,7 +3396,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         HexBox.Size = UDim2.new(1, -12, 1, 0)
         HexBox.Position = UDim2.new(0, 6, 0, 0)
         HexBox.BackgroundTransparency = 1
-        HexBox.FontFace = FontMichromaRegular
+        HexBox.FontFace = FontFingerPaintRegular
         HexBox.PlaceholderText = "#FFFFFF"
         HexBox.PlaceholderColor3 = Window.CurrentTheme.SubText
         HexBox.Text = "#" .. initialColor:ToHex():upper()
@@ -3440,7 +3440,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ApplyBtn.Position = UDim2.new(0, 14, 0, 262)
         ApplyBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
         ApplyBtn.BorderSizePixel = 0
-        ApplyBtn.FontFace = FontMichromaBold
+        ApplyBtn.FontFace = FontFingerPaintBold
         ApplyBtn.Text = "Apply color"
         ApplyBtn.TextColor3 = Window.CurrentTheme.Text
         ApplyBtn.TextSize = 12
@@ -3641,7 +3641,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleLabel.Size = UDim2.new(1, -24, 0, 26)
         TitleLabel.Position = UDim2.new(0, 12, 0, 10)
         TitleLabel.BackgroundTransparency = 1
-        TitleLabel.FontFace = FontMichromaBold
+        TitleLabel.FontFace = FontFingerPaintBold
         TitleLabel.Text = title
         TitleLabel.TextColor3 = Window.CurrentTheme.Text
         TitleLabel.TextSize = 13
@@ -3653,7 +3653,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DescLabel.Size = UDim2.new(1, -24, 0, 52)
         DescLabel.Position = UDim2.new(0, 12, 0, 38)
         DescLabel.BackgroundTransparency = 1
-        DescLabel.FontFace = FontMichromaRegular
+        DescLabel.FontFace = FontFingerPaintRegular
         DescLabel.Text = desc
         DescLabel.TextColor3 = Window.CurrentTheme.SubText
         DescLabel.TextSize = 11
@@ -3675,7 +3675,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CancelBtn.Position = UDim2.new(0, 0, 0, 0)
         CancelBtn.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(35, 38, 48)
         CancelBtn.BorderSizePixel = 0
-        CancelBtn.FontFace = FontMichromaRegular
+        CancelBtn.FontFace = FontFingerPaintRegular
         CancelBtn.Text = noText
         CancelBtn.TextColor3 = Window.CurrentTheme.Text
         CancelBtn.TextSize = 11
@@ -3691,7 +3691,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         YesBtn.Position = UDim2.new(0.52, 0, 0, 0)
         YesBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
         YesBtn.BorderSizePixel = 0
-        YesBtn.FontFace = FontMichromaBold
+        YesBtn.FontFace = FontFingerPaintBold
         YesBtn.Text = yesText
         YesBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
         YesBtn.TextSize = 11
@@ -3780,7 +3780,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleLabel.Size = UDim2.new(1, -65, 1, 0)
         TitleLabel.Position = UDim2.new(0, 14, 0, 0)
         TitleLabel.BackgroundTransparency = 1
-        TitleLabel.FontFace = FontMichromaRegular
+        TitleLabel.FontFace = FontFingerPaintRegular
         TitleLabel.Text = title or "Color"
         TitleLabel.TextColor3 = Window.CurrentTheme.Text
         TitleLabel.TextSize = 14
@@ -3989,7 +3989,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnText.Size = UDim2.new(1, -12, 1, 0)
         BtnText.Position = UDim2.new(0, 6, 0, 0)
         BtnText.BackgroundTransparency = 1
-        BtnText.FontFace = FontMichromaBold
+        BtnText.FontFace = FontFingerPaintBold
         BtnText.RichText = true
         BtnText.Text = text or "Function"
         BtnText.TextColor3 = Window.CurrentTheme.Text
@@ -4180,7 +4180,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleText.Size = hasKeybind and UDim2.new(1, -104, 1, 0) or UDim2.new(1, -65, 1, 0)
         TitleText.Position = UDim2.new(0, 14, 0, 0)
         TitleText.BackgroundTransparency = 1
-        TitleText.FontFace = FontMichromaRegular
+        TitleText.FontFace = FontFingerPaintRegular
         TitleText.RichText = true
         TitleText.Text = text or "Function"
         TitleText.TextColor3 = Window.CurrentTheme.Text
@@ -4362,7 +4362,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ValueLabel.Position = hasKeybind and UDim2.new(1, -102, 0, 12) or UDim2.new(1, -60, 0, 12)
                 ValueLabel.AnchorPoint = Vector2.new(1, 0)
                 ValueLabel.BackgroundTransparency = 1
-                ValueLabel.FontFace = FontMichromaRegular
+                ValueLabel.FontFace = FontFingerPaintRegular
                 ValueLabel.TextColor3 = Window.CurrentTheme.Text
                 ValueLabel.TextSize = 11
                 ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -4696,7 +4696,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TextLabel = Instance.new("TextLabel")
             TextLabel.Name = "BtnText"
             TextLabel.BackgroundTransparency = 1
-            TextLabel.FontFace = FontMichromaBold
+            TextLabel.FontFace = FontFingerPaintBold
             TextLabel.Text = text
             TextLabel.TextScaled = false
             TextLabel.TextSize = config.TextSize or 11
@@ -4909,7 +4909,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TextLabel = Instance.new("TextLabel")
                 TextLabel.Name = "BtnText"
                 TextLabel.BackgroundTransparency = 1
-                TextLabel.FontFace = FontMichromaBold
+                TextLabel.FontFace = FontFingerPaintBold
                 TextLabel.Text = newText
                 TextLabel.TextScaled = false
                 TextLabel.TextSize = config.TextSize or 11
@@ -5121,7 +5121,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TooltipText.Name = "TooltipText"
     TooltipText.Size = UDim2.new(1, 0, 1, 0)
     TooltipText.BackgroundTransparency = 1
-    TooltipText.FontFace = FontMichromaRegular
+    TooltipText.FontFace = FontFingerPaintRegular
     TooltipText.Text = ""
     TooltipText.TextColor3 = Color3.fromRGB(235, 240, 255)
     TooltipText.TextSize = 15
@@ -5145,7 +5145,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TooltipText.Text = tostring(tooltipContentMap[guiObject])
 
             local TextService = game:GetService("TextService")
-            local bounds = TextService:GetTextSize(TooltipText.Text, 15, Enum.Font.Michroma or Enum.Font.SourceSansBold, Vector2.new(320, 120))
+            local bounds = TextService:GetTextSize(TooltipText.Text, 15, Enum.Font.Fingerpaint or Enum.Font.SourceSansBold, Vector2.new(320, 120))
             local tw = math.clamp(bounds.X + 20, 50, 340)
             local th = math.clamp(bounds.Y + 10, 22, 120)
             TooltipFrame.Size = UDim2.new(0, tw, 0, th)
@@ -5541,7 +5541,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MDHUBNAME.Size = UDim2.new(0, 180, 0, 46)
     MDHUBNAME.Position = UDim2.new(0.0259, 0, -0.052, 0)
     MDHUBNAME.BackgroundTransparency = 1
-    MDHUBNAME.FontFace = FontMichromaHeavy
+    MDHUBNAME.FontFace = FontFingerPaintHeavy
     MDHUBNAME.Text = hubTitle
     MDHUBNAME.TextColor3 = Window.CurrentTheme.Text
     MDHUBNAME.TextSize = 15
@@ -5579,7 +5579,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchInput.Size = UDim2.new(1, -48, 1, 0)
     SearchInput.Position = UDim2.new(0, 26, 0, 0)
     SearchInput.BackgroundTransparency = 1
-    SearchInput.FontFace = FontMichromaRegular
+    SearchInput.FontFace = FontFingerPaintRegular
     SearchInput.PlaceholderText = "Search in script..."
     SearchInput.PlaceholderColor3 = Window.CurrentTheme.SubText
     SearchInput.Text = ""
@@ -5595,7 +5595,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     ClearSearchBtn.Size = UDim2.new(0, 16, 0, 16)
     ClearSearchBtn.Position = UDim2.new(1, -22, 0.5, -8)
     ClearSearchBtn.BackgroundTransparency = 1
-    ClearSearchBtn.FontFace = FontMichromaBold
+    ClearSearchBtn.FontFace = FontFingerPaintBold
     ClearSearchBtn.Text = "X"
     ClearSearchBtn.TextColor3 = Window.CurrentTheme.SubText
     ClearSearchBtn.TextSize = 10
@@ -5688,7 +5688,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local emptyLabel = Instance.new("TextLabel")
             emptyLabel.Size = UDim2.new(1, 0, 0, 28)
             emptyLabel.BackgroundTransparency = 1
-            emptyLabel.FontFace = FontMichromaRegular
+            emptyLabel.FontFace = FontFingerPaintRegular
             emptyLabel.Text = "No results found"
             emptyLabel.TextColor3 = Window.CurrentTheme.SubText
             emptyLabel.TextSize = 13
@@ -5730,7 +5730,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             titleLbl.Size = UDim2.new(1, -12, 0, 15)
             titleLbl.Position = UDim2.new(0, 8, 0, 1)
             titleLbl.BackgroundTransparency = 1
-            titleLbl.FontFace = FontMichromaBold
+            titleLbl.FontFace = FontFingerPaintBold
             titleLbl.Text = item.Name
             titleLbl.TextColor3 = Window.CurrentTheme.Text
             titleLbl.TextSize = 13
@@ -5743,7 +5743,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             subLbl.Size = UDim2.new(1, -12, 0, 12)
             subLbl.Position = UDim2.new(0, 8, 0, 15)
             subLbl.BackgroundTransparency = 1
-            subLbl.FontFace = FontMichromaRegular
+            subLbl.FontFace = FontFingerPaintRegular
             subLbl.Text = item.TabName
             subLbl.TextColor3 = Color3.fromRGB(140, 145, 160)
             subLbl.TextSize = 10
@@ -6180,7 +6180,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MadebyText.Size = UDim2.new(0, 180, 0, 24)
     MadebyText.Position = UDim2.new(0.0803, 0, 0.12, 0)
     MadebyText.BackgroundTransparency = 1
-    MadebyText.FontFace = FontMichromaHeavy
+    MadebyText.FontFace = FontFingerPaintHeavy
     MadebyText.Text = authorText
     MadebyText.TextColor3 = Window.CurrentTheme.Text
     MadebyText.TextSize = 16
@@ -6194,7 +6194,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     DiscordBtn.Size = UDim2.new(0, 210, 0, 20)
     DiscordBtn.Position = UDim2.new(0.0803, 0, 0.52, 0)
     DiscordBtn.BackgroundTransparency = 1
-    DiscordBtn.FontFace = FontMichromaRegular
+    DiscordBtn.FontFace = FontFingerPaintRegular
     DiscordBtn.Text = discordDisplay
     DiscordBtn.TextColor3 = Window.CurrentTheme.SubText
     DiscordBtn.TextSize = 11
@@ -6228,7 +6228,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LocalTime.Size = UDim2.new(0, 210, 1, 0)
     LocalTime.Position = UDim2.new(0.58, 0, 0, 0)
     LocalTime.BackgroundTransparency = 1
-    LocalTime.FontFace = FontMichromaRegular
+    LocalTime.FontFace = FontFingerPaintRegular
     LocalTime.Text = "Local time: 5:33 AM"
     LocalTime.TextColor3 = Window.CurrentTheme.Text
     LocalTime.TextSize = 12
@@ -6443,7 +6443,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NotifTitle.Size = UDim2.new(0, 153, 0, 45)
         NotifTitle.Position = UDim2.new(0.019, 0, -0.31, 0)
         NotifTitle.BackgroundTransparency = 1
-        NotifTitle.FontFace = FontMichromaRegular
+        NotifTitle.FontFace = FontFingerPaintRegular
         NotifTitle.Text = titleText or "MD Notification"
         NotifTitle.TextColor3 = Window.CurrentTheme.Text
         NotifTitle.TextSize = 15
@@ -6483,7 +6483,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NotifBody.Size = UDim2.new(0, 210, 0, 54)
         NotifBody.Position = UDim2.new(0.2413, 0, 0.1317, 0)
         NotifBody.BackgroundTransparency = 1
-        NotifBody.FontFace = FontMichromaBold
+        NotifBody.FontFace = FontFingerPaintBold
         NotifBody.Text = contentText or ""
         NotifBody.TextColor3 = Window.CurrentTheme.Text
         NotifBody.TextSize = 17
@@ -6625,7 +6625,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TextSize = oldTargetSize,
                 TextColor3 = Window.CurrentTheme.SubText
             }):Play()
-            oldTab.Button.FontFace = FontMichromaRegular
+            oldTab.Button.FontFace = FontFingerPaintRegular
             if oldTab.HoverGlow then
                 TweenService:Create(oldTab.HoverGlow, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                     BackgroundTransparency = 1
@@ -6643,7 +6643,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TextSize = newTargetSize,
                 TextColor3 = Window.CurrentTheme.Text
             }):Play()
-            newTab.Button.FontFace = FontMichromaBold
+            newTab.Button.FontFace = FontFingerPaintBold
             if newTab.HoverGlow then
                 TweenService:Create(newTab.HoverGlow, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                     BackgroundTransparency = 1
@@ -6884,7 +6884,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TabButton.TextXAlignment = Enum.TextXAlignment.Center
         end
         TabButton.BackgroundTransparency = 1
-        TabButton.FontFace = FontMichromaRegular
+        TabButton.FontFace = FontFingerPaintRegular
         TabButton.Text = tabName
         TabButton.TextColor3 = Window.CurrentTheme.SubText
         TabButton.TextSize = 23
@@ -6999,7 +6999,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             WelcomeMsg.Position = UDim2.new(0.2, 0, 0.11198, 0)
             WelcomeMsg.BackgroundTransparency = 1
             WelcomeMsg.BorderSizePixel = 0
-            WelcomeMsg.FontFace = FontMichromaBold
+            WelcomeMsg.FontFace = FontFingerPaintBold
             WelcomeMsg.Text = GetGreeting() .. ", " .. pName
             WelcomeMsg.TextColor3 = Window.CurrentTheme.Text
             WelcomeMsg.TextSize = 28
@@ -7042,7 +7042,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local TitleLabel = Instance.new("TextLabel")
             TitleLabel.BackgroundTransparency = 1
-            TitleLabel.FontFace = FontMichromaBold
+            TitleLabel.FontFace = FontFingerPaintBold
             TitleLabel.Text = btnTitle
             TitleLabel.TextColor3 = Window.CurrentTheme.Text
             TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -7064,7 +7064,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             DescLabel.Size = UDim2.new(1, -125, 0, 22)
             DescLabel.Position = UDim2.new(0, 12, 0, 29)
             DescLabel.BackgroundTransparency = 1
-            DescLabel.FontFace = FontMichromaRegular
+            DescLabel.FontFace = FontFingerPaintRegular
             DescLabel.Text = hasDesc and btnDesc or ""
             DescLabel.TextColor3 = Window.CurrentTheme.SubText
             DescLabel.TextSize = 11
@@ -7198,7 +7198,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleLabel.Size = UDim2.new(1, -12, 0, 20)
             TitleLabel.Position = UDim2.new(0, 6, 0, 2)
             TitleLabel.BackgroundTransparency = 1
-            TitleLabel.FontFace = FontMichromaBold
+            TitleLabel.FontFace = FontFingerPaintBold
             TitleLabel.Text = labelText
             TitleLabel.TextColor3 = textColor or Window.CurrentTheme.Text
             TitleLabel.TextSize = 14
@@ -7215,7 +7215,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 DescLabel.Size = UDim2.new(1, -12, 0, 16)
                 DescLabel.Position = UDim2.new(0, 6, 0, 22)
                 DescLabel.BackgroundTransparency = 1
-                DescLabel.FontFace = FontMichromaRegular
+                DescLabel.FontFace = FontFingerPaintRegular
                 DescLabel.Text = descText
                 DescLabel.TextColor3 = Window.CurrentTheme.SubText
                 DescLabel.TextSize = 11
@@ -7390,7 +7390,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleLabel.Size = UDim2.new(1, -145, 1, 0)
             TitleLabel.Position = UDim2.new(0, 14, 0, 0)
             TitleLabel.BackgroundTransparency = 1
-            TitleLabel.FontFace = FontMichromaRegular
+            TitleLabel.FontFace = FontFingerPaintRegular
             TitleLabel.Text = title
             TitleLabel.TextColor3 = Window.CurrentTheme.Text
             TitleLabel.TextSize = 13
@@ -7427,7 +7427,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             MinusBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
             MinusBtn.BackgroundTransparency = 0.2
             MinusBtn.BorderSizePixel = 0
-            MinusBtn.FontFace = FontMichromaBold
+            MinusBtn.FontFace = FontFingerPaintBold
             MinusBtn.Text = "-"
             MinusBtn.TextColor3 = Window.CurrentTheme.Text
             MinusBtn.TextSize = 16
@@ -7445,7 +7445,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             PlusBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
             PlusBtn.BackgroundTransparency = 0.2
             PlusBtn.BorderSizePixel = 0
-            PlusBtn.FontFace = FontMichromaBold
+            PlusBtn.FontFace = FontFingerPaintBold
             PlusBtn.Text = "+"
             PlusBtn.TextColor3 = Window.CurrentTheme.Text
             PlusBtn.TextSize = 15
@@ -7461,7 +7461,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             NumberBox.Size = UDim2.new(1, -64, 1, 0)
             NumberBox.Position = UDim2.new(0, 32, 0, 0)
             NumberBox.BackgroundTransparency = 1
-            NumberBox.FontFace = FontMichromaRegular
+            NumberBox.FontFace = FontFingerPaintRegular
             NumberBox.Text = tostring(currentValue) .. suffix
             NumberBox.TextColor3 = Window.CurrentTheme.Text
             NumberBox.TextSize = 12
@@ -7673,7 +7673,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleLabel.Size = UDim2.new(1, -40, 1, 0)
             TitleLabel.Position = UDim2.new(0, 14, 0, 0)
             TitleLabel.BackgroundTransparency = 1
-            TitleLabel.FontFace = FontMichromaRegular
+            TitleLabel.FontFace = FontFingerPaintRegular
             TitleLabel.Text = title
             TitleLabel.TextColor3 = Window.CurrentTheme.Text
             TitleLabel.TextSize = 14
@@ -7786,7 +7786,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     checkIcon.Size = UDim2.new(0, 20, 1, 0)
                     checkIcon.Position = UDim2.new(0, 4, 0, 0)
                     checkIcon.BackgroundTransparency = 1
-                    checkIcon.FontFace = FontMichromaBold
+                    checkIcon.FontFace = FontFingerPaintBold
                     checkIcon.Text = isSelected and "[✓]" or "[  ]"
                     checkIcon.TextColor3 = isSelected and Color3.fromRGB(80, 255, 140) or Window.CurrentTheme.SubText
                     checkIcon.TextSize = 10
@@ -7797,7 +7797,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     itemLabel.Size = UDim2.new(1, -30, 1, 0)
                     itemLabel.Position = UDim2.new(0, 26, 0, 0)
                     itemLabel.BackgroundTransparency = 1
-                    itemLabel.FontFace = FontMichromaRegular
+                    itemLabel.FontFace = FontFingerPaintRegular
                     itemLabel.Text = optStr
                     itemLabel.TextColor3 = isSelected and Window.CurrentTheme.Text or Window.CurrentTheme.SubText
                     itemLabel.TextSize = 12
@@ -8063,7 +8063,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleLabel.Size = UDim2.new(1, -120, 0, 20)
             TitleLabel.Position = UDim2.new(0, 14, 0, 7)
             TitleLabel.BackgroundTransparency = 1
-            TitleLabel.FontFace = FontMichromaRegular
+            TitleLabel.FontFace = FontFingerPaintRegular
             TitleLabel.Text = title
             TitleLabel.TextColor3 = Window.CurrentTheme.Text
             TitleLabel.TextSize = 13
@@ -8078,7 +8078,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             StatusLabel.Position = UDim2.new(1, -14, 0, 7)
             StatusLabel.AnchorPoint = Vector2.new(1, 0)
             StatusLabel.BackgroundTransparency = 1
-            StatusLabel.FontFace = FontMichromaRegular
+            StatusLabel.FontFace = FontFingerPaintRegular
             StatusLabel.Text = (statusText ~= "" and statusText) or (tostring(math.floor(initialPct * 100)) .. "%")
             StatusLabel.TextColor3 = Window.CurrentTheme.SubText
             StatusLabel.TextSize = 12
@@ -8253,18 +8253,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return Window:LoadTabConfig(tabName, configName)
         end
 
-        function TabObj:AddRow(height, padding)
+        function TabObj:AddRow(height, padding, parentRow)
             height = height or 31
             padding = padding or 8
+            local targetParent = ResolveParent(parentRow) or TabObj.CurrentSectionContainer or ContentFrame
+            local isInside = (targetParent ~= ContentFrame)
 
             local RowFrame = Instance.new("Frame")
             RowFrame.Name = "RowFrame"
-            RowFrame.Size = UDim2.new(1, -10, 0, height)
+            RowFrame.Size = isInside and UDim2.new(1, 0, 0, height) or UDim2.new(1, -10, 0, height)
             RowFrame.BackgroundTransparency = 1
             RowFrame.BorderSizePixel = 0
             RowFrame.ZIndex = 3
             RowFrame.ClipsDescendants = false
-            RowFrame.Parent = ContentFrame
+            RowFrame.Parent = targetParent
 
             local RowLayout = Instance.new("UIListLayout")
             RowLayout.Name = "RowLayout"
@@ -8387,8 +8389,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             end
 
-            parentRow = ResolveParent(parentRow)
-            local fraction, explicitUDim = ResolveSizeFraction(sizeInput, parentRow and 0.5 or 1.0)
+            parentRow = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
+            local isGroup = parentRow and (parentRow.Name == "ToggleGroup" or parentRow.Name == "VerticalGroup" or parentRow.Name == "HorizontalGroup")
+            local fraction, explicitUDim = ResolveSizeFraction(sizeInput, (parentRow and not isGroup) and 0.5 or 1.0)
             local targetParent = parentRow
             local finalSize
 
@@ -8396,7 +8399,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 finalSize = explicitUDim
                 targetParent = targetParent or ContentFrame
             elseif targetParent then
-                finalSize = ComputeRowItemWidth(fraction or 0.5, 31)
+                finalSize = ComputeRowItemWidth(fraction or 1.0, 31)
             else
                 -- Auto-Flow Left-to-Right Sorting Engine
                 if fraction and fraction < 0.98 then
@@ -8442,11 +8445,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return btnData
         end
 
-        function TabObj:AddButtonRow(buttonList, height)
+        function TabObj:AddButtonRow(buttonList, height, parentRow)
             height = height or 31
             if type(buttonList) ~= "table" then return end
 
-            local row = TabObj:AddRow(height, 8)
+            local targetParent = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
+            local row = TabObj:AddRow(height, 8, targetParent)
             local count = #buttonList
             local defaultFraction = count > 0 and (1 / count) or 0.5
 
@@ -8502,11 +8506,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 defOpt = dropOpts[1]
             end
 
-            parentRow = ResolveParent(parentRow)
+            parentRow = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
             local targetParent = parentRow or ContentFrame
             local isGroup = parentRow and (parentRow.Name == "ToggleGroup" or parentRow.Name == "VerticalGroup" or parentRow.Name == "HorizontalGroup")
             local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isGroup) and 0.5 or 1.0)
-            local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, 44)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
+            local defaultH = isGroup and 38 or 44
+            local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
             local pos = position or UDim2.new(0, 0, 0, 0)
             local dropObj = Window:CreateMDDropdown(targetParent, pos, size, title, dropOpts, defOpt, cb, cfg)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
@@ -8545,11 +8550,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 opts = boxOptions
             end
 
-            parentRow = ResolveParent(parentRow)
+            parentRow = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
             local targetParent = parentRow or ContentFrame
             local isGroup = parentRow and (parentRow.Name == "ToggleGroup" or parentRow.Name == "VerticalGroup" or parentRow.Name == "HorizontalGroup")
             local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isGroup) and 0.5 or 1.0)
-            local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, 50)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, 50) or UDim2.new(1, -10, 0, 50))
+            local defaultH = isGroup and 42 or 50
+            local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
             local pos = position or UDim2.new(0, 0, 0, 0)
             local boxObj = Window:CreateMDTextbox(targetParent, pos, size, title, ph, def, cb, opts)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
@@ -8582,11 +8588,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 id = idParam or title
             end
 
-            parentRow = ResolveParent(parentRow)
+            parentRow = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
             local targetParent = parentRow or ContentFrame
             local isGroup = parentRow and (parentRow.Name == "ToggleGroup" or parentRow.Name == "VerticalGroup" or parentRow.Name == "HorizontalGroup")
             local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isGroup) and 0.5 or 1.0)
-            local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, 44)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
+            local defaultH = isGroup and 38 or 44
+            local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
             local pos = position or UDim2.new(0, 0, 0, 0)
             local cpData = Window:CreateMDColorPicker(targetParent, pos, size, title, defColor, cb, id, titleOrConfig)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
@@ -8606,8 +8613,197 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return Window:CreateConfigSection(TabObj)
         end
 
+        function TabObj:AddSection(titleOrConfig, isFullWidth)
+            local title, fullWidth
+            if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                title = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Section"
+                fullWidth = titleOrConfig.FullWidth or titleOrConfig.fullWidth or isFullWidth
+            else
+                title = tostring(titleOrConfig or "Section")
+                fullWidth = isFullWidth
+            end
+
+            if fullWidth or not TabObj.CurrentSectionRow or not TabObj.CurrentSectionRow.Parent or (TabObj.SectionInCurrentRow or 0) >= 2 then
+                local SectionRow = Instance.new("Frame")
+                SectionRow.Name = "SectionRow"
+                SectionRow.Size = UDim2.new(1, -10, 0, 0)
+                SectionRow.AutomaticSize = Enum.AutomaticSize.Y
+                SectionRow.BackgroundTransparency = 1
+                SectionRow.BorderSizePixel = 0
+                SectionRow.ClipsDescendants = false
+                SectionRow.ZIndex = 3
+                SectionRow.Parent = ContentFrame
+
+                local RowLayout = Instance.new("UIListLayout")
+                RowLayout.Name = "SectionRowLayout"
+                RowLayout.FillDirection = Enum.FillDirection.Horizontal
+                RowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+                RowLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+                RowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                RowLayout.Padding = UDim.new(0, 8)
+                RowLayout.Parent = SectionRow
+
+                TabObj.CurrentSectionRow = SectionRow
+                TabObj.SectionInCurrentRow = 0
+            end
+
+            TabObj.SectionInCurrentRow = (TabObj.SectionInCurrentRow or 0) + 1
+            if fullWidth then
+                TabObj.SectionInCurrentRow = 2
+            end
+
+            local cardWidth = fullWidth and UDim2.new(1, 0, 0, 0) or UDim2.new(0.5, -4, 0, 0)
+            local SectionCard = Instance.new("Frame")
+            SectionCard.Name = "SectionCard_" .. title:gsub("%s+", "_")
+            SectionCard.Size = cardWidth
+            SectionCard.AutomaticSize = Enum.AutomaticSize.Y
+            SectionCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+            SectionCard.BackgroundTransparency = 0.25
+            SectionCard.BorderSizePixel = 0
+            SectionCard.ClipsDescendants = false
+            SectionCard.ZIndex = 4
+            SectionCard.LayoutOrder = TabObj.SectionInCurrentRow
+            SectionCard.Parent = TabObj.CurrentSectionRow
+
+            local SectionCorner = Instance.new("UICorner")
+            SectionCorner.CornerRadius = UDim.new(0, 14)
+            SectionCorner.Parent = SectionCard
+
+            local SectionStroke = Instance.new("UIStroke")
+            SectionStroke.Thickness = 1
+            SectionStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(65, 70, 88)
+            SectionStroke.Transparency = 0.65
+            SectionStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            SectionStroke.Parent = SectionCard
+
+            AddUIShadow(SectionCard, 10, 0.35)
+
+            local SectionPadding = Instance.new("UIPadding")
+            SectionPadding.PaddingTop = UDim.new(0, 8)
+            SectionPadding.PaddingBottom = UDim.new(0, 8)
+            SectionPadding.PaddingLeft = UDim.new(0, 8)
+            SectionPadding.PaddingRight = UDim.new(0, 8)
+            SectionPadding.Parent = SectionCard
+
+            local SectionLayout = Instance.new("UIListLayout")
+            SectionLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            SectionLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            SectionLayout.Padding = UDim.new(0, 6)
+            SectionLayout.Parent = SectionCard
+
+            local HeaderFrame = Instance.new("Frame")
+            HeaderFrame.Name = "Header"
+            HeaderFrame.Size = UDim2.new(1, 0, 0, 20)
+            HeaderFrame.BackgroundTransparency = 1
+            HeaderFrame.BorderSizePixel = 0
+            HeaderFrame.LayoutOrder = 0
+            HeaderFrame.ZIndex = 5
+            HeaderFrame.Parent = SectionCard
+
+            local TitleLabel = Instance.new("TextLabel")
+            TitleLabel.Name = "Title"
+            TitleLabel.Size = UDim2.new(1, -4, 1, 0)
+            TitleLabel.Position = UDim2.new(0, 2, 0, 0)
+            TitleLabel.BackgroundTransparency = 1
+            TitleLabel.FontFace = FontFingerPaintBold
+            TitleLabel.Text = title:upper()
+            TitleLabel.TextColor3 = Window.CurrentTheme.Text
+            TitleLabel.TextSize = 12
+            TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+            TitleLabel.ZIndex = 6
+            TitleLabel.Parent = HeaderFrame
+
+            local HeaderLine = Instance.new("Frame")
+            HeaderLine.Name = "Divider"
+            HeaderLine.Size = UDim2.new(1, 0, 0, 1)
+            HeaderLine.BackgroundColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(65, 70, 88)
+            HeaderLine.BackgroundTransparency = 0.65
+            HeaderLine.BorderSizePixel = 0
+            HeaderLine.LayoutOrder = 1
+            HeaderLine.ZIndex = 5
+            HeaderLine.Parent = SectionCard
+
+            local ItemContainer = Instance.new("Frame")
+            ItemContainer.Name = "VerticalGroup"
+            ItemContainer.Size = UDim2.new(1, 0, 0, 0)
+            ItemContainer.AutomaticSize = Enum.AutomaticSize.Y
+            ItemContainer.BackgroundTransparency = 1
+            ItemContainer.BorderSizePixel = 0
+            ItemContainer.ClipsDescendants = false
+            ItemContainer.LayoutOrder = 2
+            ItemContainer.ZIndex = 5
+            ItemContainer.Parent = SectionCard
+
+            local ItemLayout = Instance.new("UIListLayout")
+            ItemLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            ItemLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            ItemLayout.Padding = UDim.new(0, 6)
+            ItemLayout.Parent = ItemContainer
+
+            TabObj.CurrentSectionContainer = ItemContainer
+            TabObj.CurrentSectionCard = SectionCard
+
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+
+            local SectionObj = {
+                Card = SectionCard,
+                Container = ItemContainer,
+                Title = title,
+                Header = HeaderFrame,
+                TitleLabel = TitleLabel,
+            }
+
+            function SectionObj:AddToggle(...)
+                return TabObj:AddToggle(..., ItemContainer)
+            end
+            function SectionObj:AddSlider(...)
+                return TabObj:AddSlider(..., ItemContainer)
+            end
+            function SectionObj:AddDropdown(...)
+                return TabObj:AddDropdown(..., ItemContainer)
+            end
+            function SectionObj:AddButton(...)
+                return TabObj:AddLongButton(..., 1.0, ItemContainer)
+            end
+            function SectionObj:AddLongButton(...)
+                return TabObj:AddLongButton(..., 1.0, ItemContainer)
+            end
+            function SectionObj:AddButtonRow(...)
+                return TabObj:AddButtonRow(..., ItemContainer)
+            end
+            function SectionObj:AddColorPicker(...)
+                return TabObj:AddColorPicker(..., ItemContainer)
+            end
+            function SectionObj:AddTextbox(...)
+                return TabObj:AddTextbox(..., ItemContainer)
+            end
+            function SectionObj:AddTextInput(...)
+                return TabObj:AddTextInput(..., ItemContainer)
+            end
+            function SectionObj:AddNumberInput(...)
+                return TabObj:AddNumberInput(..., ItemContainer)
+            end
+            function SectionObj:AddToggleGroup(...)
+                return TabObj:AddToggleGroup(...)
+            end
+            function SectionObj:AddGroup(...)
+                return TabObj:AddGroup(...)
+            end
+            function SectionObj:AddRow(...)
+                return TabObj:AddRow(...)
+            end
+            function SectionObj:AddLabel(...)
+                return TabObj:AddLabel(...)
+            end
+            function SectionObj:AddDivider(...)
+                return TabObj:AddDivider(...)
+            end
+
+            return SectionObj
+        end
+
         function TabObj:AddToggle(titleOrConfig, initialState, onToggle, parentRow, position, sizeFraction, bindConfig)
-            local targetParent = parentRow or ContentFrame
+            local targetParent = ResolveParent(parentRow) or TabObj.CurrentSectionContainer or ContentFrame
             local text, state, cb, bind, connectMode, sliderConfig
 
             if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
@@ -8627,11 +8823,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 bind = bindConfig
             end
 
-            parentRow = ResolveParent(parentRow)
+            parentRow = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
             targetParent = parentRow or ContentFrame
             local isGroup = parentRow and (parentRow.Name == "ToggleGroup" or parentRow.Name == "VerticalGroup" or parentRow.Name == "HorizontalGroup")
             local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isGroup) and 0.5 or 1.0)
-            local defaultH = sliderConfig and 76 or 44
+            local defaultH = sliderConfig and (isGroup and 68 or 76) or (isGroup and 38 or 44)
             local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
             local pos = position or UDim2.new(0, 0, 0, 0)
 
@@ -8847,7 +9043,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         function TabObj:AddSlider(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
-            local targetParent = ContentFrame
+            local targetParent = TabObj.CurrentSectionContainer or ContentFrame
             local pos = UDim2.new(0, 0, 0, 0)
             local sliderName = nil
             local minVal, maxVal, defaultVal, onValueChange, sliderOptions
@@ -8899,7 +9095,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 pos = (typeof(arg6) == "UDim2" and arg6) or (typeof(arg7) == "UDim2" and arg7) or pos
             end
 
-            targetParent = ResolveParent(targetParent)
+            targetParent = ResolveParent(targetParent) or TabObj.CurrentSectionContainer or ContentFrame
             local suffix = (type(sliderOptions) == "table" and (sliderOptions.Suffix or (sliderOptions.ValueFormat == "percent" and "%") or ""))
                 or (type(sliderOptions) == "string" and sliderOptions)
                 or ""
@@ -8908,7 +9104,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             if isCard and (type(sliderOptions) ~= "table" or sliderOptions.AsCard ~= false) then
                 local isRow = targetParent and targetParent.Name == "RowFrame"
-                local cardSize = isGroup and UDim2.new(1, 0, 0, 56) or (isRow and UDim2.new(0.485, -4, 0, 56) or UDim2.new(1, -10, 0, 56))
+                local sliderH = isGroup and 50 or 56
+                local cardSize = isGroup and UDim2.new(1, 0, 0, sliderH) or (isRow and UDim2.new(0.485, -4, 0, sliderH) or UDim2.new(1, -10, 0, sliderH))
 
                 local SliderCard = Instance.new("Frame")
                 SliderCard.Name = (sliderName or "Slider") .. "_Card"
@@ -8946,7 +9143,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TitleLabel.Size = UDim2.new(1, -95, 0, 20)
                 TitleLabel.Position = UDim2.new(0, 14, 0, 8)
                 TitleLabel.BackgroundTransparency = 1
-                TitleLabel.FontFace = FontMichromaRegular
+                TitleLabel.FontFace = FontFingerPaintRegular
                 TitleLabel.Text = sliderName or "Slider"
                 TitleLabel.TextColor3 = Window.CurrentTheme.Text
                 TitleLabel.TextSize = 14
@@ -8962,7 +9159,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ValueLabel.Position = UDim2.new(1, -14, 0, 8)
                 ValueLabel.AnchorPoint = Vector2.new(1, 0)
                 ValueLabel.BackgroundTransparency = 1
-                ValueLabel.FontFace = FontMichromaRegular
+                ValueLabel.FontFace = FontFingerPaintRegular
                 ValueLabel.TextColor3 = Window.CurrentTheme.Text
                 ValueLabel.TextSize = 11
                 ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -9104,7 +9301,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if oldTabData then
                     oldTabData.Button.TextColor3 = Window.CurrentTheme.SubText
                     oldTabData.Button.TextSize = 15
-                    oldTabData.Button.FontFace = FontMichromaRegular
+                    oldTabData.Button.FontFace = FontFingerPaintRegular
                     if oldTabData.HoverGlow then
                         oldTabData.HoverGlow.BackgroundTransparency = 1
                     end
@@ -9123,7 +9320,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             }):Play()
             TabButton.TextColor3 = Window.CurrentTheme.Text
             TabButton.TextSize = 23
-            TabButton.FontFace = FontMichromaBold
+            TabButton.FontFace = FontFingerPaintBold
             HoverGlow.BackgroundTransparency = 1
             task.defer(function()
                 if Window.UpdateActiveTabIndicator then
@@ -9135,7 +9332,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ContentFrame.Position = UDim2.new(0, 0, 0, 0)
             TabButton.TextColor3 = Window.CurrentTheme.SubText
             TabButton.TextSize = 16
-            TabButton.FontFace = FontMichromaRegular
+            TabButton.FontFace = FontFingerPaintRegular
             HoverGlow.BackgroundTransparency = 1
         end
 
@@ -9290,7 +9487,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ThemeTitle.Size = UDim2.new(1, 0, 0, 22)
         ThemeTitle.Position = UDim2.new(0, 0, 0, 0)
         ThemeTitle.BackgroundTransparency = 1
-        ThemeTitle.FontFace = FontMichromaBold
+        ThemeTitle.FontFace = FontFingerPaintBold
         ThemeTitle.Text = "Theme presets"
         ThemeTitle.TextColor3 = Window.CurrentTheme.Text
         ThemeTitle.TextSize = 16
