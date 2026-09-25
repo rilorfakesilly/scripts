@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.39.1"
+Library.Version = "2.39.6"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -86,7 +86,9 @@ local function ResolveParent(parent)
         return parent
     end
     if type(parent) == "table" then
-        if parent.Frame and typeof(parent.Frame) == "Instance" then
+        if parent.Container and typeof(parent.Container) == "Instance" then
+            return parent.Container
+        elseif parent.Frame and typeof(parent.Frame) == "Instance" then
             return parent.Frame
         elseif parent.Instance and typeof(parent.Instance) == "Instance" then
             return parent.Instance
@@ -3954,27 +3956,35 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         text = btnText or "Function"
         onClick = callback
 
+        local resolvedParent = ResolveParent(targetParent or parent)
+        local inRow = resolvedParent and (resolvedParent.Name == "RowFrame" or resolvedParent:FindFirstChildOfClass("UIListLayout") ~= nil)
+        local isSmall = (size and size.Y.Offset <= 28) or inRow
+
         local BtnFrame = Instance.new("Frame")
         BtnFrame.Name = "MDButtonCard"
         BtnFrame.Size = size
-        BtnFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-        BtnFrame.Position = UDim2.new(
-            position.X.Scale + 0.5 * size.X.Scale,
-            position.X.Offset + math.floor(size.X.Offset * 0.5),
-            position.Y.Scale + 0.5 * size.Y.Scale,
-            position.Y.Offset + math.floor(size.Y.Offset * 0.5)
-        )
+        BtnFrame.AnchorPoint = inRow and Vector2.new(0, 0) or Vector2.new(0.5, 0.5)
+        if inRow then
+            BtnFrame.Position = position or UDim2.new(0, 0, 0, 0)
+        else
+            BtnFrame.Position = UDim2.new(
+                position.X.Scale + 0.5 * size.X.Scale,
+                position.X.Offset + math.floor(size.X.Offset * 0.5),
+                position.Y.Scale + 0.5 * size.Y.Scale,
+                position.Y.Offset + math.floor(size.Y.Offset * 0.5)
+            )
+        end
         BtnFrame.BackgroundColor3 = Window.CurrentTheme.ButtonBG
         BtnFrame.BackgroundTransparency = 0.05
         BtnFrame.BorderSizePixel = 0
-        BtnFrame.ZIndex = 10
-        BtnFrame.Parent = ResolveParent(targetParent or parent)
+        BtnFrame.ZIndex = inRow and 12 or 10
+        BtnFrame.Parent = resolvedParent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 22)
+        Corner.CornerRadius = isSmall and UDim.new(0, 8) or UDim.new(0, 22)
         Corner.Parent = BtnFrame
 
-        AddUIShadow(BtnFrame, 20, 0.5)
+        AddUIShadow(BtnFrame, isSmall and 8 or 20, 0.45)
 
         local BtnScale = Instance.new("UIScale")
         BtnScale.Scale = 1.0
@@ -3986,19 +3996,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local BtnText = Instance.new("TextLabel")
         BtnText.Name = "btntext"
-        BtnText.Size = UDim2.new(1, -12, 1, 0)
-        BtnText.Position = UDim2.new(0, 6, 0, 0)
+        BtnText.Size = UDim2.new(1, -8, 1, 0)
+        BtnText.Position = UDim2.new(0, 4, 0, 0)
         BtnText.BackgroundTransparency = 1
         BtnText.FontFace = FontFingerPaintBold
         BtnText.RichText = true
         BtnText.Text = text or "Function"
         BtnText.TextColor3 = Window.CurrentTheme.Text
         BtnText.TextScaled = false
-        BtnText.TextSize = 14
+        BtnText.TextSize = isSmall and 11 or 14
         BtnText.TextWrapped = true
         BtnText.TextXAlignment = Enum.TextXAlignment.Center
         BtnText.TextYAlignment = Enum.TextYAlignment.Center
-        BtnText.ZIndex = 11
+        BtnText.ZIndex = inRow and 13 or 11
         BtnText.Parent = MDTextFolder
 
         local ClickBtn = Instance.new("TextButton")
@@ -4006,7 +4016,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ClickBtn.Size = UDim2.new(1, 0, 1, 0)
         ClickBtn.BackgroundTransparency = 1
         ClickBtn.Text = ""
-        ClickBtn.ZIndex = 12
+        ClickBtn.ZIndex = inRow and 14 or 12
         ClickBtn.Parent = BtnFrame
 
         local _hoverActive = false
@@ -6666,11 +6676,31 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         -- 3. Smooth entrance of active tab content
         if newTab and newTab.ContentFrame then
+            local grad = newTab.ContentFrame:FindFirstChild("TabFadeGradient")
+            if grad then
+                grad.Transparency = NumberSequence.new(1.0)
+            end
+            newTab.ContentFrame.CanvasPosition = Vector2.new(0, 0)
             newTab.ContentFrame.Position = UDim2.new(0, 0, 0, 10)
             newTab.ContentFrame.Visible = true
             TweenService:Create(newTab.ContentFrame, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                 Position = UDim2.new(0, 0, 0, 0)
             }):Play()
+            if grad then
+                task.spawn(function()
+                    local start = tick()
+                    local dur = 0.20
+                    while true do
+                        local elapsed = tick() - start
+                        local alpha = math.clamp(elapsed / dur, 0, 1)
+                        local eased = 1 - (1 - alpha)^4
+                        grad.Transparency = NumberSequence.new(1 - eased)
+                        if alpha >= 1 then break end
+                        RunService.RenderStepped:Wait()
+                    end
+                    grad.Transparency = NumberSequence.new(0)
+                end)
+            end
         end
     end
 
@@ -6899,12 +6929,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ContentFrame.BorderSizePixel = 0
         ContentFrame.ScrollBarThickness = 0
         ContentFrame.ScrollBarImageTransparency = 1
-        ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.None
         ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
         ContentFrame.ClipsDescendants = true
         ContentFrame.Visible = false
-        ContentFrame.ZIndex = 4
+        ContentFrame.ZIndex = 2
         ContentFrame.Parent = MainContentFrame or MainFrame
+
+        local TabFadeGradient = Instance.new("UIGradient")
+        TabFadeGradient.Name = "TabFadeGradient"
+        TabFadeGradient.Transparency = NumberSequence.new(0)
+        TabFadeGradient.Parent = ContentFrame
 
         local ContentPadding = Instance.new("UIPadding")
         ContentPadding.PaddingLeft = UDim.new(0, 10)
@@ -8284,7 +8319,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             RowFrame.Size = isInside and UDim2.new(1, 0, 0, height) or UDim2.new(1, -10, 0, height)
             RowFrame.BackgroundTransparency = 1
             RowFrame.BorderSizePixel = 0
-            RowFrame.ZIndex = 3
+            RowFrame.ZIndex = 8
             RowFrame.ClipsDescendants = false
             RowFrame.Parent = targetParent
 
@@ -8466,11 +8501,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         function TabObj:AddButtonRow(buttonList, height, parentRow)
-            height = height or 31
+            local targetParent = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
+            local isInsideSection = (targetParent ~= nil and targetParent ~= ContentFrame)
+            height = height or (isInsideSection and 24 or 31)
+            if isInsideSection and (height == 31 or height > 28) then
+                height = 24
+            end
             if type(buttonList) ~= "table" then return end
 
-            local targetParent = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
-            local row = TabObj:AddRow(height, 8, targetParent)
+            local pad = isInsideSection and 6 or 8
+            local row = TabObj:AddRow(height, pad, targetParent)
             local count = #buttonList
             local defaultFraction = count > 0 and (1 / count) or 0.5
 
@@ -8487,7 +8527,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
 
                 local fraction, explicitUDim = ResolveSizeFraction(sizeInput, defaultFraction)
-                local itemSize = explicitUDim or ComputeRowItemWidth(fraction, height)
+                local padTotal = pad * math.max(0, count - 1)
+                local offsetSub = math.floor(padTotal / math.max(1, count))
+                local itemSize = explicitUDim or UDim2.new(fraction or defaultFraction, -offsetSub, 0, height)
                 local btn = Window:CreateMDButtonLong(row, UDim2.new(0, 0, 0, 0), itemSize, text, callback)
 
                 table.insert(Window.SearchableItems, {
@@ -8721,7 +8763,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SectionCard.BackgroundColor3 = Window.CurrentTheme.CardBG
             SectionCard.BackgroundTransparency = 0.25
             SectionCard.BorderSizePixel = 0
-            SectionCard.ClipsDescendants = true
+            SectionCard.ClipsDescendants = false
             SectionCard.ZIndex = 4
             SectionCard.Parent = targetColumn
 
@@ -8757,7 +8799,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             HeaderFrame.BackgroundTransparency = 1
             HeaderFrame.BorderSizePixel = 0
             HeaderFrame.LayoutOrder = 0
-            HeaderFrame.ZIndex = 5
+            HeaderFrame.ZIndex = 6
             HeaderFrame.Parent = SectionCard
 
             local TitleLabel = Instance.new("TextLabel")
@@ -8770,7 +8812,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleLabel.TextColor3 = Window.CurrentTheme.Text
             TitleLabel.TextSize = 12
             TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-            TitleLabel.ZIndex = 6
+            TitleLabel.ZIndex = 7
             TitleLabel.Parent = HeaderFrame
 
             local ArrowIcon = Instance.new("ImageLabel")
@@ -8782,7 +8824,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ArrowIcon.Image = "rbxassetid://11552476728"
             ArrowIcon.ImageColor3 = Window.CurrentTheme.SubText
             ArrowIcon.Rotation = 180
-            ArrowIcon.ZIndex = 6
+            ArrowIcon.ZIndex = 7
             ArrowIcon.Parent = HeaderFrame
 
             local HeaderTrigger = Instance.new("TextButton")
@@ -8790,7 +8832,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             HeaderTrigger.Size = UDim2.new(1, 0, 1, 0)
             HeaderTrigger.BackgroundTransparency = 1
             HeaderTrigger.Text = ""
-            HeaderTrigger.ZIndex = 7
+            HeaderTrigger.ZIndex = 8
             HeaderTrigger.Parent = HeaderFrame
 
             local HeaderLine = Instance.new("Frame")
@@ -8800,7 +8842,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             HeaderLine.BackgroundTransparency = 0.65
             HeaderLine.BorderSizePixel = 0
             HeaderLine.LayoutOrder = 1
-            HeaderLine.ZIndex = 5
+            HeaderLine.ZIndex = 6
             HeaderLine.Parent = SectionCard
 
             local ItemContainer = Instance.new("Frame")
@@ -8809,9 +8851,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ItemContainer.AutomaticSize = Enum.AutomaticSize.Y
             ItemContainer.BackgroundTransparency = 1
             ItemContainer.BorderSizePixel = 0
-            ItemContainer.ClipsDescendants = true
+            ItemContainer.ClipsDescendants = false
             ItemContainer.LayoutOrder = 2
-            ItemContainer.ZIndex = 5
+            ItemContainer.ZIndex = 6
             ItemContainer.Parent = SectionCard
 
             local ItemLayout = Instance.new("UIListLayout")
@@ -8838,7 +8880,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 isAnimating = true
 
                 local currentH = SectionCard.AbsoluteSize.Y
-                -- Disable AutomaticSize so we can tween card height directly
+                SectionCard.ClipsDescendants = true
+                ItemContainer.ClipsDescendants = true
                 SectionCard.AutomaticSize = Enum.AutomaticSize.None
                 SectionCard.Size = UDim2.new(SectionCard.Size.X.Scale, SectionCard.Size.X.Offset, 0, currentH)
 
@@ -8853,6 +8896,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     tw.Completed:Connect(function()
                         ItemContainer.Visible = false
                         HeaderLine.Visible = false
+                        SectionCard.ClipsDescendants = false
+                        ItemContainer.ClipsDescendants = false
                         isAnimating = false
                         ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
                     end)
@@ -8864,13 +8909,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     TweenService:Create(ArrowIcon, tweenInfo025, {Rotation = 180, ImageColor3 = Window.CurrentTheme.Text}):Play()
                     TweenService:Create(HeaderLine, TweenInfo.new(0.15), {BackgroundTransparency = 0.65}):Play()
 
-                    -- Temporarily enable AutomaticSize to measure full height
                     SectionCard.AutomaticSize = Enum.AutomaticSize.Y
                     task.defer(function()
                         task.wait()
                         local targetH = SectionCard.AbsoluteSize.Y
                         if targetH <= collapsedH then targetH = collapsedH + 20 end
-                        -- Set back to collapsed and tween to target
                         SectionCard.AutomaticSize = Enum.AutomaticSize.None
                         SectionCard.Size = UDim2.new(SectionCard.Size.X.Scale, SectionCard.Size.X.Offset, 0, collapsedH)
                         local tw = TweenService:Create(SectionCard, tweenInfo025, {
@@ -8879,6 +8922,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         tw:Play()
                         tw.Completed:Connect(function()
                             SectionCard.AutomaticSize = Enum.AutomaticSize.Y
+                            SectionCard.ClipsDescendants = false
+                            ItemContainer.ClipsDescendants = false
                             isAnimating = false
                             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
                         end)
@@ -8929,14 +8974,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             function SectionObj:AddDropdown(...)
                 return TabObj:AddDropdown(..., ItemContainer)
             end
-            function SectionObj:AddButton(...)
-                return TabObj:AddLongButton(..., 1.0, ItemContainer)
+            function SectionObj:AddButton(arg1, arg2, arg3)
+                return TabObj:AddLongButton(arg1, arg2, arg3 or 1.0, ItemContainer)
             end
-            function SectionObj:AddLongButton(...)
-                return TabObj:AddLongButton(..., 1.0, ItemContainer)
+            function SectionObj:AddLongButton(arg1, arg2, arg3)
+                return TabObj:AddLongButton(arg1, arg2, arg3 or 1.0, ItemContainer)
             end
-            function SectionObj:AddButtonRow(...)
-                return TabObj:AddButtonRow(..., ItemContainer)
+            function SectionObj:AddButtonRow(buttonList, height)
+                return TabObj:AddButtonRow(buttonList, height or 24, ItemContainer)
             end
             function SectionObj:AddColorPicker(...)
                 return TabObj:AddColorPicker(..., ItemContainer)
@@ -8956,8 +9001,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             function SectionObj:AddGroup(itemList, direction)
                 return TabObj:AddGroup(itemList, direction, ItemContainer)
             end
-            function SectionObj:AddRow(...)
-                return TabObj:AddRow(..., ItemContainer)
+            function SectionObj:AddRow(height, padding)
+                return TabObj:AddRow(height or 24, padding or 6, ItemContainer)
             end
             function SectionObj:AddLabel(...)
                 return TabObj:AddLabel(..., ItemContainer)
