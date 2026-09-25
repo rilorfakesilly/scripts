@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.38.1"
+Library.Version = "2.38.2"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8664,6 +8664,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 RowLayout.Parent = SectionRow
 
                 TabObj.CurrentSectionRow = SectionRow
+                TabObj.CurrentSectionRow._cards = {}
                 TabObj.SectionInCurrentRow = 0
             end
 
@@ -8680,7 +8681,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SectionCard.BackgroundColor3 = Window.CurrentTheme.CardBG
             SectionCard.BackgroundTransparency = 0.25
             SectionCard.BorderSizePixel = 0
-            SectionCard.ClipsDescendants = false
+            SectionCard.ClipsDescendants = true
             SectionCard.ZIndex = 4
             SectionCard.LayoutOrder = TabObj.SectionInCurrentRow
             SectionCard.Parent = TabObj.CurrentSectionRow
@@ -8769,7 +8770,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ItemContainer.AutomaticSize = Enum.AutomaticSize.Y
             ItemContainer.BackgroundTransparency = 1
             ItemContainer.BorderSizePixel = 0
-            ItemContainer.ClipsDescendants = false
+            ItemContainer.ClipsDescendants = true
             ItemContainer.LayoutOrder = 2
             ItemContainer.ZIndex = 5
             ItemContainer.Parent = SectionCard
@@ -8780,27 +8781,109 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ItemLayout.Padding = UDim.new(0, 6)
             ItemLayout.Parent = ItemContainer
 
+            -- Track card in row for height syncing
+            SectionCard._isCollapsed = false
+            SectionCard._isAnimating = false
+            local sectionRow = TabObj.CurrentSectionRow
+            sectionRow._cards = sectionRow._cards or {}
+            table.insert(sectionRow._cards, SectionCard)
+
+            -- Compute a card's natural content height from its inner layout
+            local function getCardNaturalHeight(card)
+                local lay = card:FindFirstChildOfClass("UIListLayout")
+                if lay then return lay.AbsoluteContentSize.Y + 16 end
+                return 38
+            end
+
+            -- Sync heights across all cards in the same row so short cards stretch
+            local function syncRowCardHeights()
+                if not sectionRow or not sectionRow.Parent then return end
+                local cards = sectionRow._cards
+                if not cards or #cards < 2 then return end
+                for _, c in ipairs(cards) do
+                    if c._isAnimating then return end
+                end
+                local maxH = 0
+                for _, card in ipairs(cards) do
+                    if not card._isCollapsed then
+                        local h = getCardNaturalHeight(card)
+                        if h > maxH then maxH = h end
+                    end
+                end
+                if maxH > 0 then
+                    for _, card in ipairs(cards) do
+                        if not card._isCollapsed then
+                            card.Size = UDim2.new(card.Size.X.Scale, card.Size.X.Offset, 0, maxH)
+                        end
+                    end
+                end
+            end
+
+            TrackConn(ItemLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                task.defer(syncRowCardHeights)
+            end))
+
+            -- Animated collapse / expand
             local isCollapsed = false
+            local tweenInfo025 = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+
             local function ToggleCollapse(collapsed)
                 if collapsed ~= nil then
+                    if collapsed == isCollapsed then return end
                     isCollapsed = collapsed
                 else
                     isCollapsed = not isCollapsed
                 end
+                SectionCard._isCollapsed = isCollapsed
+                if SectionCard._isAnimating then return end
+                SectionCard._isAnimating = true
 
                 if isCollapsed then
-                    ItemContainer.Visible = false
-                    HeaderLine.Visible = false
-                    TweenService:Create(ArrowIcon, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = 0, ImageColor3 = Window.CurrentTheme.SubText}):Play()
+                    -- Collapse
+                    TweenService:Create(ArrowIcon, tweenInfo025, {Rotation = 0, ImageColor3 = Window.CurrentTheme.SubText}):Play()
+                    TweenService:Create(HeaderLine, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play()
+                    local contentH = ItemLayout.AbsoluteContentSize.Y
+                    ItemContainer.AutomaticSize = Enum.AutomaticSize.None
+                    ItemContainer.Size = UDim2.new(1, 0, 0, contentH)
+                    local tw = TweenService:Create(ItemContainer, tweenInfo025, {Size = UDim2.new(1, 0, 0, 0)})
+                    tw:Play()
+                    tw.Completed:Connect(function()
+                        ItemContainer.Visible = false
+                        HeaderLine.Visible = false
+                        SectionCard._isAnimating = false
+                        SectionCard.Size = UDim2.new(SectionCard.Size.X.Scale, SectionCard.Size.X.Offset, 0, 0)
+                        SectionCard.AutomaticSize = Enum.AutomaticSize.Y
+                        task.defer(function()
+                            syncRowCardHeights()
+                            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+                        end)
+                    end)
                 else
+                    -- Expand
                     ItemContainer.Visible = true
                     HeaderLine.Visible = true
-                    TweenService:Create(ArrowIcon, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = 180, ImageColor3 = Window.CurrentTheme.Text}):Play()
+                    HeaderLine.BackgroundTransparency = 1
+                    TweenService:Create(ArrowIcon, tweenInfo025, {Rotation = 180, ImageColor3 = Window.CurrentTheme.Text}):Play()
+                    TweenService:Create(HeaderLine, TweenInfo.new(0.15), {BackgroundTransparency = 0.65}):Play()
+                    ItemContainer.AutomaticSize = Enum.AutomaticSize.Y
+                    task.defer(function()
+                        task.wait()
+                        local targetH = ItemLayout.AbsoluteContentSize.Y
+                        if targetH <= 0 then targetH = 10 end
+                        ItemContainer.AutomaticSize = Enum.AutomaticSize.None
+                        ItemContainer.Size = UDim2.new(1, 0, 0, 0)
+                        local tw = TweenService:Create(ItemContainer, tweenInfo025, {Size = UDim2.new(1, 0, 0, targetH)})
+                        tw:Play()
+                        tw.Completed:Connect(function()
+                            ItemContainer.AutomaticSize = Enum.AutomaticSize.Y
+                            SectionCard._isAnimating = false
+                            task.defer(function()
+                                syncRowCardHeights()
+                                ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+                            end)
+                        end)
+                    end)
                 end
-
-                task.defer(function()
-                    ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
-                end)
             end
 
             TrackConn(HeaderTrigger.MouseEnter:Connect(function()
