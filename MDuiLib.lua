@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.37"
+Library.Version = "2.38.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -7014,25 +7014,36 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return MainHeaderFrame
         end
 
-        function TabObj:AddButton(title, desc, callback)
+        function TabObj:AddButton(title, desc, callback, parentRow)
             local btnTitle, btnDesc, btnCb, btnOpts
             if type(title) == "table" and not title.IsA then
                 btnTitle = title.Title or title.Name or title.Text or title[1] or "Button"
                 btnDesc = title.Desc or title.Description or title[2] or ""
                 btnCb = title.Callback or title.OnClick or title.callback or title[3]
                 btnOpts = title
+                if typeof(desc) == "Instance" or (type(desc) == "table" and (desc.Frame or desc.Instance or desc.Container)) then
+                    parentRow = desc
+                end
+                parentRow = title.Parent or title.Row or title.parentRow or parentRow
             else
                 btnTitle = title or "Button"
                 btnDesc = desc or ""
                 btnCb = callback
                 btnOpts = {}
+                if typeof(callback) == "Instance" or (type(callback) == "table" and (callback.Frame or callback.Instance or callback.Container)) then
+                    parentRow = callback
+                end
             end
 
+            local targetParent = ResolveParent(parentRow) or TabObj.CurrentSectionContainer or ContentFrame
+            local isInside = (targetParent ~= ContentFrame)
+            local hasDesc = btnDesc and btnDesc ~= ""
+
             local CardFrame = Instance.new("Frame")
-            CardFrame.Size = UDim2.new(1, -10, 0, 60)
+            CardFrame.Size = isInside and UDim2.new(1, 0, 0, hasDesc and 60 or 44) or UDim2.new(1, -10, 0, 60)
             CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
             CardFrame.BorderSizePixel = 0
-            CardFrame.Parent = ContentFrame
+            CardFrame.Parent = targetParent
 
             local CardCorner = Instance.new("UICorner")
             CardCorner.CornerRadius = UDim.new(0, 8)
@@ -7184,14 +7195,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local hasDesc = descText and descText ~= ""
             local frameHeight = hasDesc and 40 or 26
 
+            local targetParent = TabObj.CurrentSectionContainer or ContentFrame
+            local isInside = (targetParent ~= ContentFrame)
+
             local LabelFrame = Instance.new("Frame")
             LabelFrame.Name = "MDLabelFrame_" .. labelText:gsub("%s+", "_")
-            LabelFrame.Size = UDim2.new(1, -10, 0, frameHeight)
+            LabelFrame.Size = isInside and UDim2.new(1, 0, 0, frameHeight) or UDim2.new(1, -10, 0, frameHeight)
             LabelFrame.AutomaticSize = Enum.AutomaticSize.Y
             LabelFrame.BackgroundTransparency = 1
             LabelFrame.BorderSizePixel = 0
             LabelFrame.ZIndex = 3
-            LabelFrame.Parent = ContentFrame
+            LabelFrame.Parent = targetParent
 
             local TitleLabel = Instance.new("TextLabel")
             TitleLabel.Name = "LabelTitle"
@@ -7276,18 +7290,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return labelObj
         end
 
-        function TabObj:AddDivider(options)
+        function TabObj:AddDivider(options, parentRow)
             local divHeight = (type(options) == "table" and (options.Height or options.height)) or (type(options) == "number" and options) or 8
             local divThickness = (type(options) == "table" and (options.Thickness or options.thickness)) or 1.2
             local divColor = type(options) == "table" and (options.Color or options.color) or nil
 
+            local targetParent = ResolveParent(parentRow) or TabObj.CurrentSectionContainer or ContentFrame
+            local isInside = (targetParent ~= ContentFrame)
+
             local DividerContainer = Instance.new("Frame")
             DividerContainer.Name = "MDContentDivider"
-            DividerContainer.Size = UDim2.new(1, -10, 0, divHeight)
+            DividerContainer.Size = isInside and UDim2.new(1, 0, 0, divHeight) or UDim2.new(1, -10, 0, divHeight)
             DividerContainer.BackgroundTransparency = 1
             DividerContainer.BorderSizePixel = 0
             DividerContainer.ZIndex = 3
-            DividerContainer.Parent = ContentFrame
+            DividerContainer.Parent = targetParent
 
             local Line = Instance.new("Frame")
             Line.Name = "Line"
@@ -8043,14 +8060,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if initialPct > 1 then initialPct = initialPct / 100 end
             initialPct = math.clamp(initialPct, 0, 1)
 
+            local targetParent = TabObj.CurrentSectionContainer or ContentFrame
+            local isInside = (targetParent ~= ContentFrame)
+
             local CardFrame = Instance.new("Frame")
             CardFrame.Name = "MDProgressBarCard_" .. title:gsub("%s+", "_")
-            CardFrame.Size = UDim2.new(1, -10, 0, 52)
+            CardFrame.Size = isInside and UDim2.new(1, 0, 0, 52) or UDim2.new(1, -10, 0, 52)
             CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
             CardFrame.BackgroundTransparency = 0.05
             CardFrame.BorderSizePixel = 0
             CardFrame.ZIndex = 10
-            CardFrame.Parent = ContentFrame
+            CardFrame.Parent = targetParent
 
             local CardCorner = Instance.new("UICorner")
             CardCorner.CornerRadius = UDim.new(0, 8)
@@ -8693,7 +8713,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local HeaderFrame = Instance.new("Frame")
             HeaderFrame.Name = "Header"
-            HeaderFrame.Size = UDim2.new(1, 0, 0, 20)
+            HeaderFrame.Size = UDim2.new(1, 0, 0, 22)
             HeaderFrame.BackgroundTransparency = 1
             HeaderFrame.BorderSizePixel = 0
             HeaderFrame.LayoutOrder = 0
@@ -8702,7 +8722,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local TitleLabel = Instance.new("TextLabel")
             TitleLabel.Name = "Title"
-            TitleLabel.Size = UDim2.new(1, -4, 1, 0)
+            TitleLabel.Size = UDim2.new(1, -26, 1, 0)
             TitleLabel.Position = UDim2.new(0, 2, 0, 0)
             TitleLabel.BackgroundTransparency = 1
             TitleLabel.FontFace = FontFingerPaintBold
@@ -8712,6 +8732,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
             TitleLabel.ZIndex = 6
             TitleLabel.Parent = HeaderFrame
+
+            local ArrowIcon = Instance.new("ImageLabel")
+            ArrowIcon.Name = "ArrowIcon"
+            ArrowIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+            ArrowIcon.Size = UDim2.new(0, 14, 0, 14)
+            ArrowIcon.Position = UDim2.new(1, -8, 0.5, 0)
+            ArrowIcon.BackgroundTransparency = 1
+            ArrowIcon.Image = "rbxassetid://11552476728"
+            ArrowIcon.ImageColor3 = Window.CurrentTheme.SubText
+            ArrowIcon.Rotation = 180
+            ArrowIcon.ZIndex = 6
+            ArrowIcon.Parent = HeaderFrame
+
+            local HeaderTrigger = Instance.new("TextButton")
+            HeaderTrigger.Name = "HeaderTrigger"
+            HeaderTrigger.Size = UDim2.new(1, 0, 1, 0)
+            HeaderTrigger.BackgroundTransparency = 1
+            HeaderTrigger.Text = ""
+            HeaderTrigger.ZIndex = 7
+            HeaderTrigger.Parent = HeaderFrame
 
             local HeaderLine = Instance.new("Frame")
             HeaderLine.Name = "Divider"
@@ -8740,6 +8780,42 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ItemLayout.Padding = UDim.new(0, 6)
             ItemLayout.Parent = ItemContainer
 
+            local isCollapsed = false
+            local function ToggleCollapse(collapsed)
+                if collapsed ~= nil then
+                    isCollapsed = collapsed
+                else
+                    isCollapsed = not isCollapsed
+                end
+
+                if isCollapsed then
+                    ItemContainer.Visible = false
+                    HeaderLine.Visible = false
+                    TweenService:Create(ArrowIcon, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = 0, ImageColor3 = Window.CurrentTheme.SubText}):Play()
+                else
+                    ItemContainer.Visible = true
+                    HeaderLine.Visible = true
+                    TweenService:Create(ArrowIcon, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = 180, ImageColor3 = Window.CurrentTheme.Text}):Play()
+                end
+
+                task.defer(function()
+                    ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+                end)
+            end
+
+            TrackConn(HeaderTrigger.MouseEnter:Connect(function()
+                TweenService:Create(ArrowIcon, TweenInfo.new(0.15), {ImageColor3 = Window.CurrentTheme.Text}):Play()
+            end))
+            TrackConn(HeaderTrigger.MouseLeave:Connect(function()
+                if isCollapsed then
+                    TweenService:Create(ArrowIcon, TweenInfo.new(0.15), {ImageColor3 = Window.CurrentTheme.SubText}):Play()
+                end
+            end))
+            TrackConn(HeaderTrigger.MouseButton1Click:Connect(function()
+                PlayClickSFX()
+                ToggleCollapse()
+            end))
+
             TabObj.CurrentSectionContainer = ItemContainer
             TabObj.CurrentSectionCard = SectionCard
 
@@ -8751,6 +8827,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Title = title,
                 Header = HeaderFrame,
                 TitleLabel = TitleLabel,
+                ArrowIcon = ArrowIcon,
+                ToggleCollapse = ToggleCollapse,
+                SetCollapsed = function(self, state)
+                    ToggleCollapse(state)
+                end,
+                IsCollapsed = function(self)
+                    return isCollapsed
+                end,
             }
 
             function SectionObj:AddToggle(...)
@@ -8783,20 +8867,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             function SectionObj:AddNumberInput(...)
                 return TabObj:AddNumberInput(..., ItemContainer)
             end
-            function SectionObj:AddToggleGroup(...)
-                return TabObj:AddToggleGroup(...)
+            function SectionObj:AddToggleGroup(toggleList)
+                return TabObj:AddToggleGroup(toggleList, ItemContainer)
             end
-            function SectionObj:AddGroup(...)
-                return TabObj:AddGroup(...)
+            function SectionObj:AddGroup(itemList, direction)
+                return TabObj:AddGroup(itemList, direction, ItemContainer)
             end
             function SectionObj:AddRow(...)
-                return TabObj:AddRow(...)
+                return TabObj:AddRow(..., ItemContainer)
             end
             function SectionObj:AddLabel(...)
-                return TabObj:AddLabel(...)
+                return TabObj:AddLabel(..., ItemContainer)
             end
             function SectionObj:AddDivider(...)
-                return TabObj:AddDivider(...)
+                return TabObj:AddDivider(..., ItemContainer)
             end
 
             return SectionObj
@@ -8854,19 +8938,22 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
         TabObj.CreateMobileButton = TabObj.AddMobileButton
 
-        function TabObj:AddToggleGroup(toggleList)
+        function TabObj:AddToggleGroup(toggleList, parentRow)
             if type(toggleList) ~= "table" then return {} end
             local count = #toggleList
             if count == 0 then return {} end
 
+            local targetParent = ResolveParent(parentRow) or TabObj.CurrentSectionContainer or ContentFrame
+            local isInside = (targetParent ~= ContentFrame)
+
             local GroupFrame = Instance.new("Frame")
             GroupFrame.Name = "ToggleGroup"
-            GroupFrame.Size = UDim2.new(1, -10, 0, 0)
+            GroupFrame.Size = isInside and UDim2.new(1, 0, 0, 0) or UDim2.new(1, -10, 0, 0)
             GroupFrame.AutomaticSize = Enum.AutomaticSize.Y
             GroupFrame.BackgroundTransparency = 1
             GroupFrame.BorderSizePixel = 0
             GroupFrame.ZIndex = 10
-            GroupFrame.Parent = ContentFrame
+            GroupFrame.Parent = targetParent
 
             if count > 1 then
                 local GroupCorner = Instance.new("UICorner")
@@ -8908,7 +8995,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return results
         end
 
-        function TabObj:AddGroup(itemList, direction)
+        function TabObj:AddGroup(itemList, direction, parentRow)
             if type(itemList) ~= "table" then return {} end
             local count = #itemList
             if count == 0 then return {} end
@@ -8916,14 +9003,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             direction = direction or "Vertical"
             local isHorizontal = (direction == "Horizontal" or direction == "horizontal" or direction == "H" or direction == "h")
 
+            local targetParent = ResolveParent(parentRow) or TabObj.CurrentSectionContainer or ContentFrame
+            local isInside = (targetParent ~= ContentFrame)
+
             local GroupFrame = Instance.new("Frame")
             GroupFrame.Name = isHorizontal and "HorizontalGroup" or "VerticalGroup"
-            GroupFrame.Size = isHorizontal and UDim2.new(1, -10, 0, 0) or UDim2.new(1, -10, 0, 0)
+            GroupFrame.Size = isInside and UDim2.new(1, 0, 0, 0) or UDim2.new(1, -10, 0, 0)
             GroupFrame.AutomaticSize = Enum.AutomaticSize.Y
             GroupFrame.BackgroundTransparency = 1
             GroupFrame.BorderSizePixel = 0
             GroupFrame.ZIndex = 10
-            GroupFrame.Parent = ContentFrame
+            GroupFrame.Parent = targetParent
 
             if count > 1 then
                 local GroupCorner = Instance.new("UICorner")
