@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.39.4"
+Library.Version = "2.39.6"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8510,7 +8510,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         function TabObj:AddButtonRow(buttonList, height, parentRow)
-            local targetParent = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
+            local targetParent = ResolveParent(parentRow) or TabObj.CurrentSectionContainer or ContentFrame
             local isInsideSection = (targetParent ~= nil and targetParent ~= ContentFrame)
             height = height or (isInsideSection and 24 or 31)
             if isInsideSection and (height == 31 or height > 28) then
