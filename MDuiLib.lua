@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.38.4"
+Library.Version = "2.39.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8643,37 +8643,77 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 fullWidth = isFullWidth
             end
 
-            if fullWidth or not TabObj.CurrentSectionRow or not TabObj.CurrentSectionRow.Parent or (TabObj.SectionInCurrentRow or 0) >= 2 then
-                local SectionRow = Instance.new("Frame")
-                SectionRow.Name = "SectionRow"
-                SectionRow.Size = UDim2.new(1, -10, 0, 0)
-                SectionRow.AutomaticSize = Enum.AutomaticSize.Y
-                SectionRow.BackgroundTransparency = 1
-                SectionRow.BorderSizePixel = 0
-                SectionRow.ClipsDescendants = false
-                SectionRow.ZIndex = 3
-                SectionRow.Parent = ContentFrame
+            -- Lazily create the dual-column wrapper on first non-fullWidth section
+            if not fullWidth and not TabObj._columnWrapper then
+                local ColumnWrapper = Instance.new("Frame")
+                ColumnWrapper.Name = "SectionColumns"
+                ColumnWrapper.Size = UDim2.new(1, -10, 0, 0)
+                ColumnWrapper.AutomaticSize = Enum.AutomaticSize.Y
+                ColumnWrapper.BackgroundTransparency = 1
+                ColumnWrapper.BorderSizePixel = 0
+                ColumnWrapper.ZIndex = 3
+                ColumnWrapper.Parent = ContentFrame
 
-                local RowLayout = Instance.new("UIListLayout")
-                RowLayout.Name = "SectionRowLayout"
-                RowLayout.FillDirection = Enum.FillDirection.Horizontal
-                RowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-                RowLayout.VerticalAlignment = Enum.VerticalAlignment.Top
-                RowLayout.SortOrder = Enum.SortOrder.LayoutOrder
-                RowLayout.Padding = UDim.new(0, 8)
-                RowLayout.Parent = SectionRow
+                local ColLayout = Instance.new("UIListLayout")
+                ColLayout.Name = "ColLayout"
+                ColLayout.FillDirection = Enum.FillDirection.Horizontal
+                ColLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+                ColLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+                ColLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                ColLayout.Padding = UDim.new(0, 8)
+                ColLayout.Parent = ColumnWrapper
 
-                TabObj.CurrentSectionRow = SectionRow
-                TabObj.CurrentSectionRowCards = {}
-                TabObj.SectionInCurrentRow = 0
+                local LeftCol = Instance.new("Frame")
+                LeftCol.Name = "LeftColumn"
+                LeftCol.Size = UDim2.new(0.5, -4, 0, 0)
+                LeftCol.AutomaticSize = Enum.AutomaticSize.Y
+                LeftCol.BackgroundTransparency = 1
+                LeftCol.BorderSizePixel = 0
+                LeftCol.LayoutOrder = 1
+                LeftCol.Parent = ColumnWrapper
+
+                local LeftLayout = Instance.new("UIListLayout")
+                LeftLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                LeftLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+                LeftLayout.Padding = UDim.new(0, 8)
+                LeftLayout.Parent = LeftCol
+
+                local RightCol = Instance.new("Frame")
+                RightCol.Name = "RightColumn"
+                RightCol.Size = UDim2.new(0.5, -4, 0, 0)
+                RightCol.AutomaticSize = Enum.AutomaticSize.Y
+                RightCol.BackgroundTransparency = 1
+                RightCol.BorderSizePixel = 0
+                RightCol.LayoutOrder = 2
+                RightCol.Parent = ColumnWrapper
+
+                local RightLayout = Instance.new("UIListLayout")
+                RightLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                RightLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+                RightLayout.Padding = UDim.new(0, 8)
+                RightLayout.Parent = RightCol
+
+                TabObj._columnWrapper = ColumnWrapper
+                TabObj._leftColumn = LeftCol
+                TabObj._rightColumn = RightCol
+                TabObj._nextColumn = "left"
             end
 
-            TabObj.SectionInCurrentRow = (TabObj.SectionInCurrentRow or 0) + 1
+            -- Decide where this section card goes
+            local targetColumn
             if fullWidth then
-                TabObj.SectionInCurrentRow = 2
+                targetColumn = ContentFrame
+            else
+                if TabObj._nextColumn == "left" then
+                    targetColumn = TabObj._leftColumn
+                    TabObj._nextColumn = "right"
+                else
+                    targetColumn = TabObj._rightColumn
+                    TabObj._nextColumn = "left"
+                end
             end
 
-            local cardWidth = fullWidth and UDim2.new(1, 0, 0, 0) or UDim2.new(0.5, -4, 0, 0)
+            local cardWidth = fullWidth and UDim2.new(1, 0, 0, 0) or UDim2.new(1, 0, 0, 0)
             local SectionCard = Instance.new("Frame")
             SectionCard.Name = "SectionCard_" .. title:gsub("%s+", "_")
             SectionCard.Size = cardWidth
@@ -8683,8 +8723,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SectionCard.BorderSizePixel = 0
             SectionCard.ClipsDescendants = true
             SectionCard.ZIndex = 4
-            SectionCard.LayoutOrder = TabObj.SectionInCurrentRow
-            SectionCard.Parent = TabObj.CurrentSectionRow
+            SectionCard.Parent = targetColumn
 
             local SectionCorner = Instance.new("UICorner")
             SectionCorner.CornerRadius = UDim.new(0, 14)
@@ -8781,51 +8820,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ItemLayout.Padding = UDim.new(0, 6)
             ItemLayout.Parent = ItemContainer
 
-            -- Track card in row for height syncing (use Lua locals, not Instance props)
-            local cardIsCollapsed = false
-            local cardIsAnimating = false
-            local sectionRow = TabObj.CurrentSectionRow
-            local rowCards = TabObj.CurrentSectionRowCards
-            table.insert(rowCards, {card = SectionCard, getCollapsed = function() return cardIsCollapsed end, getAnimating = function() return cardIsAnimating end})
-
-            -- Compute a card's natural content height from its inner layout
-            local function getCardNaturalHeight(card)
-                local lay = card:FindFirstChildOfClass("UIListLayout")
-                if lay then return lay.AbsoluteContentSize.Y + 16 end
-                return 38
-            end
-
-            -- Sync heights across all cards in the same row so short cards stretch
-            local function syncRowCardHeights()
-                if not sectionRow or not sectionRow.Parent then return end
-                if not rowCards or #rowCards < 2 then return end
-                for _, entry in ipairs(rowCards) do
-                    if entry.getAnimating() then return end
-                end
-                local maxH = 0
-                for _, entry in ipairs(rowCards) do
-                    if not entry.getCollapsed() then
-                        local h = getCardNaturalHeight(entry.card)
-                        if h > maxH then maxH = h end
-                    end
-                end
-                if maxH > 0 then
-                    for _, entry in ipairs(rowCards) do
-                        if not entry.getCollapsed() then
-                            local c = entry.card
-                            c.Size = UDim2.new(c.Size.X.Scale, c.Size.X.Offset, 0, maxH)
-                        end
-                    end
-                end
-            end
-
-            TrackConn(ItemLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                task.defer(syncRowCardHeights)
-            end))
-
-            -- Animated collapse / expand
+            -- Animated collapse / expand — tweens CARD height for smooth layout shift
             local isCollapsed = false
+            local isAnimating = false
             local tweenInfo025 = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            -- collapsed height = header(22) + padding top(8) + padding bottom(8) = 38
+            local collapsedH = 38
 
             local function ToggleCollapse(collapsed)
                 if collapsed ~= nil then
@@ -8834,53 +8834,53 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 else
                     isCollapsed = not isCollapsed
                 end
-                cardIsCollapsed = isCollapsed
-                if cardIsAnimating then return end
-                cardIsAnimating = true
+                if isAnimating then return end
+                isAnimating = true
+
+                local currentH = SectionCard.AbsoluteSize.Y
+                -- Disable AutomaticSize so we can tween card height directly
+                SectionCard.AutomaticSize = Enum.AutomaticSize.None
+                SectionCard.Size = UDim2.new(SectionCard.Size.X.Scale, SectionCard.Size.X.Offset, 0, currentH)
 
                 if isCollapsed then
                     -- Collapse
                     TweenService:Create(ArrowIcon, tweenInfo025, {Rotation = 0, ImageColor3 = Window.CurrentTheme.SubText}):Play()
                     TweenService:Create(HeaderLine, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play()
-                    local contentH = ItemLayout.AbsoluteContentSize.Y
-                    ItemContainer.AutomaticSize = Enum.AutomaticSize.None
-                    ItemContainer.Size = UDim2.new(1, 0, 0, contentH)
-                    local tw = TweenService:Create(ItemContainer, tweenInfo025, {Size = UDim2.new(1, 0, 0, 0)})
+                    local tw = TweenService:Create(SectionCard, tweenInfo025, {
+                        Size = UDim2.new(SectionCard.Size.X.Scale, SectionCard.Size.X.Offset, 0, collapsedH)
+                    })
                     tw:Play()
                     tw.Completed:Connect(function()
                         ItemContainer.Visible = false
                         HeaderLine.Visible = false
-                        cardIsAnimating = false
-                        SectionCard.Size = UDim2.new(SectionCard.Size.X.Scale, SectionCard.Size.X.Offset, 0, 0)
-                        SectionCard.AutomaticSize = Enum.AutomaticSize.Y
-                        task.defer(function()
-                            syncRowCardHeights()
-                            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
-                        end)
+                        isAnimating = false
+                        ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
                     end)
                 else
-                    -- Expand
+                    -- Expand: measure target then animate
                     ItemContainer.Visible = true
                     HeaderLine.Visible = true
                     HeaderLine.BackgroundTransparency = 1
                     TweenService:Create(ArrowIcon, tweenInfo025, {Rotation = 180, ImageColor3 = Window.CurrentTheme.Text}):Play()
                     TweenService:Create(HeaderLine, TweenInfo.new(0.15), {BackgroundTransparency = 0.65}):Play()
-                    ItemContainer.AutomaticSize = Enum.AutomaticSize.Y
+
+                    -- Temporarily enable AutomaticSize to measure full height
+                    SectionCard.AutomaticSize = Enum.AutomaticSize.Y
                     task.defer(function()
                         task.wait()
-                        local targetH = ItemLayout.AbsoluteContentSize.Y
-                        if targetH <= 0 then targetH = 10 end
-                        ItemContainer.AutomaticSize = Enum.AutomaticSize.None
-                        ItemContainer.Size = UDim2.new(1, 0, 0, 0)
-                        local tw = TweenService:Create(ItemContainer, tweenInfo025, {Size = UDim2.new(1, 0, 0, targetH)})
+                        local targetH = SectionCard.AbsoluteSize.Y
+                        if targetH <= collapsedH then targetH = collapsedH + 20 end
+                        -- Set back to collapsed and tween to target
+                        SectionCard.AutomaticSize = Enum.AutomaticSize.None
+                        SectionCard.Size = UDim2.new(SectionCard.Size.X.Scale, SectionCard.Size.X.Offset, 0, collapsedH)
+                        local tw = TweenService:Create(SectionCard, tweenInfo025, {
+                            Size = UDim2.new(SectionCard.Size.X.Scale, SectionCard.Size.X.Offset, 0, targetH)
+                        })
                         tw:Play()
                         tw.Completed:Connect(function()
-                            ItemContainer.AutomaticSize = Enum.AutomaticSize.Y
-                            cardIsAnimating = false
-                            task.defer(function()
-                                syncRowCardHeights()
-                                ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
-                            end)
+                            SectionCard.AutomaticSize = Enum.AutomaticSize.Y
+                            isAnimating = false
+                            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
                         end)
                     end)
                 end
@@ -8968,6 +8968,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             return SectionObj
         end
+
 
         function TabObj:AddToggle(titleOrConfig, initialState, onToggle, parentRow, position, sizeFraction, bindConfig)
             local targetParent = ResolveParent(parentRow) or TabObj.CurrentSectionContainer or ContentFrame
