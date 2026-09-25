@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.38.2"
+Library.Version = "2.38.4"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8664,7 +8664,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 RowLayout.Parent = SectionRow
 
                 TabObj.CurrentSectionRow = SectionRow
-                TabObj.CurrentSectionRow._cards = {}
+                TabObj.CurrentSectionRowCards = {}
                 TabObj.SectionInCurrentRow = 0
             end
 
@@ -8781,12 +8781,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ItemLayout.Padding = UDim.new(0, 6)
             ItemLayout.Parent = ItemContainer
 
-            -- Track card in row for height syncing
-            SectionCard._isCollapsed = false
-            SectionCard._isAnimating = false
+            -- Track card in row for height syncing (use Lua locals, not Instance props)
+            local cardIsCollapsed = false
+            local cardIsAnimating = false
             local sectionRow = TabObj.CurrentSectionRow
-            sectionRow._cards = sectionRow._cards or {}
-            table.insert(sectionRow._cards, SectionCard)
+            local rowCards = TabObj.CurrentSectionRowCards
+            table.insert(rowCards, {card = SectionCard, getCollapsed = function() return cardIsCollapsed end, getAnimating = function() return cardIsAnimating end})
 
             -- Compute a card's natural content height from its inner layout
             local function getCardNaturalHeight(card)
@@ -8798,22 +8798,22 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             -- Sync heights across all cards in the same row so short cards stretch
             local function syncRowCardHeights()
                 if not sectionRow or not sectionRow.Parent then return end
-                local cards = sectionRow._cards
-                if not cards or #cards < 2 then return end
-                for _, c in ipairs(cards) do
-                    if c._isAnimating then return end
+                if not rowCards or #rowCards < 2 then return end
+                for _, entry in ipairs(rowCards) do
+                    if entry.getAnimating() then return end
                 end
                 local maxH = 0
-                for _, card in ipairs(cards) do
-                    if not card._isCollapsed then
-                        local h = getCardNaturalHeight(card)
+                for _, entry in ipairs(rowCards) do
+                    if not entry.getCollapsed() then
+                        local h = getCardNaturalHeight(entry.card)
                         if h > maxH then maxH = h end
                     end
                 end
                 if maxH > 0 then
-                    for _, card in ipairs(cards) do
-                        if not card._isCollapsed then
-                            card.Size = UDim2.new(card.Size.X.Scale, card.Size.X.Offset, 0, maxH)
+                    for _, entry in ipairs(rowCards) do
+                        if not entry.getCollapsed() then
+                            local c = entry.card
+                            c.Size = UDim2.new(c.Size.X.Scale, c.Size.X.Offset, 0, maxH)
                         end
                     end
                 end
@@ -8834,9 +8834,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 else
                     isCollapsed = not isCollapsed
                 end
-                SectionCard._isCollapsed = isCollapsed
-                if SectionCard._isAnimating then return end
-                SectionCard._isAnimating = true
+                cardIsCollapsed = isCollapsed
+                if cardIsAnimating then return end
+                cardIsAnimating = true
 
                 if isCollapsed then
                     -- Collapse
@@ -8850,7 +8850,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     tw.Completed:Connect(function()
                         ItemContainer.Visible = false
                         HeaderLine.Visible = false
-                        SectionCard._isAnimating = false
+                        cardIsAnimating = false
                         SectionCard.Size = UDim2.new(SectionCard.Size.X.Scale, SectionCard.Size.X.Offset, 0, 0)
                         SectionCard.AutomaticSize = Enum.AutomaticSize.Y
                         task.defer(function()
@@ -8876,7 +8876,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         tw:Play()
                         tw.Completed:Connect(function()
                             ItemContainer.AutomaticSize = Enum.AutomaticSize.Y
-                            SectionCard._isAnimating = false
+                            cardIsAnimating = false
                             task.defer(function()
                                 syncRowCardHeights()
                                 ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
