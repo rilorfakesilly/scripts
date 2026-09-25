@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.39.6"
+Library.Version = "2.39.7"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -86,15 +86,22 @@ local function ResolveParent(parent)
         return parent
     end
     if type(parent) == "table" then
-        if parent.Container and typeof(parent.Container) == "Instance" then
-            return parent.Container
-        elseif parent.Frame and typeof(parent.Frame) == "Instance" then
-            return parent.Frame
-        elseif parent.Instance and typeof(parent.Instance) == "Instance" then
-            return parent.Instance
-        elseif parent.ContentFrame and typeof(parent.ContentFrame) == "Instance" then
-            return parent.ContentFrame
+        local rawTarget = rawget(parent, "Frame") or rawget(parent, "Instance") or rawget(parent, "Container") or rawget(parent, "ContentFrame")
+        if rawTarget and typeof(rawTarget) == "Instance" then
+            return rawTarget
         end
+        local function safeField(t, k)
+            local ok, res = pcall(function() return t[k] end)
+            return ok and res or nil
+        end
+        local f = safeField(parent, "Frame")
+        if f and typeof(f) == "Instance" then return f end
+        local c = safeField(parent, "Container")
+        if c and typeof(c) == "Instance" then return c end
+        local inst = safeField(parent, "Instance")
+        if inst and typeof(inst) == "Instance" then return inst end
+        local cf = safeField(parent, "ContentFrame")
+        if cf and typeof(cf) == "Instance" then return cf end
     end
     return nil
 end
@@ -8412,10 +8419,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             setmetatable(RowObj, {
                 __index = function(t, k)
-                    return RowFrame[k]
+                    local s, v = pcall(function() return RowFrame[k] end)
+                    if s then return v end
+                    return nil
                 end,
                 __newindex = function(t, k, v)
-                    RowFrame[k] = v
+                    pcall(function() RowFrame[k] = v end)
                 end,
             })
 
