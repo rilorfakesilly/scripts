@@ -1,5 +1,4 @@
 local Library = {}
-Library.Version = "2.43.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -569,9 +568,15 @@ function Library:GetIcon(iconName, asAssetUrl)
 end
 Library.GetIcon = Library.GetIcon
 
-local FontFingerPaintBold = Font.new("rbxassetid://12187375716", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-local FontFingerPaintRegular = Font.new("rbxassetid://12187375716", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
-local FontFingerPaintHeavy = Font.new("rbxassetid://12187375716", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+local FontTitle = Font.fromEnum(Enum.Font.MontserratBold)
+local FontTabBtn = Font.fromEnum(Enum.Font.MontserratSemiBold)
+local FontRegular = Font.fromEnum(Enum.Font.Montserrat)
+local FontLight = Font.fromEnum(Enum.Font.MontserratLight)
+
+local FontFingerPaintBold = FontTitle
+local FontFingerPaintRegular = FontRegular
+local FontFingerPaintHeavy = FontTitle
+local FontFingerPaintMedium = FontTabBtn
 
 Library.ThemePresets = {
     Dark = {
@@ -1760,12 +1765,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local TitleLabel = Instance.new("TextLabel")
         TitleLabel.Name = GenerateSafeName("TitleLabel")
         TitleLabel.Size = titleWidth and UDim2.new(0, titleWidth, 1, 0) or (isNarrow and UDim2.new(0.48, -10, 1, 0) or UDim2.new(1, -(boxWidth + 22), 1, 0))
-        TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+        TitleLabel.Position = UDim2.new(0, 12, 0, 0)
         TitleLabel.BackgroundTransparency = 1
         TitleLabel.FontFace = FontFingerPaintBold
         TitleLabel.Text = title or "Input"
         TitleLabel.TextColor3 = Window.CurrentTheme.Text
-        TitleLabel.TextSize = isNarrow and 12 or 13
+        TitleLabel.TextSize = isNarrow and 11 or 12
         TitleLabel.TextWrapped = true
         TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
         TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
@@ -1775,7 +1780,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local InputBox = Instance.new("TextBox")
         InputBox.Name = GenerateSafeName("InputBox")
         InputBox.AnchorPoint = Vector2.new(1, 0.5)
-        InputBox.Size = isNarrow and UDim2.new(0.52, -8, 0, 26) or ((size and size.Y.Offset <= 44) and UDim2.new(0, boxWidth, 0, 26) or UDim2.new(0, boxWidth, 0, 30))
+        InputBox.Size = isNarrow and UDim2.new(0.52, -8, 0, 26) or ((size and size.Y.Offset <= 44) and UDim2.new(0, boxWidth, 0, 26) or UDim2.new(0, boxWidth, 0, 28))
         InputBox.Position = UDim2.new(1, -10, 0.5, 0)
         InputBox.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
         InputBox.BackgroundTransparency = 0.2
@@ -1785,12 +1790,37 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         InputBox.PlaceholderColor3 = Window.CurrentTheme.SubText
         InputBox.Text = defaultText or ""
         InputBox.TextColor3 = Window.CurrentTheme.Text
-        InputBox.TextSize = 13
+        InputBox.TextSize = 12
         InputBox.TextWrapped = true
         InputBox.ClipsDescendants = true
         InputBox.ClearTextOnFocus = false
         InputBox.ZIndex = 12
         InputBox.Parent = BoxFrame
+
+        local function UpdateTextboxResponsiveLayout()
+            local totalW = BoxFrame.AbsoluteSize.X
+            if totalW <= 0 then
+                totalW = (size and size.X.Offset > 0) and size.X.Offset or 280
+            end
+            if totalW < 260 then
+                InputBox.Size = UDim2.new(0.48, -10, 0, 26)
+                TitleLabel.Size = UDim2.new(0.52, -14, 1, 0)
+                TitleLabel.TextSize = 11
+            elseif totalW < 360 then
+                local bw = math.clamp(math.floor(totalW * 0.40), 85, 125)
+                InputBox.Size = UDim2.new(0, bw, 0, 26)
+                TitleLabel.Size = UDim2.new(1, -(bw + 22), 1, 0)
+                TitleLabel.TextSize = 12
+            else
+                local bw = math.clamp(boxWidth, 95, 150)
+                InputBox.Size = UDim2.new(0, bw, 0, 28)
+                TitleLabel.Size = UDim2.new(1, -(bw + 24), 1, 0)
+                TitleLabel.TextSize = 12
+            end
+        end
+
+        TrackConn(BoxFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateTextboxResponsiveLayout))
+        task.defer(UpdateTextboxResponsiveLayout)
 
         local InputCorner = Instance.new("UICorner")
         InputCorner.CornerRadius = UDim.new(0, 6)
@@ -2883,7 +2913,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local BtnText = Instance.new("TextLabel")
         BtnText.Name = GenerateSafeName("btnTitle")
         BtnText.BackgroundTransparency = 1
-        BtnText.FontFace = FontFingerPaintBold
+        BtnText.FontFace = FontTabBtn
         BtnText.RichText = true
         BtnText.Text = text or "Button"
         BtnText.TextColor3 = Window.CurrentTheme.Text
@@ -4031,7 +4061,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ApplyBtn.Position = UDim2.new(0, 14, 0, 262)
         ApplyBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
         ApplyBtn.BorderSizePixel = 0
-        ApplyBtn.FontFace = FontFingerPaintBold
+        ApplyBtn.FontFace = FontTabBtn
         ApplyBtn.Text = "Apply color"
         ApplyBtn.TextColor3 = Window.CurrentTheme.Text
         ApplyBtn.TextSize = 12
@@ -4285,7 +4315,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         YesBtn.Position = UDim2.new(0.52, 0, 0, 0)
         YesBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
         YesBtn.BorderSizePixel = 0
-        YesBtn.FontFace = FontFingerPaintBold
+        YesBtn.FontFace = FontTabBtn
         YesBtn.Text = yesText
         YesBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
         YesBtn.TextSize = 11
@@ -4600,7 +4630,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnText.Size = UDim2.new(1, -8, 1, 0)
         BtnText.Position = UDim2.new(0, 4, 0, 0)
         BtnText.BackgroundTransparency = 1
-        BtnText.FontFace = FontFingerPaintBold
+        BtnText.FontFace = FontTabBtn
         BtnText.RichText = true
         BtnText.Text = text or "Function"
         BtnText.TextColor3 = Window.CurrentTheme.Text
@@ -5349,7 +5379,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TextLabel = Instance.new("TextLabel")
             TextLabel.Name = "BtnText"
             TextLabel.BackgroundTransparency = 1
-            TextLabel.FontFace = FontFingerPaintBold
+            TextLabel.FontFace = FontTabBtn
             TextLabel.Text = text
             TextLabel.TextScaled = false
             TextLabel.TextSize = config.TextSize or 11
@@ -5562,7 +5592,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TextLabel = Instance.new("TextLabel")
                 TextLabel.Name = "BtnText"
                 TextLabel.BackgroundTransparency = 1
-                TextLabel.FontFace = FontFingerPaintBold
+                TextLabel.FontFace = FontTabBtn
                 TextLabel.Text = newText
                 TextLabel.TextScaled = false
                 TextLabel.TextSize = config.TextSize or 11
@@ -6263,7 +6293,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     ClearSearchBtn.Size = UDim2.new(0, 16, 0, 16)
     ClearSearchBtn.Position = UDim2.new(1, -22, 0.5, -8)
     ClearSearchBtn.BackgroundTransparency = 1
-    ClearSearchBtn.FontFace = FontFingerPaintBold
+    ClearSearchBtn.FontFace = FontTabBtn
     ClearSearchBtn.Text = "X"
     ClearSearchBtn.TextColor3 = Window.CurrentTheme.SubText
     ClearSearchBtn.TextSize = 10
@@ -7112,7 +7142,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NotifTitle.Size = UDim2.new(0, 153, 0, 45)
         NotifTitle.Position = UDim2.new(0.019, 0, -0.31, 0)
         NotifTitle.BackgroundTransparency = 1
-        NotifTitle.FontFace = FontFingerPaintRegular
+        NotifTitle.FontFace = FontTitle
         NotifTitle.Text = titleText or "MD Notification"
         NotifTitle.TextColor3 = Window.CurrentTheme.Text
         NotifTitle.TextSize = 15
@@ -7152,7 +7182,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NotifBody.Size = UDim2.new(0, 210, 0, 54)
         NotifBody.Position = UDim2.new(0.2413, 0, 0.1317, 0)
         NotifBody.BackgroundTransparency = 1
-        NotifBody.FontFace = FontFingerPaintBold
+        NotifBody.FontFace = FontRegular
         NotifBody.Text = contentText or ""
         NotifBody.TextColor3 = Window.CurrentTheme.Text
         NotifBody.TextSize = 17
@@ -7294,7 +7324,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TextSize = oldTargetSize,
                 TextColor3 = Window.CurrentTheme.SubText
             }):Play()
-            oldTab.Button.FontFace = FontFingerPaintRegular
+            oldTab.Button.FontFace = FontTabBtn
             if oldTab.HoverGlow then
                 TweenService:Create(oldTab.HoverGlow, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                     BackgroundTransparency = 1
@@ -7494,6 +7524,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             autoDivider = arg4
         end
 
+        if not tabIcon and tabName and tostring(tabName):lower():find("setting") then
+            tabIcon = "rbxassetid://7734053495"
+        end
+
         if tabName and tostring(tabName):lower() == "settings" and Window.SettingsTab then
             return Window.SettingsTab
         end
@@ -7576,7 +7610,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TabButton.Position = UDim2.new(0, 0, 0, 0)
         TabButton.TextXAlignment = Enum.TextXAlignment.Center
         TabButton.BackgroundTransparency = 1
-        TabButton.FontFace = FontFingerPaintRegular
+        TabButton.FontFace = FontTabBtn
         TabButton.Text = tabName
         TabButton.TextColor3 = Window.CurrentTheme.SubText
         TabButton.TextSize = 23
@@ -8156,7 +8190,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             MinusBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
             MinusBtn.BackgroundTransparency = 0.2
             MinusBtn.BorderSizePixel = 0
-            MinusBtn.FontFace = FontFingerPaintBold
+            MinusBtn.FontFace = FontTabBtn
             MinusBtn.Text = "-"
             MinusBtn.TextColor3 = Window.CurrentTheme.Text
             MinusBtn.TextSize = 16
@@ -8174,7 +8208,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             PlusBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
             PlusBtn.BackgroundTransparency = 0.2
             PlusBtn.BorderSizePixel = 0
-            PlusBtn.FontFace = FontFingerPaintBold
+            PlusBtn.FontFace = FontTabBtn
             PlusBtn.Text = "+"
             PlusBtn.TextColor3 = Window.CurrentTheme.Text
             PlusBtn.TextSize = 15
@@ -9503,8 +9537,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local TitleLabel = Instance.new("TextLabel")
             TitleLabel.Name = "Title"
-            TitleLabel.Size = UDim2.new(1, -26, 1, 0)
-            TitleLabel.Position = UDim2.new(0, 2, 0, 0)
+            TitleLabel.Size = UDim2.new(1, -30, 1, 0)
+            TitleLabel.Position = UDim2.new(0, 6, 0, 0)
             TitleLabel.BackgroundTransparency = 1
             TitleLabel.FontFace = FontFingerPaintBold
             TitleLabel.Text = title:upper()
@@ -9827,6 +9861,40 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return TabObj:AddProgressBar(arg1, arg2, ItemContainer)
             end
             SectionObj.AddStatusCard = SectionObj.AddProgressBar
+
+            SectionObj.RefreshTheme = function(self, theme, anim)
+                local RealTweenService = game:GetService("TweenService")
+                if SectionCard and SectionCard.Parent then
+                    if anim then
+                        RealTweenService:Create(SectionCard, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                            BackgroundColor3 = theme.CardBG
+                        }):Play()
+                    else
+                        SectionCard.BackgroundColor3 = theme.CardBG
+                    end
+                end
+                if TitleLabel and TitleLabel.Parent then
+                    if anim then
+                        RealTweenService:Create(TitleLabel, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                            TextColor3 = theme.Text
+                        }):Play()
+                    else
+                        TitleLabel.TextColor3 = theme.Text
+                    end
+                end
+                if ArrowIcon and ArrowIcon.Parent then
+                    if anim then
+                        RealTweenService:Create(ArrowIcon, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                            ImageColor3 = theme.SubText
+                        }):Play()
+                    else
+                        ArrowIcon.ImageColor3 = theme.SubText
+                    end
+                end
+                if SectionStroke and SectionStroke.Parent then
+                    SectionStroke.Color = theme.Divider or Color3.fromRGB(65, 70, 88)
+                end
+            end
 
             Window.RegisteredSections = Window.RegisteredSections or {}
             table.insert(Window.RegisteredSections, SectionObj)
@@ -10358,7 +10426,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if oldTabData then
                     oldTabData.Button.TextColor3 = Window.CurrentTheme.SubText
                     oldTabData.Button.TextSize = 15
-                    oldTabData.Button.FontFace = FontFingerPaintRegular
+                    oldTabData.Button.FontFace = FontTabBtn
                     if oldTabData.HoverGlow then
                         oldTabData.HoverGlow.BackgroundTransparency = 1
                     end
@@ -10389,7 +10457,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ContentFrame.Position = UDim2.new(0, 0, 0, 0)
             TabButton.TextColor3 = Window.CurrentTheme.SubText
             TabButton.TextSize = 16
-            TabButton.FontFace = FontFingerPaintRegular
+            TabButton.FontFace = FontTabBtn
             HoverGlow.BackgroundTransparency = 1
         end
 
@@ -10399,7 +10467,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- Default built-in settings tab builder
     local function CreateDefaultSettingsTab()
         Window:AddSidebarBigDivider(998)
-        local SettingsTab = Window:CreateTab("Settings", 999)
+        local SettingsTab = Window:CreateTab("Settings", 999, "rbxassetid://7734053495")
 
         -- Section 1: Audio & Notifications
         local audioSection = SettingsTab:AddSection("Audio & Notifications")
@@ -11663,70 +11731,52 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     else
                         tabData.ContentFrame.ScrollBarImageColor3 = newTheme.Divider
                     end
-                    for _, card in ipairs(tabData.ContentFrame:GetChildren()) do
-                        if card:IsA("Frame") and card.Name ~= "MainHeaderFrame" and card.Name ~= "DropdownOverlay" then
-                            if card.Name == "RowContainer" or card.Name == "RowFrame" or card.Name == "ParticleRow" or card.Name == "ToggleGroup" or card.Name:find("Row") or card.Name:find("Group") then
-                                card.BackgroundTransparency = 1
-                                for _, subCard in ipairs(card:GetChildren()) do
-                                    if subCard:IsA("Frame") then
-                                        if subCard.Name ~= "MDButtonCard" and subCard.Name ~= "TogglePill" and subCard.Name ~= "DropdownContent" then
-                                            if animated then
-                                                TweenService:Create(subCard, tweenInfo, {BackgroundColor3 = newTheme.CardBG}):Play()
-                                            else
-                                                subCard.BackgroundColor3 = newTheme.CardBG
-                                            end
-                                        end
-                                        for _, child in ipairs(subCard:GetChildren()) do
-                                            if child:IsA("TextLabel") then
-                                                if child.Name == "CardTitle" or child.Name == "btntext" or child.Name == "drpdwntext" or child.Name == "TitleLabel" or child.Name == "SliderTitle" or child.Name == "ValueLabel" or child.Name:find("Title") or child.Name:find("Label") then
-                                                    if animated then
-                                                        TweenService:Create(child, tweenInfo, {TextColor3 = newTheme.Text}):Play()
-                                                    else
-                                                        child.TextColor3 = newTheme.Text
-                                                    end
-                                                elseif child.Name == "CardBody" or child.Name == "DescLabel" or child.Name:find("Desc") then
-                                                    if animated then
-                                                        TweenService:Create(child, tweenInfo, {TextColor3 = newTheme.SubText}):Play()
-                                                    else
-                                                        child.TextColor3 = newTheme.SubText
-                                                    end
-                                                end
-                                            elseif child.Name == "CardDividerLine" then
-                                                child.BackgroundTransparency = 1
-                                            end
-                                        end
-                                    end
-                                end
-                            elseif card.Name ~= "MDButtonCard" and card.Name ~= "DropdownContent" then
+                    -- Deep traversal: refresh all Cards, TextLabels, TextBoxes, and Icons in tab ContentFrame
+                    for _, desc in ipairs(tabData.ContentFrame:GetDescendants()) do
+                        if desc:IsA("TextLabel") then
+                            local dName = desc.Name
+                            if dName == "CardBody" or dName == "DescLabel" or dName == "WebDesc" or dName == "BlurDesc" or dName == "CustomThemeDesc" or dName == "ClickEffectsDesc" or dName:find("Desc") or dName == "SubTitle" then
                                 if animated then
-                                    TweenService:Create(card, tweenInfo, {BackgroundColor3 = newTheme.CardBG}):Play()
+                                    TweenService:Create(desc, tweenInfo, {TextColor3 = newTheme.SubText}):Play()
                                 else
-                                    card.BackgroundColor3 = newTheme.CardBG
+                                    desc.TextColor3 = newTheme.SubText
                                 end
-                                for _, child in ipairs(card:GetChildren()) do
-                                    if child:IsA("TextLabel") then
-                                        if child.Name == "CardTitle" or child.Name == "btntext" or child.Name == "drpdwntext" or child.Name == "TitleLabel" or child.Name == "SliderTitle" or child.Name == "ValueLabel" or child.Name == "ThemeTitle" or child.Name == "SectionTitle" or child.Name == "NotifLabel" or child.Name == "SoundLabel" or child.Name == "VolumeLabel" or child.Name == "WebTitle" or child.Name == "BlurTitle" or child.Name == "TransLabel" or child.Name == "CustomThemeTitle" or child.Name == "ClickEffectsTitle" or child.Name == "Welcomemsg" or child.Name:find("Title") or child.Name:find("Label") then
-                                            if animated then
-                                                TweenService:Create(child, tweenInfo, {TextColor3 = newTheme.Text}):Play()
-                                            else
-                                                child.TextColor3 = newTheme.Text
-                                            end
-                                        elseif child.Name == "CardBody" or child.Name == "DescLabel" or child.Name == "WebDesc" or child.Name == "BlurDesc" or child.Name == "CustomThemeDesc" or child.Name == "ClickEffectsDesc" or child.Name:find("Desc") then
-                                            if animated then
-                                                TweenService:Create(child, tweenInfo, {TextColor3 = newTheme.SubText}):Play()
-                                            else
-                                                child.TextColor3 = newTheme.SubText
-                                            end
-                                        elseif child.Name ~= "LocalTime" then
-                                            if animated then
-                                                TweenService:Create(child, tweenInfo, {TextColor3 = newTheme.Text}):Play()
-                                            else
-                                                child.TextColor3 = newTheme.Text
-                                            end
-                                        end
-                                    end
+                            elseif dName ~= "LocalTime" and dName ~= "percloaded" and dName ~= "Loadingtext" then
+                                if animated then
+                                    TweenService:Create(desc, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+                                else
+                                    desc.TextColor3 = newTheme.Text
                                 end
                             end
+                        elseif desc:IsA("TextBox") and desc.Name ~= "HexBox" then
+                            if animated then
+                                TweenService:Create(desc, tweenInfo, {
+                                    TextColor3 = newTheme.Text,
+                                    PlaceholderColor3 = newTheme.SubText
+                                }):Play()
+                            else
+                                desc.TextColor3 = newTheme.Text
+                                desc.PlaceholderColor3 = newTheme.SubText
+                            end
+                        elseif desc:IsA("ImageLabel") and (desc.Name == "ArrowIcon" or desc.Name == "SearchIcon") then
+                            if animated then
+                                TweenService:Create(desc, tweenInfo, {ImageColor3 = newTheme.SubText}):Play()
+                            else
+                                desc.ImageColor3 = newTheme.SubText
+                            end
+                        elseif desc:IsA("Frame") then
+                            local fName = desc.Name
+                            if fName:find("SectionCard") or fName == "ColorPickerCard" or fName == "SliderCard" or fName == "ToggleCard" or (fName:find("Card") and fName ~= "MDButtonCard" and fName ~= "TogglePill") then
+                                if animated then
+                                    TweenService:Create(desc, tweenInfo, {BackgroundColor3 = newTheme.CardBG}):Play()
+                                else
+                                    desc.BackgroundColor3 = newTheme.CardBG
+                                end
+                            elseif fName == "SectionColumns" or fName == "LeftColumn" or fName == "RightColumn" or fName:find("Row") or fName:find("Group") then
+                                desc.BackgroundTransparency = 1
+                            end
+                        elseif desc:IsA("UIStroke") and desc.Parent and desc.Parent:IsA("Frame") and desc.Parent.Name:find("SectionCard") then
+                            desc.Color = newTheme.Divider or Color3.fromRGB(65, 70, 88)
                         end
                     end
                 end
