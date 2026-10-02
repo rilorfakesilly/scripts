@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.41.1"
+Library.Version = "2.42.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -1140,6 +1140,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     if key and drop.GetSelected then
                         data.Dropdowns[key] = drop.GetSelected()
                     end
+                    if key and (drop.GetOptions or drop.GetValues) then
+                        local opts = (drop.GetOptions and drop.GetOptions()) or (drop.GetValues and drop.GetValues())
+                        if opts and type(opts) == "table" then
+                            data.DropdownOptions = data.DropdownOptions or {}
+                            data.DropdownOptions[key] = opts
+                        end
+                    end
                 end)
             end
         end
@@ -1330,6 +1337,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         -- 6. Apply Dropdowns
+        if data.DropdownOptions then
+            for name, opts in pairs(data.DropdownOptions) do
+                local drop = Window.RegisteredDropdowns[name]
+                if drop and drop.SetOptions then
+                    pcall(function() drop.SetOptions(opts) end)
+                elseif drop and drop.RefreshOptions then
+                    pcall(function() drop.RefreshOptions(opts) end)
+                end
+            end
+        end
+
         if data.Dropdowns then
             for name, selected in pairs(data.Dropdowns) do
                 local drop = Window.RegisteredDropdowns[name]
@@ -2251,6 +2269,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return dropObj.SetOptions(selfOrOpts, maybeOpts)
             end,
             GetValues = function() return options end,
+            GetOptions = function() return options end,
             SetOptions = function(selfOrOpts, maybeOpts)
                 local newOpts = (type(selfOrOpts) == "table" and selfOrOpts ~= dropObj) and selfOrOpts or maybeOpts or {}
                 options = newOpts
