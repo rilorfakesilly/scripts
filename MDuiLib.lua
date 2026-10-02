@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.39.7"
+Library.Version = "2.40.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -281,6 +281,9 @@ local function ApplyCornerRadii(uiCorner, topLeft, topRight, bottomLeft, bottomR
     end)
 end
 
+Library.ShadowsEnabled = true
+Library.Shadows = setmetatable({}, {__mode = "k"}) -- weak keys so destroyed shadows can be collected
+
 local function AddUIShadow(parentFrame, blurRadius, transparency, color)
     blurRadius = blurRadius or 20
     transparency = transparency or 0.5
@@ -292,8 +295,10 @@ local function AddUIShadow(parentFrame, blurRadius, transparency, color)
     shadowNode.Color = color
     shadowNode.Transparency = transparency
     shadowNode.ShowBehindParent = true
-    shadowNode.Enabled = true
+    shadowNode.Enabled = Library.ShadowsEnabled   -- respect current state
     shadowNode.Parent = parentFrame
+
+    Library.Shadows[shadowNode] = true
     return shadowNode
 end
 
@@ -340,6 +345,7 @@ end
 Library.RegisterTheme = Library.RegisterTheme
 
 function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
+    Library.ShadowsEnabled = true
     local hubTitle, scriptName, authorText, discordLink, iconAsset
 
     if type(arg1) == "table" then
@@ -410,6 +416,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         SpiderwebBGEnabled = true,
         CustomThemeColor = nil,
         CustomBGTransparency = 0.10,
+        ShadowsEnabled = true,
         ClickEffectsEnabled = true,
         ClickParticleType = "Theme default",
         CustomParticleAsset = "",
@@ -613,6 +620,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Notifications = Window.NotificationsEnabled,
                 CustomThemeColor = (Window.IsCustomTheme and Window.CustomThemeColor) and Window.CustomThemeColor:ToHex() or nil,
                 BGTransparency = Window.CustomBGTransparency or 0.10,
+                Shadows = Window.ShadowsEnabled,
                 ClickEffects = Window.ClickEffectsEnabled,
                 ClickParticle = Window.ClickParticleType or "Theme default",
                 CustomParticle = Window.CustomParticleAsset or ""
@@ -768,6 +776,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
             if data.Settings.BGTransparency ~= nil and Window.SetBackgroundTransparency then
                 pcall(function() Window:SetBackgroundTransparency(data.Settings.BGTransparency) end)
+            end
+            if data.Settings.Shadows ~= nil then
+                pcall(function()
+                    Window:SetShadowsEnabled(data.Settings.Shadows)
+                    local t = Window.RegisteredToggles["Shadows"]
+                    if t and t.SetState then t.SetState(data.Settings.Shadows, false) end -- sync the switch visually
+                end)
             end
             if data.Settings.ClickEffects ~= nil then
                 Window.ClickEffectsEnabled = data.Settings.ClickEffects
@@ -1838,7 +1853,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return self
         end
 
-        local saveKey = (cfg and type(cfg) == "table" and (cfg.SaveKey or cfg.saveKey or cfg.Identifier or cfg.identifier)) or (title and title ~= "" and title) or ("Dropdown_" .. (#Window.RegisteredDropdownsList + 1))
+        local saveKey = (dropConfig and type(dropConfig) == "table" and (dropConfig.SaveKey or dropConfig.saveKey or dropConfig.Identifier or dropConfig.identifier)) or (title and title ~= "" and title) or ("Dropdown_" .. (#Window.RegisteredDropdownsList + 1))
         dropObj.SaveKey = saveKey
         dropObj.Name = saveKey
         Window.RegisteredDropdowns[saveKey] = dropObj
@@ -1846,8 +1861,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Window.RegisteredDropdowns[title] = dropObj
         end
         table.insert(Window.RegisteredDropdownsList, dropObj)
-        if cfg and type(cfg) == "table" and (cfg.Tooltip or cfg.tooltip) then
-            dropObj:WithTooltip(cfg.Tooltip or cfg.tooltip)
+        if dropConfig and type(dropConfig) == "table" and (dropConfig.Tooltip or dropConfig.tooltip) then
+            dropObj:WithTooltip(dropConfig.Tooltip or dropConfig.tooltip)
         end
 
         return dropObj
@@ -2396,7 +2411,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             PlayHoverSFX()
             local baseBg = Window.CurrentTheme.ButtonBG
             local hoverBg = BrightenColor(baseBg, 1.05)
-            TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 2.0}):Play()
             TweenService:Create(BtnScale, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = 1.02}):Play()
             TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = hoverBg}):Play()
         end))
@@ -2405,7 +2419,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             _hoverActive = false
             _pressActive = false
             local baseBg = Window.CurrentTheme.ButtonBG
-            TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Thickness = 1.2}):Play()
             TweenService:Create(BtnScale, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Scale = 1.0}):Play()
             TweenService:Create(BtnFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = baseBg}):Play()
         end))
@@ -2434,7 +2447,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Frame = BtnFrame,
             TextLabel = BtnText,
             ArrowIcon = ArrowIcon,
-            Stroke = Stroke,
+            Stroke = nil,
             Trigger = ClickBtn,
             BaseSize = size
         }
@@ -2752,7 +2765,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Knob = KnobFrame,
             BaseCircle = BaseCircle,
             Overlay = OverlayCircle,
-            Stroke = Stroke,
+            Stroke = nil,
             GetState = function() return isToggled end,
             SetState = function(state, triggerCallback)
                 PerformToggle(state, triggerCallback)
@@ -3032,7 +3045,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Track = TrackFrame,
             FilledPart = FilledPart,
             Overlay = OverlayCircle,
-            Stroke = Stroke,
+            Stroke = nil,
             ValueLabel = ValueLabel,
             GetValue = function() return currentVal end,
             GetFormattedValue = function(val, pct)
@@ -3156,8 +3169,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     -- Color picker modal and widget generator
     local ActiveColorPickerModal = nil
+    local ActiveColorPickerCleanup = nil
 
     function Window:OpenColorPicker(title, initialColor, onColorSelected)
+        if ActiveColorPickerCleanup then
+            pcall(ActiveColorPickerCleanup)
+            ActiveColorPickerCleanup = nil
+        end
         if ActiveColorPickerModal and ActiveColorPickerModal.Parent then
             ActiveColorPickerModal:Destroy()
             ActiveColorPickerModal = nil
@@ -3178,6 +3196,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ModalBackdrop.Parent = ScriptUi
 
         ActiveColorPickerModal = ModalBackdrop
+
+        local modalConns = {}
+        local function TrackModalConn(conn)
+            table.insert(modalConns, conn)
+            TrackConn(conn)
+            return conn
+        end
+
+        local function DisconnectModalConns()
+            for _, conn in ipairs(modalConns) do
+                pcall(function()
+                    if conn and conn.Disconnect then
+                        conn:Disconnect()
+                    end
+                end)
+            end
+            table.clear(modalConns)
+        end
+
+        ActiveColorPickerCleanup = DisconnectModalConns
 
         local ModalCard = Instance.new("Frame")
         ModalCard.Name = "ColorPickerModal"
@@ -3229,7 +3267,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CloseModalBtn.ZIndex = 83
         CloseModalBtn.Parent = ModalCard
 
-        TrackConn(CloseModalBtn.MouseEnter:Connect(PlayHoverSFX))
+        TrackModalConn(CloseModalBtn.MouseEnter:Connect(PlayHoverSFX))
 
         -- SV 2D Canvas (Saturation & Value)
         local SVBox = Instance.new("Frame")
@@ -3499,36 +3537,36 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             RefreshAll("hue")
         end
 
-        SVTrigger.InputBegan:Connect(function(input)
+        TrackModalConn(SVTrigger.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 isDraggingSV = true
                 UpdateSV(input.Position.X, input.Position.Y)
             end
-        end)
+        end))
 
-        HueTrigger.InputBegan:Connect(function(input)
+        TrackModalConn(HueTrigger.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 isDraggingHue = true
                 UpdateHue(input.Position.X)
             end
-        end)
+        end))
 
-        UserInputService.InputChanged:Connect(function(input)
+        TrackModalConn(UserInputService.InputChanged:Connect(function(input)
             if isDraggingSV and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                 UpdateSV(input.Position.X, input.Position.Y)
             elseif isDraggingHue and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                 UpdateHue(input.Position.X)
             end
-        end)
+        end))
 
-        local endConn = UserInputService.InputEnded:Connect(function(input)
+        TrackModalConn(UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 isDraggingSV = false
                 isDraggingHue = false
             end
-        end)
+        end))
 
-        HexBox.FocusLost:Connect(function()
+        TrackModalConn(HexBox.FocusLost:Connect(function()
             local raw = HexBox.Text:gsub("#", ""):gsub("%s+", "")
             local success, col = pcall(function() return Color3.fromHex(raw) end)
             if success and col then
@@ -3537,7 +3575,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             else
                 HexBox.Text = "#" .. selectedColor:ToHex():upper()
             end
-        end)
+        end))
 
         for _, col in ipairs(presetColors) do
             local dot = Instance.new("TextButton")
@@ -3558,16 +3596,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             dotStroke.Transparency = 1
             dotStroke.Parent = dot
 
-            dot.MouseButton1Click:Connect(function()
+            TrackModalConn(dot.MouseButton1Click:Connect(function()
                 PlayClickSFX()
                 curH, curS, curV = col:ToHSV()
                 RefreshAll("preset")
-            end)
+            end))
         end
 
         local function CloseModal()
             PlayClickSFX()
-            if endConn then endConn:Disconnect() end
+            DisconnectModalConns()
+            if ActiveColorPickerCleanup == DisconnectModalConns then
+                ActiveColorPickerCleanup = nil
+            end
             local t = TweenService:Create(ModalCard, TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
                 Position = UDim2.new(0.5, 0, 0.5, 40),
                 Size = UDim2.new(0, 270, 0, 290)
@@ -3583,16 +3624,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end)
         end
 
-        CloseModalBtn.MouseButton1Click:Connect(CloseModal)
+        TrackModalConn(CloseModalBtn.MouseButton1Click:Connect(CloseModal))
 
 
-        ApplyBtn.MouseButton1Click:Connect(function()
+        TrackModalConn(ApplyBtn.MouseButton1Click:Connect(function()
             PlayClickSFX()
             if onColorSelected then
                 pcall(onColorSelected, selectedColor)
             end
             CloseModal()
-        end)
+        end))
 
         -- Animate In (No dark background!)
         ModalBackdrop.BackgroundTransparency = 1
@@ -3994,6 +4035,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Corner.CornerRadius = isSmall and UDim.new(0, 8) or UDim.new(0, 22)
         Corner.Parent = BtnFrame
 
+        local Stroke = Instance.new("UIStroke")
+        Stroke.Name = GenerateSafeName("Stroke")
+        Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        Stroke.Color = Color3.fromRGB(255, 255, 255)
+        Stroke.Thickness = 1.2
+        Stroke.Parent = BtnFrame
+
         AddUIShadow(BtnFrame, isSmall and 8 or 20, 0.45)
 
         local BtnScale = Instance.new("UIScale")
@@ -4079,6 +4127,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             RefreshTheme = function(theme)
                 BtnFrame.BackgroundColor3 = theme.ButtonBG
                 BtnText.TextColor3 = theme.Text
+                if Stroke then
+                    Stroke.Color = Color3.fromRGB(255, 255, 255)
+                end
             end
         }
 
@@ -4155,6 +4206,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             bgImageOff = keybindConfig.BackgroundImageOff or keybindConfig.OffImage or keybindConfig.BackgroundImage or keybindConfig.Background
         end
 
+        local isToggled = (initialState == true)
         local CardBgImage = nil
         local function UpdateCardBgImage()
             local targetImg = isToggled and (bgImageOn or bgImageOff) or (bgImageOff or bgImageOn)
@@ -4232,7 +4284,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         KnobFolder.Name = "Knob"
         KnobFolder.Parent = ToggleFrame
 
-        local isToggled = initialState
         if bgImageOn or bgImageOff then
             UpdateCardBgImage()
         end
@@ -6123,6 +6174,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
     end)
 
+    local IsAnimatingMinimize = false
     if UIScaleConstraint then
         TrackConn(UIScaleConstraint:GetPropertyChangedSignal("Scale"):Connect(function()
             if ActiveTabGlow and ActiveTabGlow.Visible and Window.ActiveTab and ScriptUi.Enabled and not IsAnimatingMinimize then
@@ -7072,12 +7124,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 parentRow = title.Parent or title.Row or title.parentRow or parentRow
             else
                 btnTitle = title or "Button"
-                btnDesc = desc or ""
-                btnCb = callback
-                btnOpts = {}
-                if typeof(callback) == "Instance" or (type(callback) == "table" and (callback.Frame or callback.Instance or callback.Container)) then
-                    parentRow = callback
+                if type(desc) == "function" then
+                    btnDesc = ""
+                    btnCb = desc
+                    parentRow = callback or parentRow
+                else
+                    btnDesc = desc or ""
+                    btnCb = callback
+                    if typeof(callback) == "Instance" or (type(callback) == "table" and (callback.Frame or callback.Instance or callback.Container)) then
+                        parentRow = callback
+                        btnCb = nil
+                    end
                 end
+                btnOpts = {}
             end
 
             local targetParent = ResolveParent(parentRow) or TabObj.CurrentSectionContainer or ContentFrame
@@ -7219,19 +7278,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return buttonData
         end
 
-        function TabObj:AddLabel(textOrConfig, options)
+        function TabObj:AddLabel(textOrConfig, options, parentContainer)
             local labelText, descText, textColor, labelOptions
             if type(textOrConfig) == "table" and not textOrConfig.IsA then
                 labelText = textOrConfig.Text or textOrConfig.Title or textOrConfig.Name or textOrConfig[1] or "Section Header"
                 descText = textOrConfig.Desc or textOrConfig.Description or textOrConfig.SubText or textOrConfig[2]
                 textColor = textOrConfig.Color or textOrConfig.TextColor
                 labelOptions = textOrConfig
+                parentContainer = textOrConfig.Parent or textOrConfig.Container or textOrConfig.Row or parentContainer
             else
                 labelText = tostring(textOrConfig or "Section Header")
                 if type(options) == "table" then
                     descText = options.Desc or options.Description or options.SubText
                     textColor = options.Color or options.TextColor
                     labelOptions = options
+                    parentContainer = options.Parent or options.Container or options.Row or parentContainer
                 elseif type(options) == "string" then
                     descText = options
                 end
@@ -7240,7 +7301,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local hasDesc = descText and descText ~= ""
             local frameHeight = hasDesc and 40 or 26
 
-            local targetParent = TabObj.CurrentSectionContainer or ContentFrame
+            local targetParent = ResolveParent(parentContainer) or TabObj.CurrentSectionContainer or ContentFrame
             local isInside = (targetParent ~= ContentFrame)
 
             local LabelFrame = Instance.new("Frame")
@@ -8084,19 +8145,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return multiDropData
         end
 
-        function TabObj:AddProgressBar(titleOrConfig, options)
+        function TabObj:AddProgressBar(titleOrConfig, options, parentContainer)
             local title, initialPct, statusText, cardOpts
             if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
                 title = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Progress"
                 initialPct = titleOrConfig.Progress or titleOrConfig.Value or titleOrConfig.Default or titleOrConfig[2] or 0
                 statusText = titleOrConfig.Status or titleOrConfig.Desc or titleOrConfig[3] or ""
                 cardOpts = titleOrConfig
+                parentContainer = titleOrConfig.Parent or titleOrConfig.Container or titleOrConfig.Row or parentContainer
             else
                 title = tostring(titleOrConfig or "Progress")
                 if type(options) == "table" then
                     initialPct = options.Progress or options.Value or options.Default or 0
                     statusText = options.Status or options.Desc or ""
                     cardOpts = options
+                    parentContainer = options.Parent or options.Container or options.Row or parentContainer
                 elseif type(options) == "number" then
                     initialPct = options
                     statusText = ""
@@ -8111,7 +8174,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if initialPct > 1 then initialPct = initialPct / 100 end
             initialPct = math.clamp(initialPct, 0, 1)
 
-            local targetParent = TabObj.CurrentSectionContainer or ContentFrame
+            local targetParent = ResolveParent(parentContainer) or TabObj.CurrentSectionContainer or ContentFrame
             local isInside = (targetParent ~= ContentFrame)
 
             local CardFrame = Instance.new("Frame")
@@ -9013,18 +9076,65 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             function SectionObj:AddToggle(arg1, arg2, arg3, arg4, arg5)
                 return TabObj:AddToggle(arg1, arg2, arg3, ItemContainer, arg5)
             end
-            function SectionObj:AddSlider(arg1, arg2, arg3)
-                return TabObj:AddSlider(arg1, ItemContainer, arg3)
+            function SectionObj:AddSlider(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+                if type(arg1) == "table" and not arg1.IsA then
+                    local cfg = table.clone(arg1)
+                    cfg.Parent = cfg.Parent or cfg.Row or ItemContainer
+                    return TabObj:AddSlider(cfg, ItemContainer, arg2)
+                elseif type(arg1) == "string" and type(arg2) == "table" then
+                    local opts = table.clone(arg2)
+                    if type(arg3) == "function" and not (opts.Callback or opts.callback or opts.OnChanged) then
+                        opts.Callback = arg3
+                    end
+                    opts.Parent = opts.Parent or opts.Row or ItemContainer
+                    return TabObj:AddSlider(arg1, opts, ItemContainer, arg4)
+                elseif type(arg1) == "string" then
+                    local opts = (type(arg6) == "table" and table.clone(arg6)) or {}
+                    opts.Title = arg1
+                    opts.Min = arg2
+                    opts.Max = arg3
+                    opts.Default = arg4
+                    opts.Callback = arg5
+                    opts.Parent = ItemContainer
+                    return TabObj:AddSlider(opts, ItemContainer, arg7)
+                elseif type(arg1) == "number" then
+                    local opts = (type(arg5) == "table" and table.clone(arg5)) or {}
+                    opts.Min = arg1
+                    opts.Max = arg2
+                    opts.Default = arg3
+                    opts.Callback = arg4
+                    opts.Parent = ItemContainer
+                    return TabObj:AddSlider(opts, ItemContainer, arg6)
+                else
+                    return TabObj:AddSlider(arg1, ItemContainer, arg3)
+                end
             end
             function SectionObj:AddDropdown(arg1, arg2, arg3, arg4)
                 return TabObj:AddDropdown(arg1, arg2, arg3, arg4, ItemContainer)
             end
-            function SectionObj:AddButton(arg1, arg2, arg3)
-                return TabObj:AddLongButton(arg1, arg2, arg3 or 1.0, ItemContainer)
+            function SectionObj:AddButton(arg1, arg2, arg3, arg4)
+                if type(arg1) == "table" and not arg1.IsA then
+                    local cfg = table.clone(arg1)
+                    cfg.Parent = cfg.Parent or cfg.Row or ItemContainer
+                    if cfg.Desc or cfg.Description or cfg.ButtonText or cfg.desc then
+                        return TabObj:AddButton(cfg, arg2, arg3, ItemContainer)
+                    elseif cfg.Fraction or cfg.Size or cfg.fraction or cfg.size then
+                        return TabObj:AddLongButton(cfg, arg2, arg3 or 1.0, ItemContainer)
+                    else
+                        return TabObj:AddButton(cfg, arg2, arg3, ItemContainer)
+                    end
+                elseif type(arg2) == "string" then
+                    return TabObj:AddButton(arg1, arg2, arg3, ItemContainer)
+                elseif type(arg3) == "number" then
+                    return TabObj:AddLongButton(arg1, arg2, arg3, ItemContainer)
+                else
+                    return TabObj:AddButton(arg1, arg2, arg3, ItemContainer)
+                end
             end
             function SectionObj:AddLongButton(arg1, arg2, arg3)
                 return TabObj:AddLongButton(arg1, arg2, arg3 or 1.0, ItemContainer)
             end
+            SectionObj.AddCardButton = SectionObj.AddButton
             function SectionObj:AddButtonRow(buttonList, height)
                 return TabObj:AddButtonRow(buttonList, height or 24, ItemContainer)
             end
@@ -9038,8 +9148,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return TabObj:AddTextInput(arg1, arg2, arg3, arg4, ItemContainer)
             end
             function SectionObj:AddNumberInput(arg1, arg2, arg3, arg4)
-                return TabObj:AddNumberInput(arg1, arg2, arg3, arg4, ItemContainer)
+                if type(arg1) == "table" and not arg1.IsA then
+                    local cfg = table.clone(arg1)
+                    cfg.Parent = cfg.Parent or cfg.Row or ItemContainer
+                    return TabObj:AddNumberInput(cfg, arg2, arg3, ItemContainer, nil, arg4)
+                end
+                return TabObj:AddNumberInput(arg1, arg2, arg3, ItemContainer, nil, arg4)
             end
+            SectionObj.AddSpinbox = SectionObj.AddNumberInput
             function SectionObj:AddToggleGroup(toggleList)
                 return TabObj:AddToggleGroup(toggleList, ItemContainer)
             end
@@ -9055,6 +9171,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             function SectionObj:AddDivider(arg1)
                 return TabObj:AddDivider(arg1, ItemContainer)
             end
+            function SectionObj:AddProgressBar(arg1, arg2)
+                if type(arg1) == "table" and not arg1.IsA then
+                    local cfg = table.clone(arg1)
+                    cfg.Parent = cfg.Parent or cfg.Row or ItemContainer
+                    return TabObj:AddProgressBar(cfg, arg2, ItemContainer)
+                end
+                return TabObj:AddProgressBar(arg1, arg2, ItemContainer)
+            end
+            SectionObj.AddStatusCard = SectionObj.AddProgressBar
 
             Window.RegisteredSections = Window.RegisteredSections or {}
             table.insert(Window.RegisteredSections, SectionObj)
@@ -9668,10 +9793,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     Window:SetBackgroundBlur(state)
                     Window:Notify("Settings", "Background blur " .. (state and "enabled" or "disabled"), 2)
                 end
+            },
+            {
+                Title = "UI shadows",
+                Default = Window.ShadowsEnabled,
+                Callback = function(state)
+                    Window:SetShadowsEnabled(state)
+                    Window:Notify("Settings", "UI shadows " .. (state and "enabled" or "disabled"), 2)
+                end
             }
         })
         Window.RegisteredToggles["SpiderwebBG"]    = bgToggles[1]
         Window.RegisteredToggles["BackgroundBlur"] = bgToggles[2]
+        Window.RegisteredToggles["Shadows"]        = bgToggles[3]
 
         local transSlider = SettingsTab:AddSlider({
             Title = "Background transparency",
@@ -9831,7 +9965,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end))
 
     -- MINIMIZE / RESTORE ENGINE
-    local IsAnimatingMinimize = false
+    IsAnimatingMinimize = false
     local function MinimizeWindowAnimation()
         if IsAnimatingMinimize then return end
         if Window.ActiveDropdown then
@@ -11116,6 +11250,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     function Window:SetSpiderwebBackground(enabled)
         Window.SpiderwebBGEnabled = enabled
+    end
+
+    function Window:SetShadowsEnabled(enabled)
+        enabled = (enabled ~= false)
+        Window.ShadowsEnabled = enabled
+        Library.ShadowsEnabled = enabled
+
+        for shadow in pairs(Library.Shadows) do
+            if shadow.Parent then
+                shadow.Enabled = enabled
+            else
+                Library.Shadows[shadow] = nil -- prune destroyed ones
+            end
+        end
     end
 
     -- Asset preloader and initializator
