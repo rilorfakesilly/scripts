@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.42.2"
+Library.Version = "2.43.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -1716,7 +1716,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         size = size or UDim2.new(1, -10, 0, 50)
         position = position or UDim2.new(0, 0, 0, 0)
 
-        local boxWidth = 160
+        local isNarrow = (size and size.X.Scale and size.X.Scale <= 0.55) or (type(boxOptions) == "table" and (boxOptions.Narrow or boxOptions.SizeFraction and boxOptions.SizeFraction <= 0.55))
+        local boxWidth = isNarrow and 95 or 150
         local titleWidth = nil
         if type(boxOptions) == "table" then
             boxWidth = boxOptions.BoxWidth or boxOptions.InputWidth or boxOptions.boxWidth or boxWidth
@@ -1758,13 +1759,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local TitleLabel = Instance.new("TextLabel")
         TitleLabel.Name = GenerateSafeName("TitleLabel")
-        TitleLabel.Size = titleWidth and UDim2.new(0, titleWidth, 1, 0) or UDim2.new(1, -(boxWidth + 24), 1, 0)
-        TitleLabel.Position = UDim2.new(0, 12, 0, 0)
+        TitleLabel.Size = titleWidth and UDim2.new(0, titleWidth, 1, 0) or (isNarrow and UDim2.new(0.48, -10, 1, 0) or UDim2.new(1, -(boxWidth + 22), 1, 0))
+        TitleLabel.Position = UDim2.new(0, 10, 0, 0)
         TitleLabel.BackgroundTransparency = 1
         TitleLabel.FontFace = FontFingerPaintBold
         TitleLabel.Text = title or "Input"
         TitleLabel.TextColor3 = Window.CurrentTheme.Text
-        TitleLabel.TextSize = 14
+        TitleLabel.TextSize = isNarrow and 12 or 13
         TitleLabel.TextWrapped = true
         TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
         TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
@@ -1774,8 +1775,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local InputBox = Instance.new("TextBox")
         InputBox.Name = GenerateSafeName("InputBox")
         InputBox.AnchorPoint = Vector2.new(1, 0.5)
-        InputBox.Size = (size and size.Y.Offset <= 44) and UDim2.new(0, boxWidth, 0, 26) or UDim2.new(0, boxWidth, 0, 30)
-        InputBox.Position = UDim2.new(1, -12, 0.5, 0)
+        InputBox.Size = isNarrow and UDim2.new(0.52, -8, 0, 26) or ((size and size.Y.Offset <= 44) and UDim2.new(0, boxWidth, 0, 26) or UDim2.new(0, boxWidth, 0, 30))
+        InputBox.Position = UDim2.new(1, -10, 0.5, 0)
         InputBox.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
         InputBox.BackgroundTransparency = 0.2
         InputBox.BorderSizePixel = 0
@@ -4952,15 +4953,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local inc = sliderConfig.Increment or sliderConfig.increment or sliderConfig.Step or sliderConfig.step or 1
             local prec = sliderConfig.Precision or sliderConfig.precision or sliderConfig.Decimals or sliderConfig.decimals
 
-            -- Expand card to contain slider underneath (Screenshot 2 style)
-            CardFrame.Size = UDim2.new(size.X.Scale, size.X.Offset, 0, 76)
-            TitleText.Size = hasKeybind and UDim2.new(1, -190, 0, 44) or UDim2.new(1, -145, 0, 44)
-            ToggleFrame.Position = UDim2.new(1, -54, 0, 10)
+            -- Expand card to contain slider underneath: Row 1 = Title + Toggle; Row 2 = Slider + Value
+            CardFrame.Size = UDim2.new(size.X.Scale, size.X.Offset, 0, 74)
+            TitleText.Size = hasKeybind and UDim2.new(1, -100, 0, 36) or UDim2.new(1, -58, 0, 36)
+            TitleText.Position = UDim2.new(0, 12, 0, 4)
+            TitleText.TextSize = 13
+            TitleText.TextWrapped = true
+            ToggleFrame.Position = UDim2.new(1, -52, 0, 6)
             local kbObj = self.Keybind or toggleData.Keybind
             if kbObj then
                 local kb = kbObj.Container or kbObj.Badge or kbObj.Frame or (kbObj.IsA and kbObj:IsA("GuiObject") and kbObj)
                 if kb then
-                    kb.Position = UDim2.new(1, -96, 0, 11)
+                    kb.Position = UDim2.new(1, -94, 0, 8)
                 end
             end
 
@@ -4968,9 +4972,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if showVal then
                 ValueLabel = Instance.new("TextLabel")
                 ValueLabel.Name = "ValueLabel"
-                ValueLabel.Size = UDim2.new(0, 85, 0, 20)
-                ValueLabel.Position = hasKeybind and UDim2.new(1, -102, 0, 12) or UDim2.new(1, -60, 0, 12)
-                ValueLabel.AnchorPoint = Vector2.new(1, 0)
+                ValueLabel.Size = UDim2.new(0, 46, 0, 18)
+                ValueLabel.Position = UDim2.new(1, -10, 0, 52)
+                ValueLabel.AnchorPoint = Vector2.new(1, 0.5)
                 ValueLabel.BackgroundTransparency = 1
                 ValueLabel.FontFace = FontFingerPaintRegular
                 ValueLabel.TextColor3 = Window.CurrentTheme.Text
@@ -4997,7 +5001,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             sliderOpts.ValueFormat = sliderConfig.ValueFormat or (suffix == "%" and "percent") or "number"
 
             local sliderTrack
-            sliderTrack = Window:CreateMDSlider(CardFrame, UDim2.new(0, 14, 0, 50), UDim2.new(1, -28, 0, 12), minVal, maxVal, defVal, function(val, pct)
+            sliderTrack = Window:CreateMDSlider(CardFrame, UDim2.new(0, 12, 0, 46), UDim2.new(1, -64, 0, 12), minVal, maxVal, defVal, function(val, pct)
                 if ValueLabel then
                     ValueLabel.Text = sliderTrack and sliderTrack.GetFormattedValue(val, pct) or (prefix .. tostring(val) .. suffix)
                 end
@@ -10494,7 +10498,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         })
         Window.RegisteredToggles["ClickEffects"] = clickToggle
 
-        local ParticleRow = SettingsTab:AddRow(42, 8)
         local particleOptions = {"Theme default", "Leaves", "Gems", "Sparkles", "Rings", "Dots", "Custom image"}
         SettingsTab:AddDropdown({
             Title = "Particle style",
@@ -10503,9 +10506,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Callback = function(selected)
                 Window.ClickParticleType = selected
                 Window:Notify("Settings", "Particle style: " .. selected:lower(), 2)
-            end,
-            Parent = ParticleRow,
-            Size = 0.5
+            end
         })
 
         SettingsTab:AddTextbox({
@@ -10517,9 +10518,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if entered ~= "" then
                     Window:Notify("Settings", "Custom particle image updated", 2)
                 end
-            end,
-            Parent = ParticleRow,
-            Size = 0.5
+            end
         })
 
         -- Reset current section container so ThemeCard and ConfigSection sit cleanly on ContentFrame
