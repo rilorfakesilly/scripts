@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.40.1"
+Library.Version = "2.40.2"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -282,7 +282,7 @@ local function ApplyCornerRadii(uiCorner, topLeft, topRight, bottomLeft, bottomR
 end
 
 Library.ShadowsEnabled = true
-Library.Shadows = setmetatable({}, {__mode = "k"}) -- weak keys so destroyed shadows can be collected
+Library.Shadows = {} -- maps shadow instance to original transparency
 
 local function AddUIShadow(parentFrame, blurRadius, transparency, color)
     blurRadius = blurRadius or 20
@@ -293,12 +293,13 @@ local function AddUIShadow(parentFrame, blurRadius, transparency, color)
     shadowNode.Name = GenerateSafeName("UIShadow")
     shadowNode.BlurRadius = UDim.new(0, blurRadius)
     shadowNode.Color = color
-    shadowNode.Transparency = transparency
+    shadowNode.Transparency = Library.ShadowsEnabled and transparency or 1
     shadowNode.ShowBehindParent = true
-    shadowNode.Enabled = Library.ShadowsEnabled   -- respect current state
+    pcall(function() shadowNode.Enabled = Library.ShadowsEnabled end)
+    pcall(function() shadowNode.Visible = Library.ShadowsEnabled end)
     shadowNode.Parent = parentFrame
 
-    Library.Shadows[shadowNode] = true
+    Library.Shadows[shadowNode] = transparency
     return shadowNode
 end
 
@@ -2447,7 +2448,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Frame = BtnFrame,
             TextLabel = BtnText,
             ArrowIcon = ArrowIcon,
-            Stroke = nil,
             Trigger = ClickBtn,
             BaseSize = size
         }
@@ -2765,7 +2765,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Knob = KnobFrame,
             BaseCircle = BaseCircle,
             Overlay = OverlayCircle,
-            Stroke = nil,
             GetState = function() return isToggled end,
             SetState = function(state, triggerCallback)
                 PerformToggle(state, triggerCallback)
@@ -3045,7 +3044,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Track = TrackFrame,
             FilledPart = FilledPart,
             Overlay = OverlayCircle,
-            Stroke = nil,
             ValueLabel = ValueLabel,
             GetValue = function() return currentVal end,
             GetFormattedValue = function(val, pct)
@@ -4035,13 +4033,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Corner.CornerRadius = isSmall and UDim.new(0, 8) or UDim.new(0, 22)
         Corner.Parent = BtnFrame
 
-        local Stroke = Instance.new("UIStroke")
-        Stroke.Name = GenerateSafeName("Stroke")
-        Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        Stroke.Color = Color3.fromRGB(255, 255, 255)
-        Stroke.Thickness = 1.2
-        Stroke.Parent = BtnFrame
-
         AddUIShadow(BtnFrame, isSmall and 8 or 20, 0.45)
 
         local BtnScale = Instance.new("UIScale")
@@ -4118,7 +4109,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local btnData = {
             Frame = BtnFrame,
             TextLabel = BtnText,
-            Stroke = Stroke,
             Trigger = ClickBtn,
             BaseSize = size,
             SetText = function(self, newTxt)
@@ -4127,9 +4117,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             RefreshTheme = function(theme)
                 BtnFrame.BackgroundColor3 = theme.ButtonBG
                 BtnText.TextColor3 = theme.Text
-                if Stroke then
-                    Stroke.Color = Color3.fromRGB(255, 255, 255)
-                end
             end
         }
 
@@ -11257,11 +11244,55 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Window.ShadowsEnabled = enabled
         Library.ShadowsEnabled = enabled
 
-        for shadow in pairs(Library.Shadows) do
-            if shadow.Parent then
-                shadow.Enabled = enabled
+        local function applyShadowState(shadow, origTrans)
+            if not shadow then return end
+            pcall(function() shadow.Enabled = enabled end)
+            pcall(function() shadow.Visible = enabled end)
+            pcall(function()
+                shadow.Transparency = enabled and (origTrans or 0.5) or 1
+            end)
+        end
+
+        for shadow, origTrans in pairs(Library.Shadows) do
+            if shadow and shadow.Parent then
+                applyShadowState(shadow, origTrans)
             else
                 Library.Shadows[shadow] = nil -- prune destroyed ones
+            end
+        end
+
+        -- Also sweep all UI roots to ensure every shadow node is reached
+        local roots = {
+            ScriptUi,
+            Window.ScriptUi,
+            Window.MinimisedUI,
+            Window.NotificationUI,
+            ParentGui
+        }
+        for _, root in ipairs(roots) do
+            if root and typeof(root) == "Instance" and root.Parent then
+                pcall(function()
+                    for _, desc in ipairs(root:GetDescendants()) do
+                        local isShadow = false
+                        local ok = pcall(function()
+                            if desc.ClassName == "UIShadow" or desc:IsA("UIShadow") then
+                                isShadow = true
+                            end
+                        end)
+                        if not isShadow and desc.Name and tostring(desc.Name):sub(1, 8) == "UIShadow" then
+                            isShadow = true
+                        end
+                        if isShadow then
+                            local orig = Library.Shadows[desc]
+                            if not orig and desc.Transparency < 1 then
+                                orig = desc.Transparency
+                            end
+                            orig = orig or 0.5
+                            Library.Shadows[desc] = orig
+                            applyShadowState(desc, orig)
+                        end
+                    end
+                end)
             end
         end
     end
