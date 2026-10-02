@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.40.2"
+Library.Version = "2.40.4"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -838,6 +838,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if data.Sliders then
             for name, val in pairs(data.Sliders) do
                 local slider = Window.RegisteredSliders[name]
+                    or Window.RegisteredSliders[name .. "_Slider"]
+                    or (Window.RegisteredToggles[name] and Window.RegisteredToggles[name].ConnectedSlider)
+                if not slider and name:sub(-7) == "_Slider" then
+                    local baseName = name:sub(1, -8)
+                    slider = (Window.RegisteredToggles[baseName] and Window.RegisteredToggles[baseName].ConnectedSlider)
+                        or Window.RegisteredSliders[baseName]
+                end
+                if not slider and name:sub(-6) == "Volume" then
+                    local baseName = name:sub(1, -7)
+                    slider = (Window.RegisteredToggles[baseName] and Window.RegisteredToggles[baseName].ConnectedSlider)
+                        or Window.RegisteredSliders[baseName]
+                        or Window.RegisteredSliders[baseName .. "_Slider"]
+                end
                 if slider and slider.SetValue then
                     pcall(function() slider.SetValue(val, true) end)
                 end
@@ -1038,10 +1051,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
     end
 
+    function Window:SnapshotDefaultConfig()
+        DefaultConfigMemoryData = Window:GetConfigSaveData()
+        return DefaultConfigMemoryData
+    end
+
     function Window:LoadConfig(configName)
         configName = configName or "DEFAULT"
 
         if configName:upper() == "DEFAULT" then
+            if not DefaultConfigMemoryData then
+                DefaultConfigMemoryData = Window:GetConfigSaveData()
+            end
             if DefaultConfigMemoryData then
                 Window:ApplyConfigSaveData(DefaultConfigMemoryData)
             end
@@ -1350,16 +1371,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if onSubmit then onSubmit(InputBox.Text, enterPressed) end
         end))
 
-        local boxName = (boxOptions and type(boxOptions) == "table" and (boxOptions.SaveKey or boxOptions.saveKey or boxOptions.Identifier or boxOptions.identifier)) or (title and title ~= "" and title) or ("Textbox_" .. (#Window.RegisteredTextboxesList + 1))
+        local boxName = (boxOptions and type(boxOptions) == "table" and (boxOptions.SaveKey or boxOptions.saveKey or boxOptions.Identifier or boxOptions.identifier or boxOptions.Id or boxOptions.id)) or (title and title ~= "" and title) or ("Textbox_" .. (#Window.RegisteredTextboxesList + 1))
         boxObj.Name = boxName
+        boxObj.SaveKey = boxName
         Window.RegisteredTextboxes[boxName] = boxObj
+        if title and title ~= "" and not Window.RegisteredTextboxes[title] then
+            Window.RegisteredTextboxes[title] = boxObj
+        end
+        if boxOptions and type(boxOptions) == "table" then
+            local altId = boxOptions.Id or boxOptions.id or boxOptions.Identifier or boxOptions.identifier or boxOptions.SaveKey or boxOptions.saveKey
+            if altId and not Window.RegisteredTextboxes[altId] then
+                Window.RegisteredTextboxes[altId] = boxObj
+            end
+        end
         table.insert(Window.RegisteredTextboxesList, boxObj)
 
         if boxOptions and type(boxOptions) == "table" and (boxOptions.Tooltip or boxOptions.tooltip) then
             boxObj:WithTooltip(boxOptions.Tooltip or boxOptions.tooltip)
         end
-        if boxOptions and type(boxOptions) == "table" and (boxOptions.SaveKey or boxOptions.saveKey) then
-            boxObj:WithSaveKey(boxOptions.SaveKey or boxOptions.saveKey)
+        if boxOptions and type(boxOptions) == "table" and (boxOptions.SaveKey or boxOptions.saveKey or boxOptions.Id or boxOptions.id) then
+            boxObj:WithSaveKey(boxOptions.SaveKey or boxOptions.saveKey or boxOptions.Id or boxOptions.id)
         end
 
         return boxObj
@@ -1854,12 +1885,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return self
         end
 
-        local saveKey = (dropConfig and type(dropConfig) == "table" and (dropConfig.SaveKey or dropConfig.saveKey or dropConfig.Identifier or dropConfig.identifier)) or (title and title ~= "" and title) or ("Dropdown_" .. (#Window.RegisteredDropdownsList + 1))
+        local saveKey = (dropConfig and type(dropConfig) == "table" and (dropConfig.SaveKey or dropConfig.saveKey or dropConfig.Identifier or dropConfig.identifier or dropConfig.Id or dropConfig.id)) or (title and title ~= "" and title) or ("Dropdown_" .. (#Window.RegisteredDropdownsList + 1))
         dropObj.SaveKey = saveKey
         dropObj.Name = saveKey
         Window.RegisteredDropdowns[saveKey] = dropObj
         if title and title ~= "" and not Window.RegisteredDropdowns[title] then
             Window.RegisteredDropdowns[title] = dropObj
+        end
+        if dropConfig and type(dropConfig) == "table" then
+            local altId = dropConfig.Id or dropConfig.id or dropConfig.Identifier or dropConfig.identifier or dropConfig.SaveKey or dropConfig.saveKey
+            if altId and not Window.RegisteredDropdowns[altId] then
+                Window.RegisteredDropdowns[altId] = dropObj
+            end
         end
         table.insert(Window.RegisteredDropdownsList, dropObj)
         if dropConfig and type(dropConfig) == "table" and (dropConfig.Tooltip or dropConfig.tooltip) then
@@ -2758,9 +2795,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             PerformToggle(not isToggled, true)
         end))
 
-        local toggleName = identifier or ("Toggle_" .. (#Window.RegisteredMDToggles + 1))
+        local saveKey = (type(keybindConfig) == "table" and (keybindConfig.SaveKey or keybindConfig.saveKey or keybindConfig.Identifier or keybindConfig.identifier or keybindConfig.Id or keybindConfig.id)) or identifier or ("Toggle_" .. (#Window.RegisteredMDToggles + 1))
+        local toggleName = saveKey
         local toggleData = {
             Name = toggleName,
+            SaveKey = saveKey,
             Frame = ToggleFrame,
             Knob = KnobFrame,
             BaseCircle = BaseCircle,
@@ -2802,6 +2841,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         Window.RegisteredToggles[toggleName] = toggleData
+        if identifier and identifier ~= "" and not Window.RegisteredToggles[identifier] then
+            Window.RegisteredToggles[identifier] = toggleData
+        end
+        if type(keybindConfig) == "table" then
+            local altId = keybindConfig.Id or keybindConfig.id or keybindConfig.Identifier or keybindConfig.identifier or keybindConfig.SaveKey or keybindConfig.saveKey
+            if altId and not Window.RegisteredToggles[altId] then
+                Window.RegisteredToggles[altId] = toggleData
+            end
+        end
         table.insert(Window.RegisteredMDToggles, toggleData)
         return toggleData
     end
@@ -3155,11 +3203,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return self
             end
         }
-        local actualSliderKey = (type(sliderOptions) == "table" and (sliderOptions.Id or sliderOptions.id or sliderOptions.SaveKey or sliderOptions.saveKey or sliderOptions.Identifier or sliderOptions.identifier)) or sliderName
+        local actualSliderKey = (type(sliderOptions) == "table" and (sliderOptions.SaveKey or sliderOptions.saveKey or sliderOptions.Id or sliderOptions.id or sliderOptions.Identifier or sliderOptions.identifier)) or (identifier and identifier ~= "" and identifier) or sliderName or ("Slider_" .. (#Window.RegisteredMDSliders + 1))
         sliderData.Name = actualSliderKey
+        sliderData.SaveKey = actualSliderKey
         Window.RegisteredSliders[actualSliderKey] = sliderData
         if sliderName and sliderName ~= "" and not Window.RegisteredSliders[sliderName] then
             Window.RegisteredSliders[sliderName] = sliderData
+        end
+        if identifier and identifier ~= "" and not Window.RegisteredSliders[identifier] then
+            Window.RegisteredSliders[identifier] = sliderData
+        end
+        if type(sliderOptions) == "table" then
+            local altId = sliderOptions.Id or sliderOptions.id or sliderOptions.Identifier or sliderOptions.identifier or sliderOptions.SaveKey or sliderOptions.saveKey
+            if altId and not Window.RegisteredSliders[altId] then
+                Window.RegisteredSliders[altId] = sliderData
+            end
+            if sliderOptions.Title and sliderOptions.Title ~= "" and not Window.RegisteredSliders[sliderOptions.Title] then
+                Window.RegisteredSliders[sliderOptions.Title] = sliderData
+            end
         end
         table.insert(Window.RegisteredMDSliders, sliderData)
         return sliderData
@@ -3862,10 +3923,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local currentColor = defaultColor
 
-        local colorPickerName = identifier or (title and title ~= "" and title) or ("ColorPicker_" .. (#Window.RegisteredColorPickersList + 1))
+        local colorPickerName = (colorConfig and type(colorConfig) == "table" and (colorConfig.SaveKey or colorConfig.saveKey or colorConfig.Identifier or colorConfig.identifier or colorConfig.Id or colorConfig.id)) or identifier or (title and title ~= "" and title) or ("ColorPicker_" .. (#Window.RegisteredColorPickersList + 1))
         local colorPickerData = {
             Name = colorPickerName,
-            SaveKey = identifier or colorPickerName,
+            SaveKey = colorPickerName,
             Frame = CardFrame,
             Swatch = SwatchButton,
             GetColor = function() return currentColor end,
@@ -3914,6 +3975,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Window.RegisteredColorPickers[colorPickerName] = colorPickerData
         if identifier and identifier ~= colorPickerName then
             Window.RegisteredColorPickers[identifier] = colorPickerData
+        end
+        if title and title ~= "" and not Window.RegisteredColorPickers[title] then
+            Window.RegisteredColorPickers[title] = colorPickerData
+        end
+        if colorConfig and type(colorConfig) == "table" then
+            local altId = colorConfig.Id or colorConfig.id or colorConfig.Identifier or colorConfig.identifier or colorConfig.SaveKey or colorConfig.saveKey
+            if altId and not Window.RegisteredColorPickers[altId] then
+                Window.RegisteredColorPickers[altId] = colorPickerData
+            end
         end
         table.insert(Window.RegisteredColorPickersList, colorPickerData)
         return colorPickerData
@@ -4341,10 +4411,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             PerformToggle(not isToggled, true)
         end))
 
-        local saveKey = (type(keybindConfig) == "table" and (keybindConfig.SaveKey or keybindConfig.saveKey or keybindConfig.Identifier or keybindConfig.identifier)) or text or ("ToggleHalf_" .. (#Window.RegisteredMDToggles + 1))
+        local saveKey = (type(keybindConfig) == "table" and (keybindConfig.SaveKey or keybindConfig.saveKey or keybindConfig.Identifier or keybindConfig.identifier or keybindConfig.Id or keybindConfig.id)) or (text and text ~= "" and text) or ("ToggleHalf_" .. (#Window.RegisteredMDToggles + 1))
         local toggleName = saveKey
         local toggleData = {
             Name = toggleName,
+            SaveKey = saveKey,
             CardFrame = CardFrame,
             Frame = CardFrame,
             ToggleFrame = ToggleFrame,
@@ -4429,20 +4500,47 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ValueLabel.Parent = CardFrame
             end
 
+            local sliderKey = (type(sliderConfig) == "table" and (sliderConfig.SaveKey or sliderConfig.saveKey or sliderConfig.Id or sliderConfig.id or sliderConfig.Identifier or sliderConfig.identifier)) or (toggleName .. "_Slider")
+            local sliderOpts = {}
+            if type(sliderConfig) == "table" then
+                for k, v in pairs(sliderConfig) do sliderOpts[k] = v end
+            end
+            sliderOpts.SaveKey = sliderKey
+            sliderOpts.Id = sliderKey
+            sliderOpts.Identifier = sliderKey
+            sliderOpts.ShowValue = false
+            sliderOpts.Increment = inc
+            sliderOpts.Precision = prec
+            sliderOpts.Suffix = suffix
+            sliderOpts.Prefix = prefix
+            sliderOpts.ValueFormat = sliderConfig.ValueFormat or (suffix == "%" and "percent") or "number"
+
             local sliderTrack
             sliderTrack = Window:CreateMDSlider(CardFrame, UDim2.new(0, 14, 0, 50), UDim2.new(1, -28, 0, 12), minVal, maxVal, defVal, function(val, pct)
                 if ValueLabel then
                     ValueLabel.Text = sliderTrack and sliderTrack.GetFormattedValue(val, pct) or (prefix .. tostring(val) .. suffix)
                 end
                 if cb then cb(val, pct) end
-            end, toggleName .. "_Slider", {
-                ShowValue = false,
-                Increment = inc,
-                Precision = prec,
-                Suffix = suffix,
-                Prefix = prefix,
-                ValueFormat = sliderConfig.ValueFormat or (suffix == "%" and "percent") or "number"
-            })
+            end, sliderKey, sliderOpts)
+
+            sliderTrack.SaveKey = sliderKey
+            sliderTrack.Name = sliderKey
+            sliderTrack.ConnectedToggle = toggleData
+            toggleData.ConnectedSlider = sliderTrack
+
+            Window.RegisteredSliders[sliderKey] = sliderTrack
+            Window.RegisteredSliders[toggleName .. "_Slider"] = sliderTrack
+            if toggleData.SaveKey and toggleData.SaveKey ~= "" then
+                Window.RegisteredSliders[toggleData.SaveKey .. "_Slider"] = sliderTrack
+                Window.RegisteredSliders[toggleData.SaveKey .. "Volume"] = sliderTrack
+                Window.RegisteredSliders[toggleData.SaveKey .. "Slider"] = sliderTrack
+            end
+            if text and text ~= "" then
+                Window.RegisteredSliders[text .. "_Slider"] = sliderTrack
+            end
+            if type(sliderConfig) == "table" and sliderConfig.Title and sliderConfig.Title ~= "" then
+                Window.RegisteredSliders[sliderConfig.Title] = sliderTrack
+            end
 
             if ValueLabel then
                 ValueLabel.Text = sliderTrack.GetFormattedValue(defVal)
@@ -4548,6 +4646,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         Window.RegisteredToggles[toggleName] = toggleData
+        if saveKey and not Window.RegisteredToggles[saveKey] then
+            Window.RegisteredToggles[saveKey] = toggleData
+        end
+        if text and text ~= "" and not Window.RegisteredToggles[text] then
+            Window.RegisteredToggles[text] = toggleData
+        end
+        if type(keybindConfig) == "table" then
+            local altId = keybindConfig.Id or keybindConfig.id or keybindConfig.Identifier or keybindConfig.identifier or keybindConfig.SaveKey or keybindConfig.saveKey
+            if altId and not Window.RegisteredToggles[altId] then
+                Window.RegisteredToggles[altId] = toggleData
+            end
+        end
         table.insert(Window.RegisteredMDToggles, toggleData)
 
         return toggleData
@@ -7590,9 +7700,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return tostring(val) .. suffix
             end
 
-            local saveKey = (inputOpts and (inputOpts.SaveKey or inputOpts.saveKey)) or title
+            local saveKey = (inputOpts and (inputOpts.SaveKey or inputOpts.saveKey or inputOpts.Identifier or inputOpts.identifier or inputOpts.Id or inputOpts.id)) or title
             local numberObj = {
-                Name = title,
+                Name = saveKey,
                 SaveKey = saveKey,
                 TabName = tabName,
                 CardFrame = CardFrame,
@@ -7706,6 +7816,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             if saveKey and saveKey ~= "" then
                 Window.RegisteredNumberInputs[saveKey] = numberObj
+            end
+            if title and title ~= "" and not Window.RegisteredNumberInputs[title] then
+                Window.RegisteredNumberInputs[title] = numberObj
+            end
+            if inputOpts and type(inputOpts) == "table" then
+                local altId = inputOpts.Id or inputOpts.id or inputOpts.Identifier or inputOpts.identifier or inputOpts.SaveKey or inputOpts.saveKey
+                if altId and not Window.RegisteredNumberInputs[altId] then
+                    Window.RegisteredNumberInputs[altId] = numberObj
+                end
             end
             table.insert(Window.RegisteredNumberInputsList, numberObj)
 
@@ -7993,9 +8112,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 OpenDropdown()
             end))
 
-            local saveKey = (multiOpts and (multiOpts.SaveKey or multiOpts.saveKey)) or title
+            local saveKey = (multiOpts and (multiOpts.SaveKey or multiOpts.saveKey or multiOpts.Identifier or multiOpts.identifier or multiOpts.Id or multiOpts.id)) or title
             local multiDropData = {
-                Name = title,
+                Name = saveKey,
                 SaveKey = saveKey,
                 TabName = tabName,
                 CardFrame = CardFrame,
@@ -8117,6 +8236,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             if saveKey and saveKey ~= "" then
                 Window.RegisteredMultiDropdowns[saveKey] = multiDropData
+            end
+            if title and title ~= "" and not Window.RegisteredMultiDropdowns[title] then
+                Window.RegisteredMultiDropdowns[title] = multiDropData
+            end
+            if multiOpts and type(multiOpts) == "table" then
+                local altId = multiOpts.Id or multiOpts.id or multiOpts.Identifier or multiOpts.identifier or multiOpts.SaveKey or multiOpts.saveKey
+                if altId and not Window.RegisteredMultiDropdowns[altId] then
+                    Window.RegisteredMultiDropdowns[altId] = multiDropData
+                end
             end
             table.insert(Window.RegisteredMultiDropdownsList, multiDropData)
 
@@ -8710,7 +8838,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 parentRow = titleOrConfig.Parent or titleOrConfig.Row or parentRow
                 position = titleOrConfig.Position or position
                 sizeFraction = titleOrConfig.Size or titleOrConfig.Fraction or sizeFraction
-                id = titleOrConfig.SaveKey or titleOrConfig.saveKey or titleOrConfig.Identifier or titleOrConfig.identifier or title
+                id = titleOrConfig.SaveKey or titleOrConfig.saveKey or titleOrConfig.Id or titleOrConfig.id or titleOrConfig.Identifier or titleOrConfig.identifier or title
             else
                 title = titleOrConfig or "Color"
                 defColor = defaultColor or Color3.fromRGB(255, 255, 255)
@@ -9060,8 +9188,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end,
             }
 
-            function SectionObj:AddToggle(arg1, arg2, arg3, arg4, arg5)
-                return TabObj:AddToggle(arg1, arg2, arg3, ItemContainer, arg5)
+            function SectionObj:AddToggle(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+                if type(arg1) == "table" and not arg1.IsA then
+                    local cfg = table.clone(arg1)
+                    cfg.Parent = cfg.Parent or cfg.Row or ItemContainer
+                    return TabObj:AddToggle(cfg, arg2, arg3, ItemContainer, arg4, arg5, arg6)
+                elseif type(arg4) == "table" or typeof(arg4) == "EnumItem" then
+                    return TabObj:AddToggle(arg1, arg2, arg3, ItemContainer, arg5, arg6, arg4)
+                else
+                    return TabObj:AddToggle(arg1, arg2, arg3, ItemContainer, arg4, arg5, arg6)
+                end
             end
             function SectionObj:AddSlider(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
                 if type(arg1) == "table" and not arg1.IsA then
@@ -9096,8 +9232,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     return TabObj:AddSlider(arg1, ItemContainer, arg3)
                 end
             end
-            function SectionObj:AddDropdown(arg1, arg2, arg3, arg4)
-                return TabObj:AddDropdown(arg1, arg2, arg3, arg4, ItemContainer)
+            function SectionObj:AddDropdown(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+                if type(arg1) == "table" and not arg1.IsA then
+                    local cfg = table.clone(arg1)
+                    cfg.Parent = cfg.Parent or cfg.Row or ItemContainer
+                    return TabObj:AddDropdown(cfg, arg2, arg3, arg4, ItemContainer, arg5, arg6, arg7)
+                end
+                return TabObj:AddDropdown(arg1, arg2, arg3, arg4, ItemContainer, arg5, arg6, arg7 or arg8)
             end
             function SectionObj:AddButton(arg1, arg2, arg3, arg4)
                 if type(arg1) == "table" and not arg1.IsA then
@@ -9125,14 +9266,30 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             function SectionObj:AddButtonRow(buttonList, height)
                 return TabObj:AddButtonRow(buttonList, height or 24, ItemContainer)
             end
-            function SectionObj:AddColorPicker(arg1, arg2, arg3)
-                return TabObj:AddColorPicker(arg1, arg2, arg3, ItemContainer)
+            function SectionObj:AddColorPicker(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+                if type(arg1) == "table" and not arg1.IsA then
+                    local cfg = table.clone(arg1)
+                    cfg.Parent = cfg.Parent or cfg.Row or ItemContainer
+                    return TabObj:AddColorPicker(cfg, arg2, arg3, ItemContainer, arg4, arg5, arg6 or arg7)
+                elseif type(arg4) == "string" then
+                    return TabObj:AddColorPicker(arg1, arg2, arg3, ItemContainer, arg5, arg6, arg4)
+                else
+                    return TabObj:AddColorPicker(arg1, arg2, arg3, ItemContainer, arg4, arg5, arg6 or arg7)
+                end
             end
-            function SectionObj:AddTextbox(arg1, arg2, arg3, arg4)
-                return TabObj:AddTextbox(arg1, arg2, arg3, arg4, ItemContainer)
+            function SectionObj:AddTextbox(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+                if type(arg1) == "table" and not arg1.IsA then
+                    local cfg = table.clone(arg1)
+                    cfg.Parent = cfg.Parent or cfg.Row or ItemContainer
+                    return TabObj:AddTextbox(cfg, arg2, arg3, arg4, ItemContainer, arg5, arg6, arg7 or arg8)
+                elseif type(arg5) == "table" then
+                    return TabObj:AddTextbox(arg1, arg2, arg3, arg4, ItemContainer, nil, nil, arg5)
+                else
+                    return TabObj:AddTextbox(arg1, arg2, arg3, arg4, ItemContainer, arg5, arg6, arg7 or arg8)
+                end
             end
-            function SectionObj:AddTextInput(arg1, arg2, arg3, arg4)
-                return TabObj:AddTextInput(arg1, arg2, arg3, arg4, ItemContainer)
+            function SectionObj:AddTextInput(...)
+                return self:AddTextbox(...)
             end
             function SectionObj:AddNumberInput(arg1, arg2, arg3, arg4)
                 if type(arg1) == "table" and not arg1.IsA then
@@ -9449,7 +9606,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     pos = (typeof(arg7) == "UDim2" and arg7) or pos
                 end
             elseif type(arg1) == "table" then
-                sliderName = arg1.Title or arg1.Name or arg1.Text
+                sliderName = arg1.SaveKey or arg1.saveKey or arg1.Id or arg1.id or arg1.Identifier or arg1.identifier or arg1.Title or arg1.Name or arg1.Text
                 minVal = arg1.Min or arg1.min or 0
                 maxVal = arg1.Max or arg1.max or 100
                 defaultVal = arg1.Default or arg1.default or minVal
@@ -9525,7 +9682,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TitleLabel.Position = UDim2.new(0, 14, 0, titleY)
                 TitleLabel.BackgroundTransparency = 1
                 TitleLabel.FontFace = FontFingerPaintRegular
-                TitleLabel.Text = sliderName or "Slider"
+                TitleLabel.Text = (type(sliderOptions) == "table" and (sliderOptions.Title or sliderOptions.Text or sliderOptions.Name)) or (type(arg1) == "string" and arg1) or sliderName or "Slider"
                 TitleLabel.TextColor3 = Window.CurrentTheme.Text
                 TitleLabel.TextSize = isInSection and 12 or 14
                 TitleLabel.TextWrapped = true
@@ -9575,6 +9732,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end, sliderName, effectiveOpts)
 
                 ValueLabel.Text = sliderData.GetFormattedValue(sliderData.GetValue())
+
+                local effectiveSaveKey = (type(sliderOptions) == "table" and (sliderOptions.SaveKey or sliderOptions.saveKey or sliderOptions.Id or sliderOptions.id or sliderOptions.Identifier or sliderOptions.identifier)) or sliderName
+                sliderData.SaveKey = effectiveSaveKey
+                sliderData.Name = effectiveSaveKey
+                if effectiveSaveKey and effectiveSaveKey ~= "" then
+                    Window.RegisteredSliders[effectiveSaveKey] = sliderData
+                end
+                if type(sliderOptions) == "table" and sliderOptions.Title and sliderOptions.Title ~= "" and not Window.RegisteredSliders[sliderOptions.Title] then
+                    Window.RegisteredSliders[sliderOptions.Title] = sliderData
+                end
 
                 sliderData.CardFrame = SliderCard
                 sliderData.TitleLabel = TitleLabel
