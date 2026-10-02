@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.42.1"
+Library.Version = "2.42.2"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -7437,29 +7437,28 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if tab.Button then
                 local fullTabName = tostring(tab.Name or name)
                 if Window.SidebarCollapsed then
+                    tab.Button.Visible = true
+                    tab.Button.Size = UDim2.new(1, 0, 1, 0)
+                    tab.Button.Position = UDim2.new(0, 0, 0, 0)
+                    tab.Button.ZIndex = 4
                     if tab.Icon then
-                        tab.Button.Visible = false
+                        tab.Button.Text = ""
                         TweenService:Create(tab.Icon, ease, {Position = UDim2.new(0.5, -9, 0.5, -9)}):Play()
                     else
-                        tab.Button.Visible = true
-                        tab.Button.Size = UDim2.new(1, 0, 1, 0)
-                        tab.Button.Position = UDim2.new(0, 0, 0, 0)
+                        tab.Button.TextXAlignment = Enum.TextXAlignment.Center
                         tab.Button.TextSize = 11
                         tab.Button.Text = (string.len(fullTabName) > 4) and (string.sub(fullTabName, 1, 4) .. ".") or fullTabName
                     end
                 else
+                    tab.Button.Visible = true
+                    tab.Button.Size = UDim2.new(1, 0, 1, 0)
+                    tab.Button.Position = UDim2.new(0, 0, 0, 0)
+                    tab.Button.Text = fullTabName
+                    tab.Button.TextXAlignment = Enum.TextXAlignment.Center
+                    tab.Button.TextSize = (Window.ActiveTab == name or Window.ActiveTab == tab.Name) and 18 or 16
+                    tab.Button.ZIndex = 4
                     if tab.Icon then
-                        tab.Button.Visible = true
-                        tab.Button.Size = UDim2.new(1, -38, 1, 0)
-                        tab.Button.Position = UDim2.new(0, 34, 0, 0)
-                        tab.Button.Text = fullTabName
                         TweenService:Create(tab.Icon, ease, {Position = UDim2.new(0, 10, 0.5, -9)}):Play()
-                    else
-                        tab.Button.Visible = true
-                        tab.Button.Size = UDim2.new(1, 0, 1, 0)
-                        tab.Button.Position = UDim2.new(0, 0, 0, 0)
-                        tab.Button.TextSize = (Window.ActiveTab == name or Window.ActiveTab == tab.Name) and 18 or 16
-                        tab.Button.Text = fullTabName
                     end
                 end
             end
@@ -7556,28 +7555,29 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TabIcon.BackgroundTransparency = 1
             TabIcon.Image = tabIcon
             TabIcon.ImageColor3 = Window.CurrentTheme.SubText
-            TabIcon.ZIndex = 3
+            TabIcon.ZIndex = 2
             TabIcon.Parent = TabContainer
+
+            TrackConn(TabIcon.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    PlayClickSFX()
+                    SwitchTab(tabName)
+                end
+            end))
         end
 
         local TabButton = Instance.new("TextButton")
         TabButton.Name = "TextButton"
-        if TabIcon then
-            TabButton.Size = UDim2.new(1, -38, 1, 0)
-            TabButton.Position = UDim2.new(0, 34, 0, 0)
-            TabButton.TextXAlignment = Enum.TextXAlignment.Left
-        else
-            TabButton.Size = UDim2.new(1, 0, 1, 0)
-            TabButton.Position = UDim2.new(0, 0, 0, 0)
-            TabButton.TextXAlignment = Enum.TextXAlignment.Center
-        end
+        TabButton.Size = UDim2.new(1, 0, 1, 0)
+        TabButton.Position = UDim2.new(0, 0, 0, 0)
+        TabButton.TextXAlignment = Enum.TextXAlignment.Center
         TabButton.BackgroundTransparency = 1
         TabButton.FontFace = FontFingerPaintRegular
         TabButton.Text = tabName
         TabButton.TextColor3 = Window.CurrentTheme.SubText
         TabButton.TextSize = 23
         TabButton.TextYAlignment = Enum.TextYAlignment.Center
-        TabButton.ZIndex = 2
+        TabButton.ZIndex = 4
         TabButton.Parent = TabContainer
 
         local ContentFrame = Instance.new("ScrollingFrame")
