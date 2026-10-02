@@ -1,4 +1,5 @@
 local Library = {}
+Library.Version = "2.38.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -568,10 +569,12 @@ function Library:GetIcon(iconName, asAssetUrl)
 end
 Library.GetIcon = Library.GetIcon
 
-local FontTitle = Font.fromEnum(Enum.Font.MontserratBold)
-local FontTabBtn = Font.fromEnum(Enum.Font.MontserratSemiBold)
-local FontRegular = Font.fromEnum(Enum.Font.Montserrat)
-local FontLight = Font.fromEnum(Enum.Font.MontserratLight)
+local _MontserratFamily = Font.fromEnum(Enum.Font.Montserrat).Family
+
+local FontTitle   = Font.new(_MontserratFamily, Enum.FontWeight.Bold,     Enum.FontStyle.Normal)
+local FontTabBtn  = Font.new(_MontserratFamily, Enum.FontWeight.SemiBold,  Enum.FontStyle.Normal)
+local FontRegular = Font.new(_MontserratFamily, Enum.FontWeight.Regular,   Enum.FontStyle.Normal)
+local FontLight   = Font.new(_MontserratFamily, Enum.FontWeight.Light,     Enum.FontStyle.Normal)
 
 local FontFingerPaintBold = FontTitle
 local FontFingerPaintRegular = FontRegular
