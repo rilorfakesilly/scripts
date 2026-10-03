@@ -1,5 +1,4 @@
 local Library = {}
-Library.Version = "2.38.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -6345,7 +6344,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchResultsOverlay.Size = UDim2.new(0, 230, 0, 0)
     SearchResultsOverlay.Position = UDim2.new(0.5, -115, 0, 36)
     SearchResultsOverlay.BackgroundColor3 = Window.CurrentTheme.CardBG
-    SearchResultsOverlay.BackgroundTransparency = 0
+    SearchResultsOverlay.BackgroundTransparency = 1
     SearchResultsOverlay.BorderSizePixel = 0
     SearchResultsOverlay.ClipsDescendants = true
     SearchResultsOverlay.ZIndex = 50
@@ -11943,13 +11942,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 else
                     ClearSearchBtn.ImageColor3 = newTheme.SubText
                 end
-            end
-        end
-        if SearchResultsOverlay then
-            if animated then
-                TweenService:Create(SearchResultsOverlay, tweenInfo, {BackgroundColor3 = newTheme.CardBG}):Play()
-            else
-                SearchResultsOverlay.BackgroundColor3 = newTheme.CardBG
             end
         end
 
