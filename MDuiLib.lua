@@ -1,4 +1,5 @@
 local Library = {}
+Library.Version = "2.38.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -6282,6 +6283,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchBarContainer.ZIndex = 6
     SearchBarContainer.Parent = TopFrame
 
+    -- Responsive search bar width (42% of TopFrame, clamped 160–320px)
+    local function UpdateSearchBarWidth()
+        local topW = TopFrame.AbsoluteSize.X
+        if topW <= 0 then return end
+        local barW = math.clamp(math.floor(topW * 0.42), 160, 320)
+        SearchBarContainer.Size = UDim2.new(0, barW, 0, 26)
+        SearchBarContainer.Position = UDim2.new(0.5, -math.floor(barW / 2), 0.5, -13)
+        if SearchResultsOverlay then
+            SearchResultsOverlay.Size = UDim2.new(0, barW, 0, SearchResultsOverlay.Size.Y.Offset)
+            SearchResultsOverlay.Position = UDim2.new(0.5, -math.floor(barW / 2), 0, 36)
+        end
+    end
+    TrackConn(TopFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateSearchBarWidth))
+
     local SearchCorner = Instance.new("UICorner")
     ApplyCornerRadii(SearchCorner, 13, 13, 13, 13)
     SearchCorner.Parent = SearchBarContainer
@@ -6330,7 +6345,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchResultsOverlay.Size = UDim2.new(0, 230, 0, 0)
     SearchResultsOverlay.Position = UDim2.new(0.5, -115, 0, 36)
     SearchResultsOverlay.BackgroundColor3 = Window.CurrentTheme.CardBG
-    SearchResultsOverlay.BackgroundTransparency = 1
+    SearchResultsOverlay.BackgroundTransparency = 0
     SearchResultsOverlay.BorderSizePixel = 0
     SearchResultsOverlay.ClipsDescendants = true
     SearchResultsOverlay.ZIndex = 50
@@ -6368,12 +6383,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     ResultsLayout.Padding = UDim.new(0, 3)
     ResultsLayout.Parent = ResultsScroll
 
+    -- Sync width once layout is ready
+    task.defer(UpdateSearchBarWidth)
+
     local function PerformSearch(rawText)
         local query = rawText:gsub("^%s+", ""):gsub("%s+$", ""):lower()
+        local barW = SearchBarContainer.Size.X.Offset
         if query == "" then
             ClearSearchBtn.Visible = false
             SearchResultsOverlay.Visible = false
-            SearchResultsOverlay.Size = UDim2.new(0, 230, 0, 0)
+            SearchResultsOverlay.Size = UDim2.new(0, barW, 0, 0)
+            SearchResultsOverlay.Position = UDim2.new(0.5, -math.floor(barW / 2), 0, 36)
             for _, item in ipairs(Window.SearchableItems) do
                 if item.Instance and item.Instance.Parent then
                     item.Instance.Visible = true
@@ -6417,8 +6437,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             emptyLabel.Parent = ResultsScroll
 
             SearchResultsOverlay.Visible = true
+            SearchResultsOverlay.Position = UDim2.new(0.5, -math.floor(barW / 2), 0, 36)
             TweenService:Create(SearchResultsOverlay, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, 230, 0, 38)
+                Size = UDim2.new(0, barW, 0, 38)
             }):Play()
             return
         end
@@ -6429,7 +6450,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local rowBtn = Instance.new("TextButton")
             rowBtn.Name = "SearchResult"
             rowBtn.Size = UDim2.new(1, -4, 0, 30)
-            rowBtn.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(30, 33, 42)
+            rowBtn.BackgroundColor3 = GetThemedDarkColor(Window.CurrentTheme)
             rowBtn.BackgroundTransparency = 0
             rowBtn.Text = ""
             rowBtn.ZIndex = 52
@@ -6466,7 +6487,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             subLbl.BackgroundTransparency = 1
             subLbl.FontFace = FontFingerPaintRegular
             subLbl.Text = item.TabName
-            subLbl.TextColor3 = Color3.fromRGB(140, 145, 160)
+            subLbl.TextColor3 = Window.CurrentTheme.SubText
             subLbl.TextSize = 10
             subLbl.TextXAlignment = Enum.TextXAlignment.Left
             subLbl.TextTruncate = Enum.TextTruncate.AtEnd
@@ -6486,7 +6507,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     SwitchTab(item.TabName)
                 end
                 SearchResultsOverlay.Visible = false
-                SearchResultsOverlay.Size = UDim2.new(0, 230, 0, 0)
+                SearchResultsOverlay.Size = UDim2.new(0, barW, 0, 0)
                 for _, it in ipairs(Window.SearchableItems) do
                     if it.Instance and it.Instance.Parent then
                         it.Instance.Visible = true
@@ -6598,8 +6619,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         -- Exact snug fit: each row 30px + 3px layout spacing + 10px vertical padding (5 top + 5 bottom)
         local targetHeight = (maxToShow * 30) + math.max(0, (maxToShow - 1) * 3) + 10
         SearchResultsOverlay.Visible = true
+        SearchResultsOverlay.Position = UDim2.new(0.5, -math.floor(barW / 2), 0, 36)
         TweenService:Create(SearchResultsOverlay, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 230, 0, targetHeight)
+            Size = UDim2.new(0, barW, 0, targetHeight)
         }):Play()
     end
 
