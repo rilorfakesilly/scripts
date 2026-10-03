@@ -817,14 +817,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local hubTitle, scriptName, authorText, discordLink, iconAsset
 
     if type(arg1) == "table" then
-        hubTitle = arg1.Title or arg1.HubTitle or arg1.Name or arg1.hubTitle or "MD SCRIPT HUB"
-        scriptName = arg1.ScriptName or arg1.scriptName or hubTitle or "MD_Script"
+        hubTitle = arg1.Title or arg1.HubTitle or arg1.Name or arg1.hubTitle or arg1.ScriptName or "script name"
+        scriptName = arg1.ScriptName or arg1.scriptName or hubTitle or "script name"
         authorText = arg1.Author or arg1.AuthorText or arg1.MadeBy or arg1.madeBy or arg1.Creator
         discordLink = arg1.Discord or arg1.DiscordLink or arg1.DiscordServer or arg1.discord or arg1.Invite
         iconAsset = arg1.Icon or arg1.IconAsset or arg1.Logo or arg1.IconId or arg1.icon
     else
-        hubTitle = arg1 or "MD SCRIPT HUB"
-        scriptName = arg2 or hubTitle or "MD_Script"
+        hubTitle = arg1 or "script name"
+        scriptName = arg2 or hubTitle or "script name"
         authorText = arg3
         discordLink = arg4
         iconAsset = arg5
@@ -6291,15 +6291,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchInput.ZIndex = 7
     SearchInput.Parent = SearchBarContainer
 
-    local ClearSearchBtn = Instance.new("TextButton")
+    local _xIconId = Library:GetIcon("x") or "116396312853810"
+    local ClearSearchBtn = Instance.new("ImageButton")
     ClearSearchBtn.Name = "ClearSearchBtn"
-    ClearSearchBtn.Size = UDim2.new(0, 16, 0, 16)
-    ClearSearchBtn.Position = UDim2.new(1, -22, 0.5, -8)
+    ClearSearchBtn.Size = UDim2.new(0, 14, 0, 14)
+    ClearSearchBtn.Position = UDim2.new(1, -21, 0.5, -7)
     ClearSearchBtn.BackgroundTransparency = 1
-    ClearSearchBtn.FontFace = FontTabBtn
-    ClearSearchBtn.Text = "X"
-    ClearSearchBtn.TextColor3 = Window.CurrentTheme.SubText
-    ClearSearchBtn.TextSize = 10
+    ClearSearchBtn.Image = tostring(_xIconId):find("://") and tostring(_xIconId) or ("rbxassetid://" .. tostring(_xIconId))
+    ClearSearchBtn.ImageColor3 = Window.CurrentTheme.SubText
     ClearSearchBtn.Visible = false
     ClearSearchBtn.ZIndex = 8
     ClearSearchBtn.Parent = SearchBarContainer
@@ -6886,7 +6885,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MadebyText.Position = UDim2.new(0.0803, 0, 0.12, 0)
     MadebyText.BackgroundTransparency = 1
     MadebyText.FontFace = FontTitle
-    MadebyText.Text = (hubTitle and hubTitle ~= "MD SCRIPT HUB" and hubTitle) or (Window.ScriptName and Window.ScriptName ~= "MD_Script" and Window.ScriptName) or "script name"
+    MadebyText.Text = (scriptName and scriptName ~= "" and scriptName) or (hubTitle and hubTitle ~= "" and hubTitle) or (Window.ScriptName and Window.ScriptName ~= "" and Window.ScriptName) or "script name"
     MadebyText.TextColor3 = Window.CurrentTheme.Text
     MadebyText.TextSize = 15
     MadebyText.TextXAlignment = Enum.TextXAlignment.Left
@@ -7255,14 +7254,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
     function Window:SetAuthor(newAuthor)
-        if not newAuthor or newAuthor == "" then
-            newAuthor = "Made by MorningDrift"
-        elseif not tostring(newAuthor):lower():find("^made by") then
-            newAuthor = "Made by " .. tostring(newAuthor)
-        end
-        Window.AuthorText = newAuthor
+        Window.AuthorText = tostring(newAuthor or "")
+    end
+
+    function Window:SetScriptName(newName)
+        Window.ScriptName = tostring(newName or "script name")
         if MadebyText then
-            MadebyText.Text = newAuthor
+            MadebyText.Text = Window.ScriptName
+        end
+    end
+
+    function Window:SetTitle(newTitle)
+        Window.Title = tostring(newTitle or "script name")
+        Window.ScriptName = Window.Title
+        if MadebyText then
+            MadebyText.Text = Window.Title
         end
     end
 
@@ -9090,6 +9096,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
                 return TabObj:AddToggle(titleOrConfig, initialState, onToggle, RowFrame, nil, sizeFraction or 0.5)
             end
+            function RowObj:AddCheckbox(titleOrConfig, initialState, onToggle, sizeFraction)
+                if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                    return TabObj:AddCheckbox(titleOrConfig, nil, nil, RowFrame, nil, sizeFraction or 0.5)
+                end
+                return TabObj:AddCheckbox(titleOrConfig, initialState, onToggle, RowFrame, nil, sizeFraction or 0.5)
+            end
             function RowObj:AddDropdown(title, options, defaultOption, onSelect, sizeFraction)
                 if type(title) == "table" and not title.IsA then
                     return TabObj:AddDropdown(title, nil, nil, nil, RowFrame, nil, sizeFraction or 0.5)
@@ -10060,13 +10072,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             BoxStroke.Parent = BoxOuter
 
             -- Checkmark icon (visible when checked)
+            local _checkIconId = Library:GetIcon("check") or "86817768619372"
             local CheckIcon = Instance.new("ImageLabel")
             CheckIcon.Name = "CheckIcon"
             CheckIcon.Size = UDim2.new(0, CHECKBOX_SIZE - 4, 0, CHECKBOX_SIZE - 4)
             CheckIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
             CheckIcon.AnchorPoint = Vector2.new(0.5, 0.5)
             CheckIcon.BackgroundTransparency = 1
-            CheckIcon.Image = "rbxassetid://6031094678"  -- checkmark
+            CheckIcon.Image = tostring(_checkIconId):find("://") and tostring(_checkIconId) or ("rbxassetid://" .. tostring(_checkIconId))
             CheckIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
             CheckIcon.ImageTransparency = isChecked and 0 or 1
             CheckIcon.ZIndex = 13
@@ -10682,7 +10695,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- Default built-in settings tab builder
     local function CreateDefaultSettingsTab()
         Window:AddSidebarBigDivider(998)
-        local SettingsTab = Window:CreateTab("Settings", 999, "rbxassetid://7734053495")
+        local SettingsTab = Window:CreateTab("Settings", 999, "settings")
 
         -- Section 1: Audio & Notifications
         local audioSection = SettingsTab:AddSection("Audio & Notifications")
@@ -11878,9 +11891,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
             if ClearSearchBtn then
                 if animated then
-                    TweenService:Create(ClearSearchBtn, tweenInfo, {TextColor3 = newTheme.SubText}):Play()
+                    TweenService:Create(ClearSearchBtn, tweenInfo, {ImageColor3 = newTheme.SubText}):Play()
                 else
-                    ClearSearchBtn.TextColor3 = newTheme.SubText
+                    ClearSearchBtn.ImageColor3 = newTheme.SubText
                 end
             end
         end
