@@ -779,6 +779,23 @@ Library.ApplyCornerRadii = ApplyCornerRadii
 Library.AddUIShadow = AddUIShadow
 Library.ActiveWindows = {}
 
+local function GetThemedDarkColor(theme)
+    theme = theme or Library.CurrentTheme or (Library.ThemePresets and Library.ThemePresets.Dark)
+    local cardBG = (theme and theme.CardBG) or Color3.fromRGB(30, 32, 40)
+    local buttonBG = (theme and theme.ButtonBG) or Color3.fromRGB(80, 120, 240)
+    local h, s, v = Color3.toHSV(cardBG)
+    if v > 0.82 and s < 0.2 then
+        return Color3.fromRGB(220, 225, 235)
+    end
+    if s < 0.15 and buttonBG then
+        local bh, bs, bv = Color3.toHSV(buttonBG)
+        return Color3.fromHSV(bh, math.clamp(bs * 0.45, 0.12, 0.55), math.clamp(bv * 0.20, 0.08, 0.18))
+    end
+    return Color3.fromHSV(h, math.clamp(s * 1.05, 0.15, 0.9), math.clamp(v * 0.45, 0.08, 0.22))
+end
+
+Library.GetThemedDarkColor = GetThemedDarkColor
+
 function Library:RegisterTheme(name, data)
     if type(name) ~= "string" or type(data) ~= "table" then return end
     local defaultTheme = Library.ThemePresets.Dark
@@ -1749,7 +1766,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BoxFrame.Size = size
         BoxFrame.Position = position
         BoxFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-        BoxFrame.BackgroundTransparency = 0.05
+        BoxFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
         BoxFrame.BorderSizePixel = 0
         BoxFrame.ZIndex = 10
         BoxFrame.Parent = parent
@@ -1795,7 +1812,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         InputBox.AnchorPoint = Vector2.new(1, 0.5)
         InputBox.Size = isNarrow and UDim2.new(0.52, -8, 0, 26) or ((size and size.Y.Offset <= 44) and UDim2.new(0, boxWidth, 0, 26) or UDim2.new(0, boxWidth, 0, 28))
         InputBox.Position = UDim2.new(1, -10, 0.5, 0)
-        InputBox.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+        InputBox.BackgroundColor3 = GetThemedDarkColor(Window.CurrentTheme)
         InputBox.BackgroundTransparency = 0.2
         InputBox.BorderSizePixel = 0
         InputBox.FontFace = FontFingerPaintRegular
@@ -1857,10 +1874,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end,
             RefreshTheme = function(theme)
                 BoxFrame.BackgroundColor3 = theme.CardBG
+                BoxFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
                 TitleLabel.TextColor3 = theme.Text
                 InputBox.TextColor3 = theme.Text
                 InputBox.PlaceholderColor3 = theme.SubText
-                InputBox.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(230, 234, 242) or Color3.fromRGB(20, 22, 28)
+                InputBox.BackgroundColor3 = GetThemedDarkColor(theme)
             end
         }
 
@@ -1939,7 +1957,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DropdownFrame.Size = size
         DropdownFrame.Position = position
         DropdownFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-        DropdownFrame.BackgroundTransparency = 0.05
+        DropdownFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
         DropdownFrame.BorderSizePixel = 0
         DropdownFrame.ZIndex = 10
         DropdownFrame.ClipsDescendants = false
@@ -2368,12 +2386,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end,
             RefreshTheme = function(theme)
                 DropdownFrame.BackgroundColor3 = theme.CardBG
+                DropdownFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
                 TitleText.TextColor3 = theme.Text
                 ArrowIcon.ImageColor3 = theme.Text
                 DropdownContent.BackgroundColor3 = theme.CardBG
                 InnerScroll.ScrollBarImageColor3 = theme.Divider
                 if SearchContainer then
-                    SearchContainer.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(230, 235, 245) or Color3.fromRGB(18, 20, 26)
+                    SearchContainer.BackgroundColor3 = GetThemedDarkColor(theme)
                 end
                 if SearchInput then
                     SearchInput.TextColor3 = theme.Text
@@ -2438,8 +2457,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     -- Config UI section builder
     function Window:CreateConfigSection(parentTab)
-        local configSec = parentTab:AddSection("Configurations")
-        local SectionFrame = configSec.ItemContainer
+        local configSec = parentTab:AddSection("Configurations", true)
+        local SectionFrame = configSec.Container or configSec.ItemContainer
 
         local PasteBoxFrame, PasteBoxStroke, PasteLabel, PasteInput
 
@@ -3064,7 +3083,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BadgeContainer.Name = GenerateSafeName("Badge")
         BadgeContainer.Size = size
         BadgeContainer.Position = position
-        BadgeContainer.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(24, 26, 34)
+        BadgeContainer.BackgroundColor3 = GetThemedDarkColor(Window.CurrentTheme)
         BadgeContainer.BackgroundTransparency = 0.15
         BadgeContainer.BorderSizePixel = 0
         BadgeContainer.ZIndex = 15
@@ -3232,7 +3251,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ToggleFrame.Name = GenerateSafeName("Toggle")
         ToggleFrame.Size = size
         ToggleFrame.Position = position or UDim2.new(0, 0, 0, 0)
-        ToggleFrame.BackgroundColor3 = initialState and Window.CurrentTheme.ButtonBG or Color3.fromRGB(35, 38, 48)
+        ToggleFrame.BackgroundColor3 = initialState and Window.CurrentTheme.ButtonBG or GetThemedDarkColor(Window.CurrentTheme)
         ToggleFrame.BackgroundTransparency = 0.05
         ToggleFrame.BorderSizePixel = 0
         ToggleFrame.ClipsDescendants = false
@@ -3287,7 +3306,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             isToggled = (newState == true)
             local targetKnobPos = isToggled and UDim2.new(1, -13, 0.5, 0) or UDim2.new(0, 13, 0.5, 0)
             local targetRotation = isToggled and 0 or 225
-            local targetBG = isToggled and Window.CurrentTheme.ButtonBG or ((Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
+            local targetBG = isToggled and Window.CurrentTheme.ButtonBG or GetThemedDarkColor(Window.CurrentTheme)
             local targetBaseColor = isToggled and Color3.fromRGB(255, 255, 255) or Window.CurrentTheme.ButtonBG
             local targetOverlayColor = isToggled and Window.CurrentTheme.ButtonBG or Color3.fromRGB(255, 255, 255)
 
@@ -3432,7 +3451,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TrackFrame.Name = GenerateSafeName("Track")
         TrackFrame.Size = size
         TrackFrame.Position = position or UDim2.new(0, 0, 0, 0)
-        TrackFrame.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(20, 22, 28)
+        TrackFrame.BackgroundColor3 = GetThemedDarkColor(Window.CurrentTheme)
         TrackFrame.BackgroundTransparency = 0.05
         TrackFrame.BorderSizePixel = 0
         TrackFrame.ZIndex = 10
@@ -3463,8 +3482,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if showValue then
             ValueLabel = Instance.new("TextLabel")
             ValueLabel.Name = "ValueLabel"
-            ValueLabel.Size = UDim2.new(0, 60, 0, 14)
-            ValueLabel.Position = UDim2.new(1, -64, 0, -16)
+            ValueLabel.Size = UDim2.new(0, 95, 0, 16)
+            ValueLabel.Position = UDim2.new(1, -98, 0, -18)
             ValueLabel.BackgroundTransparency = 1
             ValueLabel.FontFace = FontFingerPaintRegular
             ValueLabel.TextColor3 = Window.CurrentTheme.Text
@@ -3689,7 +3708,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             end,
             RefreshTheme = function(theme)
-                TrackFrame.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(20, 22, 28)
+                TrackFrame.BackgroundColor3 = GetThemedDarkColor(theme)
                 FilledPart.BackgroundColor3 = theme.ButtonBG
                 OverlayCircle.ImageColor3 = theme.ButtonBG
                 if ValueLabel then
@@ -4369,7 +4388,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CardFrame.Size = size
         CardFrame.Position = position
         CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-        CardFrame.BackgroundTransparency = 0.05
+        CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
         CardFrame.BorderSizePixel = 0
         CardFrame.ZIndex = 10
         CardFrame.Parent = parent
@@ -4453,6 +4472,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end,
             RefreshTheme = function(theme)
                 CardFrame.BackgroundColor3 = theme.CardBG
+                CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
                 TitleLabel.TextColor3 = theme.Text
             end
         }
@@ -4741,7 +4761,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CardFrame.Size = size
         CardFrame.Position = position
         CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-        CardFrame.BackgroundTransparency = 0.05
+        CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
         CardFrame.BorderSizePixel = 0
         CardFrame.ZIndex = 10
         CardFrame.Parent = parent
@@ -4898,7 +4918,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             isToggled = (newState == true)
             local targetKnobPos = isToggled and UDim2.new(1, -12, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
             local targetRotation = isToggled and 0 or 225
-            local targetBG = isToggled and Window.CurrentTheme.ButtonBG or ((Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
+            local targetBG = isToggled and Window.CurrentTheme.ButtonBG or GetThemedDarkColor(Window.CurrentTheme)
             local targetBaseColor = isToggled and Color3.fromRGB(255, 255, 255) or Window.CurrentTheme.ButtonBG
             local targetOverlayColor = isToggled and Window.CurrentTheme.ButtonBG or Color3.fromRGB(255, 255, 255)
 
@@ -4954,9 +4974,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end,
             RefreshTheme = function(theme)
                 CardFrame.BackgroundColor3 = theme.CardBG
+                CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
                 TitleText.TextColor3 = theme.Text
                 local isTog = isToggled
-                ToggleFrame.BackgroundColor3 = isTog and theme.ButtonBG or ((theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
+                ToggleFrame.BackgroundColor3 = isTog and theme.ButtonBG or GetThemedDarkColor(theme)
                 BaseCircle.ImageColor3 = isTog and Color3.fromRGB(255, 255, 255) or theme.ButtonBG
                 OverlayCircle.ImageColor3 = isTog and theme.ButtonBG or Color3.fromRGB(255, 255, 255)
                 if toggleData.ConnectedSlider and toggleData.ConnectedSlider.RefreshTheme then
@@ -5004,7 +5025,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if showVal then
                 ValueLabel = Instance.new("TextLabel")
                 ValueLabel.Name = "ValueLabel"
-                ValueLabel.Size = UDim2.new(0, 46, 0, 18)
+                ValueLabel.Size = UDim2.new(0, 75, 0, 18)
                 ValueLabel.Position = UDim2.new(1, -10, 0, 52)
                 ValueLabel.AnchorPoint = Vector2.new(1, 0.5)
                 ValueLabel.BackgroundTransparency = 1
@@ -5033,7 +5054,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             sliderOpts.ValueFormat = sliderConfig.ValueFormat or (suffix == "%" and "percent") or "number"
 
             local sliderTrack
-            sliderTrack = Window:CreateMDSlider(CardFrame, UDim2.new(0, 12, 0, 46), UDim2.new(1, -64, 0, 12), minVal, maxVal, defVal, function(val, pct)
+            sliderTrack = Window:CreateMDSlider(CardFrame, UDim2.new(0, 12, 0, 46), UDim2.new(1, -95, 0, 12), minVal, maxVal, defVal, function(val, pct)
                 if ValueLabel then
                     ValueLabel.Text = sliderTrack and sliderTrack.GetFormattedValue(val, pct) or (prefix .. tostring(val) .. suffix)
                 end
@@ -6255,7 +6276,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchBarContainer.Name = "SearchBarContainer"
     SearchBarContainer.Size = UDim2.new(0, 230, 0, 26)
     SearchBarContainer.Position = UDim2.new(0.5, -115, 0.5, -13)
-    SearchBarContainer.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(22, 24, 30)
+    SearchBarContainer.BackgroundColor3 = GetThemedDarkColor(Window.CurrentTheme)
     SearchBarContainer.BackgroundTransparency = 0.1
     SearchBarContainer.BorderSizePixel = 0
     SearchBarContainer.ZIndex = 6
@@ -6308,7 +6329,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchResultsOverlay.Name = "SearchResultsOverlay"
     SearchResultsOverlay.Size = UDim2.new(0, 230, 0, 0)
     SearchResultsOverlay.Position = UDim2.new(0.5, -115, 0, 36)
-    SearchResultsOverlay.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(240, 245, 255) or Color3.fromRGB(20, 22, 28)
+    SearchResultsOverlay.BackgroundColor3 = Window.CurrentTheme.CardBG
     SearchResultsOverlay.BackgroundTransparency = 1
     SearchResultsOverlay.BorderSizePixel = 0
     SearchResultsOverlay.ClipsDescendants = true
@@ -6995,15 +7016,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedFrame.ZIndex = 100
     MinimizedFrame.Parent = MinimisedUI
 
-    -- Center icon button with gray gradient and 0.5 transparency
+    -- Center icon button with theme-following gradient and 0.5 transparency
     local MinimizedImage = Instance.new("ImageButton")
     MinimizedImage.Name = "MinimizedImage"
     MinimizedImage.AnchorPoint = Vector2.new(0.5, 0.5)
     MinimizedImage.Position = UDim2.new(0.5, 0, 0.5, 0)
     MinimizedImage.Size = UDim2.new(1, 0, 1, 0)
     MinimizedImage.BackgroundTransparency = 0.5
-    MinimizedImage.BackgroundColor3 = Color3.fromRGB(110, 110, 110)
+    MinimizedImage.BackgroundColor3 = Window.CurrentTheme.CardBG or Color3.fromRGB(110, 110, 110)
     MinimizedImage.Image = minimizedIcon
+    MinimizedImage.ImageColor3 = Window.CurrentTheme.Text or Color3.fromRGB(255, 255, 255)
     MinimizedImage.ZIndex = 101
     MinimizedImage.Parent = MinimizedFrame
 
@@ -7011,13 +7033,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedImageCorner.CornerRadius = UDim.new(1, 0)
     MinimizedImageCorner.Parent = MinimizedImage
 
+    local minGradInit = Window.CurrentTheme.MinGradient or Window.CurrentTheme.BottomGradient
     local MinimizedImageGrad = Instance.new("UIGradient")
-    MinimizedImageGrad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(155, 155, 155)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(65, 65, 65))
-    })
+    if minGradInit and #minGradInit >= 2 then
+        MinimizedImageGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, minGradInit[1]),
+            ColorSequenceKeypoint.new(1, minGradInit[2] or minGradInit[#minGradInit])
+        })
+    else
+        MinimizedImageGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(155, 155, 155)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(65, 65, 65))
+        })
+    end
     MinimizedImageGrad.Rotation = 45
     MinimizedImageGrad.Parent = MinimizedImage
+
+    Window.MinimizedImage = MinimizedImage
+    Window.MinimizedImageGrad = MinimizedImageGrad
 
     local function TriggerCircleSpinBurst() end
     Window.TriggerCircleSpinBurst = TriggerCircleSpinBurst
@@ -9329,6 +9362,49 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return Window:CreateConfigSection(TabObj)
         end
 
+        function TabObj:SetBackgroundImage(configOrImage, size, position, zIndex, color, transparency)
+            local img, sz, pos, z, col, trans, scaleType
+            if type(configOrImage) == "table" then
+                img = configOrImage.Image or configOrImage.Asset or configOrImage.Texture or configOrImage[1]
+                sz = configOrImage.Size or configOrImage.size
+                pos = configOrImage.Position or configOrImage.position or (configOrImage.X and configOrImage.Y and UDim2.new(0, configOrImage.X, 0, configOrImage.Y))
+                z = configOrImage.ZIndex or configOrImage.zIndex or configOrImage.Z
+                col = configOrImage.Color or configOrImage.ImageColor3 or configOrImage.Color3
+                trans = configOrImage.Transparency or configOrImage.ImageTransparency
+                scaleType = configOrImage.ScaleType
+            else
+                img = configOrImage
+                sz = size
+                pos = position
+                z = zIndex
+                col = color
+                trans = transparency
+            end
+
+            if not TabObj.BackgroundImage then
+                local bgImg = Instance.new("ImageLabel")
+                bgImg.Name = "TabBackgroundImage"
+                bgImg.BackgroundTransparency = 1
+                bgImg.BorderSizePixel = 0
+                bgImg.ScaleType = scaleType or Enum.ScaleType.Stretch
+                bgImg.Parent = ContentFrame
+                TabObj.BackgroundImage = bgImg
+            end
+
+            local bg = TabObj.BackgroundImage
+            if img ~= nil then
+                bg.Image = tostring(img):find("://") and tostring(img) or ("rbxassetid://" .. tostring(img))
+            end
+            if sz ~= nil then bg.Size = sz else bg.Size = UDim2.new(1, 0, 1, 0) end
+            if pos ~= nil then bg.Position = pos else bg.Position = UDim2.new(0, 0, 0, 0) end
+            if z ~= nil then bg.ZIndex = z else bg.ZIndex = 1 end
+            if col ~= nil then bg.ImageColor3 = col else bg.ImageColor3 = Color3.fromRGB(255, 255, 255) end
+            if trans ~= nil then bg.ImageTransparency = trans else bg.ImageTransparency = 0 end
+            if scaleType ~= nil then bg.ScaleType = scaleType end
+            bg.Visible = (bg.Image ~= "")
+            return bg
+        end
+
         function TabObj:AddSection(titleOrConfig, isFullWidth)
             local title, fullWidth
             if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
@@ -9415,7 +9491,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SectionCard.Size = cardWidth
             SectionCard.AutomaticSize = Enum.AutomaticSize.Y
             SectionCard.BackgroundColor3 = Window.CurrentTheme.CardBG
-            SectionCard.BackgroundTransparency = 0.25
+            SectionCard.BackgroundTransparency = Window.ElementsTransparency or 0.25
             SectionCard.BorderSizePixel = 0
             SectionCard.ClipsDescendants = false
             SectionCard.ZIndex = 4
@@ -9638,6 +9714,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local SectionObj = {
                 Card = SectionCard,
                 Container = ItemContainer,
+                ItemContainer = ItemContainer,
                 Title = title,
                 Header = HeaderFrame,
                 TitleLabel = TitleLabel,
@@ -9655,7 +9732,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     local twInfo = TweenInfo.new(animated and 0.35 or 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                     local divColor = theme.Divider or Color3.fromRGB(65, 70, 88)
                     if animated then
-                        TweenService:Create(SectionCard, twInfo, {BackgroundColor3 = theme.CardBG}):Play()
+                        TweenService:Create(SectionCard, twInfo, {
+                            BackgroundColor3 = theme.CardBG,
+                            BackgroundTransparency = Window.ElementsTransparency or 0.25
+                        }):Play()
                         if SectionStroke then
                             TweenService:Create(SectionStroke, twInfo, {Color = divColor}):Play()
                         end
@@ -9670,6 +9750,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         end
                     else
                         SectionCard.BackgroundColor3 = theme.CardBG
+                        SectionCard.BackgroundTransparency = Window.ElementsTransparency or 0.25
                         if SectionStroke then SectionStroke.Color = divColor end
                         if HeaderLine then HeaderLine.BackgroundColor3 = divColor end
                         if TitleLabel then TitleLabel.TextColor3 = theme.Text end
@@ -9945,7 +10026,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CardFrame.Size = size
             CardFrame.Position = pos
             CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-            CardFrame.BackgroundTransparency = 0.05
+            CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
             CardFrame.BorderSizePixel = 0
             CardFrame.ZIndex = 10
             CardFrame.Parent = targetParent
@@ -9963,11 +10044,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             BoxOuter.Name = "CheckBox"
             BoxOuter.Size = UDim2.new(0, CHECKBOX_SIZE, 0, CHECKBOX_SIZE)
             BoxOuter.Position = UDim2.new(1, -(CHECKBOX_SIZE + 12), 0.5, -(CHECKBOX_SIZE / 2))
-            BoxOuter.BackgroundColor3 = isChecked and Window.CurrentTheme.ButtonBG or (
-                (Window.CurrentTheme.CardBG == Color3.fromRGB(255,255,255))
-                and Color3.fromRGB(200, 205, 215)
-                or Color3.fromRGB(35, 38, 50)
-            )
+            BoxOuter.BackgroundColor3 = isChecked and Window.CurrentTheme.ButtonBG or GetThemedDarkColor(Window.CurrentTheme)
             BoxOuter.BackgroundTransparency = 0.05
             BoxOuter.BorderSizePixel = 0
             BoxOuter.ZIndex = 12
@@ -10023,7 +10100,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             HitArea.ZIndex = 14
             HitArea.Parent = CardFrame
 
-            local offBG  = (Window.CurrentTheme.CardBG == Color3.fromRGB(255,255,255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 50)
+            local offBG  = GetThemedDarkColor(Window.CurrentTheme)
             local offStroke = Window.CurrentTheme.Divider or Color3.fromRGB(80, 85, 100)
 
             local function SetChecked(checked, silent)
@@ -10060,8 +10137,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 RefreshTheme = function(theme)
                     if not theme or type(theme) ~= "table" then return end
                     CardFrame.BackgroundColor3 = theme.CardBG
+                    CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
                     LabelText.TextColor3 = theme.Text
-                    offBG     = (theme.CardBG == Color3.fromRGB(255,255,255)) and Color3.fromRGB(200,205,215) or Color3.fromRGB(35,38,50)
+                    offBG     = GetThemedDarkColor(theme)
                     offStroke = theme.Divider or Color3.fromRGB(80,85,100)
                     if isChecked then
                         BoxOuter.BackgroundColor3 = theme.ButtonBG
@@ -10361,7 +10439,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 SliderCard.Size = cardSize
                 SliderCard.Position = pos
                 SliderCard.BackgroundColor3 = Window.CurrentTheme.CardBG
-                SliderCard.BackgroundTransparency = 0.05
+                SliderCard.BackgroundTransparency = Window.ElementsTransparency or 0.05
                 SliderCard.BorderSizePixel = 0
                 SliderCard.ZIndex = 10
                 SliderCard.Parent = targetParent
@@ -10390,7 +10468,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local titleY = isInSection and 5 or 8
                 local TitleLabel = Instance.new("TextLabel")
                 TitleLabel.Name = "SliderTitle"
-                TitleLabel.Size = UDim2.new(1, -95, 0, 20)
+                TitleLabel.Size = UDim2.new(1, -115, 0, 20)
                 TitleLabel.Position = UDim2.new(0, 14, 0, titleY)
                 TitleLabel.BackgroundTransparency = 1
                 TitleLabel.FontFace = FontFingerPaintRegular
@@ -10405,7 +10483,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                 local ValueLabel = Instance.new("TextLabel")
                 ValueLabel.Name = "ValueLabel"
-                ValueLabel.Size = UDim2.new(0, 80, 0, 20)
+                ValueLabel.Size = UDim2.new(0, 100, 0, 20)
                 ValueLabel.Position = UDim2.new(1, -14, 0, titleY)
                 ValueLabel.AnchorPoint = Vector2.new(1, 0)
                 ValueLabel.BackgroundTransparency = 1
@@ -10493,6 +10571,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 sliderData.RefreshTheme = function(theme)
                     if oldRefresh then oldRefresh(theme) end
                     SliderCard.BackgroundColor3 = theme.CardBG
+                    SliderCard.BackgroundTransparency = Window.ElementsTransparency or 0.05
                     TitleLabel.TextColor3 = theme.Text
                     ValueLabel.TextColor3 = theme.Text
                 end
@@ -10704,6 +10783,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Callback = function(val, pct) Window:SetTopBottomTransparency(val / 100) end
         })
         Window.RegisteredSliders["TopBottomTransparency"] = topBottomTransSlider
+
+        local blurIntensitySlider = SettingsTab:AddSlider({
+            Title = "Blur intensity",
+            Min = 0,
+            Max = 100,
+            Default = math.floor((Window.BlurIntensity or 0.5) * 100),
+            Suffix = "%",
+            Callback = function(val, pct) Window:SetBlurIntensity(val / 100) end
+        })
+        Window.RegisteredSliders["BlurIntensity"] = blurIntensitySlider
 
         -- Custom theme color picker
         local customThemeCP = SettingsTab:AddColorPicker(
@@ -11535,25 +11624,27 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local tweenInfo = TweenInfo.new(animated and 0.35 or 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
         if Window.MainFrame then
+            local mainTrans = Window.CustomBGTransparency or newTheme.MainTrans
             if animated then
                 TweenService:Create(Window.MainFrame, tweenInfo, {
                     BackgroundColor3 = newTheme.MainBG,
-                    BackgroundTransparency = newTheme.MainTrans
+                    BackgroundTransparency = mainTrans
                 }):Play()
             else
                 Window.MainFrame.BackgroundColor3 = newTheme.MainBG
-                Window.MainFrame.BackgroundTransparency = newTheme.MainTrans
+                Window.MainFrame.BackgroundTransparency = mainTrans
             end
         end
         if Window.LeftFrame then
+            local leftTrans = Window.CustomBGTransparency and math.clamp(Window.CustomBGTransparency + 0.10, 0, 1) or newTheme.AccentTrans
             if animated then
                 TweenService:Create(Window.LeftFrame, tweenInfo, {
                     BackgroundColor3 = newTheme.AccentBG,
-                    BackgroundTransparency = newTheme.AccentTrans
+                    BackgroundTransparency = leftTrans
                 }):Play()
             else
                 Window.LeftFrame.BackgroundColor3 = newTheme.AccentBG
-                Window.LeftFrame.BackgroundTransparency = newTheme.AccentTrans
+                Window.LeftFrame.BackgroundTransparency = leftTrans
             end
         end
         if Window.TopFrame then
@@ -11676,7 +11767,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end
                 end
                 local isToggled = (toggle.GetState and toggle.GetState())
-                local targetColor = isToggled and newTheme.ButtonBG or ((newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
+                local targetColor = isToggled and newTheme.ButtonBG or GetThemedDarkColor(newTheme)
                 if animated then
                     TweenService:Create(toggle.Frame, tweenInfo, {BackgroundColor3 = targetColor}):Play()
                 else
@@ -11689,7 +11780,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if slider and slider.RefreshTheme then
                 pcall(function() slider.RefreshTheme(newTheme) end)
             elseif slider and slider.Track and slider.Track.Parent then
-                local trackColor = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(20, 22, 28)
+                local trackColor = GetThemedDarkColor(newTheme)
                 if animated then
                     TweenService:Create(slider.Track, tweenInfo, {BackgroundColor3 = trackColor}):Play()
                 else
@@ -11746,7 +11837,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if Window.RegisteredKeybindBadges then
             for _, b in ipairs(Window.RegisteredKeybindBadges) do
                 if b and b.Container and b.Container.Parent then
-                    local containerColor = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(24, 26, 34)
+                    local containerColor = GetThemedDarkColor(newTheme)
                     if animated then
                         TweenService:Create(b.Container, tweenInfo, {BackgroundColor3 = containerColor}):Play()
                     else
@@ -11803,7 +11894,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         if SearchBarContainer then
-            local searchBarColor = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(22, 24, 30)
+            local searchBarColor = GetThemedDarkColor(newTheme)
             if animated then
                 TweenService:Create(SearchBarContainer, tweenInfo, {BackgroundColor3 = searchBarColor}):Play()
             else
@@ -11833,11 +11924,29 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
         if SearchResultsOverlay then
-            local searchResultsColor = (newTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(240, 245, 255) or Color3.fromRGB(20, 22, 28)
             if animated then
-                TweenService:Create(SearchResultsOverlay, tweenInfo, {BackgroundColor3 = searchResultsColor}):Play()
+                TweenService:Create(SearchResultsOverlay, tweenInfo, {BackgroundColor3 = newTheme.CardBG}):Play()
             else
-                SearchResultsOverlay.BackgroundColor3 = searchResultsColor
+                SearchResultsOverlay.BackgroundColor3 = newTheme.CardBG
+            end
+        end
+
+        if Window.MinimizedImage then
+            local minGrad = newTheme.MinGradient or newTheme.BottomGradient
+            if minGrad and #minGrad >= 2 and Window.MinimizedImageGrad then
+                Window.MinimizedImageGrad.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, minGrad[1]),
+                    ColorSequenceKeypoint.new(1, minGrad[2] or minGrad[#minGrad])
+                })
+            end
+            if animated then
+                TweenService:Create(Window.MinimizedImage, tweenInfo, {
+                    BackgroundColor3 = newTheme.CardBG or Color3.fromRGB(110, 110, 110),
+                    ImageColor3 = newTheme.Text or Color3.fromRGB(255, 255, 255)
+                }):Play()
+            else
+                Window.MinimizedImage.BackgroundColor3 = newTheme.CardBG or Color3.fromRGB(110, 110, 110)
+                Window.MinimizedImage.ImageColor3 = newTheme.Text or Color3.fromRGB(255, 255, 255)
             end
         end
 
@@ -12093,12 +12202,63 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if sec and sec.Card and sec.Card.Parent then
                     sec.Card.BackgroundTransparency = pct
                 end
+                local cont = sec and (sec.Container or sec.ItemContainer)
+                if cont and cont.Parent then
+                    for _, desc in ipairs(cont:GetDescendants()) do
+                        if (desc:IsA("Frame") or desc:IsA("TextButton")) and desc.BackgroundTransparency < 1 then
+                            local dName = desc.Name
+                            if dName ~= "Knob" and dName ~= "CheckBox" and dName ~= "Badge" and dName ~= "Overlay" and not dName:find("Trigger") and not dName:find("Click") then
+                                desc.BackgroundTransparency = pct
+                            end
+                        end
+                    end
+                end
             end
         end
         if Window.RegisteredMDButtons then
             for _, btn in ipairs(Window.RegisteredMDButtons) do
                 if btn and btn.CardFrame and btn.CardFrame.Parent then
                     btn.CardFrame.BackgroundTransparency = pct
+                end
+            end
+        end
+        if Window.RegisteredMDToggles then
+            for _, tog in ipairs(Window.RegisteredMDToggles) do
+                if tog and tog.CardFrame and tog.CardFrame.Parent then
+                    tog.CardFrame.BackgroundTransparency = pct
+                elseif tog and tog.Frame and tog.Frame.Parent and (tog.Frame.Name:find("Card") or tog.Frame.Name:find("Toggle")) then
+                    tog.Frame.BackgroundTransparency = pct
+                end
+            end
+        end
+        if Window.RegisteredMDSliders then
+            for _, sld in ipairs(Window.RegisteredMDSliders) do
+                if sld and sld.CardFrame and sld.CardFrame.Parent then
+                    sld.CardFrame.BackgroundTransparency = pct
+                end
+            end
+        end
+        if Window.RegisteredDropdownsList then
+            for _, drp in ipairs(Window.RegisteredDropdownsList) do
+                local drpFrame = drp and (drp.CardFrame or drp.Frame)
+                if drpFrame and drpFrame.Parent then
+                    drpFrame.BackgroundTransparency = pct
+                end
+            end
+        end
+        if Window.RegisteredTextboxesList then
+            for _, tb in ipairs(Window.RegisteredTextboxesList) do
+                local tbFrame = tb and (tb.CardFrame or tb.Frame)
+                if tbFrame and tbFrame.Parent then
+                    tbFrame.BackgroundTransparency = pct
+                end
+            end
+        end
+        if Window.RegisteredColorPickersList then
+            for _, cp in ipairs(Window.RegisteredColorPickersList) do
+                local cpFrame = cp and (cp.CardFrame or cp.Frame)
+                if cpFrame and cpFrame.Parent then
+                    cpFrame.BackgroundTransparency = pct
                 end
             end
         end
@@ -12126,16 +12286,29 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if ClickSoundTemplate then ClickSoundTemplate.Volume = pct * 0.5 end
     end
 
+    function Window:SetBlurIntensity(val)
+        local num = tonumber(val) or 1.0
+        if num > 1 then num = num / 100 end
+        num = math.clamp(num, 0, 1.0)
+        Window.BlurIntensity = num
+        if BackgroundDOF and BackgroundDOF.Parent then
+            BackgroundDOF.NearIntensity = num
+        end
+    end
+
     function Window:SetBackgroundBlur(enabled)
         Window.BackgroundBlurEnabled = enabled
         if BackgroundDOF and BackgroundDOF.Parent then
             BackgroundDOF.Enabled = enabled
+            if enabled then
+                BackgroundDOF.NearIntensity = Window.BlurIntensity or 0.5
+            end
         elseif enabled then
             BackgroundDOF = Instance.new("DepthOfFieldEffect")
             BackgroundDOF.Name = "ScriptHubDOF"
             BackgroundDOF.FocusDistance = 2.5
             BackgroundDOF.InFocusRadius = 0
-            BackgroundDOF.NearIntensity = 1.0
+            BackgroundDOF.NearIntensity = Window.BlurIntensity or 0.5
             BackgroundDOF.FarIntensity = 0.0
             BackgroundDOF.Enabled = true
             BackgroundDOF.Parent = Lighting
@@ -12167,6 +12340,50 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     function Window:SetSpiderwebBackground(enabled)
         Window.SpiderwebBGEnabled = enabled
+    end
+
+    function Window:SetContentBackgroundImage(configOrImage, size, position, zIndex, color, transparency)
+        local img, sz, pos, z, col, trans, scaleType
+        if type(configOrImage) == "table" then
+            img = configOrImage.Image or configOrImage.Asset or configOrImage.Texture or configOrImage[1]
+            sz = configOrImage.Size or configOrImage.size
+            pos = configOrImage.Position or configOrImage.position or (configOrImage.X and configOrImage.Y and UDim2.new(0, configOrImage.X, 0, configOrImage.Y))
+            z = configOrImage.ZIndex or configOrImage.zIndex or configOrImage.Z
+            col = configOrImage.Color or configOrImage.ImageColor3 or configOrImage.Color3
+            trans = configOrImage.Transparency or configOrImage.ImageTransparency
+            scaleType = configOrImage.ScaleType
+        else
+            img = configOrImage
+            sz = size
+            pos = position
+            z = zIndex
+            col = color
+            trans = transparency
+        end
+
+        local parentTarget = MainContentFrame or Window.MainFrame
+        if not Window.ContentBGImage then
+            local bgImg = Instance.new("ImageLabel")
+            bgImg.Name = "ContentBackgroundImage"
+            bgImg.BackgroundTransparency = 1
+            bgImg.BorderSizePixel = 0
+            bgImg.ScaleType = scaleType or Enum.ScaleType.Stretch
+            bgImg.Parent = parentTarget
+            Window.ContentBGImage = bgImg
+        end
+
+        local bg = Window.ContentBGImage
+        if img ~= nil then
+            bg.Image = tostring(img):find("://") and tostring(img) or ("rbxassetid://" .. tostring(img))
+        end
+        if sz ~= nil then bg.Size = sz else bg.Size = UDim2.new(1, 0, 1, 0) end
+        if pos ~= nil then bg.Position = pos else bg.Position = UDim2.new(0, 0, 0, 0) end
+        if z ~= nil then bg.ZIndex = z else bg.ZIndex = 1 end
+        if col ~= nil then bg.ImageColor3 = col else bg.ImageColor3 = Color3.fromRGB(255, 255, 255) end
+        if trans ~= nil then bg.ImageTransparency = trans else bg.ImageTransparency = 0 end
+        if scaleType ~= nil then bg.ScaleType = scaleType end
+        bg.Visible = (bg.Image ~= "")
+        return bg
     end
 
     function Window:SetShadowsEnabled(enabled)
