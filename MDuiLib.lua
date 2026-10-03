@@ -580,6 +580,11 @@ local FontFingerPaintRegular = FontRegular
 local FontFingerPaintHeavy = FontTitle
 local FontFingerPaintMedium = FontTabBtn
 
+Library.FontTitle = FontTitle
+Library.FontTabBtn = FontTabBtn
+Library.FontRegular = FontRegular
+Library.FontLight = FontLight
+
 Library.ThemePresets = {
     Dark = {
         Name = "Dark",
@@ -868,8 +873,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Library.ActiveGuis = {}
 
     local Window = {
-        ScriptName = scriptName or hubTitle or "MD_Script",
+        ScriptName = scriptName or hubTitle or "script name",
         ScriptNameFont = (type(arg1) == "table" and (arg1.ScriptNameFont or arg1.TitleFont or arg1.HeaderFont or arg1.Font)) or Library.ScriptNameFont or FontScriptNameDefault,
+        FontTitle = FontTitle,
+        FontTabBtn = FontTabBtn,
+        FontRegular = FontRegular,
+        FontLight = FontLight,
+        ElementsTransparency = 0.25,
+        TopBottomTransparency = nil,
         GetIcon = Library.GetIcon,
         AuthorText = authorText,
         DiscordLink = discordLink,
@@ -2427,42 +2438,31 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     -- Config UI section builder
     function Window:CreateConfigSection(parentTab)
-        local SectionFrame = Instance.new("Frame")
-        SectionFrame.Name = GenerateSafeName("ConfigSection")
-        SectionFrame.Size = UDim2.new(1, -10, 0, 0)
-        SectionFrame.AutomaticSize = Enum.AutomaticSize.Y
-        SectionFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-        SectionFrame.BorderSizePixel = 0
-        SectionFrame.ZIndex = 3
-        SectionFrame.Parent = parentTab.ContentFrame
+        local configSec = parentTab:AddSection("Configurations")
+        local SectionFrame = configSec.ItemContainer
 
-        local SectionCorner = Instance.new("UICorner")
-        SectionCorner.CornerRadius = UDim.new(0, 12)
-        SectionCorner.Parent = SectionFrame
-        AddUIShadow(SectionFrame, 12, 0.45)
+        local PasteBoxFrame, PasteBoxStroke, PasteLabel, PasteInput
 
-        local SectionLayout = Instance.new("UIListLayout")
-        SectionLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        SectionLayout.Padding = UDim.new(0, 8)
-        SectionLayout.Parent = SectionFrame
-
-        local SectionPadding = Instance.new("UIPadding")
-        SectionPadding.PaddingTop = UDim.new(0, 10)
-        SectionPadding.PaddingBottom = UDim.new(0, 12)
-        SectionPadding.PaddingLeft = UDim.new(0, 10)
-        SectionPadding.PaddingRight = UDim.new(0, 10)
-        SectionPadding.Parent = SectionFrame
-
-        local SectionTitle = Instance.new("TextLabel")
-        SectionTitle.Size = UDim2.new(1, 0, 0, 24)
-        SectionTitle.BackgroundTransparency = 1
-        SectionTitle.FontFace = FontFingerPaintBold
-        SectionTitle.Text = "Configurations"
-        SectionTitle.TextColor3 = Window.CurrentTheme.Text
-        SectionTitle.TextSize = 15
-        SectionTitle.TextXAlignment = Enum.TextXAlignment.Left
-        SectionTitle.ZIndex = 4
-        SectionTitle.Parent = SectionFrame
+        local origSecRefresh = configSec.RefreshTheme
+        configSec.RefreshTheme = function(self, theme, anim)
+            if origSecRefresh then origSecRefresh(self, theme, anim) end
+            local twInfo = TweenInfo.new(anim and 0.35 or 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            local divColor = theme.Divider or Color3.fromRGB(80, 85, 100)
+            if anim then
+                if PasteBoxFrame then TweenService:Create(PasteBoxFrame, twInfo, {BackgroundColor3 = theme.CardBG}):Play() end
+                if PasteBoxStroke then TweenService:Create(PasteBoxStroke, twInfo, {Color = divColor}):Play() end
+                if PasteLabel then TweenService:Create(PasteLabel, twInfo, {TextColor3 = theme.SubText}):Play() end
+                if PasteInput then TweenService:Create(PasteInput, twInfo, {TextColor3 = theme.Text, PlaceholderColor3 = theme.SubText}):Play() end
+            else
+                if PasteBoxFrame then PasteBoxFrame.BackgroundColor3 = theme.CardBG end
+                if PasteBoxStroke then PasteBoxStroke.Color = divColor end
+                if PasteLabel then PasteLabel.TextColor3 = theme.SubText end
+                if PasteInput then
+                    PasteInput.TextColor3 = theme.Text
+                    PasteInput.PlaceholderColor3 = theme.SubText
+                end
+            end
+        end
 
         -- 1. Config Name Textbox
         local nameBoxObj = Window:CreateMDTextbox(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 48), "Config name", "MyConfig", nil)
@@ -2559,7 +2559,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ShareLayout.Parent = ShareSection
 
         -- Paste box label
-        local PasteLabel = Instance.new("TextLabel")
+        PasteLabel = Instance.new("TextLabel")
         PasteLabel.Name = GenerateSafeName("Label")
         PasteLabel.Size = UDim2.new(1, 0, 0, 16)
         PasteLabel.LayoutOrder = 1
@@ -2573,7 +2573,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         PasteLabel.Parent = ShareSection
 
         -- Multiline paste input box
-        local PasteBoxFrame = Instance.new("Frame")
+        PasteBoxFrame = Instance.new("Frame")
         PasteBoxFrame.Name = GenerateSafeName("Box")
         PasteBoxFrame.Size = UDim2.new(1, 0, 0, 44)
         PasteBoxFrame.LayoutOrder = 2
@@ -2587,13 +2587,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         PasteBoxCorner.CornerRadius = UDim.new(0, 8)
         PasteBoxCorner.Parent = PasteBoxFrame
 
-        local PasteBoxStroke = Instance.new("UIStroke")
+        PasteBoxStroke = Instance.new("UIStroke")
         PasteBoxStroke.Thickness = 1
         PasteBoxStroke.Transparency = 0.6
         PasteBoxStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(80, 85, 100)
         PasteBoxStroke.Parent = PasteBoxFrame
 
-        local PasteInput = Instance.new("TextBox")
+        PasteInput = Instance.new("TextBox")
         PasteInput.Name = GenerateSafeName("Input")
         PasteInput.Size = UDim2.new(1, -16, 1, -8)
         PasteInput.Position = UDim2.new(0, 8, 0, 4)
@@ -6995,44 +6995,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedFrame.ZIndex = 100
     MinimizedFrame.Parent = MinimisedUI
 
-    -- 2nd bigger layer spinning just a bit faster counter-clockwise (rbxassetid://95108160130077)
-    local MinLayer2_Big = Instance.new("ImageLabel")
-    MinLayer2_Big.Name = "MinLayer2_Big"
-    MinLayer2_Big.AnchorPoint = Vector2.new(0.5, 0.5)
-    MinLayer2_Big.Position = UDim2.new(0.5, 0, 0.5, 0)
-    MinLayer2_Big.Size = UDim2.new(1, 28, 1, 28)
-    MinLayer2_Big.BackgroundTransparency = 1
-    MinLayer2_Big.Image = "rbxassetid://137088387997132"
-    MinLayer2_Big.ZIndex = 98
-    MinLayer2_Big.Parent = MinimizedFrame
-
-    local MinGrad2 = Instance.new("UIGradient")
-    MinGrad2.Rotation = 0
-    MinGrad2.Parent = MinLayer2_Big
-
-    -- 1st smaller layer spinning slowly clockwise (rbxassetid://137088387997132)
-    local MinLayer1_Small = Instance.new("ImageLabel")
-    MinLayer1_Small.Name = "MinLayer1_Small"
-    MinLayer1_Small.AnchorPoint = Vector2.new(0.5, 0.5)
-    MinLayer1_Small.Position = UDim2.new(0.5, 0, 0.5, 0)
-    MinLayer1_Small.Size = UDim2.new(1, 14, 1, 14)
-    MinLayer1_Small.BackgroundTransparency = 1
-    MinLayer1_Small.Image = "rbxassetid://95108160130077"
-    MinLayer1_Small.ZIndex = 99
-    MinLayer1_Small.Parent = MinimizedFrame
-
-    local MinGrad1 = Instance.new("UIGradient")
-    MinGrad1.Rotation = 0
-    MinGrad1.Parent = MinLayer1_Small
-
-    -- Center icon button
+    -- Center icon button with gray gradient and 0.5 transparency
     local MinimizedImage = Instance.new("ImageButton")
     MinimizedImage.Name = "MinimizedImage"
     MinimizedImage.AnchorPoint = Vector2.new(0.5, 0.5)
     MinimizedImage.Position = UDim2.new(0.5, 0, 0.5, 0)
     MinimizedImage.Size = UDim2.new(1, 0, 1, 0)
-    MinimizedImage.BackgroundTransparency = 0
-    MinimizedImage.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    MinimizedImage.BackgroundTransparency = 0.5
+    MinimizedImage.BackgroundColor3 = Color3.fromRGB(110, 110, 110)
     MinimizedImage.Image = minimizedIcon
     MinimizedImage.ZIndex = 101
     MinimizedImage.Parent = MinimizedFrame
@@ -7041,75 +7011,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedImageCorner.CornerRadius = UDim.new(1, 0)
     MinimizedImageCorner.Parent = MinimizedImage
 
-    local rot1 = 0
-    local rot2 = 0
-    local circleSpinBoost = 0
+    local MinimizedImageGrad = Instance.new("UIGradient")
+    MinimizedImageGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(155, 155, 155)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(65, 65, 65))
+    })
+    MinimizedImageGrad.Rotation = 45
+    MinimizedImageGrad.Parent = MinimizedImage
 
-    local function TriggerCircleSpinBurst()
-        circleSpinBoost = 750
-    end
+    local function TriggerCircleSpinBurst() end
     Window.TriggerCircleSpinBurst = TriggerCircleSpinBurst
-
-    TrackConn(RunService.RenderStepped:Connect(function(dt)
-        if MinimisedUI.Enabled then
-            if circleSpinBoost > 0 then
-                circleSpinBoost = math.max(0, circleSpinBoost - dt * (circleSpinBoost * 2.2 + 80))
-            end
-
-            local speed1 = 30 + circleSpinBoost
-            local speed2 = -28 - (circleSpinBoost * 0.95)
-
-            rot1 = (rot1 + (dt * speed1)) % 360
-            rot2 = (rot2 + (dt * speed2)) % 360
-
-            if MinLayer1_Small and MinLayer1_Small.Parent then
-                MinLayer1_Small.Rotation = rot1
-            end
-            if MinLayer2_Big and MinLayer2_Big.Parent then
-                MinLayer2_Big.Rotation = rot2
-            end
-
-            local curTheme = Window.CurrentTheme or {}
-            local curGrad = curTheme.MinGradient or curTheme.BottomGradient or {Color3.fromRGB(255, 255, 255), Color3.fromRGB(150, 150, 150), Color3.fromRGB(255, 255, 255)}
-            local c1 = curGrad[1] or Color3.fromRGB(255, 255, 255)
-            local c2 = curGrad[2] or c1
-            local c3 = curGrad[3] or c2
-
-            -- Smooth left-to-right gradient wave
-            local phase = (tick() * 0.55) % 1.0
-            local function getSmoothCol(xRatio)
-                local tVal = (math.sin((phase - xRatio * 0.8) * math.pi * 2) + 1) * 0.5
-                if tVal < 0.5 then
-                    return c1:Lerp(c2, tVal * 2)
-                else
-                    return c2:Lerp(c3, (tVal - 0.5) * 2)
-                end
-            end
-
-            local animSeq = ColorSequence.new({
-                ColorSequenceKeypoint.new(0,    getSmoothCol(0)),
-                ColorSequenceKeypoint.new(0.25, getSmoothCol(0.25)),
-                ColorSequenceKeypoint.new(0.5,  getSmoothCol(0.5)),
-                ColorSequenceKeypoint.new(0.75, getSmoothCol(0.75)),
-                ColorSequenceKeypoint.new(1,    getSmoothCol(1))
-            })
-
-            -- Maintain fixed horizontal left-to-right gradient by counter-rotating against spinning layers
-            if MinGrad1 and MinGrad1.Parent then
-                MinGrad1.Color = animSeq
-                MinGrad1.Rotation = -rot1
-            end
-            if MinGrad2 and MinGrad2.Parent then
-                MinGrad2.Color = animSeq
-                MinGrad2.Rotation = -rot2
-            end
-        end
-    end))
 
     AttachUniversalDrag(MinimizedFrame, MinimizedFrame)
     AttachUniversalDrag(MinimizedImage, MinimizedFrame)
-    AttachUniversalDrag(MinLayer1_Small, MinimizedFrame)
-    AttachUniversalDrag(MinLayer2_Big, MinimizedFrame)
 
     -- Notification Engine (Placed at Y = 1, -105)
     function Window:Notify(titleText, contentText, duration)
@@ -7173,16 +7087,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NotifIcon.Name = "Icon"
         NotifIcon.Size = UDim2.new(0, 52, 0, 52)
         NotifIcon.Position = UDim2.new(0.0217, 0, 0.1317, 0)
-        NotifIcon.BackgroundTransparency = 0
-        NotifIcon.Image = Window.IconAsset or iconAsset or "rbxassetid://77044087750639"
+        NotifIcon.BackgroundTransparency = 1
+        NotifIcon.Image = Window.IconAsset or iconAsset or "rbxassetid://71647461889740"
+        NotifIcon.ImageColor3 = Window.CurrentTheme.Text
         NotifIcon.ZIndex = 32
         NotifIcon.Parent = NotifMain
-
-        local NotifIconCorner = Instance.new("UICorner")
-        NotifIconCorner.CornerRadius = UDim.new(0, 10)
-        NotifIconCorner.Parent = NotifIcon
-
-        AddUIShadow(NotifIcon, 20, 0.5)
 
         local NotifBody = Instance.new("TextLabel")
         NotifBody.Name = "NOTIFICATIONTXT"
@@ -7482,6 +7391,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     tab.Button.Position = UDim2.new(0, 0, 0, 0)
                     tab.Button.ZIndex = 4
                     if tab.Icon then
+                        tab.Icon.Visible = true
                         tab.Button.Text = ""
                         TweenService:Create(tab.Icon, ease, {Position = UDim2.new(0.5, -9, 0.5, -9)}):Play()
                     else
@@ -7498,7 +7408,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     tab.Button.TextSize = (Window.ActiveTab == name or Window.ActiveTab == tab.Name) and 18 or 16
                     tab.Button.ZIndex = 4
                     if tab.Icon then
-                        TweenService:Create(tab.Icon, ease, {Position = UDim2.new(0, 10, 0.5, -9)}):Play()
+                        tab.Icon.Visible = false
                     end
                 end
             end
@@ -7531,7 +7441,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         if not tabIcon and tabName and tostring(tabName):lower():find("setting") then
-            tabIcon = "rbxassetid://7734053495"
+            tabIcon = "settings"
         end
 
         if tabName and tostring(tabName):lower() == "settings" and Window.SettingsTab then
@@ -7595,10 +7505,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TabIcon = Instance.new("ImageLabel")
             TabIcon.Name = "TabIcon"
             TabIcon.Size = UDim2.new(0, 18, 0, 18)
-            TabIcon.Position = UDim2.new(0, 10, 0.5, -9)
+            TabIcon.Position = Window.SidebarCollapsed and UDim2.new(0.5, -9, 0.5, -9) or UDim2.new(0, 10, 0.5, -9)
             TabIcon.BackgroundTransparency = 1
             TabIcon.Image = tabIcon
             TabIcon.ImageColor3 = Window.CurrentTheme.SubText
+            TabIcon.Visible = (Window.SidebarCollapsed == true)
             TabIcon.ZIndex = 2
             TabIcon.Parent = TabContainer
 
@@ -7914,6 +7825,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Instance = CardFrame,
                 Callback = btnCb
             })
+
+            table.insert(Window.RegisteredMDButtons, buttonData)
 
             return buttonData
         end
@@ -10772,6 +10685,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         })
         Window.RegisteredSliders["BGTransparency"] = transSlider
 
+        local elemTransSlider = SettingsTab:AddSlider({
+            Title = "UI elements transparency",
+            Min = 0,
+            Max = 90,
+            Default = math.floor((Window.ElementsTransparency or 0.25) * 100),
+            Suffix = "%",
+            Callback = function(val, pct) Window:SetElementsTransparency(val / 100) end
+        })
+        Window.RegisteredSliders["ElementsTransparency"] = elemTransSlider
+
+        local topBottomTransSlider = SettingsTab:AddSlider({
+            Title = "Top & bottom frames transparency",
+            Min = 0,
+            Max = 90,
+            Default = math.floor((Window.TopBottomTransparency or (Window.CurrentTheme and Window.CurrentTheme.TopTrans) or 0) * 100),
+            Suffix = "%",
+            Callback = function(val, pct) Window:SetTopBottomTransparency(val / 100) end
+        })
+        Window.RegisteredSliders["TopBottomTransparency"] = topBottomTransSlider
+
         -- Custom theme color picker
         local customThemeCP = SettingsTab:AddColorPicker(
             "Custom theme",
@@ -11624,25 +11557,27 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
         if Window.TopFrame then
+            local topTrans = Window.TopBottomTransparency or newTheme.TopTrans
             if animated then
                 TweenService:Create(Window.TopFrame, tweenInfo, {
                     BackgroundColor3 = newTheme.TopBG,
-                    BackgroundTransparency = newTheme.TopTrans
+                    BackgroundTransparency = topTrans
                 }):Play()
             else
                 Window.TopFrame.BackgroundColor3 = newTheme.TopBG
-                Window.TopFrame.BackgroundTransparency = newTheme.TopTrans
+                Window.TopFrame.BackgroundTransparency = topTrans
             end
         end
         if Window.BottomFrame then
+            local bottomTrans = Window.TopBottomTransparency or newTheme.BottomTrans
             if animated then
                 TweenService:Create(Window.BottomFrame, tweenInfo, {
                     BackgroundColor3 = newTheme.BottomBG,
-                    BackgroundTransparency = newTheme.BottomTrans
+                    BackgroundTransparency = bottomTrans
                 }):Play()
             else
                 Window.BottomFrame.BackgroundColor3 = newTheme.BottomBG
-                Window.BottomFrame.BackgroundTransparency = newTheme.BottomTrans
+                Window.BottomFrame.BackgroundTransparency = bottomTrans
             end
         end
 
@@ -12147,6 +12082,36 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
         if Window.LeftFrame then
             Window.LeftFrame.BackgroundTransparency = math.clamp(pct + 0.10, 0, 1)
+        end
+    end
+
+    function Window:SetElementsTransparency(transparency)
+        local pct = math.clamp(transparency or 0.25, 0, 0.95)
+        Window.ElementsTransparency = pct
+        if Window.RegisteredSections then
+            for _, sec in ipairs(Window.RegisteredSections) do
+                if sec and sec.Card and sec.Card.Parent then
+                    sec.Card.BackgroundTransparency = pct
+                end
+            end
+        end
+        if Window.RegisteredMDButtons then
+            for _, btn in ipairs(Window.RegisteredMDButtons) do
+                if btn and btn.CardFrame and btn.CardFrame.Parent then
+                    btn.CardFrame.BackgroundTransparency = pct
+                end
+            end
+        end
+    end
+
+    function Window:SetTopBottomTransparency(transparency)
+        local pct = math.clamp(transparency or 0, 0, 0.95)
+        Window.TopBottomTransparency = pct
+        if Window.TopFrame and Window.TopFrame.Parent then
+            Window.TopFrame.BackgroundTransparency = pct
+        end
+        if Window.BottomFrame and Window.BottomFrame.Parent then
+            Window.BottomFrame.BackgroundTransparency = pct
         end
     end
 
