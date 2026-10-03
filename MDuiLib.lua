@@ -1,5 +1,4 @@
 local Library = {}
-Library.Version = "2.38.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -846,14 +845,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local discordCopyUrl = discordLink:find("^https?://") and discordLink or ("https://" .. discordDisplay)
 
     if not iconAsset or iconAsset == "" then
-        iconAsset = "rbxassetid://77044087750639"
+        iconAsset = "rbxassetid://71647461889740"
     elseif type(iconAsset) == "number" or tostring(iconAsset):match("^%d+$") then
         iconAsset = "rbxassetid://" .. tostring(iconAsset)
     end
 
     local minimizedIcon = (type(arg1) == "table" and (arg1.MinimizedIcon or arg1.MinimisedIcon or arg1.MiniIcon)) or iconAsset
     if not minimizedIcon or minimizedIcon == "" then
-        minimizedIcon = "rbxassetid://77044087750639"
+        minimizedIcon = "rbxassetid://71647461889740"
     elseif type(minimizedIcon) == "number" or tostring(minimizedIcon):match("^%d+$") then
         minimizedIcon = "rbxassetid://" .. tostring(minimizedIcon)
     end
@@ -1747,17 +1746,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local connectMode = type(boxOptions) == "table" and (boxOptions.Connect or boxOptions.Connected or boxOptions.connectMode or boxOptions.PositionInGroup)
         local Corner = Instance.new("UICorner")
         if connectMode == "Top" or connectMode == "First" then
-            ApplyCornerRadii(Corner, 22, 22, 0, 0)
+            ApplyCornerRadii(Corner, 12, 12, 0, 0)
         elseif connectMode == "Middle" then
             ApplyCornerRadii(Corner, 0, 0, 0, 0)
         elseif connectMode == "Bottom" or connectMode == "Last" then
-            ApplyCornerRadii(Corner, 0, 0, 22, 22)
+            ApplyCornerRadii(Corner, 0, 0, 12, 12)
         elseif connectMode == "Left" then
-            ApplyCornerRadii(Corner, 22, 0, 0, 22)
+            ApplyCornerRadii(Corner, 12, 0, 0, 12)
         elseif connectMode == "Right" then
-            ApplyCornerRadii(Corner, 0, 22, 22, 0)
+            ApplyCornerRadii(Corner, 0, 12, 12, 0)
         else
-            Corner.CornerRadius = UDim.new(0, 22)
+            Corner.CornerRadius = UDim.new(0, 12)
         end
         Corner.Parent = BoxFrame
 
@@ -1938,17 +1937,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local connectMode = (type(dropConfig) == "table" and (dropConfig.Connect or dropConfig.Connected or dropConfig.connectMode or dropConfig.PositionInGroup))
         local Corner = Instance.new("UICorner")
         if connectMode == "Top" or connectMode == "First" then
-            ApplyCornerRadii(Corner, 22, 22, 0, 0)
+            ApplyCornerRadii(Corner, 12, 12, 0, 0)
         elseif connectMode == "Middle" then
             ApplyCornerRadii(Corner, 0, 0, 0, 0)
         elseif connectMode == "Bottom" or connectMode == "Last" then
-            ApplyCornerRadii(Corner, 0, 0, 22, 22)
+            ApplyCornerRadii(Corner, 0, 0, 12, 12)
         elseif connectMode == "Left" then
-            ApplyCornerRadii(Corner, 22, 0, 0, 22)
+            ApplyCornerRadii(Corner, 12, 0, 0, 12)
         elseif connectMode == "Right" then
-            ApplyCornerRadii(Corner, 0, 22, 22, 0)
+            ApplyCornerRadii(Corner, 0, 12, 12, 0)
         else
-            Corner.CornerRadius = UDim.new(0, 22)
+            Corner.CornerRadius = UDim.new(0, 12)
         end
         Corner.Parent = DropdownFrame
 
@@ -2012,7 +2011,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DropdownContent.Parent = Window.DropdownOverlay or MainContainer
 
         local ContentCorner = Instance.new("UICorner")
-        ContentCorner.CornerRadius = UDim.new(0, 22)
+        ContentCorner.CornerRadius = UDim.new(0, 12)
         ContentCorner.Parent = DropdownContent
 
         AddUIShadow(DropdownContent, 20, 0.5)
@@ -2145,7 +2144,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     ItemBtn.Parent = InnerScroll
 
                     local ItemCorner = Instance.new("UICorner")
-                    ApplyCornerRadii(ItemCorner, 22, 22, 22, 22)
+                    ApplyCornerRadii(ItemCorner, 12, 12, 12, 12)
                     ItemCorner.Parent = ItemBtn
 
                     ItemBtn.MouseButton1Click:Connect(function()
@@ -2438,7 +2437,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         SectionFrame.Parent = parentTab.ContentFrame
 
         local SectionCorner = Instance.new("UICorner")
-        SectionCorner.CornerRadius = UDim.new(0, 22)
+        SectionCorner.CornerRadius = UDim.new(0, 12)
         SectionCorner.Parent = SectionFrame
         AddUIShadow(SectionFrame, 12, 0.45)
 
@@ -2890,7 +2889,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 22)
+        Corner.CornerRadius = UDim.new(0, 12)
         Corner.Parent = BtnFrame
 
         AddUIShadow(BtnFrame, 20, 0.5)
@@ -3803,7 +3802,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ModalCard.Parent = ModalBackdrop
 
         local ModalCorner = Instance.new("UICorner")
-        ModalCorner.CornerRadius = UDim.new(0, 22)
+        ModalCorner.CornerRadius = UDim.new(0, 12)
         ModalCorner.Parent = ModalCard
 
         local ModalStroke = Instance.new("UIStroke")
@@ -4072,7 +4071,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ApplyBtn.Parent = ModalCard
 
         local ApplyCorner = Instance.new("UICorner")
-        ApplyCorner.CornerRadius = UDim.new(0, 22)
+        ApplyCorner.CornerRadius = UDim.new(0, 12)
         ApplyCorner.Parent = ApplyBtn
 
         local isDraggingSV = false
@@ -4310,7 +4309,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CancelBtn.Parent = BtnRow
 
         local CancelCorner = Instance.new("UICorner")
-        CancelCorner.CornerRadius = UDim.new(0, 22)
+        CancelCorner.CornerRadius = UDim.new(0, 12)
         CancelCorner.Parent = CancelBtn
 
         local YesBtn = Instance.new("TextButton")
@@ -4326,7 +4325,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         YesBtn.Parent = BtnRow
 
         local YesCorner = Instance.new("UICorner")
-        YesCorner.CornerRadius = UDim.new(0, 22)
+        YesCorner.CornerRadius = UDim.new(0, 12)
         YesCorner.Parent = YesBtn
 
         local function Close()
@@ -4384,17 +4383,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local Corner = Instance.new("UICorner")
         if connectMode == "Top" or connectMode == "First" then
-            ApplyCornerRadii(Corner, 22, 22, 0, 0)
+            ApplyCornerRadii(Corner, 12, 12, 0, 0)
         elseif connectMode == "Middle" then
             ApplyCornerRadii(Corner, 0, 0, 0, 0)
         elseif connectMode == "Bottom" or connectMode == "Last" then
-            ApplyCornerRadii(Corner, 0, 0, 22, 22)
+            ApplyCornerRadii(Corner, 0, 0, 12, 12)
         elseif connectMode == "Left" then
-            ApplyCornerRadii(Corner, 22, 0, 0, 22)
+            ApplyCornerRadii(Corner, 12, 0, 0, 12)
         elseif connectMode == "Right" then
-            ApplyCornerRadii(Corner, 0, 22, 22, 0)
+            ApplyCornerRadii(Corner, 0, 12, 12, 0)
         else
-            Corner.CornerRadius = UDim.new(0, 22)
+            Corner.CornerRadius = UDim.new(0, 12)
         end
         Corner.Parent = CardFrame
 
@@ -4615,7 +4614,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnFrame.Parent = resolvedParent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 22)
+        Corner.CornerRadius = UDim.new(0, 12)
         Corner.Parent = BtnFrame
 
         AddUIShadow(BtnFrame, isSmall and 8 or 20, 0.45)
@@ -4749,17 +4748,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local Corner = Instance.new("UICorner")
         if connectMode == "Top" or connectMode == "First" then
-            ApplyCornerRadii(Corner, 22, 22, 0, 0)
+            ApplyCornerRadii(Corner, 12, 12, 0, 0)
         elseif connectMode == "Middle" then
             ApplyCornerRadii(Corner, 0, 0, 0, 0)
         elseif connectMode == "Bottom" or connectMode == "Last" then
-            ApplyCornerRadii(Corner, 0, 0, 22, 22)
+            ApplyCornerRadii(Corner, 0, 0, 12, 12)
         elseif connectMode == "Left" then
-            ApplyCornerRadii(Corner, 22, 0, 0, 22)
+            ApplyCornerRadii(Corner, 12, 0, 0, 12)
         elseif connectMode == "Right" then
-            ApplyCornerRadii(Corner, 0, 22, 22, 0)
+            ApplyCornerRadii(Corner, 0, 12, 12, 0)
         else
-            Corner.CornerRadius = UDim.new(0, 22)
+            Corner.CornerRadius = UDim.new(0, 12)
         end
         Corner.Parent = CardFrame
 
@@ -6232,6 +6231,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MDHUBNAME.TextColor3 = Window.CurrentTheme.Text
     MDHUBNAME.TextSize = 22
     MDHUBNAME.TextXAlignment = Enum.TextXAlignment.Left
+    MDHUBNAME.Visible = false  -- script name moved to bottom bar
     MDHUBNAME.ZIndex = 5
     MDHUBNAME.Parent = MDTextFolder
 
@@ -6318,7 +6318,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchResultsOverlay.Parent = MainContainer
 
     local ResultsCorner = Instance.new("UICorner")
-    ResultsCorner.CornerRadius = UDim.new(0, 22)
+    ResultsCorner.CornerRadius = UDim.new(0, 12)
     ResultsCorner.Parent = SearchResultsOverlay
 
     AddUIShadow(SearchResultsOverlay, 20, 0.5)
@@ -6867,10 +6867,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MDicon.Name = "Icon"
     MDicon.Size = UDim2.new(0, 35, 0, 35)
     MDicon.Position = UDim2.new(0.0142, 0, 0.16, 0)
-    MDicon.BackgroundTransparency = 0
+    MDicon.BackgroundTransparency = 1
     MDicon.Image = iconAsset
+    MDicon.ImageColor3 = Window.CurrentTheme.Text
     MDicon.ZIndex = 6
     MDicon.Parent = BottomFrame
+
+    Window._MDicon = MDicon
 
     local MDiconCorner = Instance.new("UICorner")
     MDiconCorner.CornerRadius = UDim.new(0, 10)
@@ -6879,24 +6882,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     AddUIShadow(MDicon, 20, 0.5)
 
     local MadebyText = Instance.new("TextLabel")
-    MadebyText.Size = UDim2.new(0, 180, 0, 24)
+    MadebyText.Size = UDim2.new(0, 200, 0, 24)
     MadebyText.Position = UDim2.new(0.0803, 0, 0.12, 0)
     MadebyText.BackgroundTransparency = 1
-    MadebyText.FontFace = FontFingerPaintHeavy
-    MadebyText.Text = authorText
+    MadebyText.FontFace = FontTitle
+    MadebyText.Text = (hubTitle and hubTitle ~= "MD SCRIPT HUB" and hubTitle) or (Window.ScriptName and Window.ScriptName ~= "MD_Script" and Window.ScriptName) or "script name"
     MadebyText.TextColor3 = Window.CurrentTheme.Text
-    MadebyText.TextSize = 16
+    MadebyText.TextSize = 15
     MadebyText.TextXAlignment = Enum.TextXAlignment.Left
     MadebyText.ZIndex = 6
     MadebyText.Parent = BottomFrame
 
-    -- DISCORD SERVER LINK UNDER MADE BY MORNINGDRIFT
+    Window._MadebyText = MadebyText
+
+    -- DISCORD SERVER LINK UNDER SCRIPT NAME
     local DiscordBtn = Instance.new("TextButton")
     DiscordBtn.Name = "DiscordServerLink"
     DiscordBtn.Size = UDim2.new(0, 210, 0, 20)
     DiscordBtn.Position = UDim2.new(0.0803, 0, 0.52, 0)
     DiscordBtn.BackgroundTransparency = 1
-    DiscordBtn.FontFace = FontFingerPaintRegular
+    DiscordBtn.FontFace = FontRegular
     DiscordBtn.Text = discordDisplay
     DiscordBtn.TextColor3 = Window.CurrentTheme.SubText
     DiscordBtn.TextSize = 11
@@ -7399,17 +7404,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     function Window:AddSidebarBigDivider(layoutOrder)
         local DivideFrame = Instance.new("Frame")
         DivideFrame.Name = "DIVIDEFRAME"
-        DivideFrame.Size = UDim2.new(0, 140, 0, 5)
+        DivideFrame.Size = UDim2.new(0, 130, 0, 2)
         DivideFrame.BackgroundColor3 = Window.CurrentTheme.Divider
+        DivideFrame.BackgroundTransparency = 0.4
         DivideFrame.BorderSizePixel = 0
         DivideFrame.LayoutOrder = layoutOrder or 2
         DivideFrame.Parent = SidebarScroll
 
-        local DivideCorner = Instance.new("UICorner")
-        DivideCorner.CornerRadius = UDim.new(0, 8)
-        DivideCorner.Parent = DivideFrame
-
-        AddUIShadow(DivideFrame, 8, 0.5)
         table.insert(Window.SidebarDividers, DivideFrame)
         return DivideFrame
     end
@@ -7417,17 +7418,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     function Window:AddSidebarSmallDivider(layoutOrder)
         local DivideFrameSmall = Instance.new("Frame")
         DivideFrameSmall.Name = "DIVIDEFRAMESMALL"
-        DivideFrameSmall.Size = UDim2.new(0, 115, 0, 3)
+        DivideFrameSmall.Size = UDim2.new(0, 105, 0, 1)
         DivideFrameSmall.BackgroundColor3 = Window.CurrentTheme.Divider
+        DivideFrameSmall.BackgroundTransparency = 0.5
         DivideFrameSmall.BorderSizePixel = 0
         DivideFrameSmall.LayoutOrder = layoutOrder or 4
         DivideFrameSmall.Parent = SidebarScroll
 
-        local DivideSmallCorner = Instance.new("UICorner")
-        DivideSmallCorner.CornerRadius = UDim.new(0, 8)
-        DivideSmallCorner.Parent = DivideFrameSmall
-
-        AddUIShadow(DivideFrameSmall, 8, 0.5)
         table.insert(Window.SidebarDividers, DivideFrameSmall)
         return DivideFrameSmall
     end
@@ -8062,10 +8059,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Line.BorderSizePixel = 0
             Line.ZIndex = 4
             Line.Parent = DividerContainer
-
-            local LineCorner = Instance.new("UICorner")
-            LineCorner.CornerRadius = UDim.new(1, 0)
-            LineCorner.Parent = Line
 
             local dividerObj = {
                 Frame = DividerContainer,
@@ -9507,12 +9500,44 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SectionCorner.CornerRadius = UDim.new(0, 14)
             SectionCorner.Parent = SectionCard
 
+            -- Animated gradient border (right-to-left shimmer between brighter/darker Divider tones)
             local SectionStroke = Instance.new("UIStroke")
             SectionStroke.Thickness = 1
             SectionStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(65, 70, 88)
-            SectionStroke.Transparency = 0.65
+            SectionStroke.Transparency = 0.5
             SectionStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             SectionStroke.Parent = SectionCard
+
+            local StrokeGradient = Instance.new("UIGradient")
+            StrokeGradient.Rotation = 0  -- horizontal, animating offset
+            StrokeGradient.Parent = SectionStroke
+
+            local _strokeOffset = 0
+            local function _buildStrokeSeq(base, offset)
+                local h, s, v = Color3.toHSV(base)
+                local bright = Color3.fromHSV(h, s, math.min(1, v + 0.18))
+                local dark   = Color3.fromHSV(h, s, math.max(0, v - 0.12))
+                local t = (math.sin(offset) + 1) * 0.5  -- 0..1
+                -- gradient: bright at right side fading to dark on left
+                return ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, dark),
+                    ColorSequenceKeypoint.new(math.clamp(0.5 - t * 0.4, 0.01, 0.99), base),
+                    ColorSequenceKeypoint.new(1, bright),
+                })
+            end
+
+            local _strokeBase = Window.CurrentTheme.Divider or Color3.fromRGB(65, 70, 88)
+            StrokeGradient.Color = _buildStrokeSeq(_strokeBase, 0)
+
+            local _sConn = RunService.Heartbeat:Connect(function(dt)
+                if not SectionCard or not SectionCard.Parent then return end
+                _strokeOffset = _strokeOffset + dt * 0.8
+                if StrokeGradient and StrokeGradient.Parent then
+                    StrokeGradient.Color = _buildStrokeSeq(_strokeBase, _strokeOffset)
+                    StrokeGradient.Rotation = (_strokeOffset * 20) % 360
+                end
+            end)
+            TrackConn(_sConn)
 
             AddUIShadow(SectionCard, 10, 0.35)
 
@@ -9739,6 +9764,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     return TabObj:AddToggle(arg1, arg2, arg3, ItemContainer, arg4, arg5, arg6)
                 end
             end
+            function SectionObj:AddCheckbox(arg1, arg2, arg3)
+                if type(arg1) == "table" and not arg1.IsA then
+                    local cfg = table.clone(arg1)
+                    cfg.Parent = cfg.Parent or cfg.Row or ItemContainer
+                    return TabObj:AddCheckbox(cfg, arg2, arg3, ItemContainer)
+                else
+                    return TabObj:AddCheckbox(arg1, arg2, arg3, ItemContainer)
+                end
+            end
             function SectionObj:AddSlider(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
                 if type(arg1) == "table" and not arg1.IsA then
                     local cfg = table.clone(arg1)
@@ -9895,7 +9929,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end
                 end
                 if SectionStroke and SectionStroke.Parent then
-                    SectionStroke.Color = theme.Divider or Color3.fromRGB(65, 70, 88)
+                    local newBase = theme.Divider or Color3.fromRGB(65, 70, 88)
+                    SectionStroke.Color = newBase
+                    _strokeBase = newBase  -- gradient animation picks this up automatically
                 end
             end
 
@@ -9953,10 +9989,186 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return toggleData
         end
 
+        function TabObj:AddCheckbox(titleOrConfig, initialState, onToggle, parentRow, position, sizeFraction)
+            local text, state, cb
+            if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                text  = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Checkbox"
+                state = titleOrConfig.Default or titleOrConfig.Value or titleOrConfig.State or titleOrConfig[2]
+                cb    = titleOrConfig.Callback or titleOrConfig.OnChanged or titleOrConfig.callback or titleOrConfig[3]
+                parentRow = titleOrConfig.Parent or titleOrConfig.Row or parentRow
+                position  = titleOrConfig.Position or position
+                sizeFraction = titleOrConfig.Size or titleOrConfig.Fraction or sizeFraction
+            else
+                text  = tostring(titleOrConfig or "Checkbox")
+                state = initialState
+                cb    = onToggle
+            end
+
+            parentRow = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
+            local targetParent = parentRow or ContentFrame
+            local isGroup = parentRow and (parentRow.Name == "ToggleGroup" or parentRow.Name == "VerticalGroup" or parentRow.Name == "HorizontalGroup")
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isGroup) and 0.5 or 1.0)
+            local defaultH = isGroup and 34 or 38
+            local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
+            local pos = position or UDim2.new(0, 0, 0, 0)
+
+            local isChecked = (state == true)
+            local CHECKBOX_SIZE = 18
+
+            local CardFrame = Instance.new("Frame")
+            CardFrame.Name = GenerateSafeName("CheckboxCard")
+            CardFrame.Size = size
+            CardFrame.Position = pos
+            CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
+            CardFrame.BackgroundTransparency = 0.05
+            CardFrame.BorderSizePixel = 0
+            CardFrame.ZIndex = 10
+            CardFrame.Parent = targetParent
+
+            local CardCorner = Instance.new("UICorner")
+            CardCorner.CornerRadius = UDim.new(0, 12)
+            CardCorner.Parent = CardFrame
+
+            if not isGroup then
+                AddUIShadow(CardFrame, 20, 0.5)
+            end
+
+            -- Square checkbox box
+            local BoxOuter = Instance.new("Frame")
+            BoxOuter.Name = "CheckBox"
+            BoxOuter.Size = UDim2.new(0, CHECKBOX_SIZE, 0, CHECKBOX_SIZE)
+            BoxOuter.Position = UDim2.new(1, -(CHECKBOX_SIZE + 12), 0.5, -(CHECKBOX_SIZE / 2))
+            BoxOuter.BackgroundColor3 = isChecked and Window.CurrentTheme.ButtonBG or (
+                (Window.CurrentTheme.CardBG == Color3.fromRGB(255,255,255))
+                and Color3.fromRGB(200, 205, 215)
+                or Color3.fromRGB(35, 38, 50)
+            )
+            BoxOuter.BackgroundTransparency = 0.05
+            BoxOuter.BorderSizePixel = 0
+            BoxOuter.ZIndex = 12
+            BoxOuter.Parent = CardFrame
+
+            local BoxCorner = Instance.new("UICorner")
+            BoxCorner.CornerRadius = UDim.new(0, 5)
+            BoxCorner.Parent = BoxOuter
+
+            local BoxStroke = Instance.new("UIStroke")
+            BoxStroke.Thickness = 1.5
+            BoxStroke.Color = isChecked and Window.CurrentTheme.ButtonBG or (Window.CurrentTheme.Divider or Color3.fromRGB(80, 85, 100))
+            BoxStroke.Transparency = 0.3
+            BoxStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            BoxStroke.Parent = BoxOuter
+
+            -- Checkmark icon (visible when checked)
+            local CheckIcon = Instance.new("ImageLabel")
+            CheckIcon.Name = "CheckIcon"
+            CheckIcon.Size = UDim2.new(0, CHECKBOX_SIZE - 4, 0, CHECKBOX_SIZE - 4)
+            CheckIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+            CheckIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+            CheckIcon.BackgroundTransparency = 1
+            CheckIcon.Image = "rbxassetid://6031094678"  -- checkmark
+            CheckIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+            CheckIcon.ImageTransparency = isChecked and 0 or 1
+            CheckIcon.ZIndex = 13
+            CheckIcon.Parent = BoxOuter
+
+            -- Label
+            local LabelText = Instance.new("TextLabel")
+            LabelText.Name = "Label"
+            LabelText.Size = UDim2.new(1, -(CHECKBOX_SIZE + 28), 1, 0)
+            LabelText.Position = UDim2.new(0, 12, 0, 0)
+            LabelText.BackgroundTransparency = 1
+            LabelText.FontFace = FontRegular
+            LabelText.RichText = true
+            LabelText.Text = text or "Checkbox"
+            LabelText.TextColor3 = Window.CurrentTheme.Text
+            LabelText.TextSize = 14
+            LabelText.TextWrapped = true
+            LabelText.TextXAlignment = Enum.TextXAlignment.Left
+            LabelText.TextYAlignment = Enum.TextYAlignment.Center
+            LabelText.ZIndex = 11
+            LabelText.Parent = CardFrame
+
+            -- Hit area
+            local HitArea = Instance.new("TextButton")
+            HitArea.Size = UDim2.new(1, 0, 1, 0)
+            HitArea.BackgroundTransparency = 1
+            HitArea.Text = ""
+            HitArea.ZIndex = 14
+            HitArea.Parent = CardFrame
+
+            local offBG  = (Window.CurrentTheme.CardBG == Color3.fromRGB(255,255,255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 50)
+            local offStroke = Window.CurrentTheme.Divider or Color3.fromRGB(80, 85, 100)
+
+            local function SetChecked(checked, silent)
+                isChecked = checked
+                local tweenI = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                if checked then
+                    TweenService:Create(BoxOuter, tweenI, {BackgroundColor3 = Window.CurrentTheme.ButtonBG}):Play()
+                    TweenService:Create(BoxStroke, tweenI, {Color = Window.CurrentTheme.ButtonBG, Transparency = 0}):Play()
+                    TweenService:Create(CheckIcon, tweenI, {ImageTransparency = 0}):Play()
+                else
+                    TweenService:Create(BoxOuter, tweenI, {BackgroundColor3 = offBG}):Play()
+                    TweenService:Create(BoxStroke, tweenI, {Color = offStroke, Transparency = 0.3}):Play()
+                    TweenService:Create(CheckIcon, tweenI, {ImageTransparency = 1}):Play()
+                end
+                if not silent and cb then
+                    pcall(cb, checked)
+                end
+            end
+
+            TrackConn(HitArea.MouseButton1Click:Connect(function()
+                SetChecked(not isChecked)
+            end))
+
+            local checkboxObj = {
+                Frame   = CardFrame,
+                Value   = isChecked,
+                SetState = function(self, v, silent)
+                    SetChecked(v == true, silent)
+                    self.Value = isChecked
+                end,
+                GetState = function(self)
+                    return isChecked
+                end,
+                RefreshTheme = function(theme)
+                    if not theme or type(theme) ~= "table" then return end
+                    CardFrame.BackgroundColor3 = theme.CardBG
+                    LabelText.TextColor3 = theme.Text
+                    offBG     = (theme.CardBG == Color3.fromRGB(255,255,255)) and Color3.fromRGB(200,205,215) or Color3.fromRGB(35,38,50)
+                    offStroke = theme.Divider or Color3.fromRGB(80,85,100)
+                    if isChecked then
+                        BoxOuter.BackgroundColor3 = theme.ButtonBG
+                        BoxStroke.Color = theme.ButtonBG
+                    else
+                        BoxOuter.BackgroundColor3 = offBG
+                        BoxStroke.Color = offStroke
+                    end
+                end,
+            }
+            checkboxObj.Toggle = function(self) self:SetState(not isChecked) end
+
+            Window.RegisteredMDToggles = Window.RegisteredMDToggles or {}
+            table.insert(Window.RegisteredMDToggles, checkboxObj)
+
+            table.insert(Window.SearchableItems, {
+                Type = "Checkbox",
+                Name = text or "Checkbox",
+                Desc = "",
+                TabName = tabName,
+                Instance = CardFrame
+            })
+
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            return checkboxObj
+        end
+
+
         function TabObj:AddMobileButton(arg1, arg2, arg3, arg4, arg5)
             return Window:CreateMobileButton(arg1, arg2, arg3, arg4, arg5)
         end
         TabObj.CreateMobileButton = TabObj.AddMobileButton
+
 
         function TabObj:AddToggleGroup(toggleList, parentRow)
             if type(toggleList) ~= "table" then return {} end
@@ -9977,7 +10189,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             if count > 1 then
                 local GroupCorner = Instance.new("UICorner")
-                GroupCorner.CornerRadius = UDim.new(0, 22)
+                GroupCorner.CornerRadius = UDim.new(0, 12)
                 GroupCorner.Parent = GroupFrame
                 AddUIShadow(GroupFrame, 20, 0.5)
             end
@@ -10037,7 +10249,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             if count > 1 then
                 local GroupCorner = Instance.new("UICorner")
-                GroupCorner.CornerRadius = UDim.new(0, 22)
+                GroupCorner.CornerRadius = UDim.new(0, 12)
                 GroupCorner.Parent = GroupFrame
                 AddUIShadow(GroupFrame, 20, 0.5)
             end
@@ -10231,17 +10443,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local connectMode = type(sliderOptions) == "table" and (sliderOptions.Connect or sliderOptions.Connected or sliderOptions.connectMode or sliderOptions.PositionInGroup)
                 local CardCorner = Instance.new("UICorner")
                 if connectMode == "Top" or connectMode == "First" then
-                    ApplyCornerRadii(CardCorner, 22, 22, 0, 0)
+                    ApplyCornerRadii(CardCorner, 12, 12, 0, 0)
                 elseif connectMode == "Middle" then
                     ApplyCornerRadii(CardCorner, 0, 0, 0, 0)
                 elseif connectMode == "Bottom" or connectMode == "Last" then
-                    ApplyCornerRadii(CardCorner, 0, 0, 22, 22)
+                    ApplyCornerRadii(CardCorner, 0, 0, 12, 12)
                 elseif connectMode == "Left" then
-                    ApplyCornerRadii(CardCorner, 22, 0, 0, 22)
+                    ApplyCornerRadii(CardCorner, 12, 0, 0, 12)
                 elseif connectMode == "Right" then
-                    ApplyCornerRadii(CardCorner, 0, 22, 22, 0)
+                    ApplyCornerRadii(CardCorner, 0, 12, 12, 0)
                 else
-                    CardCorner.CornerRadius = UDim.new(0, 22)
+                    CardCorner.CornerRadius = UDim.new(0, 12)
                 end
                 CardCorner.Parent = SliderCard
 
@@ -10609,7 +10821,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ThemeCard.Parent = SettingsTab.ContentFrame
 
         local ThemeCardCorner = Instance.new("UICorner")
-        ThemeCardCorner.CornerRadius = UDim.new(0, 22)
+        ThemeCardCorner.CornerRadius = UDim.new(0, 12)
         ThemeCardCorner.Parent = ThemeCard
         AddUIShadow(ThemeCard, 12, 0.45)
 
@@ -11457,6 +11669,22 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             end
         end
+
+        if Window._MDicon and Window._MDicon.Parent then
+            if animated then
+                TweenService:Create(Window._MDicon, tweenInfo, {ImageColor3 = newTheme.Text}):Play()
+            else
+                Window._MDicon.ImageColor3 = newTheme.Text
+            end
+        end
+        if Window._MadebyText and Window._MadebyText.Parent then
+            if animated then
+                TweenService:Create(Window._MadebyText, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+            else
+                Window._MadebyText.TextColor3 = newTheme.Text
+            end
+        end
+
 
         for _, btnData in ipairs(Window.RegisteredMDButtons) do
             if btnData and btnData.RefreshTheme then
