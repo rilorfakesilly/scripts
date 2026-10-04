@@ -1,5 +1,6 @@
 local Library = {}
 
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -896,8 +897,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         FontTabBtn = FontTabBtn,
         FontRegular = FontRegular,
         FontLight = FontLight,
-        ElementsTransparency = 0.25,
-        TopBottomTransparency = nil,
+        ElementsTransparency = 0.33,
+        TopBottomTransparency = 0.30,
         GetIcon = Library.GetIcon,
         AuthorText = authorText,
         DiscordLink = discordLink,
@@ -913,7 +914,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BackgroundBlurEnabled = true,
         SpiderwebBGEnabled = true,
         CustomThemeColor = nil,
-        CustomBGTransparency = 0.10,
+        CustomBGTransparency = 0.22,
         ShadowsEnabled = true,
         ClickEffectsEnabled = true,
         ClickParticleType = "Theme default",
@@ -1117,7 +1118,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 SoundVolume = Window.SoundVolume or 0.8,
                 Notifications = Window.NotificationsEnabled,
                 CustomThemeColor = (Window.IsCustomTheme and Window.CustomThemeColor) and Window.CustomThemeColor:ToHex() or nil,
-                BGTransparency = Window.CustomBGTransparency or 0.10,
+                BGTransparency = Window.CustomBGTransparency or 0.22,
                 Shadows = Window.ShadowsEnabled,
                 ClickEffects = Window.ClickEffectsEnabled,
                 ClickParticle = Window.ClickParticleType or "Theme default",
@@ -1766,7 +1767,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BoxFrame.Size = size
         BoxFrame.Position = position
         BoxFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-        BoxFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
+        BoxFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
         BoxFrame.BorderSizePixel = 0
         BoxFrame.ZIndex = 10
         BoxFrame.Parent = parent
@@ -1874,7 +1875,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end,
             RefreshTheme = function(theme)
                 BoxFrame.BackgroundColor3 = theme.CardBG
-                BoxFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
+                BoxFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
                 TitleLabel.TextColor3 = theme.Text
                 InputBox.TextColor3 = theme.Text
                 InputBox.PlaceholderColor3 = theme.SubText
@@ -1957,7 +1958,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DropdownFrame.Size = size
         DropdownFrame.Position = position
         DropdownFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-        DropdownFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
+        DropdownFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
         DropdownFrame.BorderSizePixel = 0
         DropdownFrame.ZIndex = 10
         DropdownFrame.ClipsDescendants = false
@@ -2386,7 +2387,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end,
             RefreshTheme = function(theme)
                 DropdownFrame.BackgroundColor3 = theme.CardBG
-                DropdownFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
+                DropdownFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
                 TitleText.TextColor3 = theme.Text
                 ArrowIcon.ImageColor3 = theme.Text
                 DropdownContent.BackgroundColor3 = theme.CardBG
@@ -4388,7 +4389,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CardFrame.Size = size
         CardFrame.Position = position
         CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-        CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
+        CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
         CardFrame.BorderSizePixel = 0
         CardFrame.ZIndex = 10
         CardFrame.Parent = parent
@@ -4472,7 +4473,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end,
             RefreshTheme = function(theme)
                 CardFrame.BackgroundColor3 = theme.CardBG
-                CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
+                CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
                 TitleLabel.TextColor3 = theme.Text
             end
         }
@@ -4761,7 +4762,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CardFrame.Size = size
         CardFrame.Position = position
         CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-        CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
+        CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
         CardFrame.BorderSizePixel = 0
         CardFrame.ZIndex = 10
         CardFrame.Parent = parent
@@ -4974,7 +4975,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end,
             RefreshTheme = function(theme)
                 CardFrame.BackgroundColor3 = theme.CardBG
-                CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
+                CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
                 TitleText.TextColor3 = theme.Text
                 local isTog = isToggled
                 ToggleFrame.BackgroundColor3 = isTog and theme.ButtonBG or GetThemedDarkColor(theme)
@@ -7047,8 +7048,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     }
 
     local _miniGrad = Window.CurrentTheme.MinGradient or Window.CurrentTheme.BottomGradient
-    local miniRingColor = (_miniGrad and _miniGrad[1]) or Window.CurrentTheme.AccentBG or Color3.fromRGB(255, 255, 255)
-    local miniLogoColor = Window.CurrentTheme.Text or Color3.fromRGB(255, 255, 255)
+    local miniThemeColor = (_miniGrad and _miniGrad[1]) or Window.CurrentTheme.AccentBG or Window.CurrentTheme.Text or Color3.fromRGB(255, 255, 255)
     local miniLayerImages = {}
 
     for i, layerDef in ipairs(MINI_LAYERS) do
@@ -7060,7 +7060,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         img.Size = UDim2.new(s, 0, s, 0)
         img.BackgroundTransparency = 1
         img.Image = layerDef.id
-        img.ImageColor3 = miniRingColor
+        img.ImageColor3 = miniThemeColor
         img.ScaleType = Enum.ScaleType.Fit
         img.ZIndex = 100 + i
         img.Parent = MinimizedFrame
@@ -7074,12 +7074,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MiniLogoIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
     MiniLogoIcon.Size = UDim2.new(1.05, 0, 1.05, 0)
     MiniLogoIcon.BackgroundTransparency = 1
-    MiniLogoIcon.Image = "rbxassetid://71647461889740"
-    MiniLogoIcon.ImageColor3 = miniLogoColor
+    MiniLogoIcon.Image = Window.MinimizedIcon or minimizedIcon or "rbxassetid://71647461889740"
+    MiniLogoIcon.ImageColor3 = miniThemeColor
     MiniLogoIcon.ScaleType = Enum.ScaleType.Fit
     MiniLogoIcon.ZIndex = 105
     MiniLogoIcon.Parent = MinimizedFrame
     miniLayerImages[6] = MiniLogoIcon  -- include in recolor list
+    Window.MiniLogoIcon = MiniLogoIcon
 
     -- Invisible click button on top of everything
     local MinimizedImage = Instance.new("ImageButton")
@@ -7314,8 +7315,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             newIcon = tostring(newIcon)
         end
         Window.MinimizedIcon = newIcon
+        if Window.MiniLogoIcon and Window.MiniLogoIcon.Parent then
+            Window.MiniLogoIcon.Image = newIcon
+        end
         if MinimizedImage then
-            MinimizedImage.Image = newIcon
+            MinimizedImage.Image = ""
         end
     end
 
@@ -9556,7 +9560,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SectionCard.Size = cardWidth
             SectionCard.AutomaticSize = Enum.AutomaticSize.Y
             SectionCard.BackgroundColor3 = Window.CurrentTheme.CardBG
-            SectionCard.BackgroundTransparency = Window.ElementsTransparency or 0.25
+            SectionCard.BackgroundTransparency = Window.ElementsTransparency or 0.33
             SectionCard.BorderSizePixel = 0
             SectionCard.ClipsDescendants = false
             SectionCard.ZIndex = 4
@@ -9799,7 +9803,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     if animated then
                         TweenService:Create(SectionCard, twInfo, {
                             BackgroundColor3 = theme.CardBG,
-                            BackgroundTransparency = Window.ElementsTransparency or 0.25
+                            BackgroundTransparency = Window.ElementsTransparency or 0.33
                         }):Play()
                         if SectionStroke then
                             TweenService:Create(SectionStroke, twInfo, {Color = divColor}):Play()
@@ -9815,7 +9819,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         end
                     else
                         SectionCard.BackgroundColor3 = theme.CardBG
-                        SectionCard.BackgroundTransparency = Window.ElementsTransparency or 0.25
+                        SectionCard.BackgroundTransparency = Window.ElementsTransparency or 0.33
                         if SectionStroke then SectionStroke.Color = divColor end
                         if HeaderLine then HeaderLine.BackgroundColor3 = divColor end
                         if TitleLabel then TitleLabel.TextColor3 = theme.Text end
@@ -10091,7 +10095,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CardFrame.Size = size
             CardFrame.Position = pos
             CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-            CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
+            CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
             CardFrame.BorderSizePixel = 0
             CardFrame.ZIndex = 10
             CardFrame.Parent = targetParent
@@ -10202,7 +10206,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 RefreshTheme = function(theme)
                     if not theme or type(theme) ~= "table" then return end
                     CardFrame.BackgroundColor3 = theme.CardBG
-                    CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.05
+                    CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
                     LabelText.TextColor3 = theme.Text
                     offBG     = GetThemedDarkColor(theme)
                     offStroke = theme.Divider or Color3.fromRGB(80,85,100)
@@ -10504,7 +10508,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 SliderCard.Size = cardSize
                 SliderCard.Position = pos
                 SliderCard.BackgroundColor3 = Window.CurrentTheme.CardBG
-                SliderCard.BackgroundTransparency = Window.ElementsTransparency or 0.05
+                SliderCard.BackgroundTransparency = Window.ElementsTransparency or 0.33
                 SliderCard.BorderSizePixel = 0
                 SliderCard.ZIndex = 10
                 SliderCard.Parent = targetParent
@@ -10636,7 +10640,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 sliderData.RefreshTheme = function(theme)
                     if oldRefresh then oldRefresh(theme) end
                     SliderCard.BackgroundColor3 = theme.CardBG
-                    SliderCard.BackgroundTransparency = Window.ElementsTransparency or 0.05
+                    SliderCard.BackgroundTransparency = Window.ElementsTransparency or 0.33
                     TitleLabel.TextColor3 = theme.Text
                     ValueLabel.TextColor3 = theme.Text
                 end
@@ -10823,7 +10827,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Title = "Background transparency",
             Min = 0,
             Max = 90,
-            Default = math.floor((Window.CustomBGTransparency or 0.10) * 100),
+            Default = math.floor((Window.CustomBGTransparency or 0.22) * 100),
             Suffix = "%",
             Callback = function(val, pct) Window:SetBackgroundTransparency(val / 100) end
         })
@@ -10833,7 +10837,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Title = "UI elements transparency",
             Min = 0,
             Max = 90,
-            Default = math.floor((Window.ElementsTransparency or 0.25) * 100),
+            Default = math.floor((Window.ElementsTransparency or 0.33) * 100),
             Suffix = "%",
             Callback = function(val, pct) Window:SetElementsTransparency(val / 100) end
         })
@@ -10843,7 +10847,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Title = "Top & bottom frames transparency",
             Min = 0,
             Max = 90,
-            Default = math.floor((Window.TopBottomTransparency or (Window.CurrentTheme and Window.CurrentTheme.TopTrans) or 0) * 100),
+            Default = math.floor((Window.TopBottomTransparency or (Window.CurrentTheme and Window.CurrentTheme.TopTrans) or 0.30) * 100),
             Suffix = "%",
             Callback = function(val, pct) Window:SetTopBottomTransparency(val / 100) end
         })
@@ -11992,21 +11996,42 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         if Window.MinimizedImage then
-            -- Always recolor all icon layers to theme accent color; logo stays Text color
+            -- Always recolor all icon layers (including mini icon) to theme accent color
             if Window.MinimizedLayers then
                 local minGrad = newTheme.MinGradient or newTheme.BottomGradient
-                -- Use the vivid gradient color so each theme shows a distinct ring color
-                local ringColor = (minGrad and minGrad[1]) or newTheme.AccentBG or newTheme.Text or Color3.fromRGB(255, 255, 255)
-                local logoColor = newTheme.Text or Color3.fromRGB(255, 255, 255)
+                local themeColor = (minGrad and minGrad[1]) or newTheme.AccentBG or newTheme.Text or Color3.fromRGB(255, 255, 255)
                 for idx, layer in ipairs(Window.MinimizedLayers) do
                     if layer and layer.Parent then
-                        local col = (idx == 6) and logoColor or ringColor
                         if animated then
-                            TweenService:Create(layer, tweenInfo, {ImageColor3 = col}):Play()
+                            TweenService:Create(layer, tweenInfo, {ImageColor3 = themeColor}):Play()
                         else
-                            layer.ImageColor3 = col
+                            layer.ImageColor3 = themeColor
                         end
                     end
+                end
+            end
+        end
+
+        if Window.RegisteredSliders then
+            local bgSld = Window.RegisteredSliders["BGTransparency"]
+            if bgSld and bgSld.SetValue and bgSld.GetValue then
+                local targetVal = math.floor((Window.CustomBGTransparency or newTheme.MainTrans or 0.22) * 100)
+                if bgSld:GetValue() ~= targetVal then
+                    pcall(function() bgSld:SetValue(targetVal, false) end)
+                end
+            end
+            local tbSld = Window.RegisteredSliders["TopBottomTransparency"]
+            if tbSld and tbSld.SetValue and tbSld.GetValue then
+                local targetVal = math.floor((Window.TopBottomTransparency or newTheme.TopTrans or 0.30) * 100)
+                if tbSld:GetValue() ~= targetVal then
+                    pcall(function() tbSld:SetValue(targetVal, false) end)
+                end
+            end
+            local elemSld = Window.RegisteredSliders["ElementsTransparency"]
+            if elemSld and elemSld.SetValue and elemSld.GetValue then
+                local targetVal = math.floor((Window.ElementsTransparency or 0.33) * 100)
+                if elemSld:GetValue() ~= targetVal then
+                    pcall(function() elemSld:SetValue(targetVal, false) end)
                 end
             end
         end
@@ -12261,7 +12286,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
     function Window:SetBackgroundTransparency(transparency)
-        local pct = math.clamp(transparency or 0.10, 0, 0.95)
+        local pct = math.clamp(transparency or 0.22, 0, 0.95)
         Window.CustomBGTransparency = pct
         if Window.MainFrame then
             Window.MainFrame.BackgroundTransparency = pct
@@ -12269,10 +12294,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if Window.LeftFrame then
             Window.LeftFrame.BackgroundTransparency = math.clamp(pct + 0.10, 0, 1)
         end
+        if Window.RegisteredSliders then
+            local sld = Window.RegisteredSliders["BGTransparency"]
+            if sld and sld.SetValue and sld.GetValue and sld:GetValue() ~= math.floor(pct * 100) then
+                pcall(function() sld:SetValue(math.floor(pct * 100), false) end)
+            end
+        end
     end
 
     function Window:SetElementsTransparency(transparency)
-        local pct = math.clamp(transparency or 0.25, 0, 0.95)
+        local pct = math.clamp(transparency or 0.33, 0, 0.95)
         Window.ElementsTransparency = pct
         if Window.RegisteredSections then
             for _, sec in ipairs(Window.RegisteredSections) do
@@ -12339,16 +12370,28 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             end
         end
+        if Window.RegisteredSliders then
+            local sld = Window.RegisteredSliders["ElementsTransparency"]
+            if sld and sld.SetValue and sld.GetValue and sld:GetValue() ~= math.floor(pct * 100) then
+                pcall(function() sld:SetValue(math.floor(pct * 100), false) end)
+            end
+        end
     end
 
     function Window:SetTopBottomTransparency(transparency)
-        local pct = math.clamp(transparency or 0, 0, 0.95)
+        local pct = math.clamp(transparency or 0.30, 0, 0.95)
         Window.TopBottomTransparency = pct
         if Window.TopFrame and Window.TopFrame.Parent then
             Window.TopFrame.BackgroundTransparency = pct
         end
         if Window.BottomFrame and Window.BottomFrame.Parent then
             Window.BottomFrame.BackgroundTransparency = pct
+        end
+        if Window.RegisteredSliders then
+            local sld = Window.RegisteredSliders["TopBottomTransparency"]
+            if sld and sld.SetValue and sld.GetValue and sld:GetValue() ~= math.floor(pct * 100) then
+                pcall(function() sld:SetValue(math.floor(pct * 100), false) end)
+            end
         end
     end
 
