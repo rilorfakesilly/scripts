@@ -589,13 +589,13 @@ Library.ThemePresets = {
     Dark = {
         Name = "Dark",
         MainBG = Color3.fromRGB(32, 34, 42),
-        MainTrans = 0.10,
+        MainTrans = 0.22,
         AccentBG = Color3.fromRGB(45, 48, 60),
-        AccentTrans = 0.20,
+        AccentTrans = 0.33,
         TopBG = Color3.fromRGB(45, 48, 60),
-        TopTrans = 0.05,
+        TopTrans = 0.30,
         BottomBG = Color3.fromRGB(45, 48, 60),
-        BottomTrans = 0.0,
+        BottomTrans = 0.30,
         BottomGradient = {
             Color3.fromRGB(45, 48, 60),
             Color3.fromRGB(60, 64, 80),
@@ -615,13 +615,13 @@ Library.ThemePresets = {
     Original = {
         Name = "Blue",
         MainBG = Color3.fromRGB(10, 55, 110),
-        MainTrans = 0.15,
+        MainTrans = 0.22,
         AccentBG = Color3.fromRGB(30, 120, 210),
-        AccentTrans = 0.40,
+        AccentTrans = 0.33,
         TopBG = Color3.fromRGB(18, 85, 165),
-        TopTrans = 0.05,
+        TopTrans = 0.30,
         BottomBG = Color3.fromRGB(160, 200, 245),
-        BottomTrans = 0,
+        BottomTrans = 0.30,
         BottomGradient = {
             Color3.fromRGB(15, 90, 180),
             Color3.fromRGB(40, 140, 230),
@@ -641,13 +641,13 @@ Library.ThemePresets = {
     White = {
         Name = "White",
         MainBG = Color3.fromRGB(242, 244, 248),
-        MainTrans = 0.05,
+        MainTrans = 0.22,
         AccentBG = Color3.fromRGB(220, 225, 235),
-        AccentTrans = 0.10,
+        AccentTrans = 0.33,
         TopBG = Color3.fromRGB(210, 215, 228),
-        TopTrans = 0.0,
+        TopTrans = 0.30,
         BottomBG = Color3.fromRGB(210, 215, 228),
-        BottomTrans = 0.0,
+        BottomTrans = 0.30,
         BottomGradient = {
             Color3.fromRGB(210, 215, 228),
             Color3.fromRGB(230, 235, 245),
@@ -667,13 +667,13 @@ Library.ThemePresets = {
     VeryDark = {
         Name = "Very dark",
         MainBG = Color3.fromRGB(15, 16, 20),
-        MainTrans = 0.05,
+        MainTrans = 0.22,
         AccentBG = Color3.fromRGB(24, 26, 34),
-        AccentTrans = 0.15,
+        AccentTrans = 0.33,
         TopBG = Color3.fromRGB(24, 26, 34),
-        TopTrans = 0.05,
+        TopTrans = 0.30,
         BottomBG = Color3.fromRGB(24, 26, 34),
-        BottomTrans = 0.0,
+        BottomTrans = 0.30,
         BottomGradient = {
             Color3.fromRGB(24, 26, 34),
             Color3.fromRGB(35, 38, 50),
@@ -693,13 +693,13 @@ Library.ThemePresets = {
     Amethyst = {
         Name = "Amethyst",
         MainBG = Color3.fromRGB(58, 20, 95),
-        MainTrans = 0.15,
+        MainTrans = 0.22,
         AccentBG = Color3.fromRGB(88, 28, 135),
-        AccentTrans = 0.30,
+        AccentTrans = 0.33,
         TopBG = Color3.fromRGB(88, 28, 135),
-        TopTrans = 0.05,
+        TopTrans = 0.30,
         BottomBG = Color3.fromRGB(88, 28, 135),
-        BottomTrans = 0.0,
+        BottomTrans = 0.30,
         BottomGradient = {
             Color3.fromRGB(88, 28, 135),
             Color3.fromRGB(126, 34, 206),
@@ -719,13 +719,13 @@ Library.ThemePresets = {
     Nature = {
         Name = "Green",
         MainBG = Color3.fromRGB(15, 60, 32),
-        MainTrans = 0.15,
+        MainTrans = 0.22,
         AccentBG = Color3.fromRGB(20, 83, 45),
-        AccentTrans = 0.30,
+        AccentTrans = 0.33,
         TopBG = Color3.fromRGB(20, 83, 45),
-        TopTrans = 0.05,
+        TopTrans = 0.30,
         BottomBG = Color3.fromRGB(20, 83, 45),
-        BottomTrans = 0.0,
+        BottomTrans = 0.30,
         BottomGradient = {
             Color3.fromRGB(20, 83, 45),
             Color3.fromRGB(34, 139, 74),
@@ -7046,7 +7046,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         { id = "rbxassetid://114710542476505", rotSpeed = 0,   size = 1.10, name = "MiniBlades" }, -- static blades
     }
 
-    local miniThemeColor = Window.CurrentTheme.Text or Color3.fromRGB(255, 255, 255)
+    local _miniGrad = Window.CurrentTheme.MinGradient or Window.CurrentTheme.BottomGradient
+    local miniRingColor = (_miniGrad and _miniGrad[1]) or Window.CurrentTheme.AccentBG or Color3.fromRGB(255, 255, 255)
+    local miniLogoColor = Window.CurrentTheme.Text or Color3.fromRGB(255, 255, 255)
     local miniLayerImages = {}
 
     for i, layerDef in ipairs(MINI_LAYERS) do
@@ -7058,7 +7060,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         img.Size = UDim2.new(s, 0, s, 0)
         img.BackgroundTransparency = 1
         img.Image = layerDef.id
-        img.ImageColor3 = miniThemeColor
+        img.ImageColor3 = miniRingColor
         img.ScaleType = Enum.ScaleType.Fit
         img.ZIndex = 100 + i
         img.Parent = MinimizedFrame
@@ -7073,7 +7075,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MiniLogoIcon.Size = UDim2.new(1.05, 0, 1.05, 0)
     MiniLogoIcon.BackgroundTransparency = 1
     MiniLogoIcon.Image = "rbxassetid://71647461889740"
-    MiniLogoIcon.ImageColor3 = miniThemeColor
+    MiniLogoIcon.ImageColor3 = miniLogoColor
     MiniLogoIcon.ScaleType = Enum.ScaleType.Fit
     MiniLogoIcon.ZIndex = 105
     MiniLogoIcon.Parent = MinimizedFrame
@@ -7094,12 +7096,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedImageCorner.CornerRadius = UDim.new(1, 0)
     MinimizedImageCorner.Parent = MinimizedImage
 
-    -- Dummy gradient kept for theme-system compatibility
-    local MinimizedImageGrad = Instance.new("UIGradient")
-    MinimizedImageGrad.Parent = MinimizedImage
-
     Window.MinimizedImage     = MinimizedImage
-    Window.MinimizedImageGrad = MinimizedImageGrad
+    Window.MinimizedImageGrad = nil  -- no gradient on this button
     Window.MinimizedLayers    = miniLayerImages
 
     -- Heartbeat: rotate animated ring layers
@@ -11432,36 +11430,30 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 table.insert(ActiveParticleConns, conn)
             end
 
-        elseif style == "Sparkles" or style == "Custom image" or (style == "Theme default" and themeKey == "Original") then
-            local isWaterDrop = (style == "Theme default" and themeKey == "Original")
+        elseif style == "Sparkles" or style == "Custom image" then
             local count = math.random(6, 9)
             local customRaw = (style == "Custom image" and (Window.CustomParticleAsset or "")) or ""
             local customId = (customRaw:match("^%d+$") and ("rbxassetid://" .. customRaw)) or customRaw
             if customId == "" then
-                customId = isWaterDrop and "rbxassetid://85347292680899"
-                    or (style == "Sparkles" and "rbxassetid://15396333997")
-                    or "rbxassetid://80640700930724"
+                customId = (style == "Sparkles" and "rbxassetid://15396333997") or "rbxassetid://80640700930724"
             end
 
             for _ = 1, count do
-                -- Ice crystals: each gets a distinct random size for variety
-                local size = isWaterDrop and math.random(8, 22) or math.random(14, 22)
+                local size = math.random(14, 22)
                 local color = VaryBrightness(SampleThemeColor())
-                local lifeT = isWaterDrop and (0.6 + math.random() * 0.35) or (0.75 + math.random() * 0.4)
-                local vx = math.random(-65, 65)
-                -- Crystals drift upward then slow with mild gravity
-                local vy = isWaterDrop and -(math.random(50, 110)) or -(math.random(60, 120))
-                local gravity = isWaterDrop and 120 or 350
-                local rotSpeed = math.random(-140, 140)
+                local lifeT = 0.75 + math.random() * 0.4
+                local vx = math.random(-60, 60)
+                local vy = -(math.random(60, 120))
+                local gravity = 350
+                local rotSpeed = math.random(-120, 120)
 
                 local p = Instance.new("ImageLabel")
-                p.Name = isWaterDrop and "IceCrystalParticle" or "CustomParticle"
+                p.Name = "CustomParticle"
                 p.Size = UDim2.new(0, size, 0, size)
                 p.Position = UDim2.new(0, screenX - size / 2, 0, screenY - size / 2)
                 p.BackgroundTransparency = 1
                 p.Image = customId
-                -- No color override — use default texture color (white = no tint)
-                p.ImageColor3 = isWaterDrop and Color3.fromRGB(255, 255, 255) or color
+                p.ImageColor3 = color
                 p.ImageTransparency = 0
                 p.ZIndex = 61
                 p.Parent = ParticleLayer
@@ -12000,31 +11992,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         if Window.MinimizedImage then
-            local minGrad = newTheme.MinGradient or newTheme.BottomGradient
-            if minGrad and #minGrad >= 2 and Window.MinimizedImageGrad then
-                Window.MinimizedImageGrad.Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, minGrad[1]),
-                    ColorSequenceKeypoint.new(1, minGrad[2] or minGrad[#minGrad])
-                })
-            end
-            if animated then
-                TweenService:Create(Window.MinimizedImage, tweenInfo, {
-                    BackgroundColor3 = newTheme.CardBG or Color3.fromRGB(110, 110, 110),
-                    ImageColor3 = newTheme.Text or Color3.fromRGB(255, 255, 255)
-                }):Play()
-            else
-                Window.MinimizedImage.BackgroundColor3 = newTheme.CardBG or Color3.fromRGB(110, 110, 110)
-                Window.MinimizedImage.ImageColor3 = newTheme.Text or Color3.fromRGB(255, 255, 255)
-            end
-            -- Always recolor all icon layers (rings + logo) to follow theme Text color
+            -- Always recolor all icon layers to theme accent color; logo stays Text color
             if Window.MinimizedLayers then
-                local layerColor = newTheme.Text or Color3.fromRGB(255, 255, 255)
-                for _, layer in ipairs(Window.MinimizedLayers) do
+                local minGrad = newTheme.MinGradient or newTheme.BottomGradient
+                -- Use the vivid gradient color so each theme shows a distinct ring color
+                local ringColor = (minGrad and minGrad[1]) or newTheme.AccentBG or newTheme.Text or Color3.fromRGB(255, 255, 255)
+                local logoColor = newTheme.Text or Color3.fromRGB(255, 255, 255)
+                for idx, layer in ipairs(Window.MinimizedLayers) do
                     if layer and layer.Parent then
+                        local col = (idx == 6) and logoColor or ringColor
                         if animated then
-                            TweenService:Create(layer, tweenInfo, {ImageColor3 = layerColor}):Play()
+                            TweenService:Create(layer, tweenInfo, {ImageColor3 = col}):Play()
                         else
-                            layer.ImageColor3 = layerColor
+                            layer.ImageColor3 = col
                         end
                     end
                 end
@@ -12260,13 +12240,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local customTheme = {
             Name = "Custom",
             MainBG = mainBG,
-            MainTrans = Window.CustomBGTransparency or 0.10,
+            MainTrans = Window.CustomBGTransparency or 0.22,
             AccentBG = accentBG,
-            AccentTrans = math.clamp((Window.CustomBGTransparency or 0.10) + 0.10, 0, 1),
+            AccentTrans = math.clamp((Window.CustomBGTransparency or 0.22) + 0.11, 0, 1),
             TopBG = topBG,
-            TopTrans = 0.05,
+            TopTrans = 0.30,
             BottomBG = bottomBG,
-            BottomTrans = 0.0,
+            BottomTrans = 0.30,
             BottomGradient = { bot1, bot2, bot3 },
             MinGradient = { min1, min2, min3 },
             Divider = divider,
