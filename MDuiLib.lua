@@ -613,30 +613,30 @@ Library.ThemePresets = {
         ButtonBG = Color3.fromRGB(30, 32, 40),
     },
     Original = {
-        Name = "Original orange",
-        MainBG = Color3.fromRGB(134, 59, 15),
+        Name = "Original blue",
+        MainBG = Color3.fromRGB(10, 55, 110),
         MainTrans = 0.15,
-        AccentBG = Color3.fromRGB(209, 100, 21),
+        AccentBG = Color3.fromRGB(30, 120, 210),
         AccentTrans = 0.40,
-        TopBG = Color3.fromRGB(171, 72, 22),
+        TopBG = Color3.fromRGB(18, 85, 165),
         TopTrans = 0.05,
-        BottomBG = Color3.fromRGB(211, 177, 163),
+        BottomBG = Color3.fromRGB(160, 200, 245),
         BottomTrans = 0,
         BottomGradient = {
-            Color3.fromRGB(165, 74, 4),
-            Color3.fromRGB(193, 106, 43),
-            Color3.fromRGB(150, 86, 22)
+            Color3.fromRGB(15, 90, 180),
+            Color3.fromRGB(40, 140, 230),
+            Color3.fromRGB(20, 110, 200)
         },
         MinGradient = {
-            Color3.fromRGB(255, 107, 8),
-            Color3.fromRGB(255, 166, 93),
-            Color3.fromRGB(255, 113, 19)
+            Color3.fromRGB(30, 140, 255),
+            Color3.fromRGB(100, 190, 255),
+            Color3.fromRGB(40, 155, 255)
         },
-        Divider = Color3.fromRGB(182, 91, 41),
+        Divider = Color3.fromRGB(45, 130, 220),
         Text = Color3.fromRGB(255, 255, 255),
-        SubText = Color3.fromRGB(235, 235, 235),
-        CardBG = Color3.fromRGB(110, 48, 12),
-        ButtonBG = Color3.fromRGB(130, 55, 15),
+        SubText = Color3.fromRGB(200, 225, 255),
+        CardBG = Color3.fromRGB(8, 45, 95),
+        ButtonBG = Color3.fromRGB(15, 65, 130),
     },
     White = {
         Name = "White",
@@ -7037,41 +7037,73 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedFrame.ZIndex = 100
     MinimizedFrame.Parent = MinimisedUI
 
-    -- Center icon button with theme-following gradient and 0.5 transparency
+    -- Minimized icon: 5 layered images, some rotating
+    -- Layer order (ZIndex): base(101) < circle(102) < rune(103) < arc(104) < blades(105)
+    -- Click target sits on top at ZIndex 106 (transparent bg, no image)
+    local MINI_LAYERS = {
+        { id = "rbxassetid://71566486083442",   rot = 0,     rotSpeed = 0,     name = "MiniBase"   }, -- 1: static base
+        { id = "rbxassetid://106889071350453",  rot = 0,     rotSpeed = 0,     name = "MiniCircle" }, -- 2: static circle
+        { id = "rbxassetid://134453120904821",  rot = 0,     rotSpeed = 18,    name = "MiniRune"   }, -- 3: CW slow  (~18°/s)
+        { id = "rbxassetid://85631176447485",   rot = 0,     rotSpeed = -32,   name = "MiniArc"    }, -- 4: CCW faster
+        { id = "rbxassetid://114710542476505",  rot = 0,     rotSpeed = 0,     name = "MiniBlades" }, -- 5: static blades
+    }
+
+    local miniThemeColor = Window.CurrentTheme.Text or Color3.fromRGB(255, 255, 255)
+    local miniLayerImages = {}
+
+    for i, layerDef in ipairs(MINI_LAYERS) do
+        local img = Instance.new("ImageLabel")
+        img.Name = layerDef.name
+        img.AnchorPoint = Vector2.new(0.5, 0.5)
+        img.Position = UDim2.new(0.5, 0, 0.5, 0)
+        img.Size = UDim2.new(1, 0, 1, 0)
+        img.BackgroundTransparency = 1
+        img.Image = layerDef.id
+        img.ImageColor3 = miniThemeColor
+        img.ZIndex = 100 + i
+        img.Parent = MinimizedFrame
+        miniLayerImages[i] = img
+    end
+
+    -- Invisible click button on top of all layers
     local MinimizedImage = Instance.new("ImageButton")
     MinimizedImage.Name = "MinimizedImage"
     MinimizedImage.AnchorPoint = Vector2.new(0.5, 0.5)
     MinimizedImage.Position = UDim2.new(0.5, 0, 0.5, 0)
     MinimizedImage.Size = UDim2.new(1, 0, 1, 0)
-    MinimizedImage.BackgroundTransparency = 0.5
-    MinimizedImage.BackgroundColor3 = Window.CurrentTheme.CardBG or Color3.fromRGB(110, 110, 110)
-    MinimizedImage.Image = minimizedIcon
-    MinimizedImage.ImageColor3 = Window.CurrentTheme.Text or Color3.fromRGB(255, 255, 255)
-    MinimizedImage.ZIndex = 101
+    MinimizedImage.BackgroundTransparency = 1
+    MinimizedImage.Image = ""
+    MinimizedImage.ZIndex = 106
     MinimizedImage.Parent = MinimizedFrame
 
     local MinimizedImageCorner = Instance.new("UICorner")
     MinimizedImageCorner.CornerRadius = UDim.new(1, 0)
     MinimizedImageCorner.Parent = MinimizedImage
 
-    local minGradInit = Window.CurrentTheme.MinGradient or Window.CurrentTheme.BottomGradient
+    -- Dummy gradient reference kept for theme compat (not visible)
     local MinimizedImageGrad = Instance.new("UIGradient")
-    if minGradInit and #minGradInit >= 2 then
-        MinimizedImageGrad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, minGradInit[1]),
-            ColorSequenceKeypoint.new(1, minGradInit[2] or minGradInit[#minGradInit])
-        })
-    else
-        MinimizedImageGrad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(155, 155, 155)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(65, 65, 65))
-        })
-    end
-    MinimizedImageGrad.Rotation = 45
     MinimizedImageGrad.Parent = MinimizedImage
 
-    Window.MinimizedImage = MinimizedImage
+    Window.MinimizedImage     = MinimizedImage
     Window.MinimizedImageGrad = MinimizedImageGrad
+    Window.MinimizedLayers    = miniLayerImages
+
+    -- Rotation loop for animated layers
+    local miniRotConn
+    miniRotConn = RunService.Heartbeat:Connect(function(dt)
+        if not MinimizedFrame or not MinimizedFrame.Parent then
+            miniRotConn:Disconnect(); return
+        end
+        for i, layerDef in ipairs(MINI_LAYERS) do
+            if layerDef.rotSpeed ~= 0 then
+                local img = miniLayerImages[i]
+                if img and img.Parent then
+                    img.Rotation = img.Rotation + layerDef.rotSpeed * dt
+                end
+            end
+        end
+    end)
+    TrackConn(miniRotConn)
 
     local function TriggerCircleSpinBurst() end
     Window.TriggerCircleSpinBurst = TriggerCircleSpinBurst
@@ -11386,29 +11418,40 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
 
         elseif style == "Sparkles" or style == "Custom image" or (style == "Theme default" and themeKey == "Original") then
+            local isWaterDrop = (style == "Theme default" and themeKey == "Original")
             local count = math.random(6, 9)
             local customRaw = (style == "Custom image" and (Window.CustomParticleAsset or "")) or ""
             local customId = (customRaw:match("^%d+$") and ("rbxassetid://" .. customRaw)) or customRaw
             if customId == "" then
-                customId = (style == "Sparkles" and "rbxassetid://15396333997") or "rbxassetid://80640700930724"
+                customId = isWaterDrop and "rbxassetid://13794683856"
+                    or (style == "Sparkles" and "rbxassetid://15396333997")
+                    or "rbxassetid://80640700930724"
             end
 
             for _ = 1, count do
-                local size = math.random(14, 22)
-                local color = VaryBrightness(SampleThemeColor())
-                local lifeT = 0.75 + math.random() * 0.4
-                local vx = math.random(-60, 60)
-                local vy = -(math.random(60, 120))
-                local gravity = 350
-                local rotSpeed = math.random(-120, 120)
+                local size = isWaterDrop and math.random(10, 18) or math.random(14, 22)
+                -- Water drops: light-blue tint; sparkles/custom: theme color
+                local color = isWaterDrop
+                    and Color3.fromRGB(
+                        math.random(140, 200),
+                        math.random(200, 240),
+                        255)
+                    or VaryBrightness(SampleThemeColor())
+                local lifeT = isWaterDrop and (0.55 + math.random() * 0.3) or (0.75 + math.random() * 0.4)
+                local vx = math.random(-55, 55)
+                local vy = isWaterDrop and math.random(60, 130) or -(math.random(60, 120))
+                local gravity = isWaterDrop and 180 or 350
+                local rotSpeed = math.random(-90, 90)
+                local startTrans = isWaterDrop and 0.15 or 0
 
                 local p = Instance.new("ImageLabel")
-                p.Name = "CustomParticle"
+                p.Name = isWaterDrop and "WaterDropParticle" or "CustomParticle"
                 p.Size = UDim2.new(0, size, 0, size)
                 p.Position = UDim2.new(0, screenX - size / 2, 0, screenY - size / 2)
                 p.BackgroundTransparency = 1
                 p.Image = customId
                 p.ImageColor3 = color
+                p.ImageTransparency = startTrans
                 p.ZIndex = 61
                 p.Parent = ParticleLayer
 
@@ -11445,7 +11488,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     local cx = startX + vx * elapsed
                     local cy = startY + vy * elapsed + 0.5 * gravity * elapsed * elapsed
                     p.Position = UDim2.new(0, cx, 0, cy)
-                    p.ImageTransparency = math.clamp(t * 1.15, 0, 1)
+                    -- Water drops start slightly visible then fade; sparkles fade from 0
+                    p.ImageTransparency = math.clamp(startTrans + t * 1.15, 0, 1)
                 end)
                 table.insert(ActiveParticleConns, conn)
             end
@@ -11961,6 +12005,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             else
                 Window.MinimizedImage.BackgroundColor3 = newTheme.CardBG or Color3.fromRGB(110, 110, 110)
                 Window.MinimizedImage.ImageColor3 = newTheme.Text or Color3.fromRGB(255, 255, 255)
+                -- Recolor all 5 icon layers to follow theme Text color
+                if Window.MinimizedLayers then
+                    local layerColor = newTheme.Text or Color3.fromRGB(255, 255, 255)
+                    for _, layer in ipairs(Window.MinimizedLayers) do
+                        if layer and layer.Parent then
+                            layer.ImageColor3 = layerColor
+                        end
+                    end
+                end
             end
         end
 
