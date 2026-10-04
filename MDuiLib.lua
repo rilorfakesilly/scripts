@@ -1,6 +1,5 @@
 local Library = {}
 
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -853,7 +852,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         iconAsset = arg5
     end
 
-    -- Defaults
     if not authorText or authorText == "" then
         authorText = "Made by MorningDrift"
     elseif not authorText:lower():find("^made by") then
@@ -1243,7 +1241,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     function Window:ApplyConfigSaveData(data)
         if not data then return end
 
-        -- 1. Apply Theme Preset or Custom Theme First (without animation to prevent mixing)
         if data.Theme == "Custom" and data.Settings and data.Settings.CustomThemeColor and data.Settings.CustomThemeColor ~= "" and Window.ApplyCustomTheme then
             pcall(function()
                 local col = Color3.fromHex(data.Settings.CustomThemeColor)
@@ -1263,7 +1260,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end)
         end
 
-        -- 2. Apply Global Settings
         if data.Settings then
             if data.Settings.Spiderweb ~= nil and Window.SetSpiderwebBackground then
                 pcall(function() Window:SetSpiderwebBackground(data.Settings.Spiderweb) end)
@@ -1305,7 +1301,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             pcall(function() Window:SetSidebarCollapsed(data.SidebarCollapsed) end)
         end
 
-        -- 3. Apply Toggles
         if data.Toggles then
             for name, state in pairs(data.Toggles) do
                 local toggle = Window.RegisteredToggles[name]
@@ -1339,7 +1334,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- 4. Apply Sliders
         if data.Sliders then
             for name, val in pairs(data.Sliders) do
                 local slider = Window.RegisteredSliders[name]
@@ -1362,7 +1356,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- 5. Apply Textboxes
         if data.Textboxes then
             for name, text in pairs(data.Textboxes) do
                 local box = Window.RegisteredTextboxes[name]
@@ -1372,7 +1365,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- 6. Apply Dropdowns
         if data.DropdownOptions then
             for name, opts in pairs(data.DropdownOptions) do
                 local drop = Window.RegisteredDropdowns[name]
@@ -1393,7 +1385,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- 7. Apply Multi Dropdowns
         if data.MultiDropdowns then
             for name, selected in pairs(data.MultiDropdowns) do
                 local mdrop = Window.RegisteredMultiDropdowns[name]
@@ -1403,7 +1394,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- 8. Apply Number Inputs
         if data.NumberInputs then
             for name, val in pairs(data.NumberInputs) do
                 local numInput = Window.RegisteredNumberInputs[name]
@@ -1413,7 +1403,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- 9. Apply Color Pickers
         if data.ColorPickers then
             for name, hex in pairs(data.ColorPickers) do
                 local cp = Window.RegisteredColorPickers[name] or (name == "Custom theme" and Window.RegisteredColorPickers["CustomTheme"]) or (name == "CustomTheme" and Window.RegisteredColorPickers["Custom theme"])
@@ -1431,7 +1420,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- 10. Apply Mobile Buttons
         if data.MobileButtons and Window.RegisteredMobileButtons then
             for key, info in pairs(data.MobileButtons) do
                 for idx, mb in ipairs(Window.RegisteredMobileButtons) do
@@ -1457,7 +1445,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- Fire ConfigLoaded Callbacks
         if Window.ConfigLoadedCallbacks then
             for _, fn in ipairs(Window.ConfigLoadedCallbacks) do
                 pcall(fn, data)
@@ -1746,7 +1733,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
     end
 
-    -- Textbox generator
     function Window:CreateMDTextbox(parent, position, size, title, placeholder, defaultText, onSubmit, boxOptions)
         parent = ResolveParent(parent)
         size = size or UDim2.new(1, -10, 0, 50)
@@ -1939,7 +1925,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return boxObj
     end
 
-    -- Dropdown generator
     function Window:CreateMDDropdown(parent, position, size, title, options, defaultOption, onSelect, dropConfig)
         parent = ResolveParent(parent)
         size = size or UDim2.new(1, -10, 0, 62)
@@ -2027,7 +2012,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local isSearchable = (type(dropConfig) == "table" and (dropConfig.Searchable or dropConfig.Search or dropConfig.searchable)) or false
 
-        -- Dropdown Content List Frame (Parented to Window.DropdownOverlay or MainContainer)
         local DropdownContent = Instance.new("Frame")
         DropdownContent.Name = GenerateSafeName("Content")
         DropdownContent.Size = UDim2.new(0, 0, 0, 0)
@@ -2456,7 +2440,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return Window:CreateMDDropdown(parent, position, size, title, options, defaultOption, onSelect)
     end
 
-    -- Config UI section builder
     function Window:CreateConfigSection(parentTab)
         local configSec = parentTab:AddSection("Configurations", true)
         local SectionFrame = configSec.Container or configSec.ItemContainer
@@ -2484,13 +2467,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- 1. Config Name Textbox
         local nameBoxObj = Window:CreateMDTextbox(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 48), "Config name", "MyConfig", nil)
 
-        -- 2. Config Selector Dropdown
         local configDropdownObj = Window:CreateMDDropdown(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 48), "", GetConfigList(), "DEFAULT", nil)
 
-        -- 3. Row 1: Left = Create config, Right = Delete config
         local Row1 = Instance.new("Frame")
         Row1.Name = GenerateSafeName("Row")
         Row1.Size = UDim2.new(1, 0, 0, 31)
@@ -2545,7 +2525,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             })
         end)
 
-        -- 4. Row 2: Left = Overwrite config, Right = Load config
         local Row2 = Instance.new("Frame")
         Row2.Name = GenerateSafeName("Row")
         Row2.Size = UDim2.new(1, 0, 0, 31)
@@ -2564,7 +2543,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Window:LoadConfig(current)
         end)
 
-        -- 5. Row 3: Config share — paste JSON textbox + Export/Import buttons
         local ShareSection = Instance.new("Frame")
         ShareSection.Name = GenerateSafeName("ShareSection")
         ShareSection.Size = UDim2.new(1, 0, 0, 104)
@@ -2578,7 +2556,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ShareLayout.Padding = UDim.new(0, 6)
         ShareLayout.Parent = ShareSection
 
-        -- Paste box label
         PasteLabel = Instance.new("TextLabel")
         PasteLabel.Name = GenerateSafeName("Label")
         PasteLabel.Size = UDim2.new(1, 0, 0, 16)
@@ -2592,7 +2569,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         PasteLabel.ZIndex = 5
         PasteLabel.Parent = ShareSection
 
-        -- Multiline paste input box
         PasteBoxFrame = Instance.new("Frame")
         PasteBoxFrame.Name = GenerateSafeName("Box")
         PasteBoxFrame.Size = UDim2.new(1, 0, 0, 44)
@@ -2632,7 +2608,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         PasteInput.ZIndex = 6
         PasteInput.Parent = PasteBoxFrame
 
-        -- Export + Import button row
         local ShareBtnRow = Instance.new("Frame")
         ShareBtnRow.Name = GenerateSafeName("BtnRow")
         ShareBtnRow.Size = UDim2.new(1, 0, 0, 36)
@@ -2642,7 +2617,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ShareBtnRow.ZIndex = 4
         ShareBtnRow.Parent = ShareSection
 
-        -- "Copy Export" — writes to clipboard so user can share
+        -- "Copy Export" - writes to clipboard so user can share
         Window:CreateMDButtonLong(ShareBtnRow, UDim2.new(0, 0, 0, 0), UDim2.new(0.485, -4, 1, 0), "Copy Config", function()
             local jsonString = Window:ExportConfigToClipboard()
             if jsonString then
@@ -2651,7 +2626,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end)
 
-        -- "Import" — reads from the textbox, NOT getclipboard
+        -- Import config parsed from input textbox
         Window:CreateMDButtonLong(ShareBtnRow, UDim2.new(0.515, 4, 0, 0), UDim2.new(0.485, -4, 1, 0), "Import Config", function()
             local text = PasteInput.Text
             if not text or text == "" then
@@ -2666,7 +2641,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
 
 
-        -- 6. Row 4: Single Long Button for Autoload config
         autoloadBtn = Window:CreateMDButtonLong(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 31), GetAutoloadButtonLabel(), function()
             local selected = configDropdownObj.GetSelected()
             local currentAuto = Window:GetAutoloadConfig()
@@ -2742,18 +2716,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LoadbaremptyStroke.Transparency = 0
     LoadbaremptyStroke.Parent = Loadbarempty
 
---    local LoadbarBGImage = Instance.new("ImageLabel")
---    LoadbarBGImage.Name = GenerateSafeName("BarBG")
---    LoadbarBGImage.Size = UDim2.new(1, 0, 1, 0)
---    LoadbarBGImage.Position = UDim2.new(0, 0, 0, 0)
---    LoadbarBGImage.BackgroundTransparency = 1
---    LoadbarBGImage.Image = "rbxassetid://139688890190075"
---    LoadbarBGImage.ScaleType = Enum.ScaleType.Tile
---    LoadbarBGImage.TileSize = UDim2.new(0, 25, 1, 0)
---    LoadbarBGImage.ImageTransparency = 0.4
---    LoadbarBGImage.ZIndex = 101
---    LoadbarBGImage.Parent = Loadbarempty 
--- ima think bout returning this later
     
     AddUIShadow(Loadbarempty, 20, 0.5, Color3.fromRGB(255, 255, 255))
 
@@ -2857,7 +2819,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
 
-    -- (SFX functions declared at top of CreateWindow)
 
     local function AttachUniversalDrag(dragHandleFrame, targetContainer)
         local isDragging = false
@@ -2895,7 +2856,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return Color3.fromHSV(h, math.clamp(s * 0.96, 0, 1), math.clamp(v * (factor or 1.05), 0, 1))
     end
 
-    -- Ultra-Smooth Button Generator Helper
+    -- Interactive button component with scale and stroke feedback
     function Window:CreateMDButton(parent, size, position, text, onClick, showArrow)
         parent = ResolveParent(parent)
         local BtnFrame = Instance.new("Frame")
@@ -3099,7 +3060,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BadgeStroke.Name = GenerateSafeName("Stroke")
         BadgeStroke.Thickness = 1.1
         BadgeStroke.Color = Color3.fromRGB(255, 255, 255)
-        BadgeStroke.Transparency = 1 --no comment
+        BadgeStroke.Transparency = 1
         BadgeStroke.Parent = BadgeContainer
 
         local BadgeText = Instance.new("TextLabel")
@@ -3828,12 +3789,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local ModalStroke = Instance.new("UIStroke")
         ModalStroke.Thickness = 1.4
         ModalStroke.Color = Color3.fromRGB(255, 255, 255)
-        ModalStroke.Transparency = 1-- again no comment , might return it tho
+        ModalStroke.Transparency = 1
         ModalStroke.Parent = ModalCard
 
         AddUIShadow(ModalCard, 28, 0.6)
 
-        -- Header
         local HeaderLabel = Instance.new("TextLabel")
         HeaderLabel.Name = "HeaderTitle"
         HeaderLabel.Size = UDim2.new(1, -50, 0, 32)
@@ -3862,7 +3822,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         TrackModalConn(CloseModalBtn.MouseEnter:Connect(PlayHoverSFX))
 
-        -- SV 2D Canvas (Saturation & Value)
         local SVBox = Instance.new("Frame")
         SVBox.Name = "SVBox"
         SVBox.Size = UDim2.new(1, -28, 0, 125)
@@ -3877,7 +3836,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         SVCorner.CornerRadius = UDim.new(0, 6)
         SVCorner.Parent = SVBox
 
-        -- White horizontal gradient layer
         local WhiteGradFrame = Instance.new("Frame")
         WhiteGradFrame.Size = UDim2.new(1, 0, 1, 0)
         WhiteGradFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -3898,7 +3856,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         WhiteGrad.Rotation = 0
         WhiteGrad.Parent = WhiteGradFrame
 
-        -- Black vertical gradient layer
         local BlackGradFrame = Instance.new("Frame")
         BlackGradFrame.Size = UDim2.new(1, 0, 1, 0)
         BlackGradFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -3919,7 +3876,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BlackGrad.Rotation = 90
         BlackGrad.Parent = BlackGradFrame
 
-        -- SV Draggable Knob
         local SVHandle = Instance.new("Frame")
         SVHandle.Name = "SVHandle"
         SVHandle.Size = UDim2.new(0, 14, 0, 14)
@@ -3947,7 +3903,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         SVTrigger.ZIndex = 86
         SVTrigger.Parent = SVBox
 
-        -- Hue Slider Bar
         local HueBar = Instance.new("Frame")
         HueBar.Name = "HueBar"
         HueBar.Size = UDim2.new(1, -28, 0, 14)
@@ -4001,7 +3956,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         HueTrigger.ZIndex = 86
         HueTrigger.Parent = HueBar
 
-        -- Preview Swatch & Hex Box
         local PreviewSwatch = Instance.new("Frame")
         PreviewSwatch.Name = "PreviewSwatch"
         PreviewSwatch.Size = UDim2.new(0, 36, 0, 26)
@@ -4049,7 +4003,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         HexBox.ZIndex = 83
         HexBox.Parent = HexContainer
 
-        -- Preset Swatches Row
         local PresetsRow = Instance.new("Frame")
         PresetsRow.Name = "PresetsRow"
         PresetsRow.Size = UDim2.new(1, -28, 0, 22)
@@ -4076,7 +4029,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Color3.fromRGB(255, 255, 255)
         }
 
-        -- Bottom Apply Button
         local ApplyBtn = Instance.new("TextButton")
         ApplyBtn.Name = "ApplyButton"
         ApplyBtn.Size = UDim2.new(1, -28, 0, 32)
@@ -4228,7 +4180,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CloseModal()
         end))
 
-        -- Animate In (No dark background!)
+        -- Animate In 
         ModalBackdrop.BackgroundTransparency = 1
         TweenService:Create(ModalCard, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
             Position = UDim2.new(0.5, 0, 0.5, 0),
@@ -4238,7 +4190,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         RefreshAll("init")
     end
 
-    -- Lightweight Confirm Dialog (No dark background, follows theme)
+    -- Confirmation modal 
     function Window:Confirm(titleOrOptions, message, onYes, onNo)
         local title, desc, yesText, noText
         if type(titleOrOptions) == "table" then
@@ -4580,7 +4532,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
     end
 
-    -- Long Button Generator (Half-Side / Full-Row / Fractional)
     function Window:CreateMDButtonLong(parent, position, size, text, onClick)
         local btnText, callback, btnSize, btnPos, targetParent
 
@@ -4751,7 +4702,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return btnData
     end
 
-    -- Half-Side Embedded Toggle Generator
     function Window:CreateMDToggleHalf(parent, position, size, text, initialState, onToggle, keybindConfig, connectMode)
         parent = ResolveParent(parent)
         size = size or UDim2.new(0, 260, 0, 44)
@@ -6222,7 +6172,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local SwitchTab = nil
 
-    -- TopFrame
     local TopFrame = Instance.new("Frame")
     TopFrame.Name = "TopFrame"
     TopFrame.Size = UDim2.new(1, 0, 0, 42)
@@ -6253,8 +6202,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MDHUBNAME.TextColor3 = Window.CurrentTheme.Text
     MDHUBNAME.TextSize = 22
     MDHUBNAME.TextXAlignment = Enum.TextXAlignment.Left
-    MDHUBNAME.Visible = false  -- script name moved to bottom bar
-    MDHUBNAME.ZIndex = 5
+    MDHUBNAME.Visible = false    MDHUBNAME.ZIndex = 5
     MDHUBNAME.Parent = MDTextFolder
 
     function Window:SetScriptNameFont(newFont)
@@ -6283,7 +6231,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SearchBarContainer.ZIndex = 6
     SearchBarContainer.Parent = TopFrame
 
-    -- Responsive search bar width (42% of TopFrame, clamped 160–320px)
+    -- Responsive search bar width (42% of TopFrame, clamped 160-320px)
     local function UpdateSearchBarWidth()
         local topW = TopFrame.AbsoluteSize.X
         if topW <= 0 then return end
@@ -6686,7 +6634,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     TrackConn(CloseBtn.MouseEnter:Connect(PlayHoverSFX))
 
-    -- Left Sidebar Background Panel (ZIndex 1)
+    -- Sidebar panel background
     local LeftFrame = Instance.new("Frame")
     LeftFrame.Name = "LeftFrame"
     LeftFrame.Size = UDim2.new(0, 175, 1, -94)
@@ -6697,7 +6645,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LeftFrame.ZIndex = 1
     LeftFrame.Parent = MainContainer
 
-    -- Main Content Background Panel (ZIndex 1)
+    -- Main content panel background
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
     MainFrame.Size = UDim2.new(1, -175, 1, -94)
@@ -6881,7 +6829,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MainContentFrame.ZIndex = 4
     MainContentFrame.Parent = ContentOverlay
 
-    -- Bottom Frame
     local BottomFrame = Instance.new("Frame")
     BottomFrame.Name = "BottomFrame"
     BottomFrame.Size = UDim2.new(1, 0, 0, 52)
@@ -6937,7 +6884,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     Window._MadebyText = MadebyText
 
-    -- DISCORD SERVER LINK UNDER SCRIPT NAME
     local DiscordBtn = Instance.new("TextButton")
     DiscordBtn.Name = "DiscordServerLink"
     DiscordBtn.Size = UDim2.new(0, 210, 0, 20)
@@ -7013,7 +6959,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     AttachUniversalDrag(MainFrame, MainContainer)
     AttachUniversalDrag(BottomFrame, MainContainer)
 
-    -- FILLFRAME (Top Spacer, LayoutOrder 0)
     local FillFrame = Instance.new("Frame")
     FillFrame.Name = "FILLFRAME"
     FillFrame.Size = UDim2.new(0, 140, 0, 8)
@@ -7079,8 +7024,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MiniLogoIcon.ScaleType = Enum.ScaleType.Fit
     MiniLogoIcon.ZIndex = 105
     MiniLogoIcon.Parent = MinimizedFrame
-    miniLayerImages[6] = MiniLogoIcon  -- include in recolor list
-    Window.MiniLogoIcon = MiniLogoIcon
+    miniLayerImages[6] = MiniLogoIcon    Window.MiniLogoIcon = MiniLogoIcon
 
     -- Invisible click button on top of everything
     local MinimizedImage = Instance.new("ImageButton")
@@ -7098,8 +7042,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedImageCorner.Parent = MinimizedImage
 
     Window.MinimizedImage     = MinimizedImage
-    Window.MinimizedImageGrad = nil  -- no gradient on this button
-    Window.MinimizedLayers    = miniLayerImages
+    Window.MinimizedImageGrad = nil    Window.MinimizedLayers    = miniLayerImages
 
     -- Heartbeat: rotate animated ring layers
     local miniRotConn
@@ -7340,7 +7283,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Window.UpdateActiveTabIndicator(false)
         end
 
-        -- 1. Animate Sidebar Tab Buttons
+        -- Animate sidebar tab buttons
         local oldTargetSize = Window.SidebarCollapsed and 11 or 15
         local newTargetSize = Window.SidebarCollapsed and 11 or 18
 
@@ -7380,7 +7323,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- 2. Hide all other tab frames cleanly with zero overlap
+        -- Hide inactive tab containers
         for name, tabObj in pairs(Window.Tabs) do
             if name ~= tabName and tabObj and tabObj.ContentFrame then
                 tabObj.ContentFrame.Visible = false
@@ -7388,7 +7331,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        -- 3. Smooth entrance of active tab content
+        -- Animate active tab into view
         if newTab and newTab.ContentFrame then
             local grad = newTab.ContentFrame:FindFirstChild("TabFadeGradient")
             if grad then
@@ -9540,7 +9483,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TabObj._nextColumn = "left"
             end
 
-            -- Decide where this section card goes
             local targetColumn
             if fullWidth then
                 targetColumn = ContentFrame
@@ -9693,7 +9635,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ItemLayout.Padding = UDim.new(0, 6)
             ItemLayout.Parent = ItemContainer
 
-            -- Animated collapse / expand — tweens CARD height for smooth layout shift
+            -- Animated collapse / expand - tweens CARD height for smooth layout shift
             local isCollapsed = false
             local isAnimating = false
             local tweenInfo025 = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -9717,7 +9659,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 SectionCard.Size = UDim2.new(SectionCard.Size.X.Scale, SectionCard.Size.X.Offset, 0, currentH)
 
                 if isCollapsed then
-                    -- Collapse
                     TweenService:Create(ArrowIcon, tweenInfo025, {Rotation = 0, ImageColor3 = Window.CurrentTheme.SubText}):Play()
                     TweenService:Create(HeaderLine, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play()
                     local tw = TweenService:Create(SectionCard, tweenInfo025, {
@@ -9733,7 +9674,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
                     end)
                 else
-                    -- Expand: measure target then animate
+                    -- Expand section to target height
                     ItemContainer.Visible = true
                     HeaderLine.Visible = true
                     HeaderLine.BackgroundTransparency = 1
@@ -10108,7 +10049,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 AddUIShadow(CardFrame, 20, 0.5)
             end
 
-            -- Square checkbox box
             local BoxOuter = Instance.new("Frame")
             BoxOuter.Name = "CheckBox"
             BoxOuter.Size = UDim2.new(0, CHECKBOX_SIZE, 0, CHECKBOX_SIZE)
@@ -10130,7 +10070,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             BoxStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             BoxStroke.Parent = BoxOuter
 
-            -- Checkmark icon (visible when checked)
             local _checkIconId = Library:GetIcon("check") or "86817768619372"
             local CheckIcon = Instance.new("ImageLabel")
             CheckIcon.Name = "CheckIcon"
@@ -10144,7 +10083,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CheckIcon.ZIndex = 13
             CheckIcon.Parent = BoxOuter
 
-            -- Label
             local LabelText = Instance.new("TextLabel")
             LabelText.Name = "Label"
             LabelText.Size = UDim2.new(1, -(CHECKBOX_SIZE + 28), 1, 0)
@@ -10161,7 +10099,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             LabelText.ZIndex = 11
             LabelText.Parent = CardFrame
 
-            -- Hit area
             local HitArea = Instance.new("TextButton")
             HitArea.Size = UDim2.new(1, 0, 1, 0)
             HitArea.BackgroundTransparency = 1
@@ -10758,7 +10695,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Window:AddSidebarBigDivider(998)
         local SettingsTab = Window:CreateTab("Settings", 999, "settings")
 
-        -- Section 1: Audio & Notifications
         local audioSection = SettingsTab:AddSection("Audio & Notifications")
         local audioToggles = SettingsTab:AddToggleGroup({
             {
@@ -10791,7 +10727,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         })
         Window.RegisteredSliders["SoundVolume"] = volSlider
 
-        -- Section 2: Appearance & Visuals
         local visualSection = SettingsTab:AddSection("Appearance & Visuals")
         local bgToggles = SettingsTab:AddToggleGroup({
             {
@@ -10863,7 +10798,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         })
         Window.RegisteredSliders["BlurIntensity"] = blurIntensitySlider
 
-        -- Custom theme color picker
         local customThemeCP = SettingsTab:AddColorPicker(
             "Custom theme",
             Window.CustomThemeColor or Window.CurrentTheme.ButtonBG,
@@ -10873,7 +10807,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         )
         Window.RegisteredColorPickers["CustomTheme"] = customThemeCP
 
-        -- Section 3: Click Effects & Particles
         local clickSection = SettingsTab:AddSection("Click Effects & Particles")
         local clickToggle = SettingsTab:AddToggle({
             Title = "Enable click effects",
@@ -10911,10 +10844,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         -- Reset current section container so ThemeCard and ConfigSection sit cleanly on ContentFrame
         SettingsTab.CurrentSectionContainer = nil
 
-        -- Configurations Management Section
         SettingsTab:CreateConfigSection()
 
-        -- 7. Theme Presets Card
         local ThemeCard = Instance.new("Frame")
         ThemeCard.Name = "ThemeCard"
         ThemeCard.Size = UDim2.new(1, -10, 0, 0)
@@ -10984,7 +10915,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     CreateDefaultSettingsTab()
 
-    -- Resizing Engine
+    -- Window resize handler
     local IsResizing, ResizeStartPos, StartWindowSize = false, nil, nil
     TrackConn(ResizeBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -11010,7 +10941,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
     end))
 
-    -- MINIMIZE / RESTORE ENGINE
+    -- Minimize and restore handler
     IsAnimatingMinimize = false
     local function MinimizeWindowAnimation()
         if IsAnimatingMinimize then return end
@@ -11122,7 +11053,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
     end))
 
-    -- UI click theme-specific particle engine
+    -- Click particle effects
     local ParticleLayer = Instance.new("Frame")
     ParticleLayer.Name = "ParticleLayer"
     ParticleLayer.Size = UDim2.new(1, 0, 1, 0)
@@ -11591,7 +11522,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         elseif input.UserInputType == Enum.UserInputType.Keyboard then
             if UserInputService:GetFocusedTextBox() then return end
 
-            -- 1. Check if a keybind badge is currently in editing/listening mode
+            -- Check if a keybind badge is currently listening for input
             if ActiveListeningBadge then
                 local b = ActiveListeningBadge
                 if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete or input.KeyCode == Enum.KeyCode.Escape then
@@ -11604,7 +11535,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return
             end
 
-            -- 2. Trigger active keybinds (works when UI is open or minimized)
+            -- Trigger active keybinds
             local boundBadge = Window.KeybindMap and Window.KeybindMap[input.KeyCode]
             if boundBadge and boundBadge.OnTrigger then
                 local now = os.clock()
@@ -12042,7 +11973,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     if btnData.Stroke then
                         btnData.Stroke.Thickness = (k == themeKey) and 2.2 or 1.2
                     end
-                    -- Update button BG and text color
                     if btnData.Frame then
                         btnData.Frame.BackgroundColor3 = newTheme.ButtonBG
                     end
@@ -12052,7 +11982,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             end
         end
-        -- Update ThemeCard bg color and transparency
         if Window.ThemeCard then
             Window.ThemeCard.BackgroundColor3 = newTheme.CardBG
             Window.ThemeCard.BackgroundTransparency = newTheme.AccentTrans or 0.3
@@ -12189,7 +12118,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             -- Grayscale / Monochrome selection (Black, Grey, White)
             local isDark = (v < 0.55)
             if v <= 0.10 then
-                -- Pure / Deep Black theme
+                -- Deep black palette
                 mainBG = Color3.fromRGB(13, 13, 16)
                 accentBG = Color3.fromRGB(19, 19, 24)
                 topBG = Color3.fromRGB(24, 24, 28)
@@ -12206,7 +12135,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 min2 = Color3.fromRGB(50, 50, 62)
                 min3 = Color3.fromRGB(28, 28, 36)
             elseif v >= 0.88 then
-                -- Pure / Light White theme
+                -- Light white palette
                 mainBG = Color3.fromRGB(238, 240, 246)
                 accentBG = Color3.fromRGB(224, 228, 236)
                 topBG = Color3.fromRGB(246, 248, 252)
@@ -12223,7 +12152,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 min2 = Color3.fromRGB(250, 252, 255)
                 min3 = Color3.fromRGB(205, 212, 225)
             else
-                -- Intermediate Grey theme (No red tint!)
+                -- Neutral grey palette 
                 mainBG = Color3.fromHSV(0, 0, math.clamp(v * 0.45 + 0.05, 0.10, 0.70))
                 accentBG = Color3.fromHSV(0, 0, math.clamp(v * 0.60 + 0.08, 0.14, 0.76))
                 topBG = Color3.fromHSV(0, 0, math.clamp(v * 0.65 + 0.10, 0.16, 0.82))
@@ -12241,7 +12170,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 min3 = Color3.fromHSV(0, 0, math.clamp(v * 0.55 + 0.08, 0.18, 0.75))
             end
         else
-            -- Chromatic / Colored theme
+            -- Saturated chromatic palette
             buttonBG = Color3.fromHSV(h, math.clamp(s * 0.88, 0.05, 0.95), math.clamp(v * 0.78, 0.20, 0.82))
             accentBG = Color3.fromHSV(h, math.clamp(s * 0.75, 0.04, 0.8), math.clamp(v * 0.45, 0.12, 0.55))
             topBG = Color3.fromHSV(h, math.clamp(s * 0.70, 0.04, 0.75), math.clamp(v * 0.38, 0.10, 0.50))
@@ -12564,7 +12493,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
     end
 
-    -- Asset preloader and initializator
+    -- Asset preloader
     task.defer(function()
         Window:UpdateLoadingProgress(10, "Initializing...")
 
