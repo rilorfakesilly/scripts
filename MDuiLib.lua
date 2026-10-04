@@ -613,7 +613,7 @@ Library.ThemePresets = {
         ButtonBG = Color3.fromRGB(30, 32, 40),
     },
     Original = {
-        Name = "Original blue",
+        Name = "Blue",
         MainBG = Color3.fromRGB(10, 55, 110),
         MainTrans = 0.15,
         AccentBG = Color3.fromRGB(30, 120, 210),
@@ -717,7 +717,7 @@ Library.ThemePresets = {
         ButtonBG = Color3.fromRGB(60, 20, 90),
     },
     Nature = {
-        Name = "Green/nature",
+        Name = "Green",
         MainBG = Color3.fromRGB(15, 60, 32),
         MainTrans = 0.15,
         AccentBG = Color3.fromRGB(20, 83, 45),
@@ -7037,35 +7037,49 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedFrame.ZIndex = 100
     MinimizedFrame.Parent = MinimisedUI
 
-    -- Minimized icon: 5 layered images, some rotating
-    -- Layer order (ZIndex): base(101) < circle(102) < rune(103) < arc(104) < blades(105)
-    -- Click target sits on top at ZIndex 106 (transparent bg, no image)
+    -- Minimized icon: 5 ring layers (all slightly oversized) + logo on top + invisible click button
     local MINI_LAYERS = {
-        { id = "rbxassetid://71566486083442",   rot = 0,     rotSpeed = 0,     name = "MiniBase"   }, -- 1: static base
-        { id = "rbxassetid://106889071350453",  rot = 0,     rotSpeed = 0,     name = "MiniCircle" }, -- 2: static circle
-        { id = "rbxassetid://134453120904821",  rot = 0,     rotSpeed = 18,    name = "MiniRune"   }, -- 3: CW slow  (~18°/s)
-        { id = "rbxassetid://85631176447485",   rot = 0,     rotSpeed = -32,   name = "MiniArc"    }, -- 4: CCW faster
-        { id = "rbxassetid://114710542476505",  rot = 0,     rotSpeed = 0,     name = "MiniBlades" }, -- 5: static blades
+        { id = "rbxassetid://71566486083442",  rotSpeed = 0,   size = 1.30, name = "MiniBase"   }, -- static base
+        { id = "rbxassetid://106889071350453", rotSpeed = 0,   size = 1.25, name = "MiniCircle" }, -- static circle
+        { id = "rbxassetid://134453120904821", rotSpeed = 18,  size = 1.20, name = "MiniRune"   }, -- CW slow
+        { id = "rbxassetid://85631176447485",  rotSpeed = -32, size = 1.15, name = "MiniArc"    }, -- CCW faster
+        { id = "rbxassetid://114710542476505", rotSpeed = 0,   size = 1.10, name = "MiniBlades" }, -- static blades
     }
 
     local miniThemeColor = Window.CurrentTheme.Text or Color3.fromRGB(255, 255, 255)
     local miniLayerImages = {}
 
     for i, layerDef in ipairs(MINI_LAYERS) do
+        local s = layerDef.size
         local img = Instance.new("ImageLabel")
         img.Name = layerDef.name
         img.AnchorPoint = Vector2.new(0.5, 0.5)
         img.Position = UDim2.new(0.5, 0, 0.5, 0)
-        img.Size = UDim2.new(1, 0, 1, 0)
+        img.Size = UDim2.new(s, 0, s, 0)
         img.BackgroundTransparency = 1
         img.Image = layerDef.id
         img.ImageColor3 = miniThemeColor
+        img.ScaleType = Enum.ScaleType.Fit
         img.ZIndex = 100 + i
         img.Parent = MinimizedFrame
         miniLayerImages[i] = img
     end
 
-    -- Invisible click button on top of all layers
+    -- Logo icon on top of rings, below click button
+    local MiniLogoIcon = Instance.new("ImageLabel")
+    MiniLogoIcon.Name = "MiniLogo"
+    MiniLogoIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+    MiniLogoIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+    MiniLogoIcon.Size = UDim2.new(0.55, 0, 0.55, 0)
+    MiniLogoIcon.BackgroundTransparency = 1
+    MiniLogoIcon.Image = "rbxassetid://71647461889740"
+    MiniLogoIcon.ImageColor3 = miniThemeColor
+    MiniLogoIcon.ScaleType = Enum.ScaleType.Fit
+    MiniLogoIcon.ZIndex = 105
+    MiniLogoIcon.Parent = MinimizedFrame
+    miniLayerImages[6] = MiniLogoIcon  -- include in recolor list
+
+    -- Invisible click button on top of everything
     local MinimizedImage = Instance.new("ImageButton")
     MinimizedImage.Name = "MinimizedImage"
     MinimizedImage.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -7073,14 +7087,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedImage.Size = UDim2.new(1, 0, 1, 0)
     MinimizedImage.BackgroundTransparency = 1
     MinimizedImage.Image = ""
-    MinimizedImage.ZIndex = 106
+    MinimizedImage.ZIndex = 110
     MinimizedImage.Parent = MinimizedFrame
 
     local MinimizedImageCorner = Instance.new("UICorner")
     MinimizedImageCorner.CornerRadius = UDim.new(1, 0)
     MinimizedImageCorner.Parent = MinimizedImage
 
-    -- Dummy gradient reference kept for theme compat (not visible)
+    -- Dummy gradient kept for theme-system compatibility
     local MinimizedImageGrad = Instance.new("UIGradient")
     MinimizedImageGrad.Parent = MinimizedImage
 
@@ -7088,7 +7102,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Window.MinimizedImageGrad = MinimizedImageGrad
     Window.MinimizedLayers    = miniLayerImages
 
-    -- Rotation loop for animated layers
+    -- Heartbeat: rotate animated ring layers
     local miniRotConn
     miniRotConn = RunService.Heartbeat:Connect(function(dt)
         if not MinimizedFrame or not MinimizedFrame.Parent then
@@ -10904,6 +10918,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ThemeCard.Size = UDim2.new(1, -10, 0, 0)
         ThemeCard.AutomaticSize = Enum.AutomaticSize.Y
         ThemeCard.BackgroundColor3 = Window.CurrentTheme.CardBG
+        ThemeCard.BackgroundTransparency = Window.CurrentTheme.AccentTrans or 0.3
         ThemeCard.ZIndex = 3
         ThemeCard.ClipsDescendants = false
         ThemeCard.Parent = SettingsTab.ContentFrame
@@ -11423,29 +11438,31 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local customRaw = (style == "Custom image" and (Window.CustomParticleAsset or "")) or ""
             local customId = (customRaw:match("^%d+$") and ("rbxassetid://" .. customRaw)) or customRaw
             if customId == "" then
-                customId = isWaterDrop and "rbxassetid://13794683856"
+                customId = isWaterDrop and "rbxassetid://85347292680899"
                     or (style == "Sparkles" and "rbxassetid://15396333997")
                     or "rbxassetid://80640700930724"
             end
 
             for _ = 1, count do
-                local size = isWaterDrop and math.random(10, 18) or math.random(14, 22)
-                -- Water drops: light-blue tint; sparkles/custom: theme color
+                -- Ice crystals: each gets a distinct random size for variety
+                local size = isWaterDrop and math.random(8, 22) or math.random(14, 22)
+                -- Ice crystal color: cold blue-white shimmer
                 local color = isWaterDrop
                     and Color3.fromRGB(
-                        math.random(140, 200),
-                        math.random(200, 240),
+                        math.random(180, 235),
+                        math.random(215, 245),
                         255)
                     or VaryBrightness(SampleThemeColor())
-                local lifeT = isWaterDrop and (0.55 + math.random() * 0.3) or (0.75 + math.random() * 0.4)
-                local vx = math.random(-55, 55)
-                local vy = isWaterDrop and math.random(60, 130) or -(math.random(60, 120))
-                local gravity = isWaterDrop and 180 or 350
-                local rotSpeed = math.random(-90, 90)
-                local startTrans = isWaterDrop and 0.15 or 0
+                local lifeT = isWaterDrop and (0.6 + math.random() * 0.35) or (0.75 + math.random() * 0.4)
+                local vx = math.random(-65, 65)
+                -- Crystals drift upward (icy, light) then slow with mild gravity
+                local vy = isWaterDrop and -(math.random(50, 110)) or -(math.random(60, 120))
+                local gravity = isWaterDrop and 120 or 350
+                local rotSpeed = math.random(-140, 140)
+                local startTrans = isWaterDrop and 0.05 or 0
 
                 local p = Instance.new("ImageLabel")
-                p.Name = isWaterDrop and "WaterDropParticle" or "CustomParticle"
+                p.Name = isWaterDrop and "IceCrystalParticle" or "CustomParticle"
                 p.Size = UDim2.new(0, size, 0, size)
                 p.Position = UDim2.new(0, screenX - size / 2, 0, screenY - size / 2)
                 p.BackgroundTransparency = 1
@@ -12019,10 +12036,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         if Window.ThemePresetBtnMap then
             for k, btnData in pairs(Window.ThemePresetBtnMap) do
-                if btnData and btnData.Stroke then
-                    btnData.Stroke.Thickness = (k == themeKey) and 2.2 or 1.2
+                if btnData then
+                    if btnData.Stroke then
+                        btnData.Stroke.Thickness = (k == themeKey) and 2.2 or 1.2
+                    end
+                    -- Update button BG and text color
+                    if btnData.Frame then
+                        btnData.Frame.BackgroundColor3 = newTheme.ButtonBG
+                    end
+                    if btnData.TextLabel then
+                        btnData.TextLabel.TextColor3 = newTheme.Text
+                    end
                 end
             end
+        end
+        -- Update ThemeCard bg color and transparency
+        if Window.ThemeCard then
+            Window.ThemeCard.BackgroundColor3 = newTheme.CardBG
+            Window.ThemeCard.BackgroundTransparency = newTheme.AccentTrans or 0.3
+            local tTitle = Window.ThemeCard:FindFirstChild("ThemeTitle", true)
+            if tTitle then tTitle.TextColor3 = newTheme.Text end
         end
 
         if Window.MDHUBNAME then
