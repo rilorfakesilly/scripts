@@ -7070,7 +7070,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MiniLogoIcon.Name = "MiniLogo"
     MiniLogoIcon.AnchorPoint = Vector2.new(0.5, 0.5)
     MiniLogoIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
-    MiniLogoIcon.Size = UDim2.new(0.95, 0, 0.95, 0)
+    MiniLogoIcon.Size = UDim2.new(1.05, 0, 1.05, 0)
     MiniLogoIcon.BackgroundTransparency = 1
     MiniLogoIcon.Image = "rbxassetid://71647461889740"
     MiniLogoIcon.ImageColor3 = miniThemeColor
@@ -11446,20 +11446,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             for _ = 1, count do
                 -- Ice crystals: each gets a distinct random size for variety
                 local size = isWaterDrop and math.random(8, 22) or math.random(14, 22)
-                -- Ice crystal color: cold blue-white shimmer
-                local color = isWaterDrop
-                    and Color3.fromRGB(
-                        math.random(180, 235),
-                        math.random(215, 245),
-                        255)
-                    or VaryBrightness(SampleThemeColor())
+                local color = VaryBrightness(SampleThemeColor())
                 local lifeT = isWaterDrop and (0.6 + math.random() * 0.35) or (0.75 + math.random() * 0.4)
                 local vx = math.random(-65, 65)
-                -- Crystals drift upward (icy, light) then slow with mild gravity
+                -- Crystals drift upward then slow with mild gravity
                 local vy = isWaterDrop and -(math.random(50, 110)) or -(math.random(60, 120))
                 local gravity = isWaterDrop and 120 or 350
                 local rotSpeed = math.random(-140, 140)
-                local startTrans = isWaterDrop and 0.05 or 0
 
                 local p = Instance.new("ImageLabel")
                 p.Name = isWaterDrop and "IceCrystalParticle" or "CustomParticle"
@@ -11467,8 +11460,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 p.Position = UDim2.new(0, screenX - size / 2, 0, screenY - size / 2)
                 p.BackgroundTransparency = 1
                 p.Image = customId
-                p.ImageColor3 = color
-                p.ImageTransparency = startTrans
+                -- No color override — use default texture color (white = no tint)
+                p.ImageColor3 = isWaterDrop and Color3.fromRGB(255, 255, 255) or color
+                p.ImageTransparency = 0
                 p.ZIndex = 61
                 p.Parent = ParticleLayer
 
@@ -11505,8 +11499,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     local cx = startX + vx * elapsed
                     local cy = startY + vy * elapsed + 0.5 * gravity * elapsed * elapsed
                     p.Position = UDim2.new(0, cx, 0, cy)
-                    -- Water drops start slightly visible then fade; sparkles fade from 0
-                    p.ImageTransparency = math.clamp(startTrans + t * 1.15, 0, 1)
+                    p.ImageTransparency = math.clamp(t * 1.15, 0, 1)
                 end)
                 table.insert(ActiveParticleConns, conn)
             end
@@ -12022,11 +12015,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             else
                 Window.MinimizedImage.BackgroundColor3 = newTheme.CardBG or Color3.fromRGB(110, 110, 110)
                 Window.MinimizedImage.ImageColor3 = newTheme.Text or Color3.fromRGB(255, 255, 255)
-                -- Recolor all 5 icon layers to follow theme Text color
-                if Window.MinimizedLayers then
-                    local layerColor = newTheme.Text or Color3.fromRGB(255, 255, 255)
-                    for _, layer in ipairs(Window.MinimizedLayers) do
-                        if layer and layer.Parent then
+            end
+            -- Always recolor all icon layers (rings + logo) to follow theme Text color
+            if Window.MinimizedLayers then
+                local layerColor = newTheme.Text or Color3.fromRGB(255, 255, 255)
+                for _, layer in ipairs(Window.MinimizedLayers) do
+                    if layer and layer.Parent then
+                        if animated then
+                            TweenService:Create(layer, tweenInfo, {ImageColor3 = layerColor}):Play()
+                        else
                             layer.ImageColor3 = layerColor
                         end
                     end
