@@ -1002,13 +1002,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local HoverSoundTemplate = Instance.new("Sound")
     HoverSoundTemplate.Name = GenerateSafeName("HoverSound")
-    HoverSoundTemplate.SoundId = "rbxassetid://5852311399"
+    HoverSoundTemplate.SoundId = "rbxassetid://88894490577328"
     HoverSoundTemplate.Volume = 0.4
     HoverSoundTemplate.Parent = SoundFolder
 
     local ClickSoundTemplate = Instance.new("Sound")
     ClickSoundTemplate.Name = GenerateSafeName("ClickSound")
-    ClickSoundTemplate.SoundId = "rbxassetid://5852311745"
+    ClickSoundTemplate.SoundId = "rbxassetid://86313632275410"
     ClickSoundTemplate.Volume = 0.5
     ClickSoundTemplate.Parent = SoundFolder
 
