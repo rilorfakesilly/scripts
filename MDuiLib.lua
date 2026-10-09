@@ -1,5 +1,4 @@
 local Library = {}
-Library.Version = "2.38.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -3597,6 +3596,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Trigger.ZIndex = 14
         Trigger.Parent = TrackFrame
 
+        local onRelease = (type(sliderOptions) == "table" and (sliderOptions.OnRelease or sliderOptions.onRelease or sliderOptions.ReleaseCallback or sliderOptions.releaseCallback)) or nil
+        local triggerOnRelease = (type(sliderOptions) == "table" and (sliderOptions.TriggerOnRelease == true or sliderOptions.OnlyOnRelease == true)) or false
+
+        if triggerOnRelease and not onRelease and onValueChange then
+            onRelease = onValueChange
+        end
+
         local isDragging = false
         local currentVal = defaultVal
         local displayedVal = defaultVal
@@ -3650,9 +3656,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if snappedVal ~= currentVal or isFirstClick then
                 currentVal = snappedVal
                 AnimateValueLabel(currentVal, pct)
-                if onValueChange then
+                if onValueChange and not triggerOnRelease then
                     pcall(onValueChange, currentVal, pct)
                 end
+            end
+        end
+
+        local function FireRelease()
+            local pct = (maxVal > minVal) and math.clamp((currentVal - minVal) / (maxVal - minVal), 0, 1) or 0
+            if onRelease then
+                pcall(onRelease, currentVal, pct)
+            end
+            if triggerOnRelease and onValueChange and onValueChange ~= onRelease then
+                pcall(onValueChange, currentVal, pct)
             end
         end
 
@@ -3671,7 +3687,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         TrackConn(UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                isDragging = false
+                if isDragging then
+                    isDragging = false
+                    FireRelease()
+                end
             end
         end))
 
@@ -3715,9 +3734,23 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 FilledPart.Size = UDim2.new(pct, 0, 1, 0)
                 HandleFrame.Position = UDim2.new(pct, 0, 0.5, 0)
                 AnimateValueLabel(currentVal, pct)
-                if triggerCallback and onValueChange then
-                    pcall(onValueChange, currentVal, pct)
+                if triggerCallback then
+                    if onValueChange and not triggerOnRelease then
+                        pcall(onValueChange, currentVal, pct)
+                    end
+                    if onRelease then
+                        pcall(onRelease, currentVal, pct)
+                    elseif triggerOnRelease and onValueChange then
+                        pcall(onValueChange, currentVal, pct)
+                    end
                 end
+            end,
+            FireRelease = FireRelease,
+            SetOnRelease = function(cb)
+                onRelease = cb
+            end,
+            GetOnRelease = function()
+                return onRelease
             end,
             SetSuffix = function(newSuffix)
                 suffix = tostring(newSuffix or "")
@@ -5102,12 +5135,23 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             sliderOpts.Prefix = prefix
             sliderOpts.ValueFormat = sliderConfig.ValueFormat or (suffix == "%" and "percent") or "number"
 
+            local userCb = cb
+            local userOnRelease = type(sliderConfig) == "table" and (sliderConfig.OnRelease or sliderConfig.onRelease or sliderConfig.ReleaseCallback or sliderConfig.releaseCallback)
+            local isTriggerOnRelease = type(sliderConfig) == "table" and (sliderConfig.TriggerOnRelease == true or sliderConfig.OnlyOnRelease == true)
+
+            if isTriggerOnRelease and not userOnRelease and userCb then
+                sliderOpts.OnRelease = userCb
+            elseif userOnRelease then
+                sliderOpts.OnRelease = userOnRelease
+            end
+            sliderOpts.TriggerOnRelease = false
+
             local sliderTrack
             sliderTrack = Window:CreateMDSlider(CardFrame, UDim2.new(0, 12, 0, 46), UDim2.new(1, -95, 0, 12), minVal, maxVal, defVal, function(val, pct)
                 if ValueLabel then
                     ValueLabel.Text = sliderTrack and sliderTrack.GetFormattedValue(val, pct) or (prefix .. tostring(val) .. suffix)
                 end
-                if cb then cb(val, pct) end
+                if userCb and not isTriggerOnRelease then userCb(val, pct) end
             end, sliderKey, sliderOpts)
 
             sliderTrack.SaveKey = sliderKey
@@ -6452,7 +6496,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         for _, item in ipairs(Window.SearchableItems) do
             if item.TabName == Window.ActiveTab and item.Instance and item.Instance.Parent then
-                local match = item.Name:lower():find(query, 1, true) or item.Desc:lower():find(query, 1, true)
+                local match = item.Name:lower():find(query, 1, true)
+                    or (item.Id and item.Id:lower():find(query, 1, true))
+                    or item.Desc:lower():find(query, 1, true)
                 item.Instance.Visible = (match ~= nil)
             end
         end
@@ -6464,9 +6510,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local matches = {}
         for _, item in ipairs(Window.SearchableItems) do
             local nameMatch = item.Name:lower():find(query, 1, true)
+            local idMatch = item.Id and item.Id:lower():find(query, 1, true)
             local descMatch = item.Desc:lower():find(query, 1, true)
             local tabMatch = item.TabName:lower():find(query, 1, true)
-            if nameMatch or descMatch or tabMatch then
+            if nameMatch or idMatch or descMatch or tabMatch then
                 table.insert(matches, item)
             end
         end
@@ -10571,6 +10618,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     AddUIShadow(SliderCard, 20, 0.5)
                 end
 
+                local displayTitle = (type(sliderOptions) == "table" and (sliderOptions.Title or sliderOptions.Text or sliderOptions.Name))
+                    or (type(arg1) == "string" and (type(arg2) ~= "table" or not (arg2.Title or arg2.Text or arg2.Name)) and arg1)
+                    or (type(arg1) == "table" and (arg1.Title or arg1.Text or arg1.Name))
+                    or sliderName
+                    or "Slider"
+
                 local titleY = isInSection and 5 or 8
                 local TitleLabel = Instance.new("TextLabel")
                 TitleLabel.Name = "SliderTitle"
@@ -10578,7 +10631,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TitleLabel.Position = UDim2.new(0, 14, 0, titleY)
                 TitleLabel.BackgroundTransparency = 1
                 TitleLabel.FontFace = FontFingerPaintRegular
-                TitleLabel.Text = (type(sliderOptions) == "table" and (sliderOptions.Title or sliderOptions.Text or sliderOptions.Name)) or (type(arg1) == "string" and arg1) or sliderName or "Slider"
+                TitleLabel.Text = displayTitle
                 TitleLabel.TextColor3 = Window.CurrentTheme.Text
                 TitleLabel.TextSize = isInSection and 12 or 14
                 TitleLabel.TextWrapped = true
@@ -10616,14 +10669,25 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     effectiveOpts.KnobSize = 18
                 end
 
+                local userCallback = onValueChange
+                local userOnRelease = type(sliderOptions) == "table" and (sliderOptions.OnRelease or sliderOptions.onRelease or sliderOptions.ReleaseCallback or sliderOptions.releaseCallback)
+                local isTriggerOnRelease = type(sliderOptions) == "table" and (sliderOptions.TriggerOnRelease == true or sliderOptions.OnlyOnRelease == true)
+
+                if isTriggerOnRelease and not userOnRelease and userCallback then
+                    effectiveOpts.OnRelease = userCallback
+                elseif userOnRelease then
+                    effectiveOpts.OnRelease = userOnRelease
+                end
+                effectiveOpts.TriggerOnRelease = false
+
                 local trackY = isInSection and 26 or 34
                 local trackH = isInSection and 10 or 12
                 local trackPadX = isInSection and 26 or 28
                 local sliderData
                 sliderData = Window:CreateMDSlider(SliderCard, UDim2.new(0, 14, 0, trackY), UDim2.new(1, -trackPadX, 0, trackH), minVal, maxVal, defaultVal, function(val, pct)
                     ValueLabel.Text = sliderData and sliderData.GetFormattedValue(val, pct) or (tostring(val) .. suffix)
-                    if onValueChange then
-                        pcall(onValueChange, val, pct)
+                    if userCallback and not isTriggerOnRelease then
+                        pcall(userCallback, val, pct)
                     end
                 end, sliderName, effectiveOpts)
 
@@ -10685,7 +10749,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
                 table.insert(Window.SearchableItems, {
                     Type = "Slider",
-                    Name = sliderName or "Slider",
+                    Name = displayTitle,
+                    Id = effectiveSaveKey or sliderName,
                     Desc = "",
                     TabName = tabName,
                     Instance = SliderCard
@@ -10696,9 +10761,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local sliderData = Window:CreateMDSlider(targetParent, pos, size, minVal, maxVal, defaultVal, onValueChange, sliderName, sliderOptions)
                 ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
 
+                local nonCardTitle = (type(sliderOptions) == "table" and (sliderOptions.Title or sliderOptions.Text or sliderOptions.Name))
+                    or (type(arg1) == "string" and (type(arg2) ~= "table" or not (arg2.Title or arg2.Text or arg2.Name)) and arg1)
+                    or (type(arg1) == "table" and (arg1.Title or arg1.Text or arg1.Name))
+                    or sliderName
+                    or "Slider"
+                local nonCardSaveKey = (type(sliderOptions) == "table" and (sliderOptions.SaveKey or sliderOptions.saveKey or sliderOptions.Id or sliderOptions.id or sliderOptions.Identifier or sliderOptions.identifier)) or sliderName
+
                 table.insert(Window.SearchableItems, {
                     Type = "Slider",
-                    Name = sliderName or "Slider",
+                    Name = nonCardTitle,
+                    Id = nonCardSaveKey,
                     Desc = "",
                     TabName = tabName,
                     Instance = sliderData.Track
@@ -10934,6 +11007,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Max = 100,
             Default = math.floor((Window.ShadowIntensity or (1 / 1.8)) * 100),
             Suffix = "%",
+            TriggerOnRelease = true,
+            OnRelease = function(val, pct)
+                Window:SetShadowIntensity(val)
+            end,
             Callback = function(val, pct)
                 Window:SetShadowIntensity(val)
             end
