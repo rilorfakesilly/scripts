@@ -489,500 +489,132 @@ end
 
 
 
--- look up trading economy values
-local MM2Values = {
-    ["<3"] = 14, ["2015"] = 0, ["8Bit"] = 0, ["Abduction"] = 0,
-    ["Abstract"] = 0, ["Ace"] = 0, ["Adurite (Gun)"] = 0, ["Adurite (Knife)"] = 0,
-    ["Alex"] = 4, ["Alienbeam"] = 3046, ["Aliens"] = 0, ["America"] = 10,
-    ["Amerilaser"] = 31, ["Apocalypse (Gun)"] = 0, ["Apocalypse (Knife)"] = 0, ["Aqua"] = 0,
-    ["Aquarium (Gun)"] = 0, ["Aquarium (Knife)"] = 0, ["Arctic (Gun)"] = 7, ["Arctic (Knife)"] = 0,
-    ["Asteroid"] = 4, ["Aurora (Gun)"] = 1, ["Aurora (Knife)"] = 16, ["Australis"] = 137,
-    ["Bacon"] = 0, ["Badger"] = 1, ["Balloons"] = 0, ["Bat"] = 0,
-    ["Bats"] = 4, ["Bats (2020)"] = 0, ["Bats (Gun)"] = 1, ["Bats (Knife)"] = 171,
-    ["Bats Gun (2024)"] = 0, ["Bats Knife (2024)"] = 0, ["Battleaxe"] = 16, ["Battleaxe II"] = 23,
-    ["Batwing"] = 62, ["Bauble"] = 1232, ["Beach"] = 41, ["Bear"] = 0,
-    ["Bells"] = 0, ["Big Kill"] = 0, ["Bio"] = 0, ["Bioblade"] = 14,
-    ["Biogun"] = 0, ["Bit"] = 0, ["Black"] = 0, ["Black Cat"] = 274,
-    ["Blaster"] = 25, ["Bleached"] = 0, ["Blizzard"] = 219, ["Blood"] = 11,
-    ["Bloom"] = 431, ["Blossom"] = 0, ["Blue"] = 0, ["Blue Elite"] = 4,
-    ["Blue Pumpkin (2018)"] = 301, ["Blue Pumpkin (2019)"] = 3, ["Blue Pumpkin (2020)"] = 4, ["Blue Scratch"] = 3,
-    ["Blue Seer"] = 4, ["Bluesteel (Gun)"] = 0, ["Bluesteel (Knife)"] = 0, ["Boneblade"] = 10,
-    ["Bones"] = 1, ["Bones (Knife)"] = 0, ["Borders"] = 0, ["Borealis"] = 144,
-    ["Box of Blue Papers"] = 3, ["Box of Fertilizer"] = 3, ["Box of Gold Papers"] = 3, ["Box of Green Papers"] = 3,
-    ["Box of Purple Papers"] = 3, ["Box of Red Papers"] = 3, ["Box of Ultra Wrap"] = 3, ["Brains"] = 1,
-    ["Brains 2022"] = 0, ["Branches"] = 41, ["Broken"] = 10, ["Brown"] = 0,
-    ["Brush"] = 0, ["Bunnies"] = 5, ["Bunny"] = 0, ["Butterflies"] = 0,
-    ["C. Candleflame"] = 62, ["C. Constellation"] = 49284, ["C. Cookiecane"] = 52, ["C. Darkbringer"] = 103,
-    ["C. Deathshard"] = 52, ["C. Elderwood Blade"] = 62, ["C. Fire Bunny"] = 7, ["C. Gingerblade"] = 44,
-    ["C. Heart Wand"] = 6503, ["C. Lightbringer"] = 96, ["C. Snow Dagger"] = 7872, ["C. Snowcannon"] = 11636,
-    ["C. Swirly Gun"] = 62, ["C. Traveler's Gun"] = 308025, ["C. Vampire's Gun"] = 47915, ["Camo (Gun)"] = 0,
-    ["Camo (Knife)"] = 0, ["Candied (Gun)"] = 0, ["Candied (Knife)"] = 0, ["Candies (2016)"] = 0,
-    ["Candies (2017)"] = 0, ["Candle"] = 0, ["Candleflame"] = 55, ["Candleflame (Gun)"] = 0,
-    ["Candles"] = 0, ["Candy"] = 116, ["Candy Corn (Gun)"] = 0, ["Candy Corn (Knife)"] = 0,
-    ["Candy Swirl (Gun)"] = 7, ["Candy Swirl (Knife)"] = 1, ["CandyCorn (2019)"] = 4, ["CandyCorn (Gun)"] = 0,
-    ["CandyCorn (Knife)"] = 0, ["CandyCorn 2017"] = 21, ["Cane (Gun)"] = 0, ["Cane (Knife)"] = 0,
-    ["Cane 2018 (Gun)"] = 0, ["Cane 2021 (Gun)"] = 0, ["Cane 2021 (Knife)"] = 0, ["Cane Knife (2018)"] = 1232,
-    ["Canes (Gun)"] = 0, ["Canes (Knife)"] = 0, ["Cardboard"] = 0, ["Carrot"] = 0,
-    ["Carrot (Gun)"] = 0, ["Carrot (Knife)"] = 0, ["Carrot Bunny"] = 0, ["Carrots"] = 0,
-    ["Carved (Gun)"] = 0, ["Carved (Knife)"] = 0, ["Cat"] = 0, ["Cats"] = 0,
-    ["Caution"] = 0, ["Cavern (Gun)"] = 1, ["Cavern (Knife)"] = 10, ["Celestial"] = 2396,
-    ["Checkers"] = 0, ["Cheddar"] = 0, ["Cheesy"] = 0, ["Cherry"] = 0,
-    ["Chick"] = 0, ["Chill"] = 14, ["Chilly"] = 10, ["Choco"] = 0,
-    ["Chroma Alienbeam"] = 41070, ["Chroma Bauble"] = 52022, ["Chroma Blizzard"] = 10952, ["Chroma Boneblade"] = 37,
-    ["Chroma Evergreen"] = 82140, ["Chroma Evergun"] = 105413, ["Chroma Fang"] = 48, ["Chroma Fire Bat"] = 7,
-    ["Chroma Fire Bear"] = 7, ["Chroma Fire Cat"] = 7, ["Chroma Fire Dog"] = 7, ["Chroma Fire Fox"] = 7,
-    ["Chroma Fire Pig"] = 7, ["Chroma Gemstone"] = 44, ["Chroma Heat"] = 44, ["Chroma Laser"] = 57,
-    ["Chroma Luger"] = 75, ["Chroma Ornament"] = 3628, ["Chroma Raygun"] = 20193, ["Chroma Saw"] = 41,
-    ["Chroma Seer"] = 44, ["Chroma Shark"] = 48, ["Chroma Slasher"] = 52, ["Chroma Snowstorm"] = 5818,
-    ["Chroma Sunrise"] = 15401, ["Chroma Sunset"] = 8898, ["Chroma Sweet"] = 3902, ["Chroma Tides"] = 41,
-    ["Chroma Treat"] = 6640, ["Chroma Watergun"] = 4655, ["Chromatic (Gun)"] = 0, ["Chromatic (Knife)"] = 1,
-    ["Circuit"] = 0, ["Clan"] = 0, ["Clockwork"] = 14, ["Clown (Gun)"] = 0,
-    ["Clown (Knife)"] = 0, ["Clown Gun (2024)"] = 0, ["Clownfish (Gun)"] = 0, ["Clownfish (Knife)"] = 0,
-    ["Coal"] = 0, ["Coal (Gun)"] = 0, ["Coal (Knife)"] = 16, ["Coal 2021 (Gun)"] = 0,
-    ["Coal 2021 (Knife)"] = 0, ["Coal 2022 (Gun)"] = 0, ["Coal 2022 (Knife)"] = 0, ["Coconut"] = 0,
-    ["Cold"] = 0, ["Combat"] = 0, ["Combat II"] = 14, ["Constellation"] = 3559,
-    ["Cookie (Gun)"] = 0, ["Cookie (Knife)"] = 0, ["Cookieblade"] = 4, ["Cookiecane"] = 21,
-    ["Copper"] = 0, ["Corl"] = 4, ["Cotton Candy"] = 55, ["Cowboy"] = 5,
-    ["Cracks (Gun)"] = 0, ["Cracks (Knife)"] = 0, ["Cupid"] = 0, ["Curse"] = 0,
-    ["Cursed (Gun)"] = 0, ["Cursed (Knife)"] = 0, ["Damp"] = 0, ["Darkbringer"] = 55,
-    ["Darkgun"] = 0, ["Darkknife"] = 23, ["Darkness (Gun)"] = 0, ["Darkness (Knife)"] = 0,
-    ["Darkshot"] = 1930, ["Darksword"] = 1903, ["Deathshard"] = 18, ["Deathspeaker"] = 1,
-    ["Decorated"] = 0, ["Deep Sea"] = 0, ["Default Gun"] = 0, ["Default Knife"] = 0,
-    ["Denis"] = 4, ["Dog"] = 0, ["Doge"] = 0, ["Dogey"] = 151,
-    ["Dolphins"] = 0, ["Donut"] = 0, ["Dungeon"] = 68, ["Eclipse"] = 0,
-    ["Eco"] = 0, ["Ecto"] = 11, ["Egg"] = 0, ["Eggblade"] = 7,
-    ["Elderwood Blade"] = 55, ["Elderwood Revolver"] = 55, ["Elderwood Scythe"] = 62, ["Electro"] = 1,
-    ["Elf"] = 14, ["Elf (2018)"] = 1, ["Elf (2019)"] = 287, ["Elf (2023)"] = 0,
-    ["Elf (Gun)"] = 0, ["Elf (Knife)"] = 23, ["Elf 2017"] = 0, ["Elite"] = 0,
-    ["Elitey"] = 0, ["Emerald"] = 0, ["Energized (Gun)"] = 1, ["Energized (Knife)"] = 0,
-    ["Engraved"] = 0, ["Etched"] = 0, ["Eternal"] = 11, ["Eternal II"] = 11,
-    ["Eternal III"] = 14, ["Eternal IV"] = 14, ["Eternalcane"] = 21, ["Euro"] = 5,
-    ["Evergreen"] = 3354, ["Evergun"] = 4518, ["Eyeball"] = 10, ["Eyes"] = 0,
-    ["Fade"] = 0, ["Fairy"] = 11, ["Fall"] = 0, ["Fall Camo"] = 0,
-    ["Fallout"] = 0, ["Fang"] = 14, ["Fire Bat"] = 0, ["Fire Bear"] = 0,
-    ["Fire Bunny"] = 0, ["Fire Cat"] = 0, ["Fire Dog"] = 0, ["Fire Fox"] = 0,
-    ["Fire Pig"] = 0, ["Fireplace"] = 0, ["Flames"] = 7, ["Floatie"] = 0,
-    ["Flora"] = 445, ["Floral (Gun)"] = 0, ["Floral (Knife)"] = 11, ["Flowerwood"] = 274,
-    ["Flowerwood Gun"] = 281, ["Forest"] = 0, ["Fox"] = 0, ["Fragile (Gun)"] = 0,
-    ["Fragile (Knife)"] = 0, ["Frostbird"] = 1, ["Frostbite"] = 10, ["Frosted (Gun)"] = 0,
-    ["Frosted (Knife)"] = 23, ["Frostfade (Gun)"] = 0, ["Frostfade (Knife)"] = 1, ["Frostflame (Gun)"] = 0,
-    ["Frostflame (Knife)"] = 0, ["Frostsaber"] = 14, ["Frosty"] = 0, ["Frozen (Gun)"] = 0,
-    ["Frozen (Knife)"] = 0, ["Fusion"] = 0, ["Future"] = 0, ["Galactic"] = 0,
-    ["Galaxy"] = 0, ["Gemstone"] = 21, ["Ghastly (Gun)"] = 4, ["Ghastly (Knife)"] = 0,
-    ["Ghost"] = 14, ["Ghost (Gun)"] = 3, ["Ghost (Knife)"] = 7, ["Ghostblade"] = 10,
-    ["Ghostfire"] = 0, ["Ghostly"] = 0, ["Ghosts (2023)"] = 0, ["Ghosts (2024)"] = 0,
-    ["Ghosts (Gun)"] = 0, ["Ghosts (Knife)"] = 0, ["Ghosty"] = 4, ["Ghoulish"] = 68,
-    ["Gift Bag (Gun)"] = 0, ["Gift Bag (Knife)"] = 0, ["Gifted"] = 0, ["Gifts (2024)"] = 0,
-    ["Gifts (Gun)"] = 0, ["Gifts (Knife)"] = 110, ["Gifts 2015"] = 0, ["Giftwrap"] = 0,
-    ["Ginger (Gun)"] = 0, ["Ginger (Knife)"] = 0, ["Ginger Luger"] = 23, ["Gingerblade"] = 21,
-    ["Gingerbread"] = 0, ["Gingerbread (Gun)"] = 0, ["Gingerbread (Knife)"] = 0, ["Gingercookie (Gun)"] = 0,
-    ["Gingercookie (Knife)"] = 0, ["Gingerheart"] = 0, ["Gingermint"] = 21, ["Gingerscope"] = 24300,
-    ["Glitch1"] = 103, ["Glitch2"] = 68, ["Glowy"] = 0, ["Golden"] = 5,
-    ["Goo"] = 0, ["Gothic (Gun)"] = 4, ["Gothic (Knife)"] = 0, ["Graffiti"] = 0,
-    ["Grave (Gun)"] = 5, ["Grave (Knife)"] = 1, ["Green"] = 0, ["Green Elite"] = 4,
-    ["Green Fire"] = 0, ["Green Luger"] = 34, ["Green Marble"] = 3, ["Green Pumpkin (2018)"] = 82,
-    ["Green Pumpkin (2019)"] = 10, ["Green Pumpkin (2020)"] = 11, ["Green Pumpkin (2021)"] = 10, ["Grind"] = 3,
-    ["HL2"] = 0, ["Hacker"] = 0, ["Hallow's Blade"] = 11, ["Hallow's Edge"] = 11,
-    ["Hallowgun"] = 31, ["Hallows Stickers 2022"] = 0, ["Hallowscythe"] = 44, ["Handsaw"] = 11,
-    ["Hardened"] = 0, ["Harvester"] = 397, ["Haunted"] = 0, ["Haunted (2025)"] = 0,
-    ["Haunted (Gun)"] = 1, ["Haunted (Knife)"] = 1, ["Hazard (Gun)"] = 0, ["Hazard (Knife)"] = 0,
-    ["Hazmat"] = 0, ["Heart"] = 0, ["Heart Wand"] = 582, ["Heartblade"] = 96,
-    ["Heartbreak"] = 0, ["Hearts"] = 0, ["Hearts (2026)"] = 0, ["Heat"] = 14,
-    ["High Tech"] = 0, ["Hive"] = 0, ["Holly (Gun)"] = 4, ["Holly (Knife)"] = 0,
-    ["Hologram (Gun)"] = 0, ["Hologram (Knife)"] = 0, ["Hot Chocolate"] = 0, ["Hunter"] = 0,
-    ["Ice"] = 0, ["Ice Camo"] = 0, ["Ice Dragon"] = 10, ["Ice Phoenix"] = 1,
-    ["Ice Shard"] = 10, ["Icebeam"] = 27, ["Iceblaster"] = 55, ["Icebreaker"] = 103,
-    ["Icecracker"] = 1, ["Icedriller"] = 7, ["Iceflake"] = 25, ["Icepiercer"] = 260,
-    ["Icewing"] = 21, ["Icey"] = 0, ["Icicles (Gun)"] = 11, ["Icicles (Knife)"] = 0,
-    ["Igloo (Gun)"] = 0, ["Igloo (Knife)"] = 0, ["Imbued"] = 0, ["Indy"] = 3,
-    ["Infected"] = 0, ["Infected (Gun)"] = 0, ["Infected (Knife)"] = 0, ["Infiltrator"] = 0,
-    ["Iron"] = 0, ["JD"] = 48, ["Jack"] = 4, ["Jellyfish"] = 0,
-    ["Jetstream"] = 10, ["Jigsaw"] = 0, ["Jinglegun"] = 21, ["Juice"] = 0,
-    ["Korblox"] = 0, ["Kraken"] = 0, ["Krypto"] = 0, ["Lantern"] = 0,
-    ["Laser"] = 31, ["Latte (Gun)"] = 178, ["Latte (Knife)"] = 178, ["Lava (Gun)"] = 0,
-    ["Lava (Knife)"] = 0, ["Leaf"] = 0, ["Leaves"] = 0, ["Lightbringer"] = 51,
-    ["Lights (Gun)"] = 0, ["Lights (Knife)"] = 0, ["Lil' Alien"] = 0, ["Linked"] = 0,
-    ["Log"] = 0, ["Logchopper"] = 25, ["Logcutter"] = 0, ["Love (Gun)"] = 0,
-    ["Love (Knife)"] = 0, ["Love 2023"] = 0, ["Lovely"] = 0, ["Lucky"] = 0,
-    ["Luger"] = 62, ["Lugercane"] = 21, ["Magma"] = 7, ["Magma (Gun)"] = 7,
-    ["Magma (Knife)"] = 0, ["Makeshift"] = 55, ["Makeshift (Knife)"] = 38, ["Marble"] = 0,
-    ["Marina"] = 0, ["Meadow"] = 0, ["Mechbug"] = 7, ["Melon"] = 0,
-    ["Meltdown"] = 0, ["Midnight"] = 0, ["Minty"] = 21, ["Missing"] = 0,
-    ["Mistletoe (Gun)"] = 0, ["Mistletoe (Knife)"] = 0, ["Molten (Gun)"] = 0, ["Molten (Knife)"] = 0,
-    ["Monster"] = 0, ["Moon"] = 0, ["Moonlight"] = 0, ["Moons"] = 1,
-    ["Moons (2024)"] = 0, ["Mr. Reindeer"] = 41, ["Mr. Snowman"] = 4, ["Mummified"] = 4,
-    ["Mummy"] = 0, ["Mummy (2017)"] = 3, ["Mummy 2018 (Gun)"] = 7, ["Mummy 2018 (Knife)"] = 3,
-    ["Mummy 2020 (Gun)"] = 0, ["Mummy 2020 (Knife)"] = 0, ["Musical"] = 0, ["Mystery Key"] = 1,
-    ["Nebula"] = 21, ["Neon"] = 0, ["Nether"] = 0, ["News"] = 0,
-    ["Night"] = 0, ["Nightblade"] = 27, ["Nightfire"] = 0, ["Nightsky"] = 7,
-    ["Nightstar"] = 0, ["Nik's Scythe"] = 1200000, ["Nobledragon"] = 11, ["Nova"] = 0,
-    ["Nuke"] = 0, ["Nutcracker"] = 0, ["Ocean"] = 253, ["Oily"] = 0,
-    ["Old Glory"] = 23, ["Ollie"] = 10, ["Orange"] = 0, ["Orange Marble"] = 3,
-    ["Orange Seer"] = 3, ["Ornament"] = 0, ["Ornament1"] = 0, ["Ornament2 (Gun)"] = 0,
-    ["Ornament2 (Knife)"] = 0, ["Ornaments"] = 0, ["Ornaments (Gun)"] = 0, ["Ornaments (Knife)"] = 0,
-    ["Overseer (Gun)"] = 0, ["Overseer (Knife)"] = 0, ["Overseer Eye"] = 10, ["Painted (Gun)"] = 0,
-    ["Painted (Knife)"] = 0, ["Palms (Gun)"] = 0, ["Palms (Knife)"] = 0, ["Paper"] = 0,
-    ["Passion"] = 0, ["Patrick"] = 0, ["Paws"] = 0, ["Pea"] = 0,
-    ["Pearl"] = 75, ["Pearlshine"] = 82, ["Penguin"] = 0, ["Pengy"] = 10,
-    ["Peppermint"] = 5, ["Peppermint (Gun)"] = 0, ["Peppermint (Knife)"] = 0, ["Phantom"] = 14,
-    ["Phaser"] = 7, ["Phoenix"] = 1, ["Pig"] = 0, ["Piggy"] = 34,
-    ["Pine (Gun)"] = 0, ["Pine (Knife)"] = 110, ["Pink"] = 0, ["Pirate"] = 0,
-    ["Pixel"] = 23, ["Plaid"] = 0, ["Plasmabeam"] = 25, ["Plasmablade"] = 23,
-    ["Plasmite"] = 0, ["Polar Bear"] = 0, ["Pool"] = 0, ["Pool Noodle"] = 0,
-    ["Pop Art (Gun)"] = 0, ["Pop Art (Knife)"] = 0, ["Popsicle"] = 0, ["Popsicle (Gun)"] = 0,
-    ["Portal (Gun)"] = 0, ["Portal (Knife)"] = 0, ["Potion (2017)"] = 4, ["Potion (Gun)"] = 4,
-    ["Potion (Knife)"] = 7, ["Predator (Gun)"] = 0, ["Predator (Knife)"] = 0, ["Present"] = 0,
-    ["Present (2023)"] = 0, ["Prince"] = 8, ["Prism"] = 14, ["Prismatic"] = 10,
-    ["Pumpkin (2017)"] = 41, ["Pumpkin (2018)"] = 0, ["Pumpkin (2019)"] = 0, ["Pumpkin (2020)"] = 0,
-    ["Pumpkin (2021)"] = 0, ["Pumpkin (2023)"] = 0, ["Pumpkin (2025)"] = 0, ["Pumpkin (Knife)"] = 0,
-    ["Pumpkin Patch"] = 0, ["Pumpkin Pie"] = 4, ["Pumpking"] = 10, ["Purple"] = 0,
-    ["Purple Pumpkin (2018)"] = 10, ["Purple Seer"] = 4, ["RB Knife"] = 0, ["RIP"] = 21,
-    ["Rainbow"] = 397, ["Rainbow (Gun)"] = 0, ["Rainbow (Knife)"] = 0, ["Rainbow Gun"] = 411,
-    ["Raygun"] = 1780, ["Red"] = 0, ["Red Fire"] = 1, ["Red Luger"] = 57,
-    ["Red Pumpkin (2018)"] = 164, ["Red Pumpkin (2019)"] = 10, ["Red Pumpkin (2020)"] = 14, ["Red Pumpkin (2021)"] = 11,
-    ["Red Scratch"] = 5, ["Red Seer"] = 4, ["Reindeer"] = 10, ["Reptile"] = 0,
-    ["Retro"] = 0, ["Ribbon"] = 0, ["Ribbons"] = 0, ["Ripper (Gun)"] = 0,
-    ["Ripper (Knife)"] = 0, ["Ritual"] = 0, ["Robot"] = 0, ["Rose"] = 0,
-    ["Roses"] = 0, ["Rudolph"] = 10, ["Rune"] = 0, ["Rupture"] = 0,
-    ["Sakura"] = 1629, ["Sammy"] = 1, ["Sandy"] = 0, ["Sandy (Gun)"] = 0,
-    ["Santa"] = 0, ["Santa (2018)"] = 0, ["Santa (2023)"] = 0, ["Santa (Gun)"] = 0,
-    ["Santa (Knife)"] = 0, ["Santa Dog"] = 0, ["Santa's Magic"] = 4, ["Santa's Spirit"] = 4,
-    ["Saw"] = 10, ["Scarecrow"] = 0, ["Scarf"] = 0, ["Seahorsey"] = 11,
-    ["Seer"] = 4, ["Shaded"] = 0, ["Shadow"] = 8, ["Shadow Pumpkin"] = 3,
-    ["Shark"] = 27, ["Sharky"] = 0, ["Shiny"] = 0, ["Sidewinder"] = 10,
-    ["Silent Night (Gun)"] = 16, ["Silent Night (Knife)"] = 68, ["Skeleton Key"] = 7, ["Skelly"] = 1,
-    ["Sketch"] = 0, ["Sketchy"] = 5, ["Skool"] = 11, ["Skulls"] = 16,
-    ["Skully"] = 11, ["Skyline"] = 0, ["Slashed"] = 0, ["Slasher"] = 23,
-    ["Slate"] = 0, ["Sleigh"] = 0, ["Slime (Gun)"] = 4, ["Slime (Knife)"] = 5,
-    ["Slimy"] = 1, ["Snakebite (Gun)"] = 1, ["Snakebite (Knife)"] = 4, ["Snow Dagger"] = 356,
-    ["Snowball (Gun)"] = 0, ["Snowball (Knife)"] = 0, ["Snowbear"] = 0, ["Snowcannon"] = 1266,
-    ["Snowfall"] = 0, ["Snowflake"] = 14, ["Snowflake (Gun)"] = 0, ["Snowflake 2022 (Gun)"] = 0,
-    ["Snowflake 2022 (Knife)"] = 0, ["Snowflake Key"] = 0, ["Snowflakes"] = 1, ["Snowflakes (Gun)"] = 21,
-    ["Snowflakes (Knife)"] = 0, ["Snowglobe"] = 0, ["Snowman (2018)"] = 0, ["Snowman (2023)"] = 0,
-    ["Snowman (2024)"] = 0, ["Snowman (Gun)"] = 0, ["Snowman (Knife)"] = 0, ["Snowman 2022 (Gun)"] = 0,
-    ["Snowman 2022 (Knife)"] = 0, ["Snowman Gun"] = 27, ["Snowstorm"] = 219, ["Snowy"] = 0,
-    ["Soda"] = 0, ["Soda (Gun)"] = 0, ["Soda (Knife)"] = 0, ["Soul"] = 548,
-    ["Space"] = 0, ["Sparkle"] = 0, ["Sparkle1"] = 4, ["Sparkle10"] = 27,
-    ["Sparkle2"] = 4, ["Sparkle3"] = 4, ["Sparkle4"] = 14, ["Sparkle5"] = 11,
-    ["Sparkle6"] = 16, ["Sparkle7"] = 25, ["Sparkle8"] = 27, ["Sparkle9"] = 41,
-    ["Spearmint (Gun)"] = 0, ["Spearmint (Knife)"] = 0, ["Spectral (Gun)"] = 4, ["Spectral (Knife)"] = 34,
-    ["Spectre"] = 55, ["Spectrum"] = 0, ["Spider"] = 14, ["Spider (2023)"] = 0,
-    ["Spirit"] = 534, ["Spitfire"] = 0, ["Splash (Gun)"] = 0, ["Splash (Knife)"] = 0,
-    ["Splat"] = 0, ["Splatter"] = 0, ["Splitter"] = 4, ["Spring"] = 0,
-    ["Squire"] = 0, ["Stainless"] = 0, ["Stalker"] = 0, ["Star"] = 0,
-    ["Starfish (Gun)"] = 0, ["Starfish (Knife)"] = 0, ["Starry"] = 0, ["Starry (Gun)"] = 16,
-    ["Starry (Knife)"] = 0, ["Stars (Gun)"] = 0, ["Stars (Knife)"] = 0, ["Static"] = 0,
-    ["Steambird"] = 1, ["Steel (Gun)"] = 0, ["Steel (Knife)"] = 0, ["Stickers"] = 0,
-    ["Stickers (Gun)"] = 0, ["Stickers (Knife)"] = 0, ["Stockings"] = 0, ["Stockings (2024)"] = 0,
-    ["Stockings (Gun)"] = 0, ["Stockings (Knife)"] = 0, ["Storm"] = 0, ["Strawberries (Gun)"] = 0,
-    ["Strawberries (Knife)"] = 0, ["Striped (Gun)"] = 0, ["Striped (Knife)"] = 0, ["Sub"] = 4,
-    ["Sugar"] = 52, ["Sun"] = 3, ["Sunny"] = 0, ["Sunrise"] = 1369,
-    ["Sunset"] = 719, ["Sweater"] = 0, ["Sweater (Gun)"] = 0, ["Sweater (Knife)"] = 0,
-    ["Sweet"] = 226, ["Sweetheart"] = 0, ["Swirl"] = 11, ["Swirly Axe"] = 57,
-    ["Swirly Blade"] = 21, ["Swirly Gun"] = 31, ["TNL"] = 0, ["Tailslide"] = 11,
-    ["Tankie"] = 10, ["Teddy"] = 0, ["Tides"] = 14, ["Tiger"] = 0,
-    ["Toxic (Gun)"] = 3, ["Toxic (Knife)"] = 10, ["Toy (Gun)"] = 0, ["Toy (Knife)"] = 0,
-    ["Traveler (Gun)"] = 41, ["Traveler (Knife)"] = 3, ["Traveler's Axe"] = 11500, ["Traveler's Gun"] = 6297,
-    ["Traveller"] = 1, ["Treat"] = 233, ["Treats (Gun)"] = 0, ["Treats (Knife)"] = 0,
-    ["Tree (2017)"] = 0, ["Tree (2021)"] = 0, ["Tree (2023)"] = 0, ["Tree (Gun)"] = 0,
-    ["Tree (Knife)"] = 0, ["Trees"] = 0, ["Tropical"] = 0, ["Tulip"] = 0,
-    ["Turkey"] = 3354, ["Turtle"] = 0, ["UFO"] = 5, ["UFOs (Gun)"] = 0,
-    ["UFOs (Knife)"] = 0, ["Universe"] = 0, ["Valentine"] = 0, ["Vampire"] = 1,
-    ["Vampire (Gun)"] = 10, ["Vampire (Knife)"] = 1, ["Vampire Bat"] = 10, ["Vampire's Axe"] = 1266,
-    ["Vampire's Edge"] = 21, ["Vampire's Gun"] = 2327, ["Vines (Gun)"] = 0, ["Vines (Knife)"] = 0,
-    ["Viper"] = 0, ["Virtual"] = 21, ["Void"] = 14, ["Vortex"] = 0,
-    ["Wanwood"] = 0, ["Watcher (Gun)"] = 0, ["Watcher (Knife)"] = 0, ["Watergun"] = 267,
-    ["Waves"] = 0, ["Wavy (Gun)"] = 0, ["Wavy (Knife)"] = 0, ["Web"] = 0,
-    ["Webbed (Gun)"] = 7, ["Webbed (Knife)"] = 0, ["Webs"] = 0, ["Whiteout"] = 0,
-    ["Winter's Edge"] = 7, ["Witch"] = 1, ["Witch's Brew"] = 0, ["Witchbrew"] = 0,
-    ["Witched"] = 4, ["Wolf"] = 1, ["Wood"] = 0, ["Wooden"] = 0,
-    ["Wraith (Gun)"] = 0, ["Wraith (Knife)"] = 0, ["Wraiths (Gun)"] = 0, ["Wraiths (Knife)"] = 0,
-    ["Wrap (Gun)"] = 1, ["Wrap (Knife)"] = 1, ["Wrapped (Gun)"] = 0, ["Wrapped (Knife)"] = 0,
-    ["Wrapped Gun"] = 27, ["Wrapped Gun (2024)"] = 0, ["Wrapped Knife (2024)"] = 0, ["Wreaths"] = 0,
-    ["Xbox"] = 0, ["Xeno (Gun)"] = 0, ["Xeno (Knife)"] = 0, ["Xenoknife"] = 274,
-    ["Xenoshot"] = 274, ["Xmas"] = 11, ["Yellow"] = 0, ["Yellow Seer"] = 3,
-    ["Yummy"] = 0, ["Zombie"] = 7, ["Zombie (2023)"] = 0, ["Zombie (Gun)"] = 11,
-    ["Zombie (Knife)"] = 3, ["Zombie Dog"] = 1095, ["Zombified"] = 41, ["Zombified (Gun)"] = 21,
-    ["Zombified (Knife)"] = 96, ["iRevolver"] = 0,
-}
+-- live mm2values.com online scraper and item value cache
+local MM2Values = {}
+local MM2ValuesNormalized = {}
+local MM2ValuesByRarity = {}
+local MM2ValuesNormalizedByRarity = {}
+local MM2ValueDisplays = {}
+local isFetchingMM2Values = false
+local hasFetchedMM2Values = false
 
+local function fetchMM2ValuesFromWeb()
+    if isFetchingMM2Values or hasFetchedMM2Values then return end
+    isFetchingMM2Values = true
+    task.spawn(function()
+        local categories = {
+            {slug = 'ancient',  rName = 'Ancient'},
+            {slug = 'unique',   rName = 'Unique'},
+            {slug = 'chroma',   rName = 'Chroma'},
+            {slug = 'godly',    rName = 'Godly'},
+            {slug = 'legend',   rName = 'Legendary'},
+            {slug = 'rare',     rName = 'Rare'},
+            {slug = 'uncommon', rName = 'Uncommon'},
+            {slug = 'common',   rName = 'Common'},
+            {slug = 'vintage',  rName = 'Vintage'},
+            {slug = 'pets',     rName = 'Pets'},
+            {slug = 'misc',     rName = 'Misc'},
+        }
+        local httpReq = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+        for _, cat in ipairs(categories) do
+            local slug = cat.slug
+            local rName = cat.rName
+            local html = nil
+            pcall(function()
+                local url = 'https://www.mm2values.com/?p=' .. slug
+                if httpReq then
+                    local res = httpReq({Url = url, Method = 'GET', Headers = {['User-Agent'] = 'Roblox/WinInet'}})
+                    if res and res.Body then html = res.Body end
+                elseif game and game.HttpGet then
+                    html = game:HttpGet(url)
+                end
+            end)
+            if html and #html > 0 then
+                if not MM2ValuesByRarity[rName] then
+                    MM2ValuesByRarity[rName] = {}
+                end
+                if not MM2ValuesNormalizedByRarity[rName] then
+                    MM2ValuesNormalizedByRarity[rName] = {}
+                end
+                local sPos = 1
+                while true do
+                    local fStart, fEnd = html:find('<div class=[%w"\']*stackable[%w"\']*>', sPos)
+                    if not fStart then break end
+                    local nStart = html:find('<div class=[%w"\']*stackable[%w"\']*>', fEnd + 1)
+                    local block
+                    if nStart then
+                        block = html:sub(fEnd + 1, nStart - 1)
+                    else
+                        block = html:sub(fEnd + 1, fEnd + 4000)
+                    end
+                    sPos = fEnd + 1
 
-local MM2ValuesByRarity = {
-    ["Common"] = {
-        ["2015"] = 2, ["8Bit"] = 0.11, ["Alex"] = 5, ["Apocalypse Gun"] = 2,
-        ["Apocalypse Knife"] = 0.31, ["Aqua"] = 0.11, ["Asteroid"] = 3, ["Balloons Gun"] = 0.11,
-        ["Bats"] = 0.12, ["Bats Gun"] = 1, ["Bats Knife"] = 250, ["Bells"] = 0.12,
-        ["Big Kill"] = 0.11, ["Bit"] = 0.11, ["Bleached"] = 0.11, ["Blossom"] = 1,
-        ["Bones"] = 1, ["Borders"] = 0.11, ["Brains"] = 1, ["Brown"] = 0.11,
-        ["Bunny"] = 1, ["Candied Gun 2022"] = 0.12, ["Candied Knife"] = 0.21, ["Candle"] = 0.12,
-        ["Candles"] = 0.12, ["Candy Corn"] = 0.12, ["Candy Corn Gun"] = 0.23, ["Candy Corn gun 2020"] = 0.12,
-        ["Candy Corn Knife"] = 0.12, ["Candy Corn knife 2020"] = 0.13, ["CandyCorn"] = 35, ["Candycorn 2019"] = 12,
-        ["Candycorn Gun"] = 0.33, ["Candycorn Knife"] = 0.31, ["Cane Gun"] = 0.23, ["Cane Knife"] = 0.13,
-        ["Cardboard"] = 0.11, ["Carrot"] = 2, ["Carrots"] = 0.21, ["Carved (Gun)"] = 0.13,
-        ["Carved (Knife)"] = 0.13, ["Cats"] = 0.33, ["Cherries"] = 0.11, ["Cherry"] = 0.11,
-        ["Chick"] = 0.21, ["Choco"] = 1, ["Clan"] = 0.11, ["Clown"] = 0.11,
-        ["Clown (Gun)"] = 0.11, ["Clown (Knife)"] = 0.11, ["Clown Gun"] = 0.11, ["Clownfish Gun"] = 0.11,
-        ["Clownfish Knife"] = 0.11, ["Coal"] = 0.31, ["Coal Gun"] = 0.12, ["Coal Gun 2022"] = 0.21,
-        ["Coal knife"] = 25, ["Coal Knife"] = 0.21, ["Coal Knife 2022"] = 0.12, ["Coconut Knife"] = 0.21,
-        ["Cold"] = 0.11, ["Combat"] = 0.11, ["Combat II"] = 11, ["Copper"] = 0.11,
-        ["Corl"] = 5, ["Darkness Gun"] = 0.13, ["Darkness Knife"] = 0.31, ["Denis"] = 5,
-        ["Dolphins Knife"] = 0.21, ["Duckies"] = 0.11, ["Eco"] = 0.11, ["Ecto"] = 30,
-        ["Egg"] = 2, ["Elf (2017)"] = 0.31, ["Elf (Gun)"] = 3, ["Elf (knife)"] = 13,
-        ["Elf Gun"] = 20, ["Elf Gun 23"] = 0.12, ["Engraved"] = 0.11, ["Etched"] = 0.31,
-        ["Euro"] = 5, ["Eyeball Knife"] = 0.13, ["Fall"] = 0.31, ["Fallout"] = 0.11,
-        ["Fragile Gun"] = 0.12, ["Fragile Knife"] = 0.12, ["Frosted Gun"] = 1, ["Frosted Knife"] = 45,
-        ["Frozen Gun 23"] = 0.12, ["Frozen Knife 23"] = 0.12, ["Ghosts"] = 0.12, ["Ghosty"] = 2,
-        ["Ghoulish"] = 85, ["Gift Bag Gun"] = 0.21, ["Gift Bag Knife"] = 0.23, ["Gifts 2024"] = 0.13,
-        ["Gifts Gun"] = 0.43, ["Gifts Knife"] = 110, ["Giftwrap Knife"] = 0.12, ["Glitch 1"] = 60,
-        ["Glitch 2"] = 30, ["Goo"] = 2, ["Grave Gun"] = 3, ["Grave Knife"] = 1,
-        ["Green"] = 0.11, ["Grind"] = 2, ["Hardened"] = 0.11, ["Haunted"] = 0.33,
-        ["Haunted Gun"] = 1, ["Haunted Knife"] = 1, ["Hearts"] = 1, ["Hearts Knife"] = 0.24,
-        ["HL2"] = 0.11, ["Hot Chocolate"] = 0.13, ["Hunter Knife"] = 0.31, ["Ice"] = 0.11,
-        ["Igloo Gun"] = 0.13, ["Igloo Knife"] = 0.12, ["Indy"] = 2, ["Infected"] = 2,
-        ["Infected Gun"] = 3, ["Infected Knife"] = 0.31, ["Infiltrator"] = 0.11, ["Iron"] = 0.11,
-        ["Juice"] = 0.11, ["Leaf"] = 0.11, ["Leaf (Knife)"] = 0.11, ["Leaves Knife"] = 0.21,
-        ["Lights Gun"] = 0.12, ["Lights Knife"] = 0.12, ["Linked"] = 0.11, ["Log"] = 0.11,
-        ["Love"] = 0.21, ["Love (Knife)"] = 0.11, ["Lovely"] = 0.11, ["Mummified"] = 38,
-        ["Neon"] = 2, ["News"] = 0.11, ["Oily"] = 0.11, ["Ollie"] = 8,
-        ["Orange"] = 0.11, ["Ornament"] = 1, ["Ornament 1"] = 1, ["Ornament2 (Gun)"] = 1,
-        ["Ornament2 (knife)"] = 1, ["Ornaments Gun"] = 0.31, ["Ornaments Knife"] = 0.23, ["Passion"] = 1,
-        ["Patrick"] = 2, ["Pea"] = 0.11, ["Penguin Knife"] = 0.42, ["Peppermint Gun"] = 0.12,
-        ["Peppermint Knife"] = 0.12, ["Phantom"] = 11, ["Pine Gun"] = 0.43, ["Pine Knife"] = 100,
-        ["Plaid Gun"] = 0.02, ["Present"] = 0.31, ["Present Knife"] = 0.12, ["Prism"] = 15,
-        ["Pumpkin"] = 0.22, ["Pumpkin Patch"] = 15, ["RB Knife"] = 0.31, ["Reindeer 2024"] = 0.12,
-        ["Reindeer Knife"] = 0.42, ["Reptile"] = 2, ["Ribbon Knife"] = 0.12, ["Ribbons"] = 0.23,
-        ["RIP Gun"] = 25, ["Roses"] = 1, ["Sand"] = 0.11, ["Sandy"] = 0.11,
-        ["Sandy Gun"] = 0.11, ["Santa (2017)"] = 0.31, ["Santa (Gun)"] = 1, ["Santa (Knife)"] = 1,
-        ["Santa Gun 23"] = 0.12, ["Santa Knife"] = 0.31, ["Scarf"] = 0.31, ["Shaded"] = 0.11,
-        ["Sidewinder"] = 8, ["Sketchy"] = 5, ["Skool"] = 8, ["Skyline Knife"] = 0.21,
-        ["Slashed"] = 1, ["Slate"] = 0.11, ["Slime Gun"] = 1, ["Slime Knife"] = 3,
-        ["Slimy"] = 20, ["Snowball Gun"] = 0.12, ["Snowball Knife"] = 0.12, ["Snowfall"] = 0.12,
-        ["Snowflakes Gun"] = 30, ["Snowflakes Knife"] = 0.42, ["Snowman Gun"] = 25, ["Snowman Gun 2022"] = 0.21,
-        ["Snowman Knife"] = 0.31, ["Snowman Knife 2022"] = 0.12, ["Sparkle1"] = 2, ["Sparkle10"] = 22,
-        ["Sparkle2"] = 3, ["Sparkle3"] = 3, ["Sparkle4"] = 11, ["Sparkle5"] = 10,
-        ["Sparkle6"] = 13, ["Sparkle7"] = 18, ["Sparkle8"] = 22, ["Sparkle9"] = 30,
-        ["Spider"] = 0.11, ["Splat"] = 0.11, ["Splatter"] = 0.11, ["Stainless"] = 0.11,
-        ["Star"] = 0.11, ["Starfish Gun"] = 0.11, ["Starfish Knife"] = 0.11, ["Starry"] = 4,
-        ["Static"] = 0.11, ["Sticker Gun"] = 0.12, ["Stickers"] = 0.12, ["Stickers Gun"] = 0.12,
-        ["Stickers Gun 2022"] = 0.12, ["Stickers Knife"] = 0.12, ["Stickers Xmas 2024"] = 0.13, ["Stickers Xmas 24"] = 0.12,
-        ["Stockings"] = 0.21, ["Stockings Gun 24"] = 0.12, ["Strawberries Gun"] = 0.24, ["Strawberries Knife"] = 0.24,
-        ["Striped Gun"] = 0.22, ["Striped Knife"] = 0.21, ["Sub"] = 5, ["Sweetheart"] = 1,
-        ["Tailslide"] = 10, ["TNL"] = 2, ["Tourist"] = 0.11, ["Toy Gun"] = 0.13,
-        ["Toy Knife"] = 0.22, ["Trees"] = 0.21, ["Tulip"] = 1, ["UFOs Gun"] = 0.31,
-        ["UFOs Knife"] = 0.33, ["Valentine"] = 1, ["Vines Gun"] = 0.11, ["Vines Knife"] = 0.22,
-        ["Watcher gun 2020"] = 0.13, ["Watcher Knife 2020"] = 0.12, ["Wavy Gun"] = 0.13, ["Wavy Knife"] = 0.13,
-        ["Webbed Gun"] = 30, ["Webbed Knife"] = 1, ["Webs Gun"] = 0.31, ["Whiteout"] = 0.11,
-        ["Witch"] = 1, ["Wood Knife"] = 0.11, ["Wrapped Gun"] = 30, ["Wrapped Knife"] = 0.31,
-        ["Xbox"] = 0.12, ["Yellow"] = 0.11, ["Zombie"] = 10,
-    },
-    ["Uncommon"] = {
-        ["Abduction"] = 0.41, ["Adurite (Gun)"] = 0.13, ["Adurite (Knife)"] = 0.13, ["Biogun"] = 0.13,
-        ["Blossom Knife"] = 0.31, ["Blue"] = 0.13, ["Bluesteel (Gun)"] = 0.13, ["Bluesteel (Knife)"] = 0.13,
-        ["Bones"] = 0.24, ["Bones Gun"] = 180, ["Brains 2019"] = 125, ["Brains Gun"] = 0.22,
-        ["Branches"] = 55, ["Brush"] = 0.13, ["Camo"] = 0.13, ["Canes Gun"] = 0.31,
-        ["Canes Knife"] = 0.23, ["Carrot"] = 0.31, ["Carrot Gun"] = 0.22, ["Carrot Knife"] = 0.22,
-        ["Caution"] = 0.13, ["Checkers"] = 0.31, ["Cheddar"] = 0.13, ["Cheesy"] = 0.13,
-        ["Circuit"] = 0.13, ["Clown"] = 0.23, ["Cookie Gun"] = 0.23, ["Cookie Knife"] = 0.33,
-        ["Decorated"] = 0.23, ["Doge"] = 0.13, ["Donut"] = 0.31, ["Eclipse"] = 0.23,
-        ["Eyes"] = 0.43, ["Fall Camo"] = 0.22, ["Fireplace"] = 0.31, ["Floatie"] = 0.15,
-        ["Floral"] = 0.13, ["Forrest Gun"] = 0.31, ["Frosty"] = 0.34, ["Frozen Gun"] = 5,
-        ["Frozen Knife"] = 2, ["Future"] = 0.31, ["Ghost"] = 10, ["Ghostly"] = 0.22,
-        ["Ghosts knife 2020"] = 0.22, ["Gifted"] = 1, ["Gingerbread Gun"] = 0.22, ["Gingerbread Knife"] = 0.31,
-        ["Gingerheart"] = 0.31, ["Glowy"] = 0.23, ["Gothic Gun"] = 5, ["Gothic Knife"] = 0.32,
-        ["Graffiti"] = 0.13, ["Hazard Gun"] = 3, ["Hazard Knife"] = 0.22, ["Hazmat"] = 0.13,
-        ["High Tech"] = 0.13, ["Hive"] = 0.13, ["Holly Gun"] = 3, ["Holly Knife"] = 0.32,
-        ["Jellyfish Knife"] = 0.13, ["Jigsaw"] = 0.13, ["Lantern Knife"] = 0.41, ["Lava Gun"] = 0.41,
-        ["Lava Knife"] = 0.41, ["Leaves"] = 0.15, ["Lights Gun"] = 3, ["Lights Knife"] = 2,
-        ["Love (Gun)"] = 0.15, ["Lucky"] = 0.13, ["Marble"] = 0.23, ["Marina"] = 0.13,
-        ["Meadow"] = 0.23, ["Melon"] = 0.13, ["Meltdown"] = 0.32, ["Missing"] = 0.13,
-        ["Mistletoe Gun"] = 0.31, ["Mistletoe Knife"] = 0.24, ["Monster"] = 0.23, ["Moonlight Gun"] = 0.42,
-        ["Moons"] = 0.23, ["Mummy (Knife)"] = 35, ["Mummy Gun"] = 5, ["Mummy gun 2020"] = 0.22,
-        ["Mummy Knife"] = 1, ["Mummy Knife 2020"] = 0.22, ["Neopolitan"] = 0.13, ["Night"] = 0.31,
-        ["Nutcracker"] = 1, ["Ornaments Knife"] = 0.31, ["Painted Gun"] = 0.23, ["Paper"] = 0.13,
-        ["Paws Gun"] = 0.31, ["Pink"] = 0.13, ["Pirate"] = 0.13, ["Polar Bear Knife"] = 0.33,
-        ["Pool Knife"] = 0.32, ["Pool Noodle"] = 0.32, ["Popsicle"] = 0.23, ["Popsicle Gun"] = 0.13,
-        ["Portal gun"] = 0.22, ["Potion"] = 3, ["Potion Gun"] = 2, ["Potion Knife"] = 5,
-        ["Pumpkin"] = 0.22, ["Pumpkin Patch"] = 0.41, ["Pumpkin Pie"] = 0.41, ["Red"] = 0.13,
-        ["Retro Knife"] = 0.41, ["Rose"] = 0.32, ["Sketch"] = 0.13, ["Skulls"] = 17,
-        ["Snowflake Gun"] = 0.34, ["Snowflake Gun 2022"] = 0.23, ["Snowflake Knife"] = 55, ["Snowflake Knife 2022"] = 0.31,
-        ["Snowman (Gun)"] = 1, ["Snowman (Knife)"] = 1, ["Snowman Gun"] = 4, ["Snowman Gun 23"] = 0.31,
-        ["Snowman Knife"] = 0.22, ["Snowman Knife 24"] = 0.22, ["Snowy"] = 1, ["Soda"] = 0.13,
-        ["Soda Gun"] = 0.41, ["Soda Knife"] = 0.41, ["Stalker"] = 0.13, ["Starry Knife"] = 0.31,
-        ["Stars Gun"] = 0.31, ["Stars Knife"] = 0.32, ["Steel Gun"] = 7, ["Steel Knife"] = 0.23,
-        ["Stockings 2022"] = 0.31, ["Stockings Gun 2022"] = 0.23, ["Sweater"] = 0.32, ["Sweater Gun"] = 0.31,
-        ["Sweater Knife"] = 0.32, ["Tiger"] = 0.13, ["Treats Gun"] = 0.43, ["Treats knife"] = 0.41,
-        ["Tree"] = 0.41, ["Tree Knife"] = 3, ["Turtle Knife"] = 0.13, ["Turtles"] = 0.13,
-        ["Vampire"] = 2, ["Void"] = 15, ["Wanwood"] = 0.13, ["Webs"] = 3,
-        ["Witchbrew"] = 0.22, ["Witchs Brew"] = 0.15, ["Wolf"] = 4, ["Wooden"] = 0.13,
-        ["Wraiths Gun"] = 0.32, ["Wraiths Knife"] = 3, ["Wrap Gun"] = 20, ["Wrap Knife"] = 18,
-        ["Wrapped (Gun)"] = 1, ["Wrapped (Knife)"] = 1, ["Wrapped Gun 24"] = 0.31, ["Wrapped Knife 24"] = 0.23,
-        ["Wreaths 2024"] = 0.23, ["Zombie"] = 13, ["Zombie Gun"] = 6, ["Zombie Knife"] = 0.34,
-        ["Zombified Knife"] = 125, ["ZombifiedGun"] = 20,
-    },
-    ["Rare"] = {
-        ["Abstract"] = 0.23, ["Ace"] = 0.23, ["Aurora Gun"] = 2, ["Aurora Knife"] = 7,
-        ["Bacon"] = 0.23, ["Bats"] = 3, ["Biogel"] = 0.33, ["Black"] = 0.24,
-        ["Bones"] = 0.32, ["Butterflies"] = 0.33, ["Candleflame"] = 0.34, ["Candy Swirl Gun"] = 2,
-        ["Candy Swirl Knife"] = 1, ["Cane (Gun)"] = 1, ["Cane (Knife)"] = 1, ["Cane Gun"] = 0.42,
-        ["Cane Knife"] = 525, ["Cowboy"] = 10, ["Curse Knife"] = 0.32, ["Damp"] = 0.33,
-        ["Darkgun"] = 0.42, ["DarkKnife"] = 65, ["Deep Sea"] = 0.23, ["Dungeon"] = 135,
-        ["Floral"] = 12, ["Floral Gun"] = 0.22, ["Frostflame Gun"] = 0.31, ["Frostflame Knife"] = 0.33,
-        ["Galactic"] = 0.23, ["Galaxy"] = 0.23, ["Ghastly Gun"] = 12, ["Ghastly Knife"] = 0.33,
-        ["Ghostfire"] = 15, ["Ghosts"] = 0.32, ["Ginger (Gun)"] = 0.43, ["Ginger (Knife)"] = 0.43,
-        ["GingerBread"] = 0.42, ["Gingerbread Gun 2022"] = 0.33, ["Gingerbread Knife 2022"] = 0.32, ["Gingercookie Gun"] = 0.34,
-        ["Gingercookie Knife"] = 0.32, ["Green Marble"] = 3, ["Hacker"] = 0.23, ["Heart"] = 0.41,
-        ["Heartbreak"] = 0.33, ["Hologram Gun"] = 0.33, ["Hologram Knife"] = 0.43, ["Ice Camo"] = 0.32,
-        ["Icicles Gun"] = 3, ["Icicles Knife"] = 0.41, ["Imbued"] = 0.23, ["iRevolver"] = 0.23,
-        ["Jack"] = 3, ["Korblox"] = 0.23, ["Kraken"] = 0.31, ["Krypto"] = 0.23,
-        ["Laser"] = 10, ["Logcutter"] = 0.33, ["Magma"] = 7, ["Magma Gun"] = 10,
-        ["Magma Knife"] = 0.33, ["Makeshift Knife"] = 40, ["Molten (Gun)"] = 0.42, ["Molten (Knife)"] = 0.42,
-        ["Monster"] = 4, ["Mummy"] = 0.43, ["Musical"] = 0.23, ["Neon Gun"] = 0.33,
-        ["Nether"] = 0.33, ["Nightfire"] = 0.23, ["Nova"] = 0.23, ["Nuclear"] = 0.42,
-        ["Orange Marble"] = 2, ["Painted Knife"] = 0.41, ["Phaser"] = 10, ["Pier"] = 0.22,
-        ["Pier (Gun)"] = 0.22, ["Pier (Knife)"] = 0.22, ["Pop Art Gun"] = 0.42, ["Pop Art Knife"] = 0.42,
-        ["Portal Knife"] = 0.33, ["Prince"] = 10, ["Purple"] = 0.23, ["Rainbow"] = 0.23,
-        ["Rainbow (Gun)"] = 0.23, ["Ritual"] = 0.31, ["Robot Knife"] = 0.32, ["Sharkie Knife"] = 0.31,
-        ["Silent Night Gun"] = 15, ["Silent Night Knife"] = 50, ["Sleigh"] = 0.31, ["Snakebite Gun"] = 1,
-        ["Snakebite Knife"] = 3, ["Snowflake Gun 23"] = 0.32, ["Snowflakes"] = 15, ["Snowglobe Knife"] = 0.32,
-        ["Snowy"] = 0.41, ["Space"] = 0.23, ["Spearmint Gun"] = 0.32, ["Spearmint Knife"] = 0.34,
-        ["Spectrum"] = 0.23, ["Spitfire"] = 0.33, ["Spring Knife"] = 0.32, ["Squire"] = 0.23,
-        ["Starry Gun"] = 20, ["Starry Knife"] = 0.42, ["Storm"] = 0.32, ["Sunny"] = 0.41,
-        ["Sunset"] = 0.41, ["Sunset (Gun)"] = 0.22, ["Sunset (Knife)"] = 0.41, ["Sunset Gun"] = 0.22,
-        ["Swirl Knife"] = 17, ["Toxic Gun"] = 2, ["Toxic Knife"] = 8, ["Tree Gun 2022"] = 0.33,
-        ["Tree Knife 2022"] = 0.33, ["Tree Knife 23"] = 0.33, ["Tropical Knife"] = 0.33, ["Vampire Gun"] = 10,
-        ["Vampire Knife"] = 2, ["Vortex"] = 0.23, ["Watcher Gun"] = 20, ["Watcher Knife"] = 0.43,
-        ["Waves Knife"] = 0.22, ["Wraith Gun"] = 0.32, ["Wraith Knife"] = 0.42, ["Xeno Gun"] = 0.43,
-        ["Xeno Knife"] = 1, ["Yummy Knife"] = 0.33, ["Zombified"] = 30,
-    },
-    ["Legendary"] = {
-        ["Aquarium Gun"] = 0.42, ["Aquarium Knife"] = 0.42, ["Arctic Gun"] = 12, ["Arctic Knife"] = 0.43,
-        ["Aurora Gun"] = 40, ["Aurora Knife"] = 0.43, ["Beach"] = 35, ["Blue Elite"] = 4,
-        ["Blue Scratch"] = 3, ["Broken"] = 7, ["Bubbles"] = 0.42, ["Bubbles (Gun)"] = 0.42,
-        ["Bubbles (Knife)"] = 0.42, ["Bunnies"] = 9, ["Cavern Gun"] = 1, ["Cavern Knife"] = 8,
-        ["Chromatic Gun"] = 0.43, ["Chromatic Knife"] = 0.44, ["Cotton Candy"] = 40, ["Cupid"] = 1,
-        ["Cursed"] = 0.41, ["Elite"] = 0.33, ["Emerald"] = 0.44, ["Energized Gun"] = 2,
-        ["Energized Knife"] = 1, ["Fade"] = 0.33, ["Frostfade Gun"] = 0.43, ["Frostfade Knife"] = 2,
-        ["Frozen Gun"] = 0.42, ["Frozen Knife"] = 1, ["Fusion"] = 0.33, ["Ghost Gun"] = 1,
-        ["Ghost Knife"] = 5, ["Ginger Gun"] = 5, ["Ginger Knife"] = 0.42, ["Golden"] = 10,
-        ["Green Elite"] = 4, ["Green Fire"] = 0.43, ["Icecracker"] = 2, ["Icedriller"] = 6,
-        ["JD"] = 30, ["Latte Gun"] = 150, ["Latte Knife"] = 150, ["Midnight"] = 0.43,
-        ["Nightsky"] = 1, ["Nightstar"] = 0.42, ["Overseer (gun)"] = 0.44, ["Overseer (knife)"] = 0.34,
-        ["Palms Gun"] = 0.42, ["Palms Knife"] = 0.32, ["Plasmite"] = 0.33, ["Predator (gun)"] = 0.34,
-        ["Predator (knife)"] = 0.44, ["Red Fire"] = 2, ["Ripper Gun"] = 0.43, ["Ripper Knife"] = 0.44,
-        ["Rune"] = 0.33, ["Rupture"] = 1, ["Santas Magic"] = 5, ["Santas Spirit"] = 5,
-        ["Scratch"] = 4, ["Shadow"] = 10, ["Shiny"] = 0.33, ["Skulls"] = 3,
-        ["Sparkle"] = 0.43, ["Spectral Gun"] = 0.44, ["Spectral Knife"] = 45, ["Splash"] = 0.33,
-        ["Splash Gun"] = 0.33, ["Traveler Gun"] = 45, ["Traveler Knife"] = 2, ["Tree (gun)"] = 1,
-        ["Tree (knife)"] = 1, ["Universe"] = 0.33, ["Vampire Gun"] = 40, ["Vampire Knife"] = 2,
-        ["Viper"] = 0.33, ["Web"] = 1, ["Witched"] = 5,
-    },
-    ["Godly"] = {
-        ["Alienbeam"] = 1900, ["Amerilaser"] = 23, ["Australis"] = 135, ["Bat"] = 120,
-        ["Battle Axe II"] = 18, ["BattleAxe"] = 13, ["Bauble"] = 675, ["Beachy"] = 90,
-        ["Bioblade"] = 10, ["Blaster"] = 17, ["Blizzard"] = 300, ["Bloom"] = 400,
-        ["Blossom"] = 1365, ["Blue Seer"] = 3, ["Boneblade"] = 8, ["Borealis"] = 140,
-        ["Candleflame"] = 35, ["Candy"] = 90, ["Chill"] = 12, ["Chroma Alienbeam"] = 23000,
-        ["Chroma Bauble"] = 31000, ["Chroma Beachy"] = 1200, ["Chroma Blizzard"] = 5500, ["Chroma Boneblade"] = 20,
-        ["Chroma Candleflame"] = 40, ["Chroma Constellation"] = 29000, ["Chroma Cookiecane"] = 30, ["Chroma Darkbringer"] = 60,
-        ["Chroma DeathShard"] = 35, ["Chroma Elderwood Blade"] = 35, ["Chroma Evergreen"] = 43000, ["Chroma Evergun"] = 56000,
-        ["Chroma Fang"] = 33, ["Chroma Gemstone"] = 33, ["Chroma Gingerblade"] = 25, ["Chroma Heart Wand"] = 3850,
-        ["Chroma Heat"] = 30, ["Chroma Icecream"] = 1700, ["Chroma Laser"] = 40, ["Chroma Lightbringer"] = 55,
-        ["Chroma Luger"] = 48, ["Chroma Ornament"] = 1800, ["Chroma Raygun"] = 14250, ["Chroma Sands"] = 1250,
-        ["Chroma Saw"] = 22, ["Chroma Seer"] = 25, ["Chroma Shark"] = 33, ["Chroma Slasher"] = 33,
-        ["Chroma Snow Dagger"] = 2400, ["Chroma Snowcannon"] = 7650, ["Chroma Snowstorm"] = 4250, ["Chroma Sunrise"] = 10500,
-        ["Chroma Sunset"] = 7500, ["Chroma Sweet"] = 1750, ["Chroma Swirlygun"] = 35, ["Chroma Tides"] = 25,
-        ["Chroma Travelers Gun"] = 140000, ["Chroma Treat"] = 1800, ["Chroma Vampires Gun"] = 28000, ["Chroma WaterGun"] = 2350,
-        ["Clockwork"] = 12, ["Constellation"] = 2725, ["Cookieblade"] = 4, ["Cookiecane"] = 14,
-        ["Darkbringer"] = 35, ["Darkshot"] = 1775, ["Darksword"] = 1750, ["Death Shard"] = 13,
-        ["Eggblade"] = 5, ["Elderwood Blade"] = 32, ["Elderwood Revolver"] = 35, ["Eternal"] = 10,
-        ["Eternal Cane"] = 13, ["Eternal II"] = 8, ["Eternal III"] = 10, ["Eternal IV"] = 10,
-        ["Evergreen"] = 2650, ["Evergun"] = 3425, ["Fang"] = 12, ["Flames"] = 7,
-        ["Flora"] = 410, ["Flowerwood Gun"] = 250, ["Flowerwood Knife"] = 245, ["Frostbite"] = 7,
-        ["Frostsaber"] = 10, ["Gemstone"] = 13, ["Ghost Blade"] = 8, ["Ginger Luger"] = 18,
-        ["Gingerblade"] = 13, ["Gingermint"] = 14, ["Green Luger"] = 25, ["Hallowgun"] = 22,
-        ["Hallows Blade"] = 7, ["Hallows Edge"] = 9, ["Handsaw"] = 9, ["Heart Wand"] = 350,
-        ["Heartblade"] = 65, ["Heat"] = 12, ["Ice Dragon"] = 7, ["Ice Shard"] = 9,
-        ["Icebeam"] = 20, ["Iceblaster"] = 35, ["Icecream"] = 155, ["Iceflake"] = 18,
-        ["Jinglegun"] = 15, ["Laser"] = 23, ["Lightbringer"] = 33, ["Luger"] = 17,
-        ["Luger Cane"] = 15, ["Makeshift"] = 33, ["Minty"] = 15, ["Nebula"] = 13,
-        ["Night Blade"] = 20, ["Ocean"] = 275, ["Old Glory"] = 17, ["Orange Seer"] = 2,
-        ["Ornament"] = 65, ["Pearl"] = 75, ["Pearlshine"] = 80, ["Peppermint"] = 4,
-        ["Phantom"] = 37, ["Pixel"] = 18, ["Plasmabeam"] = 20, ["Plasmablade"] = 17,
-        ["Prismatic"] = 5, ["Pumpking"] = 8, ["Purple Seer"] = 3, ["Rainbow"] = 420,
-        ["Rainbow Gun"] = 430, ["Raygun"] = 1775, ["Red Luger"] = 38, ["Red Seer"] = 3,
-        ["Sakura"] = 1350, ["Sands"] = 90, ["Saw"] = 8, ["Seer"] = 3,
-        ["Shark"] = 20, ["Slasher"] = 15, ["Snow Dagger"] = 170, ["Snowcannon"] = 680,
-        ["Snowflake"] = 5, ["Snowstorm"] = 300, ["Soul"] = 670, ["Spectre"] = 37,
-        ["Spider"] = 12, ["Spirit"] = 660, ["Sugar"] = 33, ["Sunrise"] = 1100,
-        ["Sunset"] = 650, ["Sweet"] = 150, ["Swirlyblade"] = 13, ["Swirlygun"] = 18,
-        ["Tides"] = 12, ["Travelers Gun"] = 5150, ["Treat"] = 155, ["Turkey"] = 1900,
-        ["Vampires Edge"] = 15, ["Vampires Gun"] = 1875, ["Virtual"] = 15, ["WaterGun"] = 160,
-        ["Waves"] = 270, ["Winters Edge"] = 7, ["Xenoknife"] = 410, ["Xenoshot"] = 420,
-        ["Xmas"] = 10, ["Yellow Seer"] = 2,
-    },
-    ["Chroma"] = {
-        ["Chroma Alienbeam"] = 23000, ["Chroma Bauble"] = 31000, ["Chroma Beachy"] = 1200, ["Chroma Blizzard"] = 5500,
-        ["Chroma Boneblade"] = 20, ["Chroma Candleflame"] = 40, ["Chroma Constellation"] = 29000, ["Chroma Cookiecane"] = 30,
-        ["Chroma Darkbringer"] = 60, ["Chroma DeathShard"] = 35, ["Chroma Elderwood Blade"] = 35, ["Chroma Evergreen"] = 43000,
-        ["Chroma Evergun"] = 56000, ["Chroma Fang"] = 33, ["Chroma Gemstone"] = 33, ["Chroma Gingerblade"] = 25,
-        ["Chroma Heart Wand"] = 3850, ["Chroma Heat"] = 30, ["Chroma Icecream"] = 1700, ["Chroma Laser"] = 40,
-        ["Chroma Lightbringer"] = 55, ["Chroma Luger"] = 48, ["Chroma Ornament"] = 1800, ["Chroma Raygun"] = 14250,
-        ["Chroma Sands"] = 1250, ["Chroma Saw"] = 22, ["Chroma Seer"] = 25, ["Chroma Shark"] = 33,
-        ["Chroma Slasher"] = 33, ["Chroma Snow Dagger"] = 2400, ["Chroma Snowcannon"] = 7650, ["Chroma Snowstorm"] = 4250,
-        ["Chroma Sunrise"] = 10500, ["Chroma Sunset"] = 7500, ["Chroma Sweet"] = 1750, ["Chroma Swirlygun"] = 35,
-        ["Chroma Tides"] = 25, ["Chroma Travelers Gun"] = 140000, ["Chroma Treat"] = 1800, ["Chroma Vampires Gun"] = 28000,
-        ["Chroma WaterGun"] = 2350,
-    },
-    ["Vintage"] = {
-        ["America"] = 8, ["Blood"] = 8, ["Cowboy"] = 4, ["Ghost"] = 10,
-        ["Golden"] = 5, ["Laser"] = 8, ["Phaser"] = 6, ["Prince"] = 6,
-        ["Shadow"] = 7, ["Splitter"] = 3,
-    },
-    ["Ancient"] = {
-        ["Batwing"] = 45, ["Celestial"] = 2250, ["Elderwood Scythe"] = 40, ["Gingerscope"] = 15500,
-        ["Hallowscythe"] = 32, ["Harvester"] = 250, ["Ice Wing"] = 15, ["Icebreaker"] = 70,
-        ["Icepiercer"] = 165, ["Log Chopper"] = 20, ["Niks Scythe"] = 250000000, ["SwirlyAxe"] = 40,
-        ["Travelers Axe"] = 7900, ["Vampires Axe"] = 1650,
-    },
-    ["Unique"] = {
-        ["Blue Candy"] = 50000, ["Blue Elderwood Blade"] = 45000, ["Blue EW Revolver"] = 50000, ["Blue Gingerscope"] = 45000,
-        ["Blue Gingerscythe"] = 40000, ["Blue Harvester"] = 45000, ["Blue LogChopper"] = 50000, ["Blue Minty"] = 50000,
-        ["Blue Sugar"] = 50000, ["Blue Swirly Axe"] = 40000, ["Blue Swirly Gun"] = 40000, ["Blue Synthwave"] = 40000,
-        ["Blue Vampires Edge"] = 40000, ["Bronze Candy"] = 200000, ["Bronze Elderwood Blade"] = 150000, ["Bronze EW Revolver"] = 200000,
-        ["Bronze Gingerscope"] = 150000, ["Bronze Gingerscythe"] = 100000, ["Bronze Hallows"] = 200000, ["Bronze Harvester"] = 100000,
-        ["Bronze Iceblaster"] = 200000, ["Bronze Icebreaker"] = 200000, ["Bronze Icecrusher"] = 150000, ["Bronze Icepiercer"] = 150000,
-        ["Bronze LogChopper"] = 200000, ["Bronze Minty"] = 200000, ["Bronze Sugar"] = 200000, ["Bronze Swirly Axe"] = 100000,
-        ["Bronze Swirly Gun"] = 100000, ["Bronze Synthwave"] = 100000, ["Bronze Travelers Axe"] = 100000, ["Bronze Vampires Axe"] = 100000,
-        ["Bronze Vampires Edge"] = 200000, ["Corrupt"] = 325, ["Gold Candy"] = 150000000, ["Gold Edlerwood Blade"] = 100000000,
-        ["Gold EW Revolver"] = 100000000, ["Gold Gingerscope"] = 100000000, ["Gold Gingerscythe"] = 500000000, ["Gold Hallows"] = 150000000,
-        ["Gold Harvester"] = 100000000, ["Gold Iceblaster"] = 100000000, ["Gold Icebreaker"] = 100000000, ["Gold Icecrusher"] = 100000000,
-        ["Gold Icepiercer"] = 100000000, ["Gold LogChopper"] = 500000000, ["Gold Minty"] = 500000000, ["Gold Sugar"] = 150000000,
-        ["Gold Swirly Axe"] = 100000000, ["Gold Swirly Gun"] = 100000000, ["Gold Synthwave"] = 100000000, ["Gold Travelers Axe"] = 100000000,
-        ["Gold Vampires Axe"] = 100000000, ["Gold Vampires Edge"] = 500000000, ["Purple Vampires Axe"] = 40000, ["Red Hallows"] = 50000,
-        ["Red Iceblaster"] = 45000, ["Red Icebreaker"] = 45000, ["Red Icecrusher"] = 45000, ["Red Icepiercer"] = 45000,
-        ["Red Travelers Axe"] = 40000, ["Silver Candy"] = 50000000, ["Silver Elderwood Blade"] = 2500000, ["Silver EW Revolver"] = 40000000,
-        ["Silver Gingerscope"] = 2000000, ["Silver Gingerscythe"] = 2000000, ["Silver Hallows"] = 50000000, ["Silver Harvester"] = 2500000,
-        ["Silver Iceblaster"] = 35000000, ["Silver Icebreaker"] = 35000000, ["Silver Icecrusher"] = 1000000, ["Silver Icepiercer"] = 2000000,
-        ["Silver LogChopper"] = 35000000, ["Silver Minty"] = 35000000, ["Silver Sugar"] = 45000000, ["Silver Swirly Axe"] = 25000000,
-        ["Silver Swirly Gun"] = 20000000, ["Silver Synthwave"] = 500000, ["Silver Travelers Axe"] = 1000000, ["Silver Vampires Axe"] = 500000,
-        ["Silver Vampires Edge"] = 2000000,
-    },
-}
+                    local bTag = block:match('<b>(.-)</b>')
+                    if bTag then
+                        local cleanName = bTag:gsub('<.->', ''):gsub('^%s+', ''):gsub('%s+$', '')
+                        -- check calculator numeric value first (e.g. .22 for Pier, .23 for Space, .42 for Bubbles)
+                        local calcValStr = block:match('runCalc%s*%(%s*[^,]+%s*,%s*[\'"]([^\'"]+)[\'"]')
+                                        or block:match('stackValue%s*%(%s*[^,]+%s*,%s*[\'"]([^\'"]+)[\'"]')
+                        -- extract raw display string for tooltip/display (e.g. 2 X (T1) Uncommon or 250)
+                        local vDisplay = block:match('Value:%s*([^\r\n<]+)')
+                        if vDisplay then
+                            vDisplay = vDisplay:gsub('^%s+', ''):gsub('%s+$', '')
+                        end
 
--- load external item values module from github
-pcall(function()
-    local url = "https://raw.githubusercontent.com/rilorfakesilly/scripts/refs/heads/main/modules/item_values.lua"
-    local ok, raw = pcall(function() return game:HttpGet(url) end)
-    if not ok or not raw or raw:find("404: Not Found") then
-        url = "https://raw.githubusercontent.com/rilorfakesilly/scripts/refs/heads/main/item_values.lua"
-        raw = game:HttpGet(url)
-    end
-    local mod = loadstring(raw)()
-    if type(mod) == "table" then
-        if mod.MM2Values then MM2Values = mod.MM2Values end
-        if mod.MM2ValuesByRarity then MM2ValuesByRarity = mod.MM2ValuesByRarity end
-    end
-end)
+                        local numVal = nil
+                        if calcValStr then
+                            calcValStr = calcValStr:gsub(',', ''):gsub('%s+', '')
+                            numVal = tonumber(calcValStr)
+                        end
+                        if not numVal and vDisplay then
+                            local numPart = vDisplay:match('^([%d%.,]+)')
+                            if numPart then
+                                numVal = tonumber((numPart:gsub(',', '')))
+                            end
+                        end
+
+                        if cleanName ~= '' and numVal then
+                            local normKey = cleanName:lower():gsub('[^%w]', '')
+                            MM2Values[cleanName] = numVal
+                            MM2ValuesNormalized[normKey] = numVal
+                            MM2ValuesByRarity[rName][cleanName] = numVal
+                            MM2ValuesNormalizedByRarity[rName][normKey] = numVal
+
+                            if vDisplay and vDisplay ~= '' then
+                                MM2ValueDisplays[cleanName] = vDisplay
+                            end
+
+                            -- index base name without brackets or tool suffixes
+                            local baseName = cleanName:gsub('%s*%(.-%)', ''):gsub('^%s+', ''):gsub('%s+$', '')
+                            if baseName ~= '' then
+                                local baseNorm = baseName:lower():gsub('[^%w]', '')
+                                if not MM2Values[baseName] then MM2Values[baseName] = numVal end
+                                if not MM2ValuesNormalized[baseNorm] then MM2ValuesNormalized[baseNorm] = numVal end
+                                if not MM2ValuesByRarity[rName][baseName] then MM2ValuesByRarity[rName][baseName] = numVal end
+                                if not MM2ValuesNormalizedByRarity[rName][baseNorm] then MM2ValuesNormalizedByRarity[rName][baseNorm] = numVal end
+
+                                local noSuf = baseName:gsub('%s+[Kk]nife$', ''):gsub('%s+[Gg]un$', ''):gsub('%s+[Aa]xe$', ''):gsub('%s+[Ss]cythe$', '')
+                                if noSuf ~= '' then
+                                    local noSufNorm = noSuf:lower():gsub('[^%w]', '')
+                                    if not MM2Values[noSuf] then MM2Values[noSuf] = numVal end
+                                    if not MM2ValuesNormalized[noSufNorm] then MM2ValuesNormalized[noSufNorm] = numVal end
+                                    if not MM2ValuesByRarity[rName][noSuf] then MM2ValuesByRarity[rName][noSuf] = numVal end
+                                    if not MM2ValuesNormalizedByRarity[rName][noSufNorm] then MM2ValuesNormalizedByRarity[rName][noSufNorm] = numVal end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            task.wait(0.2)
+        end
+        hasFetchedMM2Values = true
+        isFetchingMM2Values = false
+    end)
+end
+
+-- trigger live values scrape from mm2values.com
+pcall(fetchMM2ValuesFromWeb)
 
 local function detectRarityFromColor(guiObj)
     if not guiObj then return nil end
@@ -1080,6 +712,9 @@ local function getMM2ItemValue(rawName, rarity)
     local clean = rawName:gsub("^%s+", ""):gsub("%s+$", "")
     if clean:lower():find("default") then return 0 end
 
+    local normKey = clean:lower():gsub("[^%w]", "")
+    local normNoSuf = clean:lower():gsub("%s+knife$", ""):gsub("%s+gun$", ""):gsub("%s+axe$", ""):gsub("%s+scythe$", ""):gsub("[^%w]", "")
+
     local tierDefaults = {
         ["Legendary"] = 0.32,
         ["Rare"] = 0.22,
@@ -1092,54 +727,62 @@ local function getMM2ItemValue(rawName, rarity)
         ["Unique"] = 325.0,
     }
 
-    -- speed up lookup when rarity is pre-resolved
+    -- 1. check rarity table if rarity is detected
     if rarity and MM2ValuesByRarity and MM2ValuesByRarity[rarity] then
         local rTab = MM2ValuesByRarity[rarity]
         if rTab[clean] and rTab[clean] > 0 then return rTab[clean] end
-        local lower = clean:lower()
-        for name, val in pairs(rTab) do
-            if name:lower() == lower and val > 0 then return val end
-        end
-        for name, val in pairs(rTab) do
-            local base = name:gsub("%s*%(.-%)", ""):gsub("^%s+", ""):gsub("%s+$", ""):lower()
-            if base == lower and val > 0 then return val end
-        end
-        if tierDefaults[rarity] then
-            return tierDefaults[rarity]
+        if MM2ValuesNormalizedByRarity and MM2ValuesNormalizedByRarity[rarity] then
+            local rNorm = MM2ValuesNormalizedByRarity[rarity]
+            if rNorm[normKey] and rNorm[normKey] > 0 then return rNorm[normKey] end
+            if rNorm[normNoSuf] and rNorm[normNoSuf] > 0 then return rNorm[normNoSuf] end
         end
     end
 
-    -- search common tiers before scanning godlies
-    if MM2ValuesByRarity then
-        local lower = clean:lower()
-        for _, checkR in ipairs({"Common", "Uncommon", "Rare", "Legendary", "Vintage", "Ancient", "Unique", "Godly"}) do
-            local rTab = MM2ValuesByRarity[checkR]
-            if rTab then
-                if rTab[clean] and rTab[clean] > 0 then return rTab[clean] end
-                for name, val in pairs(rTab) do
-                    if name:lower() == lower and val > 0 then return val end
-                end
-                for name, val in pairs(rTab) do
-                    local base = name:gsub("%s*%(.-%)", ""):gsub("^%s+", ""):gsub("%s+$", ""):lower()
-                    if base == lower and val > 0 then return val end
-                end
+    -- 2. check global tables directly
+    if MM2Values and MM2Values[clean] and MM2Values[clean] > 0 then
+        return MM2Values[clean]
+    end
+    if MM2ValuesNormalized then
+        if MM2ValuesNormalized[normKey] and MM2ValuesNormalized[normKey] > 0 then
+            return MM2ValuesNormalized[normKey]
+        end
+        if MM2ValuesNormalized[normNoSuf] and MM2ValuesNormalized[normNoSuf] > 0 then
+            return MM2ValuesNormalized[normNoSuf]
+        end
+    end
+
+    -- 3. check all other rarities
+    if MM2ValuesNormalizedByRarity then
+        for _, checkR in ipairs({"Common", "Uncommon", "Rare", "Legendary", "Vintage", "Ancient", "Unique", "Godly", "Chroma"}) do
+            local rNorm = MM2ValuesNormalizedByRarity[checkR]
+            if rNorm then
+                if rNorm[normKey] and rNorm[normKey] > 0 then return rNorm[normKey] end
+                if rNorm[normNoSuf] and rNorm[normNoSuf] > 0 then return rNorm[normNoSuf] end
             end
         end
     end
 
-    -- search global value database when untiered
-    if MM2Values and MM2Values[clean] and MM2Values[clean] > 0 then return MM2Values[clean] end
+    -- 4. fallback to tier default if detected, otherwise 0
+    if rarity and tierDefaults[rarity] then
+        return tierDefaults[rarity]
+    end
+
+    return 0
+end
+
+local function getMM2ItemDisplay(rawName)
+    if not rawName or rawName == "" then return nil end
+    local clean = rawName:gsub("^%s+", ""):gsub("%s+$", "")
+    if MM2ValueDisplays and MM2ValueDisplays[clean] then
+        return MM2ValueDisplays[clean]
+    end
     local lower = clean:lower()
-    if MM2Values then
-        for name, val in pairs(MM2Values) do
-            if name:lower() == lower and val > 0 then return val end
-        end
-        for name, val in pairs(MM2Values) do
-            local base = name:gsub("%s*%(.-%)", ""):gsub("^%s+", ""):gsub("%s+$", ""):lower()
-            if base == lower and val > 0 then return val end
+    if MM2ValueDisplays then
+        for name, disp in pairs(MM2ValueDisplays) do
+            if name:lower() == lower then return disp end
         end
     end
-    return 0
+    return nil
 end
 
 local function formatValue(val)
@@ -7486,18 +7129,33 @@ local function _buildScriptUI()
         end
     })
 
+    local spectateConn = nil
     Tabs.Player:AddToggle("SpectateTarget", {
         Title = "Spectate target",
         Default = false,
         Callback = function(v)
             state.spectateTarget = v
+            if spectateConn then
+                pcall(function() spectateConn:Disconnect() end)
+                spectateConn = nil
+            end
             if v then
-                local target, err = findPlayer(state.targetUsername)
-                local hum = target and target.Character and target.Character:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    CurrentCamera.CameraSubject = hum
-                    log("Spectating: " .. target.Name)
-                end
+                spectateConn = RunService.RenderStepped:Connect(function()
+                    if not state.spectateTarget then
+                        if spectateConn then spectateConn:Disconnect(); spectateConn = nil end
+                        return
+                    end
+                    local target = findPlayer(state.targetUsername)
+                    local hum = target and target.Character and target.Character:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        if CurrentCamera.CameraSubject ~= hum then
+                            CurrentCamera.CameraSubject = hum
+                        end
+                    end
+                end)
+                trackConnection(spectateConn)
+                local target = findPlayer(state.targetUsername)
+                if target then log("Spectating: " .. target.Name) end
             else
                 local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
                 if hum then CurrentCamera.CameraSubject = hum end
@@ -8973,6 +8631,7 @@ local function _buildScriptUI()
     }
 
     local bodyParticleEmitters = {}
+    local bodySliceParts = {}
     local bodyContainerPart = nil
     local bodyContainerHeartbeat = nil
 
@@ -8981,6 +8640,12 @@ local function _buildScriptUI()
             pcall(function() bodyContainerHeartbeat:Disconnect() end)
             bodyContainerHeartbeat = nil
         end
+        for _, sInfo in ipairs(bodySliceParts) do
+            if sInfo.part then
+                pcall(function() sInfo.part:Destroy() end)
+            end
+        end
+        table.clear(bodySliceParts)
         if bodyContainerPart then
             pcall(function() bodyContainerPart:Destroy() end)
             bodyContainerPart = nil
@@ -8988,7 +8653,7 @@ local function _buildScriptUI()
         local char = LocalPlayer.Character
         if char then
             for _, desc in ipairs(char:GetChildren()) do
-                if desc.Name == "BodyParticleContainerPart" then
+                if desc.Name == "BodyParticleContainerPart" or desc.Name == "BodyParticleSlice" then
                     pcall(function() desc:Destroy() end)
                 end
             end
@@ -9183,13 +8848,31 @@ local function _buildScriptUI()
                     if newSize and newSize ~= _cachedBodySize then
                         container.Size = newSize
                         _cachedBodySize = newSize
+                        if #bodySliceParts > 0 then
+                            local n = #bodySliceParts
+                            local sW = newSize.X / n
+                            for i, sInfo in ipairs(bodySliceParts) do
+                                sInfo.offset = Vector3.new((i - (n + 1) * 0.5) * sW, 0, 0)
+                                if sInfo.part and sInfo.part.Parent then
+                                    sInfo.part.Size = Vector3.new(sW, newSize.Y, newSize.Z)
+                                end
+                            end
+                        end
                     end
                 end
             else
                 -- anchor container to root part coordinates
                 container.CFrame = hrpPart.CFrame
             end
-            
+
+            if #bodySliceParts > 0 then
+                for _, sInfo in ipairs(bodySliceParts) do
+                    if sInfo.part and sInfo.part.Parent then
+                        sInfo.part.CFrame = container.CFrame * CFrame.new(sInfo.offset)
+                    end
+                end
+            end
+
             if container.Transparency ~= 1 then container.Transparency = 1 end
             if container.CanCollide then container.CanCollide = false end
         end)
@@ -9208,10 +8891,6 @@ local function _buildScriptUI()
 
         local isAnim = presetData.isAnimated or bodyParticlesConfig.isCustomFlipbook
 
-        local emitter = Instance.new("ParticleEmitter")
-        emitter.Name = "BodyParticleEmitter"
-        emitter.Texture = textureUrl
-
         local function getSafeEnum(enumType, memberName)
             if not memberName or type(memberName) ~= "string" then return nil end
             local ok, val = pcall(function()
@@ -9221,144 +8900,207 @@ local function _buildScriptUI()
             return nil
         end
 
-        if isAnim then
-            pcall(function()
-                local customStr = tostring(bodyParticlesConfig.customFlipbookLayout or "4x4"):gsub("%s+", "")
-                local customCols, customRows = customStr:match("^(%d+)[xX*:,](%d+)$")
-                if not customCols and customStr:match("^(%d+)$") then
-                    local d = customStr:match("^(%d+)$")
-                    customCols, customRows = d, d
-                end
+        local function configureEmitter(emitter, rateToUse, colSeq)
+            emitter.Name = "BodyParticleEmitter"
+            emitter.Texture = textureUrl
 
-                local layoutToUse = presetData.flipbookLayout
-
-                if not layoutToUse or bodyParticlesConfig.preset == "Custom" or bodyParticlesConfig.isCustomFlipbook then
-                    if customCols and customRows then
-                        local c = tonumber(customCols)
-                        local r = tonumber(customRows)
-                        if c == 2 and r == 2 then
-                            layoutToUse = Enum.ParticleFlipbookLayout.Grid2x2
-                        elseif c == 4 and r == 4 then
-                            layoutToUse = Enum.ParticleFlipbookLayout.Grid4x4
-                        elseif c == 8 and r == 8 then
-                            layoutToUse = Enum.ParticleFlipbookLayout.Grid8x8
-                        else
-                            -- map irregular sprite sheet cells
-                            local customEnum = getSafeEnum(Enum.ParticleFlipbookLayout, "Custom")
-                            if customEnum then
-                                layoutToUse = customEnum
-                                pcall(function() emitter.FlipbookSize = Vector2.new(c, r) end)
-                            else
-                                local maxDim = math.max(c, r)
-                                if maxDim <= 2 then
-                                    layoutToUse = Enum.ParticleFlipbookLayout.Grid2x2
-                                elseif maxDim <= 4 then
-                                    layoutToUse = Enum.ParticleFlipbookLayout.Grid4x4
-                                else
-                                    layoutToUse = Enum.ParticleFlipbookLayout.Grid8x8
-                                end
-                                pcall(function() emitter.FlipbookSize = Vector2.new(c, r) end)
-                            end
-                        end
-                    else
-                        layoutToUse = getSafeEnum(Enum.ParticleFlipbookLayout, customStr) or Enum.ParticleFlipbookLayout.Grid4x4
+            if isAnim then
+                pcall(function()
+                    local customStr = tostring(bodyParticlesConfig.customFlipbookLayout or "4x4"):gsub("%s+", "")
+                    local customCols, customRows = customStr:match("^(%d+)[xX*:,](%d+)$")
+                    if not customCols and customStr:match("^(%d+)$") then
+                        local d = customStr:match("^(%d+)$")
+                        customCols, customRows = d, d
                     end
-                end
 
-                if layoutToUse then
-                    emitter.FlipbookLayout = layoutToUse
-                end
+                    local layoutToUse = presetData.flipbookLayout
 
-                local modeToUse = presetData.flipbookMode or getSafeEnum(Enum.ParticleFlipbookMode, bodyParticlesConfig.customFlipbookMode) or Enum.ParticleFlipbookMode.Loop
-                emitter.FlipbookMode = modeToUse
+                    if not layoutToUse or bodyParticlesConfig.preset == "Custom" or bodyParticlesConfig.isCustomFlipbook then
+                        if customCols and customRows then
+                            local c = tonumber(customCols)
+                            local r = tonumber(customRows)
+                            if c == 2 and r == 2 then
+                                layoutToUse = Enum.ParticleFlipbookLayout.Grid2x2
+                            elseif c == 4 and r == 4 then
+                                layoutToUse = Enum.ParticleFlipbookLayout.Grid4x4
+                            elseif c == 8 and r == 8 then
+                                layoutToUse = Enum.ParticleFlipbookLayout.Grid8x8
+                            else
+                                local customEnum = getSafeEnum(Enum.ParticleFlipbookLayout, "Custom")
+                                if customEnum then
+                                    layoutToUse = customEnum
+                                    pcall(function() emitter.FlipbookSize = Vector2.new(c, r) end)
+                                else
+                                    local maxDim = math.max(c, r)
+                                    if maxDim <= 2 then
+                                        layoutToUse = Enum.ParticleFlipbookLayout.Grid2x2
+                                    elseif maxDim <= 4 then
+                                        layoutToUse = Enum.ParticleFlipbookLayout.Grid4x4
+                                    else
+                                        layoutToUse = Enum.ParticleFlipbookLayout.Grid8x8
+                                    end
+                                    pcall(function() emitter.FlipbookSize = Vector2.new(c, r) end)
+                                end
+                            end
+                        else
+                            layoutToUse = getSafeEnum(Enum.ParticleFlipbookLayout, customStr) or Enum.ParticleFlipbookLayout.Grid4x4
+                        end
+                    end
 
-                local fps = tonumber(bodyParticlesConfig.flipbookPlaySpeed) or 15
-                emitter.FlipbookFramerate = NumberRange.new(fps)
-            end)
-        else
-            pcall(function()
-                emitter.FlipbookLayout = Enum.ParticleFlipbookLayout.None
-            end)
-        end
+                    if layoutToUse then
+                        emitter.FlipbookLayout = layoutToUse
+                    end
 
-        local sz = math.clamp(bodyParticlesConfig.size or 0.2, 0.01, 10.0)
-        emitter.Size = NumberSequence.new(sz)
+                    local modeToUse = presetData.flipbookMode or getSafeEnum(Enum.ParticleFlipbookMode, bodyParticlesConfig.customFlipbookMode) or Enum.ParticleFlipbookMode.Loop
+                    emitter.FlipbookMode = modeToUse
 
-        local trans = bodyParticlesConfig.transparency or 0.2
-        local fadeIn = bodyParticlesConfig.fadeIn
-        local fadeOut = bodyParticlesConfig.fadeOut
-
-        if fadeIn and fadeOut then
-            emitter.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 1.0),
-                NumberSequenceKeypoint.new(0.2, trans),
-                NumberSequenceKeypoint.new(0.8, trans),
-                NumberSequenceKeypoint.new(1, 1.0)
-            })
-        elseif fadeIn then
-            emitter.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 1.0),
-                NumberSequenceKeypoint.new(0.3, trans),
-                NumberSequenceKeypoint.new(1, trans)
-            })
-        elseif fadeOut then
-            emitter.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, trans),
-                NumberSequenceKeypoint.new(1, 1.0)
-            })
-        else
-            emitter.Transparency = NumberSequence.new(trans)
-        end
-
-        local spd = bodyParticlesConfig.speed or 0.0
-        emitter.Speed = NumberRange.new(spd, spd)
-
-        local rotSpd = bodyParticlesConfig.spin or 0
-        emitter.RotSpeed = NumberRange.new(-rotSpd, rotSpd)
-
-        local life = bodyParticlesConfig.lifetime or 1.5
-        emitter.Lifetime = NumberRange.new(life * 0.8, life * 1.2)
-
-        emitter.Rate = bodyParticlesConfig.rate or 10
-
-        -- illuminate particle textures with bloom
-        if bodyParticlesConfig.glowing then
-            emitter.LightEmission = 1.0
-            emitter.LightInfluence = 0.0
-        else
-            emitter.LightEmission = 0.0
-            emitter.LightInfluence = 1.0
-        end
-
-        -- fix particles in world space
-        if bodyParticlesConfig.anchored then
-            emitter.LockedToPart = true
-        else
-            emitter.LockedToPart = false
-        end
-
-        local orientMode = bodyParticlesConfig.orientation or "Camera"
-        pcall(function()
-            if orientMode == "VelocityParallel" then
-                emitter.Orientation = Enum.ParticleOrientation.VelocityParallel
-            elseif orientMode == "VelocityPerpendicular" then
-                emitter.Orientation = Enum.ParticleOrientation.VelocityPerpendicular
+                    local fps = tonumber(bodyParticlesConfig.flipbookPlaySpeed) or 15
+                    emitter.FlipbookFramerate = NumberRange.new(fps)
+                end)
             else
-                emitter.Orientation = Enum.ParticleOrientation.Camera
+                pcall(function()
+                    emitter.FlipbookLayout = Enum.ParticleFlipbookLayout.None
+                end)
             end
-        end)
 
-        emitter.Color = getParticleColors(bodyParticlesConfig.colorMode, bodyParticlesConfig.color1, bodyParticlesConfig.color2)
+            local sz = math.clamp(bodyParticlesConfig.size or 0.2, 0.01, 10.0)
+            emitter.Size = NumberSequence.new(sz)
 
-        emitter.Parent = container
-        table.insert(bodyParticleEmitters, emitter)
+            local trans = bodyParticlesConfig.transparency or 0.2
+            local fadeIn = bodyParticlesConfig.fadeIn
+            local fadeOut = bodyParticlesConfig.fadeOut
+
+            if fadeIn and fadeOut then
+                emitter.Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 1.0),
+                    NumberSequenceKeypoint.new(0.2, trans),
+                    NumberSequenceKeypoint.new(0.8, trans),
+                    NumberSequenceKeypoint.new(1, 1.0)
+                })
+            elseif fadeIn then
+                emitter.Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 1.0),
+                    NumberSequenceKeypoint.new(0.3, trans),
+                    NumberSequenceKeypoint.new(1, trans)
+                })
+            elseif fadeOut then
+                emitter.Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, trans),
+                    NumberSequenceKeypoint.new(1, 1.0)
+                })
+            else
+                emitter.Transparency = NumberSequence.new(trans)
+            end
+
+            local spd = bodyParticlesConfig.speed or 0.0
+            emitter.Speed = NumberRange.new(spd, spd)
+
+            local rotSpd = bodyParticlesConfig.spin or 0
+            emitter.RotSpeed = NumberRange.new(-rotSpd, rotSpd)
+
+            local life = bodyParticlesConfig.lifetime or 1.5
+            emitter.Lifetime = NumberRange.new(life * 0.8, life * 1.2)
+
+            emitter.Rate = rateToUse
+
+            if bodyParticlesConfig.glowing then
+                emitter.LightEmission = 1.0
+                emitter.LightInfluence = 0.0
+            else
+                emitter.LightEmission = 0.0
+                emitter.LightInfluence = 1.0
+            end
+
+            if bodyParticlesConfig.anchored then
+                emitter.LockedToPart = true
+            else
+                emitter.LockedToPart = false
+            end
+
+            local orientMode = bodyParticlesConfig.orientation or "Camera"
+            pcall(function()
+                if orientMode == "VelocityParallel" then
+                    emitter.Orientation = Enum.ParticleOrientation.VelocityParallel
+                elseif orientMode == "VelocityPerpendicular" then
+                    emitter.Orientation = Enum.ParticleOrientation.VelocityPerpendicular
+                else
+                    emitter.Orientation = Enum.ParticleOrientation.Camera
+                end
+            end)
+
+            emitter.Color = colSeq
+        end
+
+        local isRainbow2 = (bodyParticlesConfig.colorMode == "Rainbow 2")
+        local numSlices = isRainbow2 and 5 or 1
+        local sliceWidth = boxSize.X / numSlices
+        local baseRate = bodyParticlesConfig.rate or 10
+        local ratePerSlice = isRainbow2 and math.max(1, math.ceil(baseRate / numSlices)) or baseRate
+        local shiftSpeed = state and state.colorShiftSpeed or 3
+        local phase = (tick() * (shiftSpeed * 0.15)) % 1.0
+
+        for i = 1, numSlices do
+            local parentPart = container
+            local colSeq = nil
+            if isRainbow2 then
+                local slice = Instance.new("Part")
+                slice.Name = "BodyParticleSlice"
+                slice.Size = Vector3.new(sliceWidth, boxSize.Y, boxSize.Z)
+                local xOffset = (i - (numSlices + 1) * 0.5) * sliceWidth
+                slice.CFrame = container.CFrame * CFrame.new(xOffset, 0, 0)
+                slice.Transparency = 1
+                slice.CanCollide = false
+                slice.CanTouch = false
+                slice.CanQuery = false
+                slice.CastShadow = false
+                slice.Massless = true
+                slice.Anchored = false
+                slice.Parent = container
+                table.insert(bodySliceParts, {part = slice, offset = Vector3.new(xOffset, 0, 0)})
+                parentPart = slice
+
+                local frac = (i - 1) / numSlices
+                local hue = (phase - frac) % 1.0
+                if hue < 0 then hue = hue + 1 end
+                colSeq = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Color3.fromHSV(hue, 1, 1)),
+                    ColorSequenceKeypoint.new(1, Color3.fromHSV((hue + 0.1) % 1.0, 1, 1))
+                })
+            else
+                colSeq = getParticleColors(bodyParticlesConfig.colorMode, bodyParticlesConfig.color1, bodyParticlesConfig.color2)
+            end
+
+            local emitter = Instance.new("ParticleEmitter")
+            configureEmitter(emitter, ratePerSlice, colSeq)
+            emitter.Parent = parentPart
+            table.insert(bodyParticleEmitters, emitter)
+        end
     end
 
     local function updateBodyParticlesColors()
         if not bodyParticlesConfig.enabled then return end
-        for _, emitter in ipairs(bodyParticleEmitters) do
-            if emitter and emitter.Parent then
-                emitter.Color = getParticleColors(bodyParticlesConfig.colorMode, bodyParticlesConfig.color1, bodyParticlesConfig.color2)
+        local mode = bodyParticlesConfig.colorMode
+        local shiftSpeed = state and state.colorShiftSpeed or 3
+        local phase = (tick() * (shiftSpeed * 0.15)) % 1.0
+
+        if mode == "Rainbow 2" and #bodyParticleEmitters > 1 then
+            local n = #bodyParticleEmitters
+            for i, emitter in ipairs(bodyParticleEmitters) do
+                if emitter and emitter.Parent then
+                    local frac = (i - 1) / n
+                    local hue = (phase - frac) % 1.0
+                    if hue < 0 then hue = hue + 1 end
+                    emitter.Color = ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Color3.fromHSV(hue, 1, 1)),
+                        ColorSequenceKeypoint.new(1, Color3.fromHSV((hue + 0.1) % 1.0, 1, 1))
+                    })
+                end
+            end
+        else
+            for _, emitter in ipairs(bodyParticleEmitters) do
+                if emitter and emitter.Parent then
+                    emitter.Color = getParticleColors(bodyParticlesConfig.colorMode, bodyParticlesConfig.color1, bodyParticlesConfig.color2)
+                end
             end
         end
     end
@@ -9730,9 +9472,6 @@ local function _buildScriptUI()
             end
             if wingsConfig.enabled then
                 if updateWings then updateWings() end
-            end
-            if crosshairConfig and crosshairConfig.enabled then
-                if updateCrosshair then updateCrosshair() end
             end
         end)
         trackConnection(visualHeartbeatConn)
@@ -10281,7 +10020,7 @@ local function _buildScriptUI()
             Id = "BodyParticlesColorMode",
             Type = "Dropdown",
             Title = "Particle color mode",
-            Values = {"Normal", "Rainbow", "Shift", "Gradient"},
+            Values = {"Normal", "Rainbow", "Rainbow 2", "Shift", "Gradient"},
             Default = "Normal",
             Callback = function(v)
                 bodyParticlesConfig.colorMode = v
