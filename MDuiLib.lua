@@ -1,4 +1,5 @@
 local Library = {}
+Library.Version = "2.38.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -754,6 +755,7 @@ local function ApplyCornerRadii(uiCorner, topLeft, topRight, bottomLeft, bottomR
 end
 
 Library.ShadowsEnabled = true
+Library.ShadowIntensity = 1 / 1.8
 Library.Shadows = {} -- maps shadow instance to original transparency
 
 local function AddUIShadow(parentFrame, blurRadius, transparency, color)
@@ -761,14 +763,19 @@ local function AddUIShadow(parentFrame, blurRadius, transparency, color)
     transparency = transparency or 0.5
     color = color or Color3.fromRGB(0, 0, 0)
 
+    local intensity = Library.ShadowIntensity or (1 / 1.8)
+    local baseOpacity = 1 - transparency
+    local curOpacity = math.clamp(baseOpacity * intensity, 0, 1)
+    local curTrans = 1 - curOpacity
+
     local shadowNode = Instance.new("UIShadow")
     shadowNode.Name = GenerateSafeName("UIShadow")
     shadowNode.BlurRadius = UDim.new(0, blurRadius)
     shadowNode.Color = color
-    shadowNode.Transparency = Library.ShadowsEnabled and transparency or 1
+    shadowNode.Transparency = (Library.ShadowsEnabled and intensity > 0) and curTrans or 1
     shadowNode.ShowBehindParent = true
-    pcall(function() shadowNode.Enabled = Library.ShadowsEnabled end)
-    pcall(function() shadowNode.Visible = Library.ShadowsEnabled end)
+    pcall(function() shadowNode.Enabled = (Library.ShadowsEnabled and intensity > 0) end)
+    pcall(function() shadowNode.Visible = (Library.ShadowsEnabled and intensity > 0) end)
     shadowNode.Parent = parentFrame
 
     Library.Shadows[shadowNode] = transparency
@@ -909,6 +916,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NotificationsEnabled = true,
         UISoundsEnabled = true,
         SoundVolume = 0.8,
+        HoverSoundId = "88894490577328",
+        ClickSoundId = "86313632275410",
+        NotifSoundId = "97455084935031",
+        ShadowIntensity = 1 / 1.8,
         BackgroundBlurEnabled = true,
         SpiderwebBGEnabled = true,
         CustomThemeColor = nil,
@@ -1000,17 +1011,32 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     SoundFolder.Name = GenerateSafeName("Sounds")
     SoundFolder.Parent = ParentGui
 
+    local function FormatSoundId(id)
+        if not id or id == "" then return "" end
+        local str = tostring(id):gsub("%s+", "")
+        if str:find("://") then return str end
+        local num = str:match("%d+")
+        if num then return "rbxassetid://" .. num end
+        return str
+    end
+
     local HoverSoundTemplate = Instance.new("Sound")
     HoverSoundTemplate.Name = GenerateSafeName("HoverSound")
-    HoverSoundTemplate.SoundId = "rbxassetid://88894490577328"
+    HoverSoundTemplate.SoundId = FormatSoundId(Window.HoverSoundId or "88894490577328")
     HoverSoundTemplate.Volume = 0.4
     HoverSoundTemplate.Parent = SoundFolder
 
     local ClickSoundTemplate = Instance.new("Sound")
     ClickSoundTemplate.Name = GenerateSafeName("ClickSound")
-    ClickSoundTemplate.SoundId = "rbxassetid://86313632275410"
+    ClickSoundTemplate.SoundId = FormatSoundId(Window.ClickSoundId or "86313632275410")
     ClickSoundTemplate.Volume = 0.5
     ClickSoundTemplate.Parent = SoundFolder
+
+    local NotifSoundTemplate = Instance.new("Sound")
+    NotifSoundTemplate.Name = GenerateSafeName("NotifSound")
+    NotifSoundTemplate.SoundId = FormatSoundId(Window.NotifSoundId or "97455084935031")
+    NotifSoundTemplate.Volume = 0.5
+    NotifSoundTemplate.Parent = SoundFolder
 
     local function PlayHoverSFX()
         if not Window or not Window.UISoundsEnabled then return end
@@ -1034,6 +1060,42 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             snd:Play()
             Debris:AddItem(snd, 1.5)
         end)
+    end
+
+    local function PlayNotifSFX()
+        if not Window or not Window.UISoundsEnabled then return end
+        pcall(function()
+            local vol = (Window.SoundVolume ~= nil) and Window.SoundVolume or 0.8
+            local snd = NotifSoundTemplate:Clone()
+            snd.Volume = 0.5 * vol
+            snd.Parent = SoundFolder
+            snd:Play()
+            Debris:AddItem(snd, 2.0)
+        end)
+    end
+
+    function Window:SetHoverSound(id)
+        local formatted = FormatSoundId(id)
+        if formatted and formatted ~= "" then
+            Window.HoverSoundId = formatted
+            if HoverSoundTemplate then HoverSoundTemplate.SoundId = formatted end
+        end
+    end
+
+    function Window:SetClickSound(id)
+        local formatted = FormatSoundId(id)
+        if formatted and formatted ~= "" then
+            Window.ClickSoundId = formatted
+            if ClickSoundTemplate then ClickSoundTemplate.SoundId = formatted end
+        end
+    end
+
+    function Window:SetNotificationSound(id)
+        local formatted = FormatSoundId(id)
+        if formatted and formatted ~= "" then
+            Window.NotifSoundId = formatted
+            if NotifSoundTemplate then NotifSoundTemplate.SoundId = formatted end
+        end
     end
 
     -- Control registries and config persistence
@@ -1114,10 +1176,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Blur = Window.BackgroundBlurEnabled,
                 Sounds = Window.UISoundsEnabled,
                 SoundVolume = Window.SoundVolume or 0.8,
+                HoverSound = Window.HoverSoundId or "88894490577328",
+                ClickSound = Window.ClickSoundId or "86313632275410",
+                NotifSound = Window.NotifSoundId or "97455084935031",
                 Notifications = Window.NotificationsEnabled,
                 CustomThemeColor = (Window.IsCustomTheme and Window.CustomThemeColor) and Window.CustomThemeColor:ToHex() or nil,
                 BGTransparency = Window.CustomBGTransparency or 0.22,
                 Shadows = Window.ShadowsEnabled,
+                ShadowIntensity = math.floor((Window.ShadowIntensity or (1 / 1.8)) * 100),
                 ClickEffects = Window.ClickEffectsEnabled,
                 ClickParticle = Window.ClickParticleType or "Theme default",
                 CustomParticle = Window.CustomParticleAsset or ""
@@ -1273,6 +1339,27 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if data.Settings.SoundVolume ~= nil and Window.SetSoundVolume then
                 pcall(function() Window:SetSoundVolume(data.Settings.SoundVolume) end)
             end
+            if data.Settings.HoverSound ~= nil and Window.SetHoverSound then
+                pcall(function()
+                    Window:SetHoverSound(data.Settings.HoverSound)
+                    local box = Window.RegisteredTextboxes and Window.RegisteredTextboxes["HoverSound"]
+                    if box and box.SetText then box.SetText(data.Settings.HoverSound) end
+                end)
+            end
+            if data.Settings.ClickSound ~= nil and Window.SetClickSound then
+                pcall(function()
+                    Window:SetClickSound(data.Settings.ClickSound)
+                    local box = Window.RegisteredTextboxes and Window.RegisteredTextboxes["ClickSound"]
+                    if box and box.SetText then box.SetText(data.Settings.ClickSound) end
+                end)
+            end
+            if data.Settings.NotifSound ~= nil and Window.SetNotificationSound then
+                pcall(function()
+                    Window:SetNotificationSound(data.Settings.NotifSound)
+                    local box = Window.RegisteredTextboxes and Window.RegisteredTextboxes["NotifSound"]
+                    if box and box.SetText then box.SetText(data.Settings.NotifSound) end
+                end)
+            end
             if data.Settings.Notifications ~= nil then
                 Window.NotificationsEnabled = data.Settings.Notifications
             end
@@ -1284,6 +1371,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     Window:SetShadowsEnabled(data.Settings.Shadows)
                     local t = Window.RegisteredToggles["Shadows"]
                     if t and t.SetState then t.SetState(data.Settings.Shadows, false) end -- sync the switch visually
+                end)
+            end
+            if data.Settings.ShadowIntensity ~= nil and Window.SetShadowIntensity then
+                pcall(function()
+                    Window:SetShadowIntensity(data.Settings.ShadowIntensity)
+                    local sld = Window.RegisteredSliders and Window.RegisteredSliders["ShadowIntensity"]
+                    if sld and sld.SetValue then sld.SetValue(data.Settings.ShadowIntensity, false) end
                 end)
             end
             if data.Settings.ClickEffects ~= nil then
@@ -4964,6 +5058,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleText.TextSize = 13
             TitleText.TextWrapped = true
             ToggleFrame.Position = UDim2.new(1, -52, 0, 6)
+            if ClickBtn then
+                ClickBtn.Position = UDim2.new(1, -58, 0, 0)
+                ClickBtn.Size = UDim2.new(0, 56, 0, 36)
+            end
             local kbObj = self.Keybind or toggleData.Keybind
             if kbObj then
                 local kb = kbObj.Container or kbObj.Badge or kbObj.Frame or (kbObj.IsA and kbObj:IsA("GuiObject") and kbObj)
@@ -5736,8 +5834,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     MainContainer = Instance.new("Frame")
     MainContainer.Name = "MainContainer"
-    MainContainer.Size = UDim2.new(0, 660, 0, 430)
-    MainContainer.Position = UDim2.new(0.5, -330, 0.5, -215)
+    MainContainer.Size = UDim2.new(0, 760, 0, 470)
+    MainContainer.Position = UDim2.new(0.5, -380, 0.5, -235)
     MainContainer.BackgroundTransparency = 1
     MainContainer.ClipsDescendants = false
     MainContainer.Parent = ScriptUi
@@ -7070,6 +7168,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- Notification Engine (Placed at Y = 1, -105)
     function Window:Notify(titleText, contentText, duration)
         if not Window.NotificationsEnabled then return end
+        PlayNotifSFX()
         duration = duration or 3.5
 
         local NotifContainer = Instance.new("Frame")
@@ -9291,6 +9390,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         function TabObj:AddTextInput(...)
             return self:AddTextbox(...)
         end
+        TabObj.AddInput = TabObj.AddTextInput
 
         function TabObj:AddTextbox(titleOrConfig, placeholder, defaultText, onSubmit, parentRow, position, sizeFraction, boxOptions)
             local title, ph, def, cb, opts
@@ -10727,6 +10827,36 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         })
         Window.RegisteredSliders["SoundVolume"] = volSlider
 
+        local hoverSoundBox = SettingsTab:AddTextbox({
+            Title = "Hover sound ID",
+            Placeholder = "88894490577328",
+            Default = Window.HoverSoundId or "88894490577328",
+            Callback = function(val)
+                Window:SetHoverSound(val)
+            end
+        })
+        Window.RegisteredTextboxes["HoverSound"] = hoverSoundBox
+
+        local clickSoundBox = SettingsTab:AddTextbox({
+            Title = "Click sound ID",
+            Placeholder = "86313632275410",
+            Default = Window.ClickSoundId or "86313632275410",
+            Callback = function(val)
+                Window:SetClickSound(val)
+            end
+        })
+        Window.RegisteredTextboxes["ClickSound"] = clickSoundBox
+
+        local notifSoundBox = SettingsTab:AddTextbox({
+            Title = "Notification sound ID",
+            Placeholder = "97455084935031",
+            Default = Window.NotifSoundId or "97455084935031",
+            Callback = function(val)
+                Window:SetNotificationSound(val)
+            end
+        })
+        Window.RegisteredTextboxes["NotifSound"] = notifSoundBox
+
         local visualSection = SettingsTab:AddSection("Appearance & Visuals")
         local bgToggles = SettingsTab:AddToggleGroup({
             {
@@ -10797,6 +10927,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Callback = function(val, pct) Window:SetBlurIntensity(val / 100) end
         })
         Window.RegisteredSliders["BlurIntensity"] = blurIntensitySlider
+
+        local shadowIntensitySlider = SettingsTab:AddSlider({
+            Title = "Shadow intensity",
+            Min = 0,
+            Max = 100,
+            Default = math.floor((Window.ShadowIntensity or (1 / 1.8)) * 100),
+            Suffix = "%",
+            Callback = function(val, pct)
+                Window:SetShadowIntensity(val)
+            end
+        })
+        Window.RegisteredSliders["ShadowIntensity"] = shadowIntensitySlider
 
         local customThemeCP = SettingsTab:AddColorPicker(
             "Custom theme",
@@ -12333,6 +12475,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Window.SoundVolume = pct
         if HoverSoundTemplate then HoverSoundTemplate.Volume = pct * 0.4 end
         if ClickSoundTemplate then ClickSoundTemplate.Volume = pct * 0.5 end
+        if NotifSoundTemplate then NotifSoundTemplate.Volume = pct * 0.5 end
     end
 
     function Window:SetBlurIntensity(val)
@@ -12435,6 +12578,60 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return bg
     end
 
+    function Window:SetShadowIntensity(intensity)
+        local pct = math.clamp(tonumber(intensity) or 56, 0, 100) / 100
+        Window.ShadowIntensity = pct
+        Library.ShadowIntensity = pct
+
+        local function applyShadow(shadow, origTrans)
+            if not shadow then return end
+            local baseOpacity = 1 - (origTrans or 0.5)
+            local curOpacity = math.clamp(baseOpacity * pct, 0, 1)
+            local curTrans = 1 - curOpacity
+            pcall(function() shadow.Enabled = (Window.ShadowsEnabled and pct > 0) end)
+            pcall(function() shadow.Visible = (Window.ShadowsEnabled and pct > 0) end)
+            pcall(function() shadow.Transparency = (Window.ShadowsEnabled and pct > 0) and curTrans or 1 end)
+        end
+
+        for shadow, origTrans in pairs(Library.Shadows) do
+            if shadow and shadow.Parent then
+                applyShadow(shadow, origTrans)
+            else
+                Library.Shadows[shadow] = nil
+            end
+        end
+
+        local roots = {
+            ScriptUi,
+            Window.ScriptUi,
+            Window.MinimisedUI,
+            Window.NotificationUI,
+            ParentGui
+        }
+        for _, root in ipairs(roots) do
+            if root and typeof(root) == "Instance" and root.Parent then
+                pcall(function()
+                    for _, desc in ipairs(root:GetDescendants()) do
+                        local isShadow = false
+                        pcall(function()
+                            if desc.ClassName == "UIShadow" or desc:IsA("UIShadow") then
+                                isShadow = true
+                            end
+                        end)
+                        if not isShadow and desc.Name and tostring(desc.Name):sub(1, 8) == "UIShadow" then
+                            isShadow = true
+                        end
+                        if isShadow then
+                            local orig = Library.Shadows[desc] or (desc.Transparency < 1 and desc.Transparency or 0.5)
+                            Library.Shadows[desc] = orig
+                            applyShadow(desc, orig)
+                        end
+                    end
+                end)
+            end
+        end
+    end
+
     function Window:SetShadowsEnabled(enabled)
         enabled = (enabled ~= false)
         Window.ShadowsEnabled = enabled
@@ -12442,10 +12639,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local function applyShadowState(shadow, origTrans)
             if not shadow then return end
-            pcall(function() shadow.Enabled = enabled end)
-            pcall(function() shadow.Visible = enabled end)
+            local intensity = Window.ShadowIntensity or Library.ShadowIntensity or (1 / 1.8)
+            local baseOpacity = 1 - (origTrans or 0.5)
+            local curOpacity = math.clamp(baseOpacity * intensity, 0, 1)
+            local curTrans = 1 - curOpacity
+            pcall(function() shadow.Enabled = (enabled and intensity > 0) end)
+            pcall(function() shadow.Visible = (enabled and intensity > 0) end)
             pcall(function()
-                shadow.Transparency = enabled and (origTrans or 0.5) or 1
+                shadow.Transparency = (enabled and intensity > 0) and curTrans or 1
             end)
         end
 
@@ -12515,8 +12716,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Window:UpdateLoadingProgress(35, "Preparing assets...")
 
         local assetsToPreload = {
-            "rbxassetid://5852311399",
-            "rbxassetid://5852311745",
+            "rbxassetid://88894490577328",
+            "rbxassetid://86313632275410",
+            "rbxassetid://97455084935031",
             "rbxassetid://77044087750639",
             "rbxassetid://15396333997",
             "rbxassetid://132261474823036",
