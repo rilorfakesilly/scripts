@@ -113,7 +113,6 @@ state = {
     -- tune movement physics and weapon targeting
     speedEnabled = false,
     speedValue = 16,
-    speedMode = "WalkSpeed",
     
     flightEnabled = false,
     flightSpeed = 50,
@@ -121,7 +120,6 @@ state = {
     aimbotEnabled = false,
     autoAimEnabled = false,
     autoAimWallbang = false,
-    autoAimMaxRange = 0,
     antiFlingEnabled = false,
     chinaHatEnabled = false,
     spinbotEnabled = false,
@@ -327,9 +325,7 @@ local function doCleanup()
     state.aimbotEnabled = false
     state.autoAimEnabled = false
     state.autoAimWallbang = false
-    state.autoAimMaxRange = 0
     state.flightEnabled = false
-    state.speedMode = "WalkSpeed"
     state.isFlinging = false
 
     if camlockConn then pcall(function() camlockConn:Disconnect() end) camlockConn = nil end
@@ -1813,15 +1809,6 @@ local function getAutoAimTarget()
     end
 
     if targetPlayer and targetPlayer.Character then
-        local maxRange = state and state.autoAimMaxRange
-        if maxRange and maxRange > 0 then
-            local myChar = LocalPlayer.Character
-            local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
-            local tHrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if myHrp and tHrp and (myHrp.Position - tHrp.Position).Magnitude > maxRange then
-                return nil, nil
-            end
-        end
         local char = targetPlayer.Character
         if silentAimConfig.targetPart == "Random" then
             local partsList = {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "Torso"}
@@ -1976,25 +1963,18 @@ local function getSilentAimTarget()
                 end
 
                 if part and (silentAimConfig.wallbang or not silentAimConfig.wallCheck or isPartVisible(part, char)) then
-                    if silentAimConfig.wallbang then
-                        targetPlayer = p
-                        targetPart = part
-                        targetPos = part.Position
-                        break
-                    else
-                        local screenPos, onScreen = CurrentCamera:WorldToViewportPoint(part.Position)
-                        if onScreen and screenPos.Z > 0 then
-                            local dist = (Vector2.new(screenPos.X, screenPos.Y) - mouseLoc).Magnitude
-                            if dist <= shortestDist then
-                                local rawPos = part.Position
-                                local predH, predV = getSilentAimPred()
-                                local predicted = calculateAimPosition(rawPos, part, predH, predV)
+                    local screenPos, onScreen = CurrentCamera:WorldToViewportPoint(part.Position)
+                    if onScreen and screenPos.Z > 0 then
+                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - mouseLoc).Magnitude
+                        if dist <= shortestDist then
+                            local rawPos = part.Position
+                            local predH, predV = getSilentAimPred()
+                            local predicted = calculateAimPosition(rawPos, part, predH, predV)
 
-                                shortestDist = dist
-                                targetPlayer = p
-                                targetPart = part
-                                targetPos = predicted
-                            end
+                            shortestDist = dist
+                            targetPlayer = p
+                            targetPart = part
+                            targetPos = predicted
                         end
                     end
                 end
@@ -2034,106 +2014,6 @@ trackConnection(RunService.RenderStepped:Connect(function()
     end
 end))
 
--- mm2 gun tools fire bullet raycasts via Shoot remote event; update if game renames gun remotes
-local function getGunShootEvent()
-    local char = LocalPlayer.Character or Workspace:FindFirstChild(LocalPlayer.Name)
-    if char then
-        local gun = char:FindFirstChild("Gun") or char:FindFirstChild("Revolver")
-        if gun and gun:FindFirstChild("Shoot") then
-            return gun.Shoot
-        end
-        for _, item in ipairs(char:GetChildren()) do
-            if item:IsA("Tool") and isGunTool(item) then
-                local shoot = item:FindFirstChild("Shoot")
-                if shoot and shoot:IsA("RemoteEvent") then return shoot end
-            end
-        end
-    end
-    local bp = LocalPlayer:FindFirstChild("Backpack")
-    if bp then
-        local gun = bp:FindFirstChild("Gun") or bp:FindFirstChild("Revolver")
-        if gun and gun:FindFirstChild("Shoot") then
-            return gun.Shoot
-        end
-        for _, item in ipairs(bp:GetChildren()) do
-            if item:IsA("Tool") and isGunTool(item) then
-                local shoot = item:FindFirstChild("Shoot")
-                if shoot and shoot:IsA("RemoteEvent") then return shoot end
-            end
-        end
-    end
-    local map = getActiveMap()
-    if map then
-        local gun = map:FindFirstChild("Gun") or map:FindFirstChild("Revolver")
-        if gun then
-            local shoot = gun:FindFirstChild("Shoot")
-            if shoot and shoot:IsA("RemoteEvent") then return shoot end
-        end
-    end
-    if getnilinstances then
-        local success, result = pcall(function()
-            for _, obj in ipairs(getnilinstances()) do
-                if obj:IsA("RemoteEvent") and obj.Name == "Shoot" then
-                    return obj
-                end
-            end
-            return nil
-        end)
-        if success and result then return result end
-    end
-    return nil
-end
-
--- infinite range wallbang dispatcher using micro-teleport for server origin validation beyond 30 studs
-local function fireWallbangShot(shootEvent, targetChar, shootPart)
-    shootEvent = shootEvent or getGunShootEvent()
-    if not shootEvent or not targetChar then return false end
-
-    local myChar = LocalPlayer.Character
-    local myHrp  = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local tHrp   = targetChar:FindFirstChild("HumanoidRootPart")
-    if not myHrp or not tHrp then return false end
-
-    local gunTool = getPlayerTool(LocalPlayer, "Gun")
-    if gunTool and gunTool.Parent ~= myChar then
-        local myHum = myChar:FindFirstChildOfClass("Humanoid")
-        if myHum then
-            myHum:EquipTool(gunTool)
-            task.wait(0.04)
-        end
-    end
-
-    local head = targetChar:FindFirstChild("Head")
-    local torso = shootPart or targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso") or targetChar:FindFirstChild("LowerTorso") or tHrp
-    local torsoPos = torso.Position
-    local startPos = head and head.Position or (torsoPos + Vector3.new(0, 1.2, 0))
-    local targetPos = torsoPos
-
-    local startCF = CFrame.new(startPos, targetPos)
-    local targetCF = CFrame.new(targetPos)
-
-    local dist = (myHrp.Position - tHrp.Position).Magnitude
-    if dist > 30 then
-        local originalCF = myHrp.CFrame
-        myHrp.CFrame = tHrp.CFrame * CFrame.new(0, 2, 2)
-        task.wait(0.02)
-        pcall(function()
-            shootEvent:FireServer(startCF, targetCF)
-        end)
-        task.wait(0.02)
-        pcall(function()
-            myHrp.CFrame = originalCF
-            myHrp.AssemblyLinearVelocity = Vector3.zero
-            myHrp.AssemblyAngularVelocity = Vector3.zero
-        end)
-    else
-        pcall(function()
-            shootEvent:FireServer(startCF, targetCF)
-        end)
-    end
-    return true
-end
-
 -- redirect gun fire remotes directly to target
 local rawNamecall = nil
 if hookmetamethod then
@@ -2143,9 +2023,6 @@ if hookmetamethod then
             local sName = self and self.Name
             -- preserve standard gameplay actions for non-gun tools
             if sName == "Shoot" and not (state and state.unloaded) then
-                if silentAimFiring then
-                    return nil
-                end
                 -- snap aim to target without fov limits
                 if state and state.autoAimEnabled then
                     local target, tPart = getAutoAimTarget()
@@ -2159,46 +2036,29 @@ if hookmetamethod then
                             shootPart = targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso") or targetChar:FindFirstChild("LowerTorso") or tPart
                         end
 
+                        local rawPos = shootPart.Position
+                        local predH, predV = getSilentAimPred()
+                        local targetPos = calculateAimPosition(rawPos, shootPart, predH, predV)
+
+                        local originPos = nil
                         if isWallbang and targetChar then
-                            local myChar = LocalPlayer.Character
-                            local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
-                            local tHrp = targetChar:FindFirstChild("HumanoidRootPart")
-                            local dist = (myHrp and tHrp) and (myHrp.Position - tHrp.Position).Magnitude or 0
-
-                            if dist > 30 then
-                                task.spawn(function()
-                                    fireWallbangShot(self, targetChar, shootPart)
-                                end)
-                                return nil
-                            else
-                                local head = targetChar:FindFirstChild("Head")
-                                local rawPos = shootPart.Position
-                                local originPos = head and head.Position or (rawPos + Vector3.new(0, 1.2, 0))
-                                local targetPos = rawPos
-
-                                args[1] = CFrame.new(originPos, targetPos)
-                                args[2] = CFrame.new(targetPos)
-                                return rawNamecall(self, unpack(args))
-                            end
+                            local head = targetChar:FindFirstChild("Head")
+                            originPos = head and head.Position or (rawPos + Vector3.new(0, 1.5, 0))
                         else
-                            local rawPos = shootPart.Position
-                            local predH, predV = getSilentAimPred()
-                            local targetPos = calculateAimPosition(rawPos, shootPart, predH, predV)
-
                             local originCF = args[1]
                             local handle = getOwnGunHandle()
                             local char = LocalPlayer.Character
                             local myHrp = char and char:FindFirstChild("HumanoidRootPart")
-                            local originPos = (typeof(originCF) == "CFrame" and originCF.Position)
+                            originPos = (typeof(originCF) == "CFrame" and originCF.Position)
                                 or (handle and (handle.CFrame * CFrame.new(0, 0.5, -1)).Position)
                                 or (myHrp and myHrp.Position)
                                 or targetPos
-
-                            args[1] = CFrame.new(originPos, targetPos)
-                            args[2] = CFrame.new(targetPos)
-
-                            return rawNamecall(self, unpack(args))
                         end
+
+                        args[1] = CFrame.new(originPos, targetPos)
+                        args[2] = CFrame.new(targetPos)
+
+                        return rawNamecall(self, unpack(args))
                     end
                 -- constrain trajectory assist to fov radius
                 elseif silentAimConfig and silentAimConfig.enabled then
@@ -2207,46 +2067,27 @@ if hookmetamethod then
                         local hitChance = silentAimConfig.hitChance or 100
                         if hitChance >= 100 or math.random(1, 100) <= hitChance then
                             local args = { ... }
+                            local originPos = nil
                             local isWallbang = silentAimConfig.wallbang
                             local targetChar = target.Character
-
                             if isWallbang and targetChar then
-                                local shootPart = tPart or targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso") or targetChar:FindFirstChild("LowerTorso") or targetChar:FindFirstChild("HumanoidRootPart")
-                                local myChar = LocalPlayer.Character
-                                local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
-                                local tHrp = targetChar:FindFirstChild("HumanoidRootPart")
-                                local dist = (myHrp and tHrp) and (myHrp.Position - tHrp.Position).Magnitude or 0
-
-                                if dist > 30 then
-                                    task.spawn(function()
-                                        fireWallbangShot(self, targetChar, shootPart)
-                                    end)
-                                    return nil
-                                else
-                                    local head = targetChar:FindFirstChild("Head")
-                                    local rawPos = shootPart.Position
-                                    local originPos = head and head.Position or (rawPos + Vector3.new(0, 1.2, 0))
-                                    local targetPos = rawPos
-
-                                    args[1] = CFrame.new(originPos, targetPos)
-                                    args[2] = CFrame.new(targetPos)
-                                    return rawNamecall(self, unpack(args))
-                                end
+                                local head = targetChar:FindFirstChild("Head")
+                                originPos = head and head.Position or (targetPos + Vector3.new(0, 1.5, 0))
                             else
                                 local originCF = args[1]
                                 local handle = getOwnGunHandle()
                                 local char = LocalPlayer.Character
                                 local myHrp = char and char:FindFirstChild("HumanoidRootPart")
-                                local originPos = (typeof(originCF) == "CFrame" and originCF.Position)
+                                originPos = (typeof(originCF) == "CFrame" and originCF.Position)
                                     or (handle and (handle.CFrame * CFrame.new(0, 0.5, -1)).Position)
                                     or (myHrp and myHrp.Position)
                                     or targetPos
-
-                                args[1] = CFrame.new(originPos, targetPos)
-                                args[2] = CFrame.new(targetPos)
-
-                                return rawNamecall(self, unpack(args))
                             end
+
+                            args[1] = CFrame.new(originPos, targetPos)
+                            args[2] = CFrame.new(targetPos)
+
+                            return rawNamecall(self, unpack(args))
                         end
                     end
                 end
@@ -2384,82 +2225,104 @@ local function getKnifeEvents()
     return nil
 end
 
--- getGunShootEvent is defined above with weapon dispatcher
-
-local cachedGunDrop = nil
-local attemptTakeGun = nil
-
-local function extractGunPart(obj)
-    if not obj then return nil end
-    if obj:IsA("BasePart") then return obj end
-    if obj:IsA("Model") then
-        if obj.PrimaryPart then return obj.PrimaryPart end
-        return obj:FindFirstChildWhichIsA("BasePart", true)
+-- mm2 gun tools fire bullet raycasts via Shoot remote event; update if game renames gun remotes
+local function getGunShootEvent()
+    -- search character first for equipped items
+    local char = LocalPlayer.Character or Workspace:FindFirstChild(LocalPlayer.Name)
+    if char then
+        local gun = char:FindFirstChild("Gun") or char:FindFirstChild("Revolver")
+        if gun and gun:FindFirstChild("Shoot") then
+            return gun.Shoot
+        end
+        for _, item in ipairs(char:GetChildren()) do
+            if item:IsA("Tool") and isGunTool(item) then
+                local shoot = item:FindFirstChild("Shoot")
+                if shoot and shoot:IsA("RemoteEvent") then return shoot end
+            end
+        end
+    end
+    -- inspect unequipped items in inventory
+    local bp = LocalPlayer:FindFirstChild("Backpack")
+    if bp then
+        local gun = bp:FindFirstChild("Gun") or bp:FindFirstChild("Revolver")
+        if gun and gun:FindFirstChild("Shoot") then
+            return gun.Shoot
+        end
+        for _, item in ipairs(bp:GetChildren()) do
+            if item:IsA("Tool") and isGunTool(item) then
+                local shoot = item:FindFirstChild("Shoot")
+                if shoot and shoot:IsA("RemoteEvent") then return shoot end
+            end
+        end
+    end
+    -- search active map geometry for dropped tools
+    local map = getActiveMap()
+    if map then
+        local gun = map:FindFirstChild("Gun") or map:FindFirstChild("Revolver")
+        if gun then
+            local shoot = gun:FindFirstChild("Shoot")
+            if shoot and shoot:IsA("RemoteEvent") then return shoot end
+        end
+    end
+    -- retrieve orphaned instances outside workspace
+    if getnilinstances then
+        local success, result = pcall(function()
+            for _, obj in ipairs(getnilinstances()) do
+                if obj:IsA("RemoteEvent") and obj.Name == "Shoot" then
+                    return obj
+                end
+            end
+            return nil
+        end)
+        if success and result then return result end
     end
     return nil
 end
 
-local function getDroppedGun()
-    if cachedGunDrop and cachedGunDrop.Parent and cachedGunDrop.Name == "GunDrop" then
-        return cachedGunDrop
+local function getDroppedGunPart()
+    local function extractPart(obj)
+        if not obj then return nil end
+        if obj:IsA("BasePart") then return obj end
+        if obj:IsA("Model") then
+            if obj.PrimaryPart then return obj.PrimaryPart end
+            return obj:FindFirstChildWhichIsA("BasePart", true)
+        end
+        return nil
     end
-    cachedGunDrop = nil
-
-    local direct = Workspace:FindFirstChild("GunDrop")
-    if direct then
-        cachedGunDrop = direct
-        return direct
-    end
-
     local map = getActiveMap()
     if map then
         local drop = map:FindFirstChild("GunDrop")
         if drop then
-            cachedGunDrop = drop
-            return drop
+            local p = extractPart(drop)
+            if p then return p end
         end
     end
-
     for _, child in ipairs(Workspace:GetChildren()) do
         if child.Name ~= "Lobby" then
             local drop = child:FindFirstChild("GunDrop")
             if drop then
-                cachedGunDrop = drop
-                return drop
+                local p = extractPart(drop)
+                if p then return p end
             end
         end
     end
     return nil
 end
 
-local function getDroppedGunPart()
-    local drop = getDroppedGun()
-    if drop then
-        return extractGunPart(drop)
+local function getDroppedGun()
+    local map = getActiveMap()
+    if map then
+        local drop = map:FindFirstChild("GunDrop")
+        if drop then return drop end
+    end
+    for _, child in ipairs(Workspace:GetChildren()) do
+        if child.Name ~= "Lobby" then
+            local drop = child:FindFirstChild("GunDrop")
+            if drop then return drop end
+        end
     end
     return nil
 end
-
-trackConnection(Workspace.DescendantAdded:Connect(function(child)
-    if child.Name == "GunDrop" then
-        cachedGunDrop = child
-        if state.autoTakeGun and attemptTakeGun then
-            task.spawn(function()
-                task.wait(0.01)
-                local part = extractGunPart(child)
-                if part then
-                    attemptTakeGun(part)
-                end
-            end)
-        end
-    end
-end))
-
-trackConnection(Workspace.DescendantRemoving:Connect(function(child)
-    if child == cachedGunDrop then
-        cachedGunDrop = nil
-    end
-end))
 
 local function isInLobby()
     local ok, roundUI = pcall(function()
@@ -3009,8 +2872,18 @@ local function killTarget()
             task.wait(0.1)
             local shootEvent = getGunShootEvent()
             local mChar = murderer.Character
-            if shootEvent and mChar then
-                fireWallbangShot(shootEvent, mChar)
+            local mHead = mChar and mChar:FindFirstChild("Head")
+            local mTorso = mChar and (mChar:FindFirstChild("UpperTorso") or mChar:FindFirstChild("Torso") or mChar:FindFirstChild("LowerTorso") or mChar:FindFirstChild("HumanoidRootPart"))
+            if shootEvent and mTorso then
+                local rawPos = mTorso.Position
+                local predH, predV = getSilentAimPred()
+                local targetPos = calculateAimPosition(rawPos, mTorso, predH, predV)
+                local startPos = mHead and mHead.Position or (rawPos + Vector3.new(0, 1.5, 0))
+                local startCF  = CFrame.new(startPos, targetPos)
+                local targetCF = CFrame.new(targetPos)
+                pcall(function()
+                    shootEvent:FireServer(startCF, targetCF)
+                end)
             end
         end
 
@@ -3029,8 +2902,18 @@ local function killTarget()
                     task.wait(0.1)
                     local shootEvent = getGunShootEvent()
                     local mChar = murderer.Character
-                    if shootEvent and mChar then
-                        fireWallbangShot(shootEvent, mChar)
+                    local mHead = mChar and mChar:FindFirstChild("Head")
+                    local mTorso = mChar and (mChar:FindFirstChild("UpperTorso") or mChar:FindFirstChild("Torso") or mChar:FindFirstChild("LowerTorso") or mChar:FindFirstChild("HumanoidRootPart"))
+                    if shootEvent and mTorso then
+                        local rawPos = mTorso.Position
+                        local predH, predV = getSilentAimPred()
+                        local targetPos = calculateAimPosition(rawPos, mTorso, predH, predV)
+                        local startPos = mHead and mHead.Position or (rawPos + Vector3.new(0, 1.5, 0))
+                        local startCF  = CFrame.new(startPos, targetPos)
+                        local targetCF = CFrame.new(targetPos)
+                        pcall(function()
+                            shootEvent:FireServer(startCF, targetCF)
+                        end)
                         gunShot = true
                     end
                 end
@@ -6737,129 +6620,118 @@ local function _buildScriptUI()
     trackThread(killbrickThread)
 
 -- retrieve dropped sheriff gun to defend 
-    local lastAttemptedGunPart = nil  -- remember attempted drops to avoid position spam
-    local lastAttemptTime = 0         -- space out pickup attempts to bypass anticheat checks
-    local isTakingGun = false
-
-    attemptTakeGun = function(targetPart)
-        if isTakingGun then return end
-        if not state.autoTakeGun then return end
-        if not isCoinBagVisible() or not isPlayerAlive(LocalPlayer) then return end
-
-        local localRole = getPlayerRole(LocalPlayer)
-        local char = LocalPlayer.Character
-        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-        local hum  = char and char:FindFirstChildOfClass("Humanoid")
-        local aliveInMap = isPlayerAlive(LocalPlayer) and not isInLobby() and isCoinBagVisible()
-
-        -- constrain gun retrieval to safe match conditions
-        local isRemoteMethod = (state.autoTakeGunMethod == "Touch interest" or state.autoTakeGunMethod == "Remote")
-        local shouldTakeGun = false
-        if not state.autofarmEnabled then
-            shouldTakeGun = true
-        elseif state.autofarmEnabled and (isRemoteMethod or (state.afterFarmAction == "End round" and localRole == "Innocent")) then
-            shouldTakeGun = true
-        end
-
-        local busyCoinFarming = state.autofarmEnabled and state.autofarmMode == "Coin" and not isBagFull() and not isRemoteMethod
-        local alreadyHasGun = hasTool(LocalPlayer, "Gun") or (LocalPlayer.Backpack and LocalPlayer.Backpack:FindFirstChild("Gun"))
-        local alreadyHasKnife = hasTool(LocalPlayer, "Knife") or (LocalPlayer.Backpack and LocalPlayer.Backpack:FindFirstChild("Knife"))
-
-        -- clear drop history once gun enters inventory
-        if alreadyHasGun then
-            lastAttemptedGunPart = nil
-            lastAttemptTime = 0
-        end
-
-        if aliveInMap
-            and shouldTakeGun
-            and not busyCoinFarming
-            and localRole ~= "Murderer"
-            and not alreadyHasGun
-            and not alreadyHasKnife then
-
-            local gunPart = targetPart or getDroppedGunPart()
-
-            -- bypass already attempted weapons
-            local now = tick()
-            local isNewGun = gunPart and gunPart ~= lastAttemptedGunPart
-            local cooldownExpired = (now - lastAttemptTime) >= 1.5
-
-            if gunPart and hrp and hum and (isNewGun or cooldownExpired) then
-                isTakingGun = true
-                -- flag weapon as processed
-                lastAttemptedGunPart = gunPart
-                lastAttemptTime = now
-
-                if state.autoTakeGunMethod == "Touch interest" or state.autoTakeGunMethod == "Remote" then
-                    -- fire touch interest directly when supported
-                    local _genv2 = getgenv and getgenv() or {}
-                    local touchFire = _genv2.firetouchinterest or firetouchinterest or (syn and syn.firetouchinterest)
-                    if touchFire then
-                        pcall(function() touchFire(hrp, gunPart, 0) end)
-                        pcall(function() touchFire(hrp, gunPart, 1) end)
-
-                        local ti = gunPart:FindFirstChildWhichIsA("TouchTransmitter", true) or gunPart:FindFirstChild("TouchInterest", true)
-                        if ti then
-                            pcall(function() touchFire(hrp, ti.Parent, 0) end)
-                            pcall(function() touchFire(hrp, ti.Parent, 1) end)
-                        end
-                    end
-                else
-                    -- teleport directly to gun dropped position
-                    local originalCF = hrp.CFrame
-                    local gunPos = Vector3.new(gunPart.Position.X, gunPart.Position.Y - 2, gunPart.Position.Z)
-
-                    setNoclip(true)
-
-                    pcall(function()
-                        hrp.CFrame = CFrame.new(gunPos) * CFrame.Angles(math.rad(90), 0, 0)
-                        hrp.AssemblyLinearVelocity = Vector3.zero
-                        hrp.AssemblyAngularVelocity = Vector3.zero
-                    end)
-
-                    local _genv2 = getgenv and getgenv() or {}
-                    local touchFire = _genv2.firetouchinterest or firetouchinterest or (syn and syn.firetouchinterest)
-                    if touchFire then
-                        pcall(function() touchFire(hrp, gunPart, 0) end)
-                        pcall(function() touchFire(hrp, gunPart, 1) end)
-                        local ti = gunPart:FindFirstChildWhichIsA("TouchTransmitter", true) or gunPart:FindFirstChild("TouchInterest", true)
-                        if ti then
-                            pcall(function() touchFire(hrp, ti.Parent, 0) end)
-                            pcall(function() touchFire(hrp, ti.Parent, 1) end)
-                        end
-                    end
-
-                    task.wait(0.12)
-
-                    local gunTool = getPlayerTool(LocalPlayer, "Gun")
-                    if gunTool then
-                        pcall(function() hum:EquipTool(gunTool) end)
-                        task.wait(0.04)
-                    end
-
-                    task.wait(0.08)
-
-                    pcall(function()
-                        hrp.CFrame = originalCF
-                        hrp.AssemblyLinearVelocity  = Vector3.zero
-                        hrp.AssemblyAngularVelocity = Vector3.zero
-                    end)
-                    task.wait(0.04)
-                    setNoclip(false)
-                    restoreCharacterCollision()
-                end
-                isTakingGun = false
-            end
-        end
-    end
-
     local autoTakeGunThread = task.spawn(function()
+        local lastAttemptedGunPart = nil  -- remember attempted drops to avoid position spam
+        local lastAttemptTime = 0         -- space out pickup attempts to bypass anticheat checks
+
         while not state.unloaded do
-            if state.autoTakeGun then
-                attemptTakeGun()
+            if state.autoTakeGun and isCoinBagVisible() and isPlayerAlive(LocalPlayer) then
+                local localRole = getPlayerRole(LocalPlayer)
+                local char = LocalPlayer.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                local hum  = char and char:FindFirstChildOfClass("Humanoid")
+                local aliveInMap = isPlayerAlive(LocalPlayer) and not isInLobby() and isCoinBagVisible()
+
+                -- constrain gun retrieval to safe match conditions
+                local isRemoteMethod = (state.autoTakeGunMethod == "Touch interest" or state.autoTakeGunMethod == "Remote")
+                local shouldTakeGun = false
+                if not state.autofarmEnabled then
+                    shouldTakeGun = true
+                elseif state.autofarmEnabled and (isRemoteMethod or (state.afterFarmAction == "End round" and localRole == "Innocent")) then
+                    shouldTakeGun = true
+                end
+
+                local busyCoinFarming = state.autofarmEnabled and state.autofarmMode == "Coin" and not isBagFull() and not isRemoteMethod
+                local alreadyHasGun = hasTool(LocalPlayer, "Gun") or (LocalPlayer.Backpack and LocalPlayer.Backpack:FindFirstChild("Gun"))
+                local alreadyHasKnife = hasTool(LocalPlayer, "Knife") or (LocalPlayer.Backpack and LocalPlayer.Backpack:FindFirstChild("Knife"))
+
+                -- clear drop history once gun enters inventory
+                if alreadyHasGun then
+                    lastAttemptedGunPart = nil
+                    lastAttemptTime = 0
+                end
+
+                if aliveInMap
+                    and shouldTakeGun
+                    and not busyCoinFarming
+                    and localRole ~= "Murderer"
+                    and not alreadyHasGun
+                    and not alreadyHasKnife then
+
+                    local gunPart = getDroppedGunPart()
+
+                    -- bypass already attempted weapons
+                    local now = tick()
+                    local isNewGun = gunPart and gunPart ~= lastAttemptedGunPart
+                    local cooldownExpired = (now - lastAttemptTime) >= 2.0
+
+                    if gunPart and hrp and hum and (isNewGun or cooldownExpired) then
+                        -- flag weapon as processed
+                        lastAttemptedGunPart = gunPart
+                        lastAttemptTime = now
+
+                        if state.autoTakeGunMethod == "Touch interest" or state.autoTakeGunMethod == "Remote" then
+                            -- fire touch interest directly when supported
+                            local _genv2 = getgenv and getgenv() or {}
+                            local touchFire = _genv2.firetouchinterest or firetouchinterest or (syn and syn.firetouchinterest)
+                            if touchFire then
+                                pcall(function() touchFire(hrp, gunPart, 0) end)
+                                pcall(function() touchFire(hrp, gunPart, 1) end)
+
+                                local ti = gunPart:FindFirstChildWhichIsA("TouchTransmitter", true) or gunPart:FindFirstChild("TouchInterest", true)
+                                if ti then
+                                    pcall(function() touchFire(hrp, ti.Parent, 0) end)
+                                    pcall(function() touchFire(hrp, ti.Parent, 1) end)
+                                end
+                            end
+                        else
+                            -- teleport directly to gun dropped position
+                            local originalCF = hrp.CFrame
+                            local gunPos = Vector3.new(gunPart.Position.X, gunPart.Position.Y - 2, gunPart.Position.Z)
+
+                            setNoclip(true)
+
+                            pcall(function()
+                                hrp.CFrame = CFrame.new(gunPos) * CFrame.Angles(math.rad(90), 0, 0)
+                                hrp.AssemblyLinearVelocity = Vector3.zero
+                                hrp.AssemblyAngularVelocity = Vector3.zero
+                            end)
+
+                            local _genv2 = getgenv and getgenv() or {}
+                            local touchFire = _genv2.firetouchinterest or firetouchinterest or (syn and syn.firetouchinterest)
+                            if touchFire then
+                                pcall(function() touchFire(hrp, gunPart, 0) end)
+                                pcall(function() touchFire(hrp, gunPart, 1) end)
+                                local ti = gunPart:FindFirstChildWhichIsA("TouchTransmitter", true) or gunPart:FindFirstChild("TouchInterest", true)
+                                if ti then
+                                    pcall(function() touchFire(hrp, ti.Parent, 0) end)
+                                    pcall(function() touchFire(hrp, ti.Parent, 1) end)
+                                end
+                            end
+
+                            task.wait(0.15)
+
+                            local gunTool = getPlayerTool(LocalPlayer, "Gun")
+                            if gunTool then
+                                pcall(function() hum:EquipTool(gunTool) end)
+                                task.wait(0.05)
+                            end
+
+                            task.wait(0.1)
+
+                            pcall(function()
+                                hrp.CFrame = originalCF
+                                hrp.AssemblyLinearVelocity  = Vector3.zero
+                                hrp.AssemblyAngularVelocity = Vector3.zero
+                            end)
+                            task.wait(0.05)
+                            setNoclip(false)
+                            restoreCharacterCollision()
+                        end
+                    end
+                end
             end
-            task.wait(0.04)
+            task.wait(0.25)
         end
     end)
     trackThread(autoTakeGunThread)
@@ -6890,18 +6762,18 @@ local function _buildScriptUI()
 
     -- bind speed toggle to slider value
     Tabs.Player:AddToggle("SpeedEnabled", {
-        Title = "Speed",
+        Title = "Walk speed",
         Default = false,
         DefaultBind = Enum.KeyCode.V,
         Slider = {
-            Title = "Speed value",
+            Title = "Walk speed",
             Min = 16,
             Max = 250,
             Default = 16,
             Suffix = " studs/s",
             Callback = function(v)
                 state.speedValue = v
-                if state.speedEnabled and state.speedMode == "WalkSpeed" then
+                if state.speedEnabled then
                     local char = LocalPlayer.Character
                     local hum  = char and char:FindFirstChildOfClass("Humanoid")
                     if hum then hum.WalkSpeed = v end
@@ -6913,29 +6785,7 @@ local function _buildScriptUI()
             local char = LocalPlayer.Character
             local hum  = char and char:FindFirstChildOfClass("Humanoid")
             if hum then
-                if v and state.speedMode == "WalkSpeed" then
-                    hum.WalkSpeed = state.speedValue
-                else
-                    hum.WalkSpeed = 16
-                end
-            end
-        end
-    })
-
-    Tabs.Player:AddDropdown("SpeedMode", {
-        Title = "Speed method",
-        Values = {"WalkSpeed", "CFrame"},
-        Default = "WalkSpeed",
-        Callback = function(v)
-            state.speedMode = v
-            local char = LocalPlayer.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                if state.speedEnabled and v == "WalkSpeed" then
-                    hum.WalkSpeed = state.speedValue
-                else
-                    hum.WalkSpeed = 16
-                end
+                hum.WalkSpeed = v and state.speedValue or 16
             end
         end
     })
@@ -7697,9 +7547,22 @@ local function _buildScriptUI()
             end
             local shootEvent = getGunShootEvent()
             local mChar = murderer.Character
-            if mChar then
-                fireWallbangShot(shootEvent, mChar)
-                log("Wallbanged murderer: " .. murderer.Name)
+            if shootEvent and mChar then
+                local head = mChar:FindFirstChild("Head")
+                local torso = mChar:FindFirstChild("UpperTorso") or mChar:FindFirstChild("Torso") or mChar:FindFirstChild("LowerTorso") or mChar:FindFirstChild("HumanoidRootPart")
+                if torso then
+                    local rawPos = torso.Position
+                    local predH, predV = getSilentAimPred()
+                    local targetPos = calculateAimPosition(rawPos, torso, predH, predV)
+                    local startPos = head and head.Position or (rawPos + Vector3.new(0, 1.5, 0))
+
+                    local startCF = CFrame.new(startPos, targetPos)
+                    local targetCF = CFrame.new(targetPos)
+                    pcall(function()
+                        shootEvent:FireServer(startCF, targetCF)
+                    end)
+                    log("Wallbanged murderer: " .. murderer.Name)
+                end
             end
         end },
         { Text = "Fling murderer", Callback = function()
@@ -7739,25 +7602,12 @@ local function _buildScriptUI()
             Id = "AutoAimWallbang",
             Type = "Toggle",
             Title = "Wallbang",
-            Description = "Shoots through walls with infinite map range",
+            Description = "Shoots from target head into torso to bypass walls",
             Default = false,
             Callback = function(v)
                 state.autoAimWallbang = v
                 silentAimConfig.wallbang = v
                 log("Auto aim wallbang: " .. (v and "on" or "off"))
-            end
-        },
-        {
-            Id = "AutoAimRange",
-            Type = "Slider",
-            Title = "Auto aim max range",
-            Description = "Max distance in studs (0 = Infinite range)",
-            Min = 0,
-            Max = 2000,
-            Default = 0,
-            Suffix = " studs",
-            Callback = function(val)
-                state.autoAimMaxRange = tonumber(val) or 0
             end
         },
         {
@@ -7807,7 +7657,7 @@ local function _buildScriptUI()
             Id = "SilentAimWallbang",
             Type = "Checkbox",
             Title = "Wallbang",
-            Description = "Shoots through walls with infinite map range",
+            Description = "Shoots from target head into torso to bypass walls",
             Default = false,
             Callback = function(v)
                 silentAimConfig.wallbang = v
@@ -11315,36 +11165,42 @@ Tabs.World:AddSection("Skybox")
 
             local targetChar = target and target.Character
             local isWallbang = (state and state.autoAimWallbang) or (silentAimConfig and silentAimConfig.wallbang)
+            local shootPart = tPart
             if isWallbang and targetChar then
-                fireWallbangShot(shootEvent, targetChar, tPart)
-                log("Mobile wallbang shot triggered")
+                shootPart = targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso") or targetChar:FindFirstChild("LowerTorso") or tPart
             else
-                local shootPart = tPart or (targetChar and (targetChar:FindFirstChild(silentAimConfig and silentAimConfig.targetPart or "Head") or targetChar:FindFirstChild("HumanoidRootPart")))
-                local targetPos = nil
-                local originPos = nil
-                if shootPart then
-                    local rawPos = shootPart.Position
-                    local predH, predV = getSilentAimPred()
-                    targetPos = calculateAimPosition(rawPos, shootPart, predH, predV)
-                end
-
-                if not originPos then
-                    local handle = getOwnGunHandle()
-                    local myHrp = char:FindFirstChild("HumanoidRootPart")
-                    originPos = handle and (handle.CFrame * CFrame.new(0, 0.5, -1)).Position or (myHrp and myHrp.Position or Vector3.zero)
-                end
-
-                if not targetPos then
-                    local vpSize = CurrentCamera.ViewportSize
-                    local ray = CurrentCamera:ViewportPointToRay(vpSize.X / 2, vpSize.Y / 2)
-                    targetPos = originPos + ray.Direction * 1000
-                end
-
-                pcall(function()
-                    shootEvent:FireServer(CFrame.new(originPos, targetPos), CFrame.new(targetPos))
-                end)
-                log("Mobile shot triggered")
+                shootPart = tPart or (targetChar and (targetChar:FindFirstChild(silentAimConfig and silentAimConfig.targetPart or "Head") or targetChar:FindFirstChild("HumanoidRootPart")))
             end
+
+            local targetPos = nil
+            local originPos = nil
+            if shootPart then
+                local rawPos = shootPart.Position
+                local predH, predV = getSilentAimPred()
+                targetPos = calculateAimPosition(rawPos, shootPart, predH, predV)
+
+                if isWallbang and targetChar then
+                    local head = targetChar:FindFirstChild("Head")
+                    originPos = head and head.Position or (rawPos + Vector3.new(0, 1.5, 0))
+                end
+            end
+
+            if not originPos then
+                local handle = getOwnGunHandle()
+                local myHrp = char:FindFirstChild("HumanoidRootPart")
+                originPos = handle and (handle.CFrame * CFrame.new(0, 0.5, -1)).Position or (myHrp and myHrp.Position or Vector3.zero)
+            end
+
+            if not targetPos then
+                local vpSize = CurrentCamera.ViewportSize
+                local ray = CurrentCamera:ViewportPointToRay(vpSize.X / 2, vpSize.Y / 2)
+                targetPos = originPos + ray.Direction * 1000
+            end
+
+            pcall(function()
+                shootEvent:FireServer(CFrame.new(originPos, targetPos), CFrame.new(targetPos))
+            end)
+            log("Mobile shot triggered")
         end
     })
 
@@ -11950,36 +11806,13 @@ Tabs.World:AddSection("Skybox")
         while not state.unloaded do
             local char = LocalPlayer.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                if state.speedEnabled and state.speedMode == "WalkSpeed" then
-                    hum.WalkSpeed = state.speedValue
-                elseif hum.WalkSpeed ~= 16 and (not state.speedEnabled or state.speedMode == "CFrame") then
-                    hum.WalkSpeed = 16
-                end
+            if hum and state.speedEnabled then
+                hum.WalkSpeed = state.speedValue
             end
             task.wait(0.1)
         end
     end)
     trackThread(speedThread)
-
-    local cframeSpeedConn = RunService.Heartbeat:Connect(function(dt)
-        if state.unloaded then return end
-        if not state.speedEnabled or state.speedMode ~= "CFrame" then return end
-        local char = LocalPlayer.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        if not hrp or not hum or hum.Health <= 0 or hum.Sit then return end
-        local md = hum.MoveDirection
-        local flat = Vector3.new(md.X, 0, md.Z)
-        if flat.Magnitude > 0.05 then
-            local extraSpeed = math.max(0, state.speedValue - 16)
-            if extraSpeed > 0 then
-                local clampedDt = math.min(dt, 0.1)
-                hrp.CFrame = hrp.CFrame + (flat.Unit * (extraSpeed * clampedDt))
-            end
-        end
-    end)
-    trackConnection(cframeSpeedConn)
 
     -- align camera with active target position 
     local aimbotThread = task.spawn(function()
@@ -12051,37 +11884,40 @@ Tabs.World:AddSection("Skybox")
                         local targetChar = target.Character
                         local isWallbang = (state and state.autoAimWallbang) or (silentAimConfig and silentAimConfig.wallbang)
 
+                        local shootPart = tPart
                         if isWallbang and targetChar then
-                            silentAimFiring = true
-                            task.spawn(function()
-                                fireWallbangShot(nil, targetChar, tPart)
-                                task.wait(0.08)
-                                silentAimFiring = false
-                            end)
+                            shootPart = targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso") or targetChar:FindFirstChild("LowerTorso") or tPart
                         else
-                            local shootPart = tPart or (targetChar and (targetChar:FindFirstChild(silentAimConfig.targetPart) or targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Head")))
-                            if shootPart then
-                                local shootEvent = getGunShootEvent()
-                                if shootEvent then
-                                    silentAimFiring = true
-                                    task.spawn(function()
-                                        task.wait(0.01)
-                                        local rawPos = shootPart.Position
-                                        local predH, predV = getSilentAimPred()
-                                        local targetPos = calculateAimPosition(rawPos, shootPart, predH, predV)
+                            shootPart = tPart or (targetChar and (targetChar:FindFirstChild(silentAimConfig.targetPart) or targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Head")))
+                        end
 
+                        if shootPart then
+                            local shootEvent = getGunShootEvent()
+                            if shootEvent then
+                                silentAimFiring = true
+                                task.spawn(function()
+                                    task.wait(0.01)
+                                    local rawPos = shootPart.Position
+                                    local predH, predV = getSilentAimPred()
+                                    local targetPos = calculateAimPosition(rawPos, shootPart, predH, predV)
+
+                                    local originPos = nil
+                                    if isWallbang and targetChar then
+                                        local head = targetChar:FindFirstChild("Head")
+                                        originPos = head and head.Position or (rawPos + Vector3.new(0, 1.5, 0))
+                                    else
                                         local handle = getOwnGunHandle()
                                         local char = LocalPlayer.Character
                                         local myHrp = char and char:FindFirstChild("HumanoidRootPart")
-                                        local originPos = handle and (handle.CFrame * CFrame.new(0, 0.5, -1)).Position or (myHrp and myHrp.Position or Vector3.zero)
+                                        originPos = handle and (handle.CFrame * CFrame.new(0, 0.5, -1)).Position or (myHrp and myHrp.Position or Vector3.zero)
+                                    end
 
-                                        pcall(function()
-                                            shootEvent:FireServer(CFrame.new(originPos, targetPos), CFrame.new(targetPos))
-                                        end)
-                                        task.wait(0.05)
-                                        silentAimFiring = false
+                                    pcall(function()
+                                        shootEvent:FireServer(CFrame.new(originPos, targetPos), CFrame.new(targetPos))
                                     end)
-                                end
+                                    task.wait(0.01)
+                                    silentAimFiring = false
+                                end)
                             end
                         end
                     end
