@@ -1101,15 +1101,29 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
 
     local HttpService = game:GetService("HttpService")
-    local SanitizedScriptName = (Window.ScriptName:gsub("[^%w_%-]", "_"))
-    local ConfigFolderPath = "MD_Configs/" .. SanitizedScriptName
-    local AutoloadFilePath = ConfigFolderPath .. "/autoload.txt"
+    Window.KnownConfigs = Window.KnownConfigs or {}
+
+    local function GetConfigFolderPath()
+        local name = Window.ScriptName or Window.Title or "default"
+        local sanitized = name:gsub("[^%w_%-]", "_")
+        return "MD_Configs/" .. sanitized
+    end
+
+    local function GetAutoloadFilePath()
+        return GetConfigFolderPath() .. "/autoload.txt"
+    end
 
     local function EnsureConfigFolder()
         pcall(function()
-            if makefolder and isfolder then
-                if not isfolder("MD_Configs") then makefolder("MD_Configs") end
-                if not isfolder(ConfigFolderPath) then makefolder(ConfigFolderPath) end
+            local folder = GetConfigFolderPath()
+            if makefolder then
+                if isfolder then
+                    if not isfolder("MD_Configs") then makefolder("MD_Configs") end
+                    if not isfolder(folder) then makefolder(folder) end
+                else
+                    pcall(makefolder, "MD_Configs")
+                    pcall(makefolder, folder)
+                end
             end
         end)
     end
@@ -1117,29 +1131,76 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local function GetConfigList()
         local list = {"DEFAULT"}
+        local seen = {["DEFAULT"] = true}
+
+        -- always include autoload config if set
+        local auto = Window:GetAutoloadConfig()
+        if auto and auto ~= "" and auto:upper() ~= "DEFAULT" and auto:upper() ~= "NONE" then
+            if not seen[auto] then
+                seen[auto] = true
+                table.insert(list, auto)
+            end
+        end
+
+        -- include in-memory registered configs
+        if Window.KnownConfigs then
+            for name in pairs(Window.KnownConfigs) do
+                if name and name ~= "" and not seen[name] then
+                    seen[name] = true
+                    table.insert(list, name)
+                end
+            end
+        end
+
+        -- scan config folder on disk
+        local folder = GetConfigFolderPath()
         pcall(function()
-            if listfiles and isfolder and isfolder(ConfigFolderPath) then
-                local files = listfiles(ConfigFolderPath)
-                for _, filePath in ipairs(files) do
-                    local fileName = filePath:match("([^/\\]+)%.json$")
-                    if fileName and fileName ~= "DEFAULT" then
-                        table.insert(list, fileName)
+            if listfiles then
+                local files = nil
+                local ok, res = pcall(listfiles, folder)
+                if ok and type(res) == "table" then
+                    files = res
+                elseif isfolder and isfolder(folder) then
+                    local ok2, res2 = pcall(listfiles, folder)
+                    if ok2 and type(res2) == "table" then files = res2 end
+                end
+
+                if files then
+                    for _, filePath in ipairs(files) do
+                        local fileName = tostring(filePath):match("([^/\\]+)%.json$")
+                        if fileName and fileName ~= "DEFAULT" and not fileName:find("^TAB_") then
+                            if not seen[fileName] then
+                                seen[fileName] = true
+                                table.insert(list, fileName)
+                            end
+                        end
                     end
                 end
             end
         end)
+
         return list
     end
 
     function Window:GetAutoloadConfig()
         local autoloadName = nil
         pcall(function()
-            if readfile and isfile and isfile(AutoloadFilePath) then
-                local content = readfile(AutoloadFilePath)
-                if content then
-                    content = content:gsub("^%s+", ""):gsub("%s+$", "")
-                    if content ~= "" and content:upper() ~= "NONE" then
-                        autoloadName = content
+            local paths = {
+                GetAutoloadFilePath(),
+                "MD_Configs/" .. ((Window.ScriptName or "default"):gsub("[^%w_%-]", "_")) .. "/autoload.txt",
+                "MD_Configs/autoload.txt"
+            }
+            for _, p in ipairs(paths) do
+                if readfile and isfile and isfile(p) then
+                    local content = readfile(p)
+                    if content then
+                        content = content:gsub("^%s+", ""):gsub("%s+$", "")
+                        if content ~= "" and content:upper() ~= "NONE" then
+                            autoloadName = content
+                            Window.KnownConfigs = Window.KnownConfigs or {}
+                            Window.KnownConfigs[autoloadName] = true
+                            break
+                        end
                     end
                 end
             end
@@ -1149,20 +1210,31 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     function Window:SetAutoloadConfig(configName)
         EnsureConfigFolder()
+        local filePath = GetAutoloadFilePath()
         if not configName or configName == "" or configName:upper() == "NONE" then
             pcall(function()
-                if delfile and isfile and isfile(AutoloadFilePath) then
-                    delfile(AutoloadFilePath)
+                if delfile and isfile and isfile(filePath) then
+                    delfile(filePath)
                 end
             end)
+            if Window.ConfigDropdown and Window.ConfigDropdown.RefreshOptions then
+                Window.ConfigDropdown.RefreshOptions(GetConfigList())
+            end
             return nil
         else
+            local nameStr = tostring(configName):gsub("^%s+", ""):gsub("%s+$", "")
             pcall(function()
                 if writefile then
-                    writefile(AutoloadFilePath, tostring(configName))
+                    writefile(filePath, nameStr)
                 end
             end)
-            return tostring(configName)
+            Window.KnownConfigs = Window.KnownConfigs or {}
+            Window.KnownConfigs[nameStr] = true
+            if Window.ConfigDropdown and Window.ConfigDropdown.RefreshOptions then
+                Window.ConfigDropdown.RefreshOptions(GetConfigList())
+                Window.ConfigDropdown.SetSelected(nameStr, false)
+            end
+            return nameStr
         end
     end
 
@@ -1210,6 +1282,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         end
                     end
                 end)
+            end
+        end
+        if Window.RegisteredToggles then
+            for key, toggle in pairs(Window.RegisteredToggles) do
+                if key and data.Toggles[key] == nil and type(toggle) == "table" and toggle.GetState then
+                    pcall(function()
+                        data.Toggles[key] = toggle.GetState()
+                    end)
+                end
             end
         end
         if Window.RegisteredMDSliders then
@@ -1397,6 +1478,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if data.Toggles then
             for name, state in pairs(data.Toggles) do
                 local toggle = Window.RegisteredToggles[name]
+                if not toggle and Window.RegisteredMDToggles then
+                    for _, t in ipairs(Window.RegisteredMDToggles) do
+                        if t.SaveKey == name or t.Name == name or t.Identifier == name then
+                            toggle = t
+                            break
+                        end
+                    end
+                end
                 if toggle and toggle.SetState then
                     pcall(function() toggle.SetState(state, true) end)
                 end
@@ -1598,7 +1687,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local jsonString = HttpService:JSONEncode(saveData)
 
         EnsureConfigFolder()
-        local filePath = ConfigFolderPath .. "/" .. finalName .. ".json"
+        local filePath = GetConfigFolderPath() .. "/" .. finalName .. ".json"
         local success = pcall(function()
             if writefile then
                 writefile(filePath, jsonString)
@@ -1606,11 +1695,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end)
 
         if success then
+            Window.KnownConfigs = Window.KnownConfigs or {}
+            Window.KnownConfigs[finalName] = true
             Window:Notify("Config saved", "Saved config as '" .. finalName .. "'", 2.5)
             if Window.ConfigSavedCallbacks then
                 for _, fn in ipairs(Window.ConfigSavedCallbacks) do
                     pcall(fn, finalName, saveData)
                 end
+            end
+            if Window.ConfigDropdown and Window.ConfigDropdown.RefreshOptions then
+                Window.ConfigDropdown.RefreshOptions(GetConfigList())
+                Window.ConfigDropdown.SetSelected(finalName, false)
             end
             return finalName
         else
@@ -1628,17 +1723,23 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local saveData = Window:GetConfigSaveData()
         local jsonString = HttpService:JSONEncode(saveData)
         EnsureConfigFolder()
-        local filePath = ConfigFolderPath .. "/" .. configName .. ".json"
+        local filePath = GetConfigFolderPath() .. "/" .. configName .. ".json"
         local success = pcall(function()
             if writefile then writefile(filePath, jsonString) end
         end)
 
         if success then
+            Window.KnownConfigs = Window.KnownConfigs or {}
+            Window.KnownConfigs[configName] = true
             Window:Notify("Config rewritten", "Overwrote '" .. configName .. "'!", 2.5)
             if Window.ConfigSavedCallbacks then
                 for _, fn in ipairs(Window.ConfigSavedCallbacks) do
                     pcall(fn, configName, saveData)
                 end
+            end
+            if Window.ConfigDropdown and Window.ConfigDropdown.RefreshOptions then
+                Window.ConfigDropdown.RefreshOptions(GetConfigList())
+                Window.ConfigDropdown.SetSelected(configName, false)
             end
             return true
         else
@@ -1662,12 +1763,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if DefaultConfigMemoryData then
                 Window:ApplyConfigSaveData(DefaultConfigMemoryData)
             end
+            if Window.ConfigDropdown and Window.ConfigDropdown.SetSelected then
+                Window.ConfigDropdown.SetSelected("DEFAULT", false)
+            end
             Window:Notify("Config loaded", "Loaded default config!", 2.5)
             return true
         end
 
         EnsureConfigFolder()
-        local filePath = ConfigFolderPath .. "/" .. configName .. ".json"
+        local filePath = GetConfigFolderPath() .. "/" .. configName .. ".json"
         local loadedData = nil
 
         pcall(function()
@@ -1678,7 +1782,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end)
 
         if loadedData then
+            Window.KnownConfigs = Window.KnownConfigs or {}
+            Window.KnownConfigs[configName] = true
             Window:ApplyConfigSaveData(loadedData)
+            if Window.ConfigDropdown then
+                if Window.ConfigDropdown.RefreshOptions then
+                    Window.ConfigDropdown.RefreshOptions(GetConfigList())
+                end
+                if Window.ConfigDropdown.SetSelected then
+                    Window.ConfigDropdown.SetSelected(configName, false)
+                end
+            end
             Window:Notify("Config loaded", "Loaded '" .. configName .. "'!", 2.5)
             return true
         else
@@ -1694,7 +1808,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         EnsureConfigFolder()
-        local filePath = ConfigFolderPath .. "/" .. configName .. ".json"
+        local filePath = GetConfigFolderPath() .. "/" .. configName .. ".json"
         local success = pcall(function()
             if delfile and isfile and isfile(filePath) then
                 delfile(filePath)
@@ -1702,7 +1816,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end)
 
         if success then
+            if Window.KnownConfigs then
+                Window.KnownConfigs[configName] = nil
+            end
             Window:Notify("Config deleted", "Deleted config '" .. configName .. "'", 2.5)
+            if Window.ConfigDropdown and Window.ConfigDropdown.RefreshOptions then
+                Window.ConfigDropdown.RefreshOptions(GetConfigList())
+                Window.ConfigDropdown.SetSelected("DEFAULT", false)
+            end
             return true
         else
             Window:Notify("Config error", "Failed to delete config file", 3)
@@ -2319,6 +2440,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if isSearchable then
                 SearchInput.Text = ""
             end
+            if type(dropConfig) == "table" and type(dropConfig.GetOptions) == "function" then
+                local dynamicOpts = dropConfig.GetOptions()
+                if type(dynamicOpts) == "table" then
+                    options = dynamicOpts
+                end
+            end
             RefreshOptions(options, isSearchable and SearchInput.Text or "")
 
             local scale = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
@@ -2562,7 +2689,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local nameBoxObj = Window:CreateMDTextbox(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 48), "Config name", "MyConfig", nil)
 
-        local configDropdownObj = Window:CreateMDDropdown(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 48), "", GetConfigList(), "DEFAULT", nil)
+        local currentAuto = Window:GetAutoloadConfig()
+        local initialSelected = (currentAuto and currentAuto ~= "" and currentAuto:upper() ~= "NONE") and currentAuto or "DEFAULT"
+
+        local configDropdownObj = Window:CreateMDDropdown(SectionFrame, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0, 48), "", GetConfigList(), initialSelected, nil, {
+            GetOptions = GetConfigList
+        })
+        Window.ConfigDropdown = configDropdownObj
+        configDropdownObj.SetSelected(initialSelected, false)
 
         local Row1 = Instance.new("Frame")
         Row1.Name = GenerateSafeName("Row")
@@ -2744,6 +2878,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Window:SetAutoloadConfig(selected)
                 Window:Notify("Autoload", "Set '" .. selected .. "' as autoload config!", 2.5)
             end
+            configDropdownObj.RefreshOptions(GetConfigList())
             if autoloadBtn and autoloadBtn.TextLabel then
                 autoloadBtn.TextLabel.Text = GetAutoloadButtonLabel()
             end
@@ -10154,10 +10289,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         function TabObj:AddCheckbox(titleOrConfig, initialState, onToggle, parentRow, position, sizeFraction)
             local text, state, cb
+            local saveKey, identifier
             if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
                 text  = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Checkbox"
                 state = titleOrConfig.Default or titleOrConfig.Value or titleOrConfig.State or titleOrConfig[2]
                 cb    = titleOrConfig.Callback or titleOrConfig.OnChanged or titleOrConfig.callback or titleOrConfig[3]
+                saveKey = titleOrConfig.SaveKey or titleOrConfig.saveKey or titleOrConfig.Id or titleOrConfig.Identifier
+                identifier = titleOrConfig.Identifier or titleOrConfig.Id or titleOrConfig.Name
                 parentRow = titleOrConfig.Parent or titleOrConfig.Row or parentRow
                 position  = titleOrConfig.Position or position
                 sizeFraction = titleOrConfig.Size or titleOrConfig.Fraction or sizeFraction
@@ -10166,6 +10304,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 state = initialState
                 cb    = onToggle
             end
+            saveKey = saveKey or text
+            identifier = identifier or text
 
             parentRow = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
             local targetParent = parentRow or ContentFrame
@@ -10278,15 +10418,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end))
 
             local checkboxObj = {
-                Frame   = CardFrame,
-                Value   = isChecked,
-                SetState = function(self, v, silent)
-                    SetChecked(v == true, silent)
-                    self.Value = isChecked
-                end,
-                GetState = function(self)
-                    return isChecked
-                end,
+                Name       = text,
+                SaveKey    = saveKey,
+                Identifier = identifier,
+                Frame      = CardFrame,
+                Value      = isChecked,
                 RefreshTheme = function(theme)
                     if not theme or type(theme) ~= "table" then return end
                     CardFrame.BackgroundColor3 = theme.CardBG
@@ -10303,9 +10439,39 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end
                 end,
             }
-            checkboxObj.Toggle = function(self) self:SetState(not isChecked) end
 
+            local function ApplyCheckboxState(selfOrVal, maybeVal, maybeTrigger)
+                local val, trigger
+                if type(selfOrVal) == "table" or selfOrVal == checkboxObj then
+                    val = maybeVal
+                    trigger = (maybeTrigger ~= false)
+                else
+                    val = selfOrVal
+                    trigger = (maybeVal ~= false)
+                end
+                val = (val == true)
+                local silent = not trigger
+                SetChecked(val, silent)
+                checkboxObj.Value = val
+            end
+
+            checkboxObj.SetState = ApplyCheckboxState
+            checkboxObj.SetValue = ApplyCheckboxState
+            checkboxObj.GetState = function() return isChecked end
+            checkboxObj.GetValue = function() return isChecked end
+            checkboxObj.Toggle   = function() ApplyCheckboxState(not isChecked, true) end
+
+            Window.RegisteredToggles = Window.RegisteredToggles or {}
             Window.RegisteredMDToggles = Window.RegisteredMDToggles or {}
+
+            Window.RegisteredToggles[text] = checkboxObj
+            if saveKey and not Window.RegisteredToggles[saveKey] then
+                Window.RegisteredToggles[saveKey] = checkboxObj
+            end
+            if identifier and not Window.RegisteredToggles[identifier] then
+                Window.RegisteredToggles[identifier] = checkboxObj
+            end
+
             table.insert(Window.RegisteredMDToggles, checkboxObj)
 
             table.insert(Window.SearchableItems, {
