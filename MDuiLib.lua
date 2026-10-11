@@ -8768,7 +8768,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             MenuScroll.Position = UDim2.new(0, 4, 0, 4)
             MenuScroll.BackgroundTransparency = 1
             MenuScroll.BorderSizePixel = 0
-            MenuScroll.ScrollBarThickness = 2
+            MenuScroll.ScrollBarThickness = 0
             MenuScroll.ScrollBarImageColor3 = Window.CurrentTheme.Divider
             MenuScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
             MenuScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
