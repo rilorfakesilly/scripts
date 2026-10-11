@@ -105,6 +105,20 @@ local function ResolveParent(parent)
     return nil
 end
 
+local function IsInsideSection(instance)
+    local resolved = ResolveParent(instance) or instance
+    if typeof(resolved) ~= "Instance" then return false end
+    local cur = resolved
+    while cur do
+        if cur:IsA("Frame") and cur.Name and cur.Name:find("SectionCard") then
+            return true
+        end
+        cur = cur.Parent
+    end
+    return false
+end
+Library.IsInsideSection = IsInsideSection
+
 Library.ActiveGuis = Library.ActiveGuis or {}
 
 local FontSilkscreenRegular = Font.new("rbxassetid://12187371840", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
@@ -1972,12 +1986,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             boxWidth = boxOptions
         end
 
+        local inSection = IsInsideSection(parent)
         local BoxFrame = Instance.new("Frame")
         BoxFrame.Name = GenerateSafeName("TextboxFrame")
         BoxFrame.Size = size
         BoxFrame.Position = position
         BoxFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-        BoxFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
+        BoxFrame.BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
         BoxFrame.BorderSizePixel = 0
         BoxFrame.ZIndex = 10
         BoxFrame.Parent = parent
@@ -2000,7 +2015,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Corner.Parent = BoxFrame
 
         if not connectMode then
-            AddUIShadow(BoxFrame, 20, 0.5)
+            local shadow = AddUIShadow(BoxFrame, 20, 0.5)
+            if inSection and Window.SectionsTransparent and shadow then
+                pcall(function() shadow.Visible = false end)
+            end
         end
 
         local TitleLabel = Instance.new("TextLabel")
@@ -2084,8 +2102,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             end,
             RefreshTheme = function(theme)
+                local inSec = IsInsideSection(BoxFrame)
                 BoxFrame.BackgroundColor3 = theme.CardBG
-                BoxFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
+                BoxFrame.BackgroundTransparency = (inSec and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
                 TitleLabel.TextColor3 = theme.Text
                 InputBox.TextColor3 = theme.Text
                 InputBox.PlaceholderColor3 = theme.SubText
@@ -2382,7 +2401,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     ItemBtn.Parent = InnerScroll
 
                     local ItemCorner = Instance.new("UICorner")
-                    ApplyCornerRadii(ItemCorner, 12, 12, 12, 12)
+                    ApplyCornerRadii(ItemCorner, 6, 6, 6, 6)
                     ItemCorner.Parent = ItemBtn
 
                     ItemBtn.MouseButton1Click:Connect(function()
@@ -3108,7 +3127,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 12)
+        Corner.CornerRadius = UDim.new(0, 6)
         Corner.Parent = BtnFrame
 
         AddUIShadow(BtnFrame, 20, 0.5)
@@ -4315,7 +4334,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ApplyBtn.Parent = ModalCard
 
         local ApplyCorner = Instance.new("UICorner")
-        ApplyCorner.CornerRadius = UDim.new(0, 12)
+        ApplyCorner.CornerRadius = UDim.new(0, 6)
         ApplyCorner.Parent = ApplyBtn
 
         local isDraggingSV = false
@@ -4553,7 +4572,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CancelBtn.Parent = BtnRow
 
         local CancelCorner = Instance.new("UICorner")
-        CancelCorner.CornerRadius = UDim.new(0, 12)
+        CancelCorner.CornerRadius = UDim.new(0, 6)
         CancelCorner.Parent = CancelBtn
 
         local YesBtn = Instance.new("TextButton")
@@ -4569,7 +4588,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         YesBtn.Parent = BtnRow
 
         local YesCorner = Instance.new("UICorner")
-        YesCorner.CornerRadius = UDim.new(0, 12)
+        YesCorner.CornerRadius = UDim.new(0, 6)
         YesCorner.Parent = YesBtn
 
         local function Close()
@@ -4608,12 +4627,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         position = position or UDim2.new(0, 0, 0, 0)
         defaultColor = defaultColor or Color3.fromRGB(255, 255, 255)
 
+        local inSection = IsInsideSection(parent)
         local CardFrame = Instance.new("Frame")
         CardFrame.Name = "ColorPickerCard"
         CardFrame.Size = size
         CardFrame.Position = position
         CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-        CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
+        CardFrame.BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
         CardFrame.BorderSizePixel = 0
         CardFrame.ZIndex = 10
         CardFrame.Parent = parent
@@ -4642,7 +4662,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Corner.Parent = CardFrame
 
         if not connectMode then
-            AddUIShadow(CardFrame, 20, 0.5)
+            local shadow = AddUIShadow(CardFrame, 20, 0.5)
+            if inSection and Window.SectionsTransparent and shadow then
+                pcall(function() shadow.Visible = false end)
+            end
         end
 
         local TitleLabel = Instance.new("TextLabel")
@@ -4696,8 +4719,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             end,
             RefreshTheme = function(theme)
+                local inSec = IsInsideSection(CardFrame)
                 CardFrame.BackgroundColor3 = theme.CardBG
-                CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
+                CardFrame.BackgroundTransparency = (inSec and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
                 TitleLabel.TextColor3 = theme.Text
             end
         }
@@ -4858,7 +4882,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnFrame.Parent = resolvedParent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 12)
+        Corner.CornerRadius = UDim.new(0, 6)
         Corner.Parent = BtnFrame
 
         AddUIShadow(BtnFrame, isSmall and 8 or 20, 0.45)
@@ -4979,12 +5003,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         size = size or UDim2.new(0, 260, 0, 44)
         position = position or UDim2.new(0, 0, 0, 0)
 
+        local inSection = IsInsideSection(parent)
         local CardFrame = Instance.new("Frame")
         CardFrame.Name = GenerateSafeName("Card")
         CardFrame.Size = size
         CardFrame.Position = position
         CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-        CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
+        CardFrame.BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
         CardFrame.BorderSizePixel = 0
         CardFrame.ZIndex = 10
         CardFrame.Parent = parent
@@ -5006,7 +5031,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Corner.Parent = CardFrame
 
         if not connectMode then
-            AddUIShadow(CardFrame, 20, 0.5)
+            local shadow = AddUIShadow(CardFrame, 20, 0.5)
+            if inSection and Window.SectionsTransparent and shadow then
+                pcall(function() shadow.Visible = false end)
+            end
         end
 
         local MDTextFolder = Instance.new("Folder")
@@ -5196,8 +5224,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 UpdateCardBgImage()
             end,
             RefreshTheme = function(theme)
+                local inSec = IsInsideSection(CardFrame)
                 CardFrame.BackgroundColor3 = theme.CardBG
-                CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
+                CardFrame.BackgroundTransparency = (inSec and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
                 TitleText.TextColor3 = theme.Text
                 local isTog = isToggled
                 ToggleFrame.BackgroundColor3 = isTog and theme.ButtonBG or GetThemedDarkColor(theme)
@@ -5555,7 +5584,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if config.CornerRadius then
             Corner.CornerRadius = UDim.new(0, config.CornerRadius)
         else
-            Corner.CornerRadius = UDim.new(1, 0)
+            Corner.CornerRadius = UDim.new(0, 6)
         end
         Corner.Parent = BtnFrame
 
@@ -8031,13 +8060,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local hasDesc = btnDesc and btnDesc ~= ""
 
             local CardFrame = Instance.new("Frame")
+            CardFrame.Name = "MDButton_CardFrame"
             CardFrame.Size = isInside and UDim2.new(1, 0, 0, hasDesc and 60 or 44) or UDim2.new(1, -10, 0, 60)
             CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
+            CardFrame.BackgroundTransparency = (isInside and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
             CardFrame.BorderSizePixel = 0
             CardFrame.Parent = targetParent
 
             local CardCorner = Instance.new("UICorner")
-            CardCorner.CornerRadius = UDim.new(0, 8)
+            CardCorner.CornerRadius = UDim.new(0, 6)
             CardCorner.Parent = CardFrame
 
             local hasDesc = btnDesc and btnDesc ~= ""
@@ -8114,6 +8145,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end,
                 RefreshTheme = function(theme)
                     CardFrame.BackgroundColor3 = theme.CardBG
+                    CardFrame.BackgroundTransparency = (isInside and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
                     TitleLabel.TextColor3 = theme.Text
                     DescLabel.TextColor3 = theme.SubText
                 end
@@ -8383,12 +8415,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local currentValue = math.clamp(tonumber(defaultVal) or minVal, minVal, maxVal)
 
+            local inSection = IsInsideSection(targetParent)
             local CardFrame = Instance.new("Frame")
             CardFrame.Name = "MDNumberInputCard_" .. title:gsub("%s+", "_")
             CardFrame.Size = cardSize
             CardFrame.Position = pos
             CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-            CardFrame.BackgroundTransparency = 0.05
+            CardFrame.BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or 0.05
             CardFrame.BorderSizePixel = 0
             CardFrame.ZIndex = 10
             CardFrame.Parent = targetParent
@@ -8397,7 +8430,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CardCorner.CornerRadius = UDim.new(0, 8)
             CardCorner.Parent = CardFrame
 
-            AddUIShadow(CardFrame, 20, 0.5)
+            local shadow = AddUIShadow(CardFrame, 20, 0.5)
+            if inSection and Window.SectionsTransparent and shadow then
+                pcall(function() shadow.Visible = false end)
+            end
 
             local TitleLabel = Instance.new("TextLabel")
             TitleLabel.Name = "TitleLabel"
@@ -8514,7 +8550,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end
                 end,
                 RefreshTheme = function(theme)
+                    local inSec = IsInsideSection(CardFrame)
                     CardFrame.BackgroundColor3 = theme.CardBG
+                    CardFrame.BackgroundTransparency = (inSec and Window.SectionsTransparent) and 1 or 0.05
                     TitleLabel.TextColor3 = theme.Text
                     ControlBox.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(230, 234, 242) or Color3.fromRGB(20, 22, 28)
                     MinusBtn.BackgroundColor3 = theme.ButtonBG
@@ -8675,12 +8713,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return list
             end
 
+            local inSection = IsInsideSection(targetParent)
             local CardFrame = Instance.new("Frame")
             CardFrame.Name = GenerateSafeName("Card")
             CardFrame.Size = cardSize
             CardFrame.Position = pos
             CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-            CardFrame.BackgroundTransparency = 0.05
+            CardFrame.BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or 0.05
             CardFrame.BorderSizePixel = 0
             CardFrame.ZIndex = 10
             CardFrame.Parent = targetParent
@@ -8689,7 +8728,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CardCorner.CornerRadius = UDim.new(0, 8)
             CardCorner.Parent = CardFrame
 
-            AddUIShadow(CardFrame, 20, 0.5)
+            local shadow = AddUIShadow(CardFrame, 20, 0.5)
+            if inSection and Window.SectionsTransparent and shadow then
+                pcall(function() shadow.Visible = false end)
+            end
 
             local TitleLabel = Instance.new("TextLabel")
             TitleLabel.Name = "DropdownTitle"
@@ -8984,7 +9026,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     return multiDropData
                 end,
                 RefreshTheme = function(theme)
+                    local inSec = IsInsideSection(CardFrame)
                     CardFrame.BackgroundColor3 = theme.CardBG
+                    CardFrame.BackgroundTransparency = (inSec and Window.SectionsTransparent) and 1 or 0.05
                     TitleLabel.TextColor3 = theme.Text
                     ArrowIcon.ImageColor3 = theme.Text
                     DropdownMenu.BackgroundColor3 = theme.CardBG
@@ -9078,13 +9122,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             initialPct = math.clamp(initialPct, 0, 1)
 
             local targetParent = ResolveParent(parentContainer) or TabObj.CurrentSectionContainer or ContentFrame
-            local isInside = (targetParent ~= ContentFrame)
+            local isInside = (targetParent ~= ContentFrame) or IsInsideSection(targetParent)
 
             local CardFrame = Instance.new("Frame")
             CardFrame.Name = "MDProgressBarCard_" .. title:gsub("%s+", "_")
             CardFrame.Size = isInside and UDim2.new(1, 0, 0, 52) or UDim2.new(1, -10, 0, 52)
             CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-            CardFrame.BackgroundTransparency = 0.05
+            CardFrame.BackgroundTransparency = (isInside and Window.SectionsTransparent) and 1 or 0.05
             CardFrame.BorderSizePixel = 0
             CardFrame.ZIndex = 10
             CardFrame.Parent = targetParent
@@ -9093,7 +9137,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CardCorner.CornerRadius = UDim.new(0, 8)
             CardCorner.Parent = CardFrame
 
-            AddUIShadow(CardFrame, 20, 0.5)
+            local shadow = AddUIShadow(CardFrame, 20, 0.5)
+            if isInside and Window.SectionsTransparent and shadow then
+                pcall(function() shadow.Visible = false end)
+            end
 
             local TitleLabel = Instance.new("TextLabel")
             TitleLabel.Name = "ProgressTitle"
@@ -9188,7 +9235,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     FillBar.BackgroundColor3 = col
                 end,
                 RefreshTheme = function(theme)
+                    local inSec = IsInsideSection(CardFrame)
                     CardFrame.BackgroundColor3 = theme.CardBG
+                    CardFrame.BackgroundTransparency = (inSec and Window.SectionsTransparent) and 1 or 0.05
                     TitleLabel.TextColor3 = theme.Text
                     StatusLabel.TextColor3 = theme.SubText
                     TrackFrame.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(220, 225, 235) or Color3.fromRGB(25, 28, 36)
@@ -10246,6 +10295,28 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     SectionStroke.Transparency = isST and 1 or 0.5
                     _strokeBase = newBase  -- gradient animation picks this up automatically
                 end
+                if ItemContainer and ItemContainer.Parent then
+                    for _, desc in ipairs(ItemContainer:GetDescendants()) do
+                        if desc:IsA("Frame") and desc.Parent then
+                            local dName = desc.Name
+                            local isButton = (dName == "MDButtonCard" or dName:find("BtnFrame") or dName == "Btn" or (desc:FindFirstChildOfClass("TextButton") and (dName:find("Btn") or dName:find("Button"))))
+                            if not isButton then
+                                local isCard = dName:find("Card") or dName:find("TextboxFrame") or dName:find("DropdownFrame") or dName:find("BoxFrame")
+                                if not isCard and (desc.BackgroundColor3 == theme.CardBG) then
+                                    isCard = true
+                                end
+                                if isCard then
+                                    desc.BackgroundTransparency = isST and 1 or (Window.ElementsTransparency or 0.33)
+                                    for _, child in ipairs(desc:GetChildren()) do
+                                        if child.ClassName == "UIShadow" or child:IsA("UIShadow") or (child.Name and tostring(child.Name):sub(1, 8) == "UIShadow") then
+                                            child.Visible = (not isST) and (Window.ShadowsEnabled and (Window.ShadowIntensity or 1) > 0)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
             end
 
             Window.RegisteredSections = Window.RegisteredSections or {}
@@ -10333,12 +10404,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local isChecked = (state == true)
             local CHECKBOX_SIZE = 18
 
+            local inSection = IsInsideSection(targetParent)
             local CardFrame = Instance.new("Frame")
             CardFrame.Name = GenerateSafeName("CheckboxCard")
             CardFrame.Size = size
             CardFrame.Position = pos
             CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-            CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
+            CardFrame.BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
             CardFrame.BorderSizePixel = 0
             CardFrame.ZIndex = 10
             CardFrame.Parent = targetParent
@@ -10348,7 +10420,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CardCorner.Parent = CardFrame
 
             if not isGroup then
-                AddUIShadow(CardFrame, 20, 0.5)
+                local shadow = AddUIShadow(CardFrame, 20, 0.5)
+                if inSection and Window.SectionsTransparent and shadow then
+                    pcall(function() shadow.Visible = false end)
+                end
             end
 
             local BoxOuter = Instance.new("Frame")
@@ -10440,8 +10515,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Value      = isChecked,
                 RefreshTheme = function(theme)
                     if not theme or type(theme) ~= "table" then return end
+                    local inSec = IsInsideSection(CardFrame)
                     CardFrame.BackgroundColor3 = theme.CardBG
-                    CardFrame.BackgroundTransparency = Window.ElementsTransparency or 0.33
+                    CardFrame.BackgroundTransparency = (inSec and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
                     LabelText.TextColor3 = theme.Text
                     offBG     = GetThemedDarkColor(theme)
                     offStroke = theme.Divider or Color3.fromRGB(80,85,100)
@@ -10763,8 +10839,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local isCard = not customParent or targetParent == ContentFrame or (targetParent and (targetParent.Name == "RowFrame" or isGroup))
 
             if isCard and (type(sliderOptions) ~= "table" or sliderOptions.AsCard ~= false) then
-                local isRow = targetParent and targetParent.Name == "RowFrame"
-                local isInSection = customParent and targetParent ~= ContentFrame
+                local isInSection = (customParent and targetParent ~= ContentFrame) or (targetParent == TabObj.CurrentSectionContainer) or IsInsideSection(targetParent)
                 local sliderH = isGroup and (isInSection and 40 or 50) or (isInSection and 45 or 56)
                 local cardSize = isGroup and UDim2.new(1, 0, 0, sliderH) or (isRow and UDim2.new(0.485, -4, 0, sliderH) or UDim2.new(1, -10, 0, sliderH))
 
@@ -10773,7 +10848,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 SliderCard.Size = cardSize
                 SliderCard.Position = pos
                 SliderCard.BackgroundColor3 = Window.CurrentTheme.CardBG
-                SliderCard.BackgroundTransparency = Window.ElementsTransparency or 0.33
+                SliderCard.BackgroundTransparency = (isInSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
                 SliderCard.BorderSizePixel = 0
                 SliderCard.ZIndex = 10
                 SliderCard.Parent = targetParent
@@ -10796,7 +10871,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 CardCorner.Parent = SliderCard
 
                 if not connectMode then
-                    AddUIShadow(SliderCard, 20, 0.5)
+                    local shadow = AddUIShadow(SliderCard, 20, 0.5)
+                    if isInSection and Window.SectionsTransparent and shadow then
+                        pcall(function() shadow.Visible = false end)
+                    end
                 end
 
                 local displayTitle = (type(sliderOptions) == "table" and (sliderOptions.Title or sliderOptions.Text or sliderOptions.Name))
@@ -10921,8 +10999,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local oldRefresh = sliderData.RefreshTheme
                 sliderData.RefreshTheme = function(theme)
                     if oldRefresh then oldRefresh(theme) end
+                    local inSec = IsInsideSection(SliderCard)
                     SliderCard.BackgroundColor3 = theme.CardBG
-                    SliderCard.BackgroundTransparency = Window.ElementsTransparency or 0.33
+                    SliderCard.BackgroundTransparency = (inSec and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
                     TitleLabel.TextColor3 = theme.Text
                     ValueLabel.TextColor3 = theme.Text
                 end
@@ -12653,10 +12732,25 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local cont = sec and (sec.Container or sec.ItemContainer)
                 if cont and cont.Parent then
                     for _, desc in ipairs(cont:GetDescendants()) do
-                        if (desc:IsA("Frame") or desc:IsA("TextButton")) and desc.BackgroundTransparency < 1 then
+                        if desc:IsA("Frame") and desc.Parent then
                             local dName = desc.Name
-                            if dName ~= "Knob" and dName ~= "CheckBox" and dName ~= "Badge" and dName ~= "Overlay" and not dName:find("Trigger") and not dName:find("Click") then
-                                desc.BackgroundTransparency = pct
+                            local isButton = (dName == "MDButtonCard" or dName:find("BtnFrame") or dName == "Btn" or (desc:FindFirstChildOfClass("TextButton") and (dName:find("Btn") or dName:find("Button"))))
+                            if not isButton then
+                                local isCard = dName:find("Card") or dName:find("TextboxFrame") or dName:find("DropdownFrame") or dName:find("BoxFrame")
+                                if not isCard and desc.BackgroundColor3 == Window.CurrentTheme.CardBG then
+                                    isCard = true
+                                end
+                                if isCard then
+                                    if Window.SectionsTransparent then
+                                        desc.BackgroundTransparency = 1
+                                    else
+                                        desc.BackgroundTransparency = pct
+                                    end
+                                elseif dName ~= "Knob" and dName ~= "CheckBox" and dName ~= "Badge" and dName ~= "Overlay" and not dName:find("Trigger") and not dName:find("Click") then
+                                    if not Window.SectionsTransparent then
+                                        desc.BackgroundTransparency = pct
+                                    end
+                                end
                             end
                         end
                     end
@@ -12666,23 +12760,34 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if Window.RegisteredMDButtons then
             for _, btn in ipairs(Window.RegisteredMDButtons) do
                 if btn and btn.CardFrame and btn.CardFrame.Parent then
-                    btn.CardFrame.BackgroundTransparency = pct
+                    if btn.Button and IsInsideSection(btn.CardFrame) and Window.SectionsTransparent then
+                        btn.CardFrame.BackgroundTransparency = 1
+                    else
+                        btn.CardFrame.BackgroundTransparency = pct
+                    end
                 end
             end
         end
         if Window.RegisteredMDToggles then
             for _, tog in ipairs(Window.RegisteredMDToggles) do
-                if tog and tog.CardFrame and tog.CardFrame.Parent then
-                    tog.CardFrame.BackgroundTransparency = pct
-                elseif tog and tog.Frame and tog.Frame.Parent and (tog.Frame.Name:find("Card") or tog.Frame.Name:find("Toggle")) then
-                    tog.Frame.BackgroundTransparency = pct
+                local cFrame = tog and (tog.CardFrame or tog.Frame)
+                if cFrame and cFrame.Parent then
+                    if IsInsideSection(cFrame) and Window.SectionsTransparent then
+                        cFrame.BackgroundTransparency = 1
+                    else
+                        cFrame.BackgroundTransparency = pct
+                    end
                 end
             end
         end
         if Window.RegisteredMDSliders then
             for _, sld in ipairs(Window.RegisteredMDSliders) do
                 if sld and sld.CardFrame and sld.CardFrame.Parent then
-                    sld.CardFrame.BackgroundTransparency = pct
+                    if IsInsideSection(sld.CardFrame) and Window.SectionsTransparent then
+                        sld.CardFrame.BackgroundTransparency = 1
+                    else
+                        sld.CardFrame.BackgroundTransparency = pct
+                    end
                 end
             end
         end
@@ -12690,7 +12795,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             for _, drp in ipairs(Window.RegisteredDropdownsList) do
                 local drpFrame = drp and (drp.CardFrame or drp.Frame)
                 if drpFrame and drpFrame.Parent then
-                    drpFrame.BackgroundTransparency = pct
+                    if IsInsideSection(drpFrame) and Window.SectionsTransparent then
+                        drpFrame.BackgroundTransparency = 1
+                    else
+                        drpFrame.BackgroundTransparency = pct
+                    end
                 end
             end
         end
@@ -12698,7 +12807,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             for _, tb in ipairs(Window.RegisteredTextboxesList) do
                 local tbFrame = tb and (tb.CardFrame or tb.Frame)
                 if tbFrame and tbFrame.Parent then
-                    tbFrame.BackgroundTransparency = pct
+                    if IsInsideSection(tbFrame) and Window.SectionsTransparent then
+                        tbFrame.BackgroundTransparency = 1
+                    else
+                        tbFrame.BackgroundTransparency = pct
+                    end
                 end
             end
         end
@@ -12706,7 +12819,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             for _, cp in ipairs(Window.RegisteredColorPickersList) do
                 local cpFrame = cp and (cp.CardFrame or cp.Frame)
                 if cpFrame and cpFrame.Parent then
-                    cpFrame.BackgroundTransparency = pct
+                    if IsInsideSection(cpFrame) and Window.SectionsTransparent then
+                        cpFrame.BackgroundTransparency = 1
+                    else
+                        cpFrame.BackgroundTransparency = pct
+                    end
                 end
             end
         end
@@ -12975,8 +13092,29 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if sec.Stroke and sec.Stroke.Parent then
                     sec.Stroke.Transparency = enabled and 1 or 0.5
                 end
-                -- HeaderLine (divider between name and content) stays visible always
-                -- TitleLabel and ArrowIcon are always transparent BG — nothing to change
+                local cont = sec.Container or sec.ItemContainer
+                if cont and cont.Parent then
+                    for _, desc in ipairs(cont:GetDescendants()) do
+                        if desc:IsA("Frame") and desc.Parent then
+                            local dName = desc.Name
+                            local isButton = (dName == "MDButtonCard" or dName:find("BtnFrame") or dName == "Btn" or (desc:FindFirstChildOfClass("TextButton") and (dName:find("Btn") or dName:find("Button"))))
+                            if not isButton then
+                                local isCard = dName:find("Card") or dName:find("TextboxFrame") or dName:find("DropdownFrame") or dName:find("BoxFrame")
+                                if not isCard and (desc.BackgroundColor3 == Window.CurrentTheme.CardBG or (Window.CurrentTheme and desc.BackgroundColor3 == Window.CurrentTheme.CardBG)) then
+                                    isCard = true
+                                end
+                                if isCard then
+                                    desc.BackgroundTransparency = enabled and 1 or (Window.ElementsTransparency or 0.33)
+                                    for _, child in ipairs(desc:GetChildren()) do
+                                        if child.ClassName == "UIShadow" or child:IsA("UIShadow") or (child.Name and tostring(child.Name):sub(1, 8) == "UIShadow") then
+                                            child.Visible = (not enabled) and (Window.ShadowsEnabled and (Window.ShadowIntensity or 1) > 0)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
             end)
         end
     end
