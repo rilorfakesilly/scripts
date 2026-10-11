@@ -590,9 +590,9 @@ Library.ThemePresets = {
         Name = "Dark",
         MainBG = Color3.fromRGB(32, 34, 42),
         MainTrans = 0.22,
-        AccentBG = Color3.fromRGB(45, 48, 60),
+        AccentBG = Color3.fromRGB(38, 41, 52),
         AccentTrans = 0.33,
-        TopBG = Color3.fromRGB(45, 48, 60),
+        TopBG = Color3.fromRGB(38, 41, 52),
         TopTrans = 0.30,
         BottomBG = Color3.fromRGB(45, 48, 60),
         BottomTrans = 0.30,
@@ -924,6 +924,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CustomThemeColor = nil,
         CustomBGTransparency = 0.22,
         ShadowsEnabled = true,
+        SectionsTransparent = false,
         ClickEffectsEnabled = true,
         ClickParticleType = "Theme default",
         CustomParticleAsset = "",
@@ -1255,6 +1256,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 BGTransparency = Window.CustomBGTransparency or 0.22,
                 Shadows = Window.ShadowsEnabled,
                 ShadowIntensity = math.floor((Window.ShadowIntensity or (1 / 1.8)) * 100),
+                SectionBGTransparent = Window.SectionsTransparent,
                 ClickEffects = Window.ClickEffectsEnabled,
                 ClickParticle = Window.ClickParticleType or "Theme default",
                 CustomParticle = Window.CustomParticleAsset or ""
@@ -1458,6 +1460,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     Window:SetShadowIntensity(data.Settings.ShadowIntensity)
                     local sld = Window.RegisteredSliders and Window.RegisteredSliders["ShadowIntensity"]
                     if sld and sld.SetValue then sld.SetValue(data.Settings.ShadowIntensity, false) end
+                end)
+            end
+            if data.Settings.SectionBGTransparent ~= nil then
+                pcall(function()
+                    Window:SetSectionBGTransparent(data.Settings.SectionBGTransparent)
+                    local t = Window.RegisteredToggles["SectionBGTransparent"]
+                    -- toggle is "Section backgrounds" which is ON when NOT transparent
+                    if t and t.SetState then t.SetState(not data.Settings.SectionBGTransparent, false) end
                 end)
             end
             if data.Settings.ClickEffects ~= nil then
@@ -9784,7 +9794,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SectionCard.Size = cardWidth
             SectionCard.AutomaticSize = Enum.AutomaticSize.Y
             SectionCard.BackgroundColor3 = Window.CurrentTheme.CardBG
-            SectionCard.BackgroundTransparency = Window.ElementsTransparency or 0.33
+            SectionCard.BackgroundTransparency = Window.SectionsTransparent and 1 or (Window.ElementsTransparency or 0.33)
             SectionCard.BorderSizePixel = 0
             SectionCard.ClipsDescendants = false
             SectionCard.ZIndex = 4
@@ -9798,7 +9808,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local SectionStroke = Instance.new("UIStroke")
             SectionStroke.Thickness = 1
             SectionStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(65, 70, 88)
-            SectionStroke.Transparency = 0.5
+            SectionStroke.Transparency = Window.SectionsTransparent and 1 or 0.5
             SectionStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             SectionStroke.Parent = SectionCard
 
@@ -10023,13 +10033,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 RefreshTheme = function(self, theme, animated)
                     local twInfo = TweenInfo.new(animated and 0.35 or 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                     local divColor = theme.Divider or Color3.fromRGB(65, 70, 88)
+                    local isST = Window.SectionsTransparent
                     if animated then
                         TweenService:Create(SectionCard, twInfo, {
                             BackgroundColor3 = theme.CardBG,
-                            BackgroundTransparency = Window.ElementsTransparency or 0.33
+                            BackgroundTransparency = isST and 1 or (Window.ElementsTransparency or 0.33)
                         }):Play()
                         if SectionStroke then
-                            TweenService:Create(SectionStroke, twInfo, {Color = divColor}):Play()
+                            TweenService:Create(SectionStroke, twInfo, {Color = divColor, Transparency = isST and 1 or 0.5}):Play()
                         end
                         if HeaderLine then
                             TweenService:Create(HeaderLine, twInfo, {BackgroundColor3 = divColor}):Play()
@@ -10042,8 +10053,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         end
                     else
                         SectionCard.BackgroundColor3 = theme.CardBG
-                        SectionCard.BackgroundTransparency = Window.ElementsTransparency or 0.33
-                        if SectionStroke then SectionStroke.Color = divColor end
+                        SectionCard.BackgroundTransparency = isST and 1 or (Window.ElementsTransparency or 0.33)
+                        if SectionStroke then SectionStroke.Color = divColor ; SectionStroke.Transparency = isST and 1 or 0.5 end
                         if HeaderLine then HeaderLine.BackgroundColor3 = divColor end
                         if TitleLabel then TitleLabel.TextColor3 = theme.Text end
                         if ArrowIcon then ArrowIcon.ImageColor3 = isCollapsed and theme.SubText or theme.Text end
@@ -10199,13 +10210,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             SectionObj.RefreshTheme = function(self, theme, anim)
                 local RealTweenService = game:GetService("TweenService")
+                local isST = Window.SectionsTransparent
                 if SectionCard and SectionCard.Parent then
                     if anim then
                         RealTweenService:Create(SectionCard, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                            BackgroundColor3 = theme.CardBG
+                            BackgroundColor3 = theme.CardBG,
+                            BackgroundTransparency = isST and 1 or (Window.ElementsTransparency or 0.33)
                         }):Play()
                     else
                         SectionCard.BackgroundColor3 = theme.CardBG
+                        SectionCard.BackgroundTransparency = isST and 1 or (Window.ElementsTransparency or 0.33)
                     end
                 end
                 if TitleLabel and TitleLabel.Parent then
@@ -10229,6 +10243,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if SectionStroke and SectionStroke.Parent then
                     local newBase = theme.Divider or Color3.fromRGB(65, 70, 88)
                     SectionStroke.Color = newBase
+                    SectionStroke.Transparency = isST and 1 or 0.5
                     _strokeBase = newBase  -- gradient animation picks this up automatically
                 end
             end
@@ -11121,11 +11136,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     Window:SetShadowsEnabled(state)
                     Window:Notify("Settings", "UI shadows " .. (state and "enabled" or "disabled"), 2)
                 end
+            },
+            {
+                Title = "Section backgrounds",
+                Default = not Window.SectionsTransparent,
+                Callback = function(state)
+                    Window:SetSectionBGTransparent(not state)
+                    Window:Notify("Settings", "Section backgrounds " .. (state and "shown" or "hidden"), 2)
+                end
             }
         })
-        Window.RegisteredToggles["SpiderwebBG"]    = bgToggles[1]
-        Window.RegisteredToggles["BackgroundBlur"] = bgToggles[2]
-        Window.RegisteredToggles["Shadows"]        = bgToggles[3]
+        Window.RegisteredToggles["SpiderwebBG"]           = bgToggles[1]
+        Window.RegisteredToggles["BackgroundBlur"]        = bgToggles[2]
+        Window.RegisteredToggles["Shadows"]               = bgToggles[3]
+        Window.RegisteredToggles["SectionBGTransparent"]  = bgToggles[4]
 
         local transSlider = SettingsTab:AddSlider({
             Title = "Background transparency",
@@ -12622,7 +12646,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if Window.RegisteredSections then
             for _, sec in ipairs(Window.RegisteredSections) do
                 if sec and sec.Card and sec.Card.Parent then
-                    sec.Card.BackgroundTransparency = pct
+                    if not Window.SectionsTransparent then
+                        sec.Card.BackgroundTransparency = pct
+                    end
                 end
                 local cont = sec and (sec.Container or sec.ItemContainer)
                 if cont and cont.Parent then
@@ -12934,6 +12960,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end
                 end)
             end
+        end
+    end
+
+    function Window:SetSectionBGTransparent(enabled)
+        enabled = (enabled ~= false)
+        Window.SectionsTransparent = enabled
+        if not Window.RegisteredSections then return end
+        for _, sec in ipairs(Window.RegisteredSections) do
+            pcall(function()
+                if sec.Card and sec.Card.Parent then
+                    sec.Card.BackgroundTransparency = enabled and 1 or (Window.ElementsTransparency or 0.33)
+                end
+                if sec.Stroke and sec.Stroke.Parent then
+                    sec.Stroke.Transparency = enabled and 1 or 0.5
+                end
+                -- HeaderLine (divider between name and content) stays visible always
+                -- TitleLabel and ArrowIcon are always transparent BG — nothing to change
+            end)
         end
     end
 
