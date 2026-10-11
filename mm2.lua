@@ -113,6 +113,7 @@ state = {
     -- tune movement physics and weapon targeting
     speedEnabled = false,
     speedValue = 16,
+    speedMode = "WalkSpeed",
     
     flightEnabled = false,
     flightSpeed = 50,
@@ -120,6 +121,7 @@ state = {
     aimbotEnabled = false,
     autoAimEnabled = false,
     autoAimWallbang = false,
+    autoAimPredictionMode = "Auto (MoveDirection)",
     antiFlingEnabled = false,
     chinaHatEnabled = false,
     spinbotEnabled = false,
@@ -141,6 +143,9 @@ state = {
     -- select targets for physics flinging
     targetUsername = "",
     flingForwardOffset = 3.0,
+    flingYOffset = 0,
+    flingHeadHeight = 0,
+    flingYVelocityFactor = 0.15,
 
     -- automate role-specific interactions
     killAuraEnabled = false,
@@ -217,9 +222,11 @@ local camlockSettings = {
     predictionFactor = 0.2,
     horizontalPrediction = 0.2,
     verticalPrediction = 0.2,
+    predictionMode = "Auto (MoveDirection)",
     bodyPartSelected = "Head"
 }
 local isCoinBagVisible
+local activeJumpRings = {}
 
 local function formatCustomAssetId(raw)
     if not raw or raw == "" then return "" end
@@ -326,6 +333,7 @@ local function doCleanup()
     state.autoAimEnabled = false
     state.autoAimWallbang = false
     state.flightEnabled = false
+    state.speedMode = "WalkSpeed"
     state.isFlinging = false
 
     if camlockConn then pcall(function() camlockConn:Disconnect() end) camlockConn = nil end
@@ -345,6 +353,12 @@ local function doCleanup()
         RunService:UnbindFromRenderStep("CameraPipeline")
         CurrentCamera.FieldOfView = 70
     end)
+    if activeJumpRings then
+        for _, p in ipairs(activeJumpRings) do
+            pcall(function() p:Destroy() end)
+        end
+        table.clear(activeJumpRings)
+    end
     pcall(function() if Window then Window:Destroy() end end)
 
     for _, fn in ipairs(cleanupHooks) do
@@ -1834,47 +1848,153 @@ local function getAutoAimTarget()
     return targetPlayer, targetPart
 end
 
-local function calculateAimPosition(rawPos, part, predH, predV)
+local playerSpeedTracker = {}
+
+trackConnection(RunService.Heartbeat:Connect(function(dt)
+    if dt <= 0 or (state and state.unloaded) then return end
+    local now = tick()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and isPlayerAlive(p) then
+            local char = p.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local data = playerSpeedTracker[p]
+                local currentPos = hrp.Position
+                if data and data.lastPos and (now - data.lastTime) > 0.005 then
+                    local elapsed = now - data.lastTime
+                    local deltaPos = currentPos - data.lastPos
+                    local horizontalDelta = Vector2.new(deltaPos.X, deltaPos.Z).Magnitude
+                    local currentSpeed = horizontalDelta / elapsed
+                    -- smooth measured physical speed (studs/s) via exponential moving average
+                    data.measuredSpeed = data.measuredSpeed and (data.measuredSpeed * 0.35 + currentSpeed * 0.65) or currentSpeed
+                    data.lastPos = currentPos
+                    data.lastTime = now
+                else
+                    playerSpeedTracker[p] = {
+                        lastPos = currentPos,
+                        lastTime = now,
+                        measuredSpeed = 16
+                    }
+                end
+            end
+        else
+            playerSpeedTracker[p] = nil
+        end
+    end
+end))
+
+local function calculateAimPosition(rawPos, part, predH, predV, overrideMode)
     if not part then return rawPos end
 
-    local vel = Vector3.zero
+    local mode = overrideMode or (state and state.autoAimPredictionMode) or (silentAimConfig and silentAimConfig.predictionMode) or "Auto (MoveDirection)"
+
+    -- Mode: None (zero prediction, targets current hitbox)
+    if mode == "None" then
+        return rawPos
+    end
+
+    local char = part.Parent
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local root = char and (char:FindFirstChild("HumanoidRootPart") or part) or part
+
+    local physVel = Vector3.zero
     pcall(function()
-        vel = part.AssemblyLinearVelocity or part.Velocity or Vector3.zero
+        physVel = root.AssemblyLinearVelocity or root.Velocity or Vector3.zero
     end)
 
-    local hFactor = tonumber(predH) or 0
-    local vFactor = tonumber(predV) or 0
-    if hFactor < 0 then hFactor = 0 end
-    if vFactor < 0 then vFactor = 0 end
+    -- Dynamic one-way network latency + 1 server physics tick (16ms)
+    local pingTime = 0.05
+    pcall(function()
+        local rtt = LocalPlayer:GetNetworkPing()
+        if rtt and rtt > 0 then
+            pingTime = rtt
+        end
+    end)
+    local transitTime = (pingTime * 0.5) + 0.016
 
-    local offsetX = vel.X * hFactor
-    local offsetZ = vel.Z * hFactor
-    local offsetY = 0
+    -- Real-time measured physical speed for target
+    local targetPlr = Players:GetPlayerFromCharacter(char)
+    local tracker = targetPlr and playerSpeedTracker[targetPlr]
+    local measuredSpeed = (tracker and tracker.measuredSpeed) or 16
+    local moveDir = hum and hum.MoveDirection or Vector3.zero
 
-    if vFactor > 0.001 then
-        local char = part.Parent
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        local isGrounded = false
-        if hum then
-            local floorMat = hum.FloorMaterial
-            if floorMat and floorMat ~= Enum.Material.Air then
-                isGrounded = true
-            end
+    -- Mode: Anti-cheater (clamps lead and catches teleporters)
+    if mode == "Anti-cheater" then
+        if measuredSpeed > 100 and moveDir.Magnitude < 0.1 then
+            return rawPos
         end
 
-        if not isGrounded and math.abs(vel.Y) > 1 then
-            local grav = 196.2
-            pcall(function()
-                if Workspace.Gravity and Workspace.Gravity > 0 then
-                    grav = Workspace.Gravity
-                end
-            end)
-            local ballistic = (vel.Y * vFactor) - (0.5 * grav * (vFactor * vFactor))
-            offsetY = math.clamp(ballistic, -15, 15)
+        local speed = math.clamp(measuredSpeed, 0, 50)
+        local targetDir = (moveDir.Magnitude > 0.05 and moveDir.Unit) or ((Vector2.new(physVel.X, physVel.Z).Magnitude > 0.5) and Vector3.new(physVel.X, 0, physVel.Z).Unit) or Vector3.zero
+        local leadVec = targetDir * (speed * transitTime)
+        if leadVec.Magnitude > 6.0 then
+            leadVec = leadVec.Unit * 6.0
+        end
+
+        local offsetY = 0
+        if math.abs(physVel.Y) > 1 then
+            offsetY = math.clamp(physVel.Y * transitTime, -4, 4)
+        end
+        return rawPos + Vector3.new(leadVec.X, offsetY, leadVec.Z)
+    end
+
+    -- Mode: Ping adaptive (physics velocity with ping compensation)
+    if mode == "Ping adaptive" then
+        local offsetX = physVel.X * transitTime
+        local offsetZ = physVel.Z * transitTime
+        local offsetY = 0
+        if math.abs(physVel.Y) > 1 then
+            offsetY = math.clamp(physVel.Y * transitTime, -6, 6)
+        end
+        return rawPos + Vector3.new(offsetX, offsetY, offsetZ)
+    end
+
+    -- Default / Best: Auto (MoveDirection)
+    -- Direction from MoveDirection (zero latency input intent)
+    -- Speed dynamically measured from frame-to-frame displacement (adapts to all perks/boosts)
+    local effectiveSpeed = (moveDir.Magnitude > 0.05) and measuredSpeed or Vector2.new(physVel.X, physVel.Z).Magnitude
+    if effectiveSpeed < 0.5 then
+        effectiveSpeed = 0
+    end
+
+    local leadDir = (moveDir.Magnitude > 0.05 and moveDir.Unit) or ((Vector2.new(physVel.X, physVel.Z).Magnitude > 0.5) and Vector3.new(physVel.X, 0, physVel.Z).Unit) or Vector3.zero
+    local leadHorizontal = leadDir * (effectiveSpeed * transitTime)
+
+    -- Clamp maximum horizontal lead so speed hacks never fling aim out of bounds
+    if leadHorizontal.Magnitude > 8.0 then
+        leadHorizontal = leadHorizontal.Unit * 8.0
+    end
+
+    -- Wall collision safety check: never predict targets through solid walls
+    if leadHorizontal.Magnitude > 0.3 then
+        local rayParams = RaycastParams.new()
+        rayParams.FilterType = Enum.RaycastFilterType.Exclude
+        rayParams.FilterDescendantsInstances = { char, LocalPlayer.Character }
+        rayParams.IgnoreWater = true
+        local hit = workspace:Raycast(rawPos, leadHorizontal, rayParams)
+        if hit and hit.Instance and hit.Instance.CanCollide then
+            local dist = (hit.Position - rawPos).Magnitude
+            if dist > 0.4 then
+                leadHorizontal = leadHorizontal.Unit * (dist - 0.2)
+            else
+                leadHorizontal = Vector3.zero
+            end
         end
     end
 
-    return rawPos + Vector3.new(offsetX, offsetY, offsetZ)
+    -- Vertical lead & gravity arc compensation
+    local offsetY = 0
+    local isGrounded = false
+    if hum and hum.FloorMaterial and hum.FloorMaterial ~= Enum.Material.Air then
+        isGrounded = true
+    end
+    if not isGrounded and math.abs(physVel.Y) > 1 then
+        local grav = Workspace.Gravity or 196.2
+        local ballistic = (physVel.Y * transitTime) - (0.5 * grav * (transitTime * transitTime))
+        offsetY = math.clamp(ballistic, -10, 10)
+    end
+
+    return rawPos + Vector3.new(leadHorizontal.X, offsetY, leadHorizontal.Z)
 end
 
 local function getSilentAimPred()
@@ -1963,18 +2083,25 @@ local function getSilentAimTarget()
                 end
 
                 if part and (silentAimConfig.wallbang or not silentAimConfig.wallCheck or isPartVisible(part, char)) then
-                    local screenPos, onScreen = CurrentCamera:WorldToViewportPoint(part.Position)
-                    if onScreen and screenPos.Z > 0 then
-                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - mouseLoc).Magnitude
-                        if dist <= shortestDist then
-                            local rawPos = part.Position
-                            local predH, predV = getSilentAimPred()
-                            local predicted = calculateAimPosition(rawPos, part, predH, predV)
+                    if silentAimConfig.wallbang then
+                        targetPlayer = p
+                        targetPart = part
+                        targetPos = part.Position
+                        break
+                    else
+                        local screenPos, onScreen = CurrentCamera:WorldToViewportPoint(part.Position)
+                        if onScreen and screenPos.Z > 0 then
+                            local dist = (Vector2.new(screenPos.X, screenPos.Y) - mouseLoc).Magnitude
+                            if dist <= shortestDist then
+                                local rawPos = part.Position
+                                local predH, predV = getSilentAimPred()
+                                local predicted = calculateAimPosition(rawPos, part, predH, predV)
 
-                            shortestDist = dist
-                            targetPlayer = p
-                            targetPart = part
-                            targetPos = predicted
+                                shortestDist = dist
+                                targetPlayer = p
+                                targetPart = part
+                                targetPos = predicted
+                            end
                         end
                     end
                 end
@@ -2043,7 +2170,7 @@ if hookmetamethod then
                         local originPos = nil
                         if isWallbang and targetChar then
                             local head = targetChar:FindFirstChild("Head")
-                            originPos = head and head.Position or (rawPos + Vector3.new(0, 1.5, 0))
+                            originPos = head and (head.Position + (targetPos - rawPos)) or (targetPos + Vector3.new(0, 1.5, 0))
                         else
                             local originCF = args[1]
                             local handle = getOwnGunHandle()
@@ -2072,7 +2199,7 @@ if hookmetamethod then
                             local targetChar = target.Character
                             if isWallbang and targetChar then
                                 local head = targetChar:FindFirstChild("Head")
-                                originPos = head and head.Position or (targetPos + Vector3.new(0, 1.5, 0))
+                                originPos = head and (head.Position + (targetPos - rawPos)) or (targetPos + Vector3.new(0, 1.5, 0))
                             else
                                 local originCF = args[1]
                                 local handle = getOwnGunHandle()
@@ -2227,7 +2354,6 @@ end
 
 -- mm2 gun tools fire bullet raycasts via Shoot remote event; update if game renames gun remotes
 local function getGunShootEvent()
-    -- search character first for equipped items
     local char = LocalPlayer.Character or Workspace:FindFirstChild(LocalPlayer.Name)
     if char then
         local gun = char:FindFirstChild("Gun") or char:FindFirstChild("Revolver")
@@ -2241,7 +2367,6 @@ local function getGunShootEvent()
             end
         end
     end
-    -- inspect unequipped items in inventory
     local bp = LocalPlayer:FindFirstChild("Backpack")
     if bp then
         local gun = bp:FindFirstChild("Gun") or bp:FindFirstChild("Revolver")
@@ -2255,7 +2380,6 @@ local function getGunShootEvent()
             end
         end
     end
-    -- search active map geometry for dropped tools
     local map = getActiveMap()
     if map then
         local gun = map:FindFirstChild("Gun") or map:FindFirstChild("Revolver")
@@ -2264,7 +2388,6 @@ local function getGunShootEvent()
             if shoot and shoot:IsA("RemoteEvent") then return shoot end
         end
     end
-    -- retrieve orphaned instances outside workspace
     if getnilinstances then
         local success, result = pcall(function()
             for _, obj in ipairs(getnilinstances()) do
@@ -2279,50 +2402,80 @@ local function getGunShootEvent()
     return nil
 end
 
-local function getDroppedGunPart()
-    local function extractPart(obj)
-        if not obj then return nil end
-        if obj:IsA("BasePart") then return obj end
-        if obj:IsA("Model") then
-            if obj.PrimaryPart then return obj.PrimaryPart end
-            return obj:FindFirstChildWhichIsA("BasePart", true)
-        end
-        return nil
+local cachedGunDrop = nil
+local attemptTakeGun = nil
+
+local function extractGunPart(obj)
+    if not obj then return nil end
+    if obj:IsA("BasePart") then return obj end
+    if obj:IsA("Model") then
+        if obj.PrimaryPart then return obj.PrimaryPart end
+        return obj:FindFirstChildWhichIsA("BasePart", true)
     end
+    return nil
+end
+
+local function getDroppedGun()
+    if cachedGunDrop and cachedGunDrop.Parent and cachedGunDrop.Name == "GunDrop" then
+        return cachedGunDrop
+    end
+    cachedGunDrop = nil
+
+    local direct = Workspace:FindFirstChild("GunDrop")
+    if direct then
+        cachedGunDrop = direct
+        return direct
+    end
+
     local map = getActiveMap()
     if map then
         local drop = map:FindFirstChild("GunDrop")
         if drop then
-            local p = extractPart(drop)
-            if p then return p end
+            cachedGunDrop = drop
+            return drop
         end
     end
+
     for _, child in ipairs(Workspace:GetChildren()) do
         if child.Name ~= "Lobby" then
             local drop = child:FindFirstChild("GunDrop")
             if drop then
-                local p = extractPart(drop)
-                if p then return p end
+                cachedGunDrop = drop
+                return drop
             end
         end
     end
     return nil
 end
 
-local function getDroppedGun()
-    local map = getActiveMap()
-    if map then
-        local drop = map:FindFirstChild("GunDrop")
-        if drop then return drop end
-    end
-    for _, child in ipairs(Workspace:GetChildren()) do
-        if child.Name ~= "Lobby" then
-            local drop = child:FindFirstChild("GunDrop")
-            if drop then return drop end
-        end
+local function getDroppedGunPart()
+    local drop = getDroppedGun()
+    if drop then
+        return extractGunPart(drop)
     end
     return nil
 end
+
+trackConnection(Workspace.DescendantAdded:Connect(function(child)
+    if child.Name == "GunDrop" then
+        cachedGunDrop = child
+        if state.autoTakeGun and attemptTakeGun then
+            task.spawn(function()
+                task.wait(0.01)
+                local part = extractGunPart(child)
+                if part then
+                    attemptTakeGun(part)
+                end
+            end)
+        end
+    end
+end))
+
+trackConnection(Workspace.DescendantRemoving:Connect(function(child)
+    if child == cachedGunDrop then
+        cachedGunDrop = nil
+    end
+end))
 
 local function isInLobby()
     local ok, roundUI = pcall(function()
@@ -2684,10 +2837,17 @@ local function flingTarget(targetPlr, isManual, customDuration)
                 end
             end)
 
-            local targetPos = targetHrp.Position
-            if targetPos.Y < minAllowedY then
-                targetPos = Vector3.new(targetPos.X, minAllowedY, targetPos.Z)
+            local targetHead = targetChar:FindFirstChild("Head")
+            local headY = targetHead and targetHead.Position.Y or (targetHrp.Position.Y + 1.5)
+            local headHeightOffset = (state.flingHeadHeight ~= nil and state.flingHeadHeight) or (state.flingYOffset or 0)
+            local targetVel = targetHrp.AssemblyLinearVelocity or targetHrp.Velocity or Vector3.zero
+            local yFactor = state.flingYVelocityFactor or 0.15
+            local dynamicY = headY + headHeightOffset + (targetVel.Y * yFactor)
+            if dynamicY < minAllowedY then
+                dynamicY = minAllowedY
             end
+
+            local targetPos = Vector3.new(targetHrp.Position.X, dynamicY, targetHrp.Position.Z)
 
             local t = tick()
             local targetLook = targetHrp.CFrame.LookVector
@@ -6620,118 +6780,129 @@ local function _buildScriptUI()
     trackThread(killbrickThread)
 
 -- retrieve dropped sheriff gun to defend 
-    local autoTakeGunThread = task.spawn(function()
-        local lastAttemptedGunPart = nil  -- remember attempted drops to avoid position spam
-        local lastAttemptTime = 0         -- space out pickup attempts to bypass anticheat checks
+    local lastAttemptedGunPart = nil  -- remember attempted drops to avoid position spam
+    local lastAttemptTime = 0         -- space out pickup attempts to bypass anticheat checks
+    local isTakingGun = false
 
-        while not state.unloaded do
-            if state.autoTakeGun and isCoinBagVisible() and isPlayerAlive(LocalPlayer) then
-                local localRole = getPlayerRole(LocalPlayer)
-                local char = LocalPlayer.Character
-                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-                local hum  = char and char:FindFirstChildOfClass("Humanoid")
-                local aliveInMap = isPlayerAlive(LocalPlayer) and not isInLobby() and isCoinBagVisible()
+    attemptTakeGun = function(targetPart)
+        if isTakingGun then return end
+        if not state.autoTakeGun then return end
+        if not isCoinBagVisible() or not isPlayerAlive(LocalPlayer) then return end
 
-                -- constrain gun retrieval to safe match conditions
-                local isRemoteMethod = (state.autoTakeGunMethod == "Touch interest" or state.autoTakeGunMethod == "Remote")
-                local shouldTakeGun = false
-                if not state.autofarmEnabled then
-                    shouldTakeGun = true
-                elseif state.autofarmEnabled and (isRemoteMethod or (state.afterFarmAction == "End round" and localRole == "Innocent")) then
-                    shouldTakeGun = true
-                end
+        local localRole = getPlayerRole(LocalPlayer)
+        local char = LocalPlayer.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        local hum  = char and char:FindFirstChildOfClass("Humanoid")
+        local aliveInMap = isPlayerAlive(LocalPlayer) and not isInLobby() and isCoinBagVisible()
 
-                local busyCoinFarming = state.autofarmEnabled and state.autofarmMode == "Coin" and not isBagFull() and not isRemoteMethod
-                local alreadyHasGun = hasTool(LocalPlayer, "Gun") or (LocalPlayer.Backpack and LocalPlayer.Backpack:FindFirstChild("Gun"))
-                local alreadyHasKnife = hasTool(LocalPlayer, "Knife") or (LocalPlayer.Backpack and LocalPlayer.Backpack:FindFirstChild("Knife"))
+        -- constrain gun retrieval to safe match conditions
+        local isRemoteMethod = (state.autoTakeGunMethod == "Touch interest" or state.autoTakeGunMethod == "Remote")
+        local shouldTakeGun = false
+        if not state.autofarmEnabled then
+            shouldTakeGun = true
+        elseif state.autofarmEnabled and (isRemoteMethod or (state.afterFarmAction == "End round" and localRole == "Innocent")) then
+            shouldTakeGun = true
+        end
 
-                -- clear drop history once gun enters inventory
-                if alreadyHasGun then
-                    lastAttemptedGunPart = nil
-                    lastAttemptTime = 0
-                end
+        local busyCoinFarming = state.autofarmEnabled and state.autofarmMode == "Coin" and not isBagFull() and not isRemoteMethod
+        local alreadyHasGun = hasTool(LocalPlayer, "Gun") or (LocalPlayer.Backpack and LocalPlayer.Backpack:FindFirstChild("Gun"))
+        local alreadyHasKnife = hasTool(LocalPlayer, "Knife") or (LocalPlayer.Backpack and LocalPlayer.Backpack:FindFirstChild("Knife"))
 
-                if aliveInMap
-                    and shouldTakeGun
-                    and not busyCoinFarming
-                    and localRole ~= "Murderer"
-                    and not alreadyHasGun
-                    and not alreadyHasKnife then
+        -- clear drop history once gun enters inventory
+        if alreadyHasGun then
+            lastAttemptedGunPart = nil
+            lastAttemptTime = 0
+        end
 
-                    local gunPart = getDroppedGunPart()
+        if aliveInMap
+            and shouldTakeGun
+            and not busyCoinFarming
+            and localRole ~= "Murderer"
+            and not alreadyHasGun
+            and not alreadyHasKnife then
 
-                    -- bypass already attempted weapons
-                    local now = tick()
-                    local isNewGun = gunPart and gunPart ~= lastAttemptedGunPart
-                    local cooldownExpired = (now - lastAttemptTime) >= 2.0
+            local gunPart = targetPart or getDroppedGunPart()
 
-                    if gunPart and hrp and hum and (isNewGun or cooldownExpired) then
-                        -- flag weapon as processed
-                        lastAttemptedGunPart = gunPart
-                        lastAttemptTime = now
+            -- bypass already attempted weapons
+            local now = tick()
+            local isNewGun = gunPart and gunPart ~= lastAttemptedGunPart
+            local cooldownExpired = (now - lastAttemptTime) >= 1.5
 
-                        if state.autoTakeGunMethod == "Touch interest" or state.autoTakeGunMethod == "Remote" then
-                            -- fire touch interest directly when supported
-                            local _genv2 = getgenv and getgenv() or {}
-                            local touchFire = _genv2.firetouchinterest or firetouchinterest or (syn and syn.firetouchinterest)
-                            if touchFire then
-                                pcall(function() touchFire(hrp, gunPart, 0) end)
-                                pcall(function() touchFire(hrp, gunPart, 1) end)
+            if gunPart and hrp and hum and (isNewGun or cooldownExpired) then
+                isTakingGun = true
+                -- flag weapon as processed
+                lastAttemptedGunPart = gunPart
+                lastAttemptTime = now
 
-                                local ti = gunPart:FindFirstChildWhichIsA("TouchTransmitter", true) or gunPart:FindFirstChild("TouchInterest", true)
-                                if ti then
-                                    pcall(function() touchFire(hrp, ti.Parent, 0) end)
-                                    pcall(function() touchFire(hrp, ti.Parent, 1) end)
-                                end
-                            end
-                        else
-                            -- teleport directly to gun dropped position
-                            local originalCF = hrp.CFrame
-                            local gunPos = Vector3.new(gunPart.Position.X, gunPart.Position.Y - 2, gunPart.Position.Z)
+                if state.autoTakeGunMethod == "Touch interest" or state.autoTakeGunMethod == "Remote" then
+                    -- fire touch interest directly when supported
+                    local _genv2 = getgenv and getgenv() or {}
+                    local touchFire = _genv2.firetouchinterest or firetouchinterest or (syn and syn.firetouchinterest)
+                    if touchFire then
+                        pcall(function() touchFire(hrp, gunPart, 0) end)
+                        pcall(function() touchFire(hrp, gunPart, 1) end)
 
-                            setNoclip(true)
-
-                            pcall(function()
-                                hrp.CFrame = CFrame.new(gunPos) * CFrame.Angles(math.rad(90), 0, 0)
-                                hrp.AssemblyLinearVelocity = Vector3.zero
-                                hrp.AssemblyAngularVelocity = Vector3.zero
-                            end)
-
-                            local _genv2 = getgenv and getgenv() or {}
-                            local touchFire = _genv2.firetouchinterest or firetouchinterest or (syn and syn.firetouchinterest)
-                            if touchFire then
-                                pcall(function() touchFire(hrp, gunPart, 0) end)
-                                pcall(function() touchFire(hrp, gunPart, 1) end)
-                                local ti = gunPart:FindFirstChildWhichIsA("TouchTransmitter", true) or gunPart:FindFirstChild("TouchInterest", true)
-                                if ti then
-                                    pcall(function() touchFire(hrp, ti.Parent, 0) end)
-                                    pcall(function() touchFire(hrp, ti.Parent, 1) end)
-                                end
-                            end
-
-                            task.wait(0.15)
-
-                            local gunTool = getPlayerTool(LocalPlayer, "Gun")
-                            if gunTool then
-                                pcall(function() hum:EquipTool(gunTool) end)
-                                task.wait(0.05)
-                            end
-
-                            task.wait(0.1)
-
-                            pcall(function()
-                                hrp.CFrame = originalCF
-                                hrp.AssemblyLinearVelocity  = Vector3.zero
-                                hrp.AssemblyAngularVelocity = Vector3.zero
-                            end)
-                            task.wait(0.05)
-                            setNoclip(false)
-                            restoreCharacterCollision()
+                        local ti = gunPart:FindFirstChildWhichIsA("TouchTransmitter", true) or gunPart:FindFirstChild("TouchInterest", true)
+                        if ti then
+                            pcall(function() touchFire(hrp, ti.Parent, 0) end)
+                            pcall(function() touchFire(hrp, ti.Parent, 1) end)
                         end
                     end
+                else
+                    -- teleport directly to gun dropped position
+                    local originalCF = hrp.CFrame
+                    local gunPos = Vector3.new(gunPart.Position.X, gunPart.Position.Y - 2, gunPart.Position.Z)
+
+                    setNoclip(true)
+
+                    pcall(function()
+                        hrp.CFrame = CFrame.new(gunPos) * CFrame.Angles(math.rad(90), 0, 0)
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                        hrp.AssemblyAngularVelocity = Vector3.zero
+                    end)
+
+                    local _genv2 = getgenv and getgenv() or {}
+                    local touchFire = _genv2.firetouchinterest or firetouchinterest or (syn and syn.firetouchinterest)
+                    if touchFire then
+                        pcall(function() touchFire(hrp, gunPart, 0) end)
+                        pcall(function() touchFire(hrp, gunPart, 1) end)
+                        local ti = gunPart:FindFirstChildWhichIsA("TouchTransmitter", true) or gunPart:FindFirstChild("TouchInterest", true)
+                        if ti then
+                            pcall(function() touchFire(hrp, ti.Parent, 0) end)
+                            pcall(function() touchFire(hrp, ti.Parent, 1) end)
+                        end
+                    end
+
+                    task.wait(0.12)
+
+                    local gunTool = getPlayerTool(LocalPlayer, "Gun")
+                    if gunTool then
+                        pcall(function() hum:EquipTool(gunTool) end)
+                        task.wait(0.04)
+                    end
+
+                    task.wait(0.08)
+
+                    pcall(function()
+                        hrp.CFrame = originalCF
+                        hrp.AssemblyLinearVelocity  = Vector3.zero
+                        hrp.AssemblyAngularVelocity = Vector3.zero
+                    end)
+                    task.wait(0.04)
+                    setNoclip(false)
+                    restoreCharacterCollision()
                 end
+                isTakingGun = false
             end
-            task.wait(0.25)
+        end
+    end
+
+    local autoTakeGunThread = task.spawn(function()
+        while not state.unloaded do
+            if state.autoTakeGun then
+                attemptTakeGun()
+            end
+            task.wait(0.04)
         end
     end)
     trackThread(autoTakeGunThread)
@@ -6762,18 +6933,18 @@ local function _buildScriptUI()
 
     -- bind speed toggle to slider value
     Tabs.Player:AddToggle("SpeedEnabled", {
-        Title = "Walk speed",
+        Title = "Speed",
         Default = false,
         DefaultBind = Enum.KeyCode.V,
         Slider = {
-            Title = "Walk speed",
+            Title = "Speed value",
             Min = 16,
             Max = 250,
             Default = 16,
             Suffix = " studs/s",
             Callback = function(v)
                 state.speedValue = v
-                if state.speedEnabled then
+                if state.speedEnabled and state.speedMode == "WalkSpeed" then
                     local char = LocalPlayer.Character
                     local hum  = char and char:FindFirstChildOfClass("Humanoid")
                     if hum then hum.WalkSpeed = v end
@@ -6785,7 +6956,29 @@ local function _buildScriptUI()
             local char = LocalPlayer.Character
             local hum  = char and char:FindFirstChildOfClass("Humanoid")
             if hum then
-                hum.WalkSpeed = v and state.speedValue or 16
+                if v and state.speedMode == "WalkSpeed" then
+                    hum.WalkSpeed = state.speedValue
+                else
+                    hum.WalkSpeed = 16
+                end
+            end
+        end
+    })
+
+    Tabs.Player:AddDropdown("SpeedMode", {
+        Title = "Speed method",
+        Values = {"WalkSpeed", "CFrame"},
+        Default = "WalkSpeed",
+        Callback = function(v)
+            state.speedMode = v
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if state.speedEnabled and v == "WalkSpeed" then
+                    hum.WalkSpeed = state.speedValue
+                else
+                    hum.WalkSpeed = 16
+                end
             end
         end
     })
@@ -7073,36 +7266,46 @@ local function _buildScriptUI()
         end
     })
 
+    local lastTargetListStr = ""
     local function updateTargetDropdown()
-        if targetDropdown then
-            local currentList = getPlayerList()
-            targetDropdown:SetValues(currentList)
-            if state.targetUsername and state.targetUsername ~= "" then
-                local found = false
-                for _, n in ipairs(currentList) do
-                    if n == state.targetUsername then found = true; break end
-                end
-                if not found then
-                    local newTarget = (currentList[1] ~= "None") and currentList[1] or ""
-                    state.targetUsername = newTarget
-                    targetDropdown:SetValue(currentList[1] or "None", false)
-                end
-            elseif currentList[1] and currentList[1] ~= "None" then
-                state.targetUsername = currentList[1]
-                targetDropdown:SetValue(currentList[1], false)
+        if not targetDropdown then return end
+        local currentList = getPlayerList()
+        local listKey = table.concat(currentList, ",")
+        if listKey == lastTargetListStr then return end
+        lastTargetListStr = listKey
+
+        targetDropdown:SetValues(currentList)
+        if state.targetUsername and state.targetUsername ~= "" then
+            local found = false
+            for _, n in ipairs(currentList) do
+                if n == state.targetUsername then found = true; break end
             end
+            if not found then
+                local newTarget = (currentList[1] ~= "None") and currentList[1] or ""
+                state.targetUsername = newTarget
+                targetDropdown:SetValue(currentList[1] or "None", false)
+            end
+        elseif currentList[1] and currentList[1] ~= "None" then
+            state.targetUsername = currentList[1]
+            targetDropdown:SetValue(currentList[1], false)
         end
     end
 
     trackConnection(Players.PlayerAdded:Connect(function()
-        task.wait(0.2)
-        updateTargetDropdown()
+        task.defer(updateTargetDropdown)
     end))
 
     trackConnection(Players.PlayerRemoving:Connect(function()
-        task.wait(0.1)
-        updateTargetDropdown()
+        task.defer(updateTargetDropdown)
     end))
+
+    local targetListSyncThread = task.spawn(function()
+        while not state.unloaded do
+            task.wait(6)
+            updateTargetDropdown()
+        end
+    end)
+    trackThread(targetListSyncThread)
 
     Tabs.Player:AddButton({
         Title = "Teleport to target",
@@ -7166,6 +7369,33 @@ local function _buildScriptUI()
         Suffix = " studs",
         Callback = function(val)
             state.flingForwardOffset = val
+        end
+    })
+
+    Tabs.Player:AddSlider("FlingYOffset", {
+        Title = "Fling head height offset",
+        Min = -10,
+        Max = 10,
+        Default = 0,
+        Increment = 0.1,
+        Rounding = 1,
+        Suffix = " studs",
+        Callback = function(val)
+            state.flingYOffset = val
+            state.flingHeadHeight = val
+        end
+    })
+
+    Tabs.Player:AddSlider("FlingYVelocityFactor", {
+        Title = "Fling dynamic Y velocity",
+        Min = 0,
+        Max = 100,
+        Default = 15,
+        Increment = 1,
+        Rounding = 0,
+        Suffix = " %",
+        Callback = function(val)
+            state.flingYVelocityFactor = val / 100
         end
     })
 
@@ -7547,22 +7777,19 @@ local function _buildScriptUI()
             end
             local shootEvent = getGunShootEvent()
             local mChar = murderer.Character
-            if shootEvent and mChar then
-                local head = mChar:FindFirstChild("Head")
-                local torso = mChar:FindFirstChild("UpperTorso") or mChar:FindFirstChild("Torso") or mChar:FindFirstChild("LowerTorso") or mChar:FindFirstChild("HumanoidRootPart")
-                if torso then
-                    local rawPos = torso.Position
-                    local predH, predV = getSilentAimPred()
-                    local targetPos = calculateAimPosition(rawPos, torso, predH, predV)
-                    local startPos = head and head.Position or (rawPos + Vector3.new(0, 1.5, 0))
-
-                    local startCF = CFrame.new(startPos, targetPos)
-                    local targetCF = CFrame.new(targetPos)
-                    pcall(function()
-                        shootEvent:FireServer(startCF, targetCF)
-                    end)
-                    log("Wallbanged murderer: " .. murderer.Name)
-                end
+            local mHead = mChar and mChar:FindFirstChild("Head")
+            local mTorso = mChar and (mChar:FindFirstChild("UpperTorso") or mChar:FindFirstChild("Torso") or mChar:FindFirstChild("LowerTorso") or mChar:FindFirstChild("HumanoidRootPart"))
+            if shootEvent and mTorso then
+                local rawPos = mTorso.Position
+                local predH, predV = getSilentAimPred()
+                local targetPos = calculateAimPosition(rawPos, mTorso, predH, predV)
+                local startPos = mHead and mHead.Position or (rawPos + Vector3.new(0, 1.5, 0))
+                local startCF  = CFrame.new(startPos, targetPos)
+                local targetCF = CFrame.new(targetPos)
+                pcall(function()
+                    shootEvent:FireServer(startCF, targetCF)
+                end)
+                log("Wallbanged murderer: " .. murderer.Name)
             end
         end },
         { Text = "Fling murderer", Callback = function()
@@ -7602,7 +7829,7 @@ local function _buildScriptUI()
             Id = "AutoAimWallbang",
             Type = "Toggle",
             Title = "Wallbang",
-            Description = "Shoots from target head into torso to bypass walls",
+            Description = "Shoots through walls with infinite map range",
             Default = false,
             Callback = function(v)
                 state.autoAimWallbang = v
@@ -7611,32 +7838,16 @@ local function _buildScriptUI()
             end
         },
         {
-            Id = "AutoAimHorizPred",
-            Type = "Slider",
-            Title = "Horizontal prediction",
-            Description = "Lead moving targets horizontally (default 0.2)",
-            Min = 0,
-            Max = 200,
-            Default = 20,
-            Suffix = " %",
-            Callback = function(val)
-                local n = tonumber(val) or 0
-                silentAimConfig.horizontalPrediction = n / 100
-                silentAimConfig.predictionFactor = n / 100
-            end
-        },
-        {
-            Id = "AutoAimVertPred",
-            Type = "Slider",
-            Title = "Vertical prediction",
-            Description = "Lead jumping/falling targets vertically (default 0.2)",
-            Min = 0,
-            Max = 200,
-            Default = 20,
-            Suffix = " %",
-            Callback = function(val)
-                local n = tonumber(val) or 0
-                silentAimConfig.verticalPrediction = n / 100
+            Id = "AutoAimPredMode",
+            Type = "Dropdown",
+            Title = "Prediction mode",
+            Description = "Auto tracks player speed & network latency (no sliders needed)",
+            Values = { "Auto (MoveDirection)", "Anti-cheater", "Ping adaptive", "None" },
+            Default = "Auto (MoveDirection)",
+            Callback = function(mode)
+                state.autoAimPredictionMode = mode
+                silentAimConfig.predictionMode = mode
+                log("Prediction mode: " .. tostring(mode))
             end
         }
     })
@@ -7657,7 +7868,7 @@ local function _buildScriptUI()
             Id = "SilentAimWallbang",
             Type = "Checkbox",
             Title = "Wallbang",
-            Description = "Shoots from target head into torso to bypass walls",
+            Description = "Shoots through walls with infinite map range",
             Default = false,
             Callback = function(v)
                 silentAimConfig.wallbang = v
@@ -7687,32 +7898,16 @@ local function _buildScriptUI()
             end
         },
         {
-            Id = "SilentAimHorizPred",
-            Type = "Slider",
-            Title = "Horizontal prediction",
-            Description = "Lead moving targets horizontally (default 0.2)",
-            Min = 0,
-            Max = 200,
-            Default = 20,
-            Suffix = " %",
-            Callback = function(val)
-                local n = tonumber(val) or 0
-                silentAimConfig.horizontalPrediction = n / 100
-                silentAimConfig.predictionFactor = n / 100
-            end
-        },
-        {
-            Id = "SilentAimVertPred",
-            Type = "Slider",
-            Title = "Vertical prediction",
-            Description = "Lead jumping/falling targets vertically (default 0.2)",
-            Min = 0,
-            Max = 200,
-            Default = 20,
-            Suffix = " %",
-            Callback = function(val)
-                local n = tonumber(val) or 0
-                silentAimConfig.verticalPrediction = n / 100
+            Id = "SilentAimPredMode",
+            Type = "Dropdown",
+            Title = "Prediction mode",
+            Description = "Auto tracks player speed & network latency (no sliders needed)",
+            Values = { "Auto (MoveDirection)", "Anti-cheater", "Ping adaptive", "None" },
+            Default = "Auto (MoveDirection)",
+            Callback = function(mode)
+                silentAimConfig.predictionMode = mode
+                state.autoAimPredictionMode = mode
+                log("Prediction mode: " .. tostring(mode))
             end
         }
     })
@@ -9468,6 +9663,203 @@ local function _buildScriptUI()
         end)
         trackConnection(visualHeartbeatConn)
     end
+
+-- jump ring visual effect under feet
+local jumpRingConfig = {
+    enabled = false,
+    colorMode = "Rainbow 1",
+    color1 = Color3.fromRGB(255, 255, 255),
+    color2 = Color3.fromRGB(0, 170, 255),
+    maxSize = 7.5,
+    initialSize = 1.5,
+    duration = 0.6,
+    transparency = 0.1,
+    glow = 1.0,
+}
+
+local lastJumpRingTick = 0
+local function spawnJumpRing()
+    if not jumpRingConfig.enabled or (state and state.unloaded) then return end
+    if not isPlayerAlive(LocalPlayer) then return end
+    local now = tick()
+    if now - lastJumpRingTick < 0.15 then return end
+    lastJumpRingTick = now
+
+    local char = LocalPlayer.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local groundCF = getGroundCFrame(char, hrp)
+    local textureId = formatCustomAssetId("112096280571499") -- Fade circle
+    local initialSize = jumpRingConfig.initialSize or 1.5
+    local targetMaxSize = jumpRingConfig.maxSize or 7.5
+    local duration = jumpRingConfig.duration or 0.6
+    local initTransparency = jumpRingConfig.transparency or 0.1
+    local speed = (state and state.colorShiftSpeed) or 3
+
+    local part = Instance.new("Part")
+    part.Name = "JumpRing"
+    part.Transparency = 1
+    part.CanCollide = false
+    part.CanTouch = false
+    part.CanQuery = false
+    part.CastShadow = false
+    part.Anchored = true
+    part.Size = Vector3.new(initialSize, 0.05, initialSize)
+    part.CFrame = groundCF
+    part.Parent = workspace
+
+    local sg = Instance.new("SurfaceGui")
+    sg.Name = "JumpRingGui"
+    sg.Face = Enum.NormalId.Top
+    sg.LightInfluence = 0
+    sg.AlwaysOnTop = false
+    sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    sg.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+    sg.CanvasSize = Vector2.new(1024, 1024)
+    sg.Brightness = 1 + ((jumpRingConfig.glow or 1) * 2)
+    sg.Adornee = part
+    sg.Parent = part
+
+    local img = Instance.new("ImageLabel")
+    img.Name = "JumpRingImage"
+    img.Size = UDim2.fromScale(1, 1)
+    img.Position = UDim2.fromScale(0.5, 0.5)
+    img.AnchorPoint = Vector2.new(0.5, 0.5)
+    img.BackgroundTransparency = 1
+    img.Image = textureId
+    img.ImageTransparency = initTransparency
+    img.ScaleType = Enum.ScaleType.Fit
+    img.Parent = sg
+
+    local uiAspect = Instance.new("UIAspectRatioConstraint")
+    uiAspect.AspectRatio = 1
+    uiAspect.DominantAxis = Enum.DominantAxis.Width
+    uiAspect.AspectType = Enum.AspectType.FitWithinMaxSize
+    uiAspect.Parent = img
+
+    local uiGrad = Instance.new("UIGradient")
+    uiGrad.Name = "JumpRingGradient"
+    uiGrad.Parent = img
+
+    table.insert(activeJumpRings, part)
+
+    task.spawn(function()
+        local spawnTime = tick()
+        while (tick() - spawnTime < duration) and part and part.Parent and not (state and state.unloaded) do
+            local elapsed = tick() - spawnTime
+            local progress = math.clamp(elapsed / duration, 0, 1)
+
+            -- starts smaller then grows larger smoothly
+            local easeProgress = 1 - (1 - progress) * (1 - progress)
+            local currentSize = initialSize + (targetMaxSize - initialSize) * easeProgress
+            part.Size = Vector3.new(currentSize, 0.05, currentSize)
+
+            -- fade away smoothly after early expansion
+            local fadeProgress = math.clamp((progress - 0.25) / 0.75, 0, 1)
+            local currentTransparency = initTransparency + (1 - initTransparency) * (fadeProgress ^ 1.6)
+            img.ImageTransparency = math.clamp(currentTransparency, 0, 1)
+
+            -- color modes: Gradient, Shift, Rainbow 1, Rainbow 2, Normal (same as killaura circle)
+            local phase = (tick() * (speed * 0.2)) % 1.0
+            local mode = jumpRingConfig.colorMode or "Rainbow 1"
+            local c1 = jumpRingConfig.color1 or Color3.fromRGB(255, 255, 255)
+            local c2 = jumpRingConfig.color2 or Color3.fromRGB(0, 170, 255)
+
+            if mode == "Gradient" or mode == "Gradient 2" then
+                uiGrad.Enabled = true
+                uiGrad.Rotation = 0
+                local function getSmoothCol(off)
+                    local tVal = (math.sin((phase - off) * math.pi * 2) + 1) * 0.5
+                    return c1:Lerp(c2, tVal)
+                end
+                uiGrad.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0,    getSmoothCol(0)),
+                    ColorSequenceKeypoint.new(0.25, getSmoothCol(0.25)),
+                    ColorSequenceKeypoint.new(0.5,  getSmoothCol(0.5)),
+                    ColorSequenceKeypoint.new(0.75, getSmoothCol(0.75)),
+                    ColorSequenceKeypoint.new(1,    getSmoothCol(1))
+                })
+                img.ImageColor3 = Color3.new(1, 1, 1)
+            elseif mode == "Rainbow" or mode == "Rainbow 1" then
+                uiGrad.Enabled = true
+                uiGrad.Rotation = 0
+                local function getRainbowCol(off)
+                    return Color3.fromHSV((phase - off) % 1, 1, 1)
+                end
+                uiGrad.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0,    getRainbowCol(0)),
+                    ColorSequenceKeypoint.new(0.17, getRainbowCol(0.17)),
+                    ColorSequenceKeypoint.new(0.33, getRainbowCol(0.33)),
+                    ColorSequenceKeypoint.new(0.50, getRainbowCol(0.50)),
+                    ColorSequenceKeypoint.new(0.67, getRainbowCol(0.67)),
+                    ColorSequenceKeypoint.new(0.83, getRainbowCol(0.83)),
+                    ColorSequenceKeypoint.new(1.00, getRainbowCol(1))
+                })
+                img.ImageColor3 = Color3.new(1, 1, 1)
+            elseif mode == "Rainbow 2" then
+                uiGrad.Enabled = true
+                uiGrad.Rotation = (uiGrad.Rotation + 3) % 360
+                uiGrad.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0,    Color3.fromHSV((0.00 + phase) % 1, 1, 1)),
+                    ColorSequenceKeypoint.new(0.17, Color3.fromHSV((0.17 + phase) % 1, 1, 1)),
+                    ColorSequenceKeypoint.new(0.33, Color3.fromHSV((0.33 + phase) % 1, 1, 1)),
+                    ColorSequenceKeypoint.new(0.50, Color3.fromHSV((0.50 + phase) % 1, 1, 1)),
+                    ColorSequenceKeypoint.new(0.67, Color3.fromHSV((0.67 + phase) % 1, 1, 1)),
+                    ColorSequenceKeypoint.new(0.83, Color3.fromHSV((0.83 + phase) % 1, 1, 1)),
+                    ColorSequenceKeypoint.new(1.00, Color3.fromHSV((1.00 + phase) % 1, 1, 1))
+                })
+                img.ImageColor3 = Color3.new(1, 1, 1)
+            elseif mode == "Shift" then
+                uiGrad.Enabled = false
+                local shiftFactor = (math.sin(tick() * speed) + 1) * 0.5
+                img.ImageColor3 = c1:Lerp(c2, shiftFactor)
+            else
+                uiGrad.Enabled = false
+                img.ImageColor3 = c1
+            end
+
+            RunService.Heartbeat:Wait()
+        end
+
+        pcall(function() part:Destroy() end)
+        local idx = table.find(activeJumpRings, part)
+        if idx then table.remove(activeJumpRings, idx) end
+    end)
+end
+
+local function bindJumpRingCharacter(char)
+    if not char then return end
+    local hum = char:WaitForChild("Humanoid", 3)
+    if not hum then return end
+    trackPlayerConnection(LocalPlayer, hum.StateChanged:Connect(function(oldState, newState)
+        if newState == Enum.HumanoidStateType.Jumping then
+            spawnJumpRing()
+        end
+    end))
+    trackPlayerConnection(LocalPlayer, hum.Jumping:Connect(function(isActive)
+        if isActive then
+            spawnJumpRing()
+        end
+    end))
+end
+
+if LocalPlayer.Character then
+    bindJumpRingCharacter(LocalPlayer.Character)
+end
+trackConnection(LocalPlayer.CharacterAdded:Connect(function(newChar)
+    bindJumpRingCharacter(newChar)
+end))
+
+trackConnection(UserInputService.JumpRequest:Connect(function()
+    if isPlayerAlive(LocalPlayer) then
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum and (hum:GetState() == Enum.HumanoidStateType.Running or hum.FloorMaterial ~= Enum.Material.Air) then
+            spawnJumpRing()
+        end
+    end
+end))
+
     startVisualUpdates()
 
     trackConnection(LocalPlayer.CharacterAdded:Connect(function(char)
@@ -10731,6 +11123,84 @@ local function _buildScriptUI()
         end
     })
 
+    Tabs.Visuals:AddSection("Jump ring")
+    Tabs.Visuals:AddToggle("JumpRingEnabled", {
+        Title = "Jump ring",
+        Default = false,
+        Callback = function(v)
+            jumpRingConfig.enabled = v
+        end
+    })
+
+    Tabs.Visuals:AddDropdown("JumpRingColorMode", {
+        Title = "Jump ring color mode",
+        Values = { "Normal", "Gradient", "Shift", "Rainbow 1", "Rainbow 2" },
+        Default = "Rainbow 1",
+        Callback = function(v)
+            jumpRingConfig.colorMode = v
+        end
+    })
+
+    Tabs.Visuals:AddGroup({
+        {
+            Id = "JumpRingColor1",
+            Type = "Colorpicker",
+            Title = "Ring color 1",
+            Default = Color3.fromRGB(255, 255, 255),
+            Callback = function(c)
+                jumpRingConfig.color1 = c
+            end
+        },
+        {
+            Id = "JumpRingColor2",
+            Type = "Colorpicker",
+            Title = "Ring color 2",
+            Default = Color3.fromRGB(0, 170, 255),
+            Callback = function(c)
+                jumpRingConfig.color2 = c
+            end
+        }
+    })
+
+    Tabs.Visuals:AddSlider("JumpRingMaxSize", {
+        Title = "Ring max size",
+        Min = 3,
+        Max = 16,
+        Default = 7.5,
+        Increment = 0.5,
+        Rounding = 1,
+        Suffix = " studs",
+        Callback = function(v)
+            jumpRingConfig.maxSize = v
+        end
+    })
+
+    Tabs.Visuals:AddSlider("JumpRingDuration", {
+        Title = "Ring fade speed",
+        Min = 0.2,
+        Max = 1.5,
+        Default = 0.6,
+        Increment = 0.05,
+        Rounding = 2,
+        Suffix = " s",
+        Callback = function(v)
+            jumpRingConfig.duration = v
+        end
+    })
+
+    Tabs.Visuals:AddSlider("JumpRingTransparency", {
+        Title = "Initial transparency",
+        Min = 0,
+        Max = 100,
+        Default = 10,
+        Increment = 1,
+        Rounding = 0,
+        Suffix = " %",
+        Callback = function(v)
+            jumpRingConfig.transparency = v / 100
+        end
+    })
+
     Tabs.Visuals:AddSection("Spinbot")
     Tabs.Visuals:AddToggle("SpinbotEnabled", {
         Title = "Spinbot",
@@ -11165,30 +11635,22 @@ Tabs.World:AddSection("Skybox")
 
             local targetChar = target and target.Character
             local isWallbang = (state and state.autoAimWallbang) or (silentAimConfig and silentAimConfig.wallbang)
-            local shootPart = tPart
-            if isWallbang and targetChar then
-                shootPart = targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso") or targetChar:FindFirstChild("LowerTorso") or tPart
-            else
-                shootPart = tPart or (targetChar and (targetChar:FindFirstChild(silentAimConfig and silentAimConfig.targetPart or "Head") or targetChar:FindFirstChild("HumanoidRootPart")))
-            end
-
+            local shootPart = tPart or (targetChar and (targetChar:FindFirstChild(silentAimConfig and silentAimConfig.targetPart or "Head") or targetChar:FindFirstChild("HumanoidRootPart")))
             local targetPos = nil
-            local originPos = nil
             if shootPart then
                 local rawPos = shootPart.Position
                 local predH, predV = getSilentAimPred()
                 targetPos = calculateAimPosition(rawPos, shootPart, predH, predV)
-
-                if isWallbang and targetChar then
-                    local head = targetChar:FindFirstChild("Head")
-                    originPos = head and head.Position or (rawPos + Vector3.new(0, 1.5, 0))
-                end
             end
 
-            if not originPos then
+            local originPos = nil
+            if isWallbang and targetChar then
+                local head = targetChar:FindFirstChild("Head")
+                originPos = head and head.Position or (shootPart and (shootPart.Position + Vector3.new(0, 1.5, 0)))
+            else
                 local handle = getOwnGunHandle()
                 local myHrp = char:FindFirstChild("HumanoidRootPart")
-                originPos = handle and (handle.CFrame * CFrame.new(0, 0.5, -1)).Position or (myHrp and myHrp.Position or Vector3.zero)
+                originPos = handle and (handle.CFrame * CFrame.new(0, 0.5, -1)).Position or (myHrp and myHrp.Position or targetPos)
             end
 
             if not targetPos then
@@ -11668,14 +12130,22 @@ Tabs.World:AddSection("Skybox")
                                         if state.nameEspEnabled or state.roleEspEnabled then
                                             local nameLabel = drawings.Name
                                             nameLabel.Position = Vector2.new(rootScreen.X, boxY - 16)
-                                            if drawings.LastRole ~= role or drawings.LastNameText == nil then
-                                                local textStr = state.nameEspEnabled and plr.Name or ""
-                                                if state.roleEspEnabled then
-                                                    textStr = textStr ~= "" and (textStr .. " [" .. role .. "]") or ("[" .. role .. "]")
+                                            local curNameSetting = (state.nameEspEnabled == true)
+                                            local curRoleSetting = (state.roleEspEnabled == true)
+                                            if drawings.LastRole ~= role or drawings.LastNameSetting ~= curNameSetting or drawings.LastRoleSetting ~= curRoleSetting or drawings.LastNameText == nil then
+                                                local textParts = {}
+                                                if curNameSetting then
+                                                    table.insert(textParts, plr.Name)
                                                 end
+                                                if curRoleSetting then
+                                                    table.insert(textParts, "[" .. role .. "]")
+                                                end
+                                                local textStr = table.concat(textParts, " ")
                                                 nameLabel.Text = textStr
                                                 drawings.LastNameText = textStr
                                                 drawings.LastRole = role
+                                                drawings.LastNameSetting = curNameSetting
+                                                drawings.LastRoleSetting = curRoleSetting
                                             end
                                             if drawings.LastNameColor ~= roleColor then
                                                 nameLabel.Color = roleColor
@@ -11806,13 +12276,36 @@ Tabs.World:AddSection("Skybox")
         while not state.unloaded do
             local char = LocalPlayer.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if hum and state.speedEnabled then
-                hum.WalkSpeed = state.speedValue
+            if hum then
+                if state.speedEnabled and state.speedMode == "WalkSpeed" then
+                    hum.WalkSpeed = state.speedValue
+                elseif hum.WalkSpeed ~= 16 and (not state.speedEnabled or state.speedMode == "CFrame") then
+                    hum.WalkSpeed = 16
+                end
             end
             task.wait(0.1)
         end
     end)
     trackThread(speedThread)
+
+    local cframeSpeedConn = RunService.Heartbeat:Connect(function(dt)
+        if state.unloaded then return end
+        if not state.speedEnabled or state.speedMode ~= "CFrame" then return end
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if not hrp or not hum or hum.Health <= 0 or hum.Sit then return end
+        local md = hum.MoveDirection
+        local flat = Vector3.new(md.X, 0, md.Z)
+        if flat.Magnitude > 0.05 then
+            local extraSpeed = math.max(0, state.speedValue - 16)
+            if extraSpeed > 0 then
+                local clampedDt = math.min(dt, 0.1)
+                hrp.CFrame = hrp.CFrame + (flat.Unit * (extraSpeed * clampedDt))
+            end
+        end
+    end)
+    trackConnection(cframeSpeedConn)
 
     -- align camera with active target position 
     local aimbotThread = task.spawn(function()
@@ -11888,7 +12381,7 @@ Tabs.World:AddSection("Skybox")
                         if isWallbang and targetChar then
                             shootPart = targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso") or targetChar:FindFirstChild("LowerTorso") or tPart
                         else
-                            shootPart = tPart or (targetChar and (targetChar:FindFirstChild(silentAimConfig.targetPart) or targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Head")))
+                            shootPart = tPart or (targetChar and (targetChar:FindFirstChild(silentAimConfig and silentAimConfig.targetPart or "Head") or targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Head")))
                         end
 
                         if shootPart then
@@ -11900,11 +12393,16 @@ Tabs.World:AddSection("Skybox")
                                     local rawPos = shootPart.Position
                                     local predH, predV = getSilentAimPred()
                                     local targetPos = calculateAimPosition(rawPos, shootPart, predH, predV)
+                                    -- prediction delta: how much the target will have moved
+                                    local predDelta = targetPos - rawPos
 
                                     local originPos = nil
                                     if isWallbang and targetChar then
                                         local head = targetChar:FindFirstChild("Head")
-                                        originPos = head and head.Position or (rawPos + Vector3.new(0, 1.5, 0))
+                                        local headPos = head and head.Position or (rawPos + Vector3.new(0, 1.5, 0))
+                                        -- shift wallbang origin by the same prediction delta so the
+                                        -- ray travels with the predicted character, not the stale one
+                                        originPos = headPos + predDelta
                                     else
                                         local handle = getOwnGunHandle()
                                         local char = LocalPlayer.Character
@@ -11939,6 +12437,61 @@ Tabs.World:AddSection("Skybox")
         if menuKey and kc == menuKey then
             Window.Minimized = not Window.Minimized
         end
+    end))
+
+    -- passive anti afk after 10 minutes of user inactivity
+    local lastUserActionTick = tick()
+    trackConnection(UserInputService.InputBegan:Connect(function()
+        lastUserActionTick = tick()
+    end))
+    trackConnection(UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            lastUserActionTick = tick()
+        end
+    end))
+
+    local safeKeys = {
+        Enum.KeyCode.RightControl,
+        Enum.KeyCode.RightAlt,
+        Enum.KeyCode.PageDown,
+        Enum.KeyCode.End,
+        Enum.KeyCode.Insert
+    }
+
+    local antiAfkThread = task.spawn(function()
+        local vim = nil
+        pcall(function() vim = game:GetService("VirtualInputManager") end)
+        local vu = nil
+        pcall(function() vu = game:GetService("VirtualUser") end)
+
+        while not state.unloaded do
+            task.wait(10)
+            if (tick() - lastUserActionTick) >= 600 then
+                lastUserActionTick = tick()
+                pcall(function()
+                    local key = safeKeys[math.random(1, #safeKeys)]
+                    if vim then
+                        vim:SendKeyEvent(true, key, false, game)
+                        task.wait(0.05)
+                        vim:SendKeyEvent(false, key, false, game)
+                    elseif vu then
+                        vu:CaptureController()
+                        vu:ClickButton2(Vector2.new(0, 0))
+                    end
+                end)
+            end
+        end
+    end)
+    trackThread(antiAfkThread)
+
+    trackConnection(LocalPlayer.Idled:Connect(function()
+        pcall(function()
+            local vu = game:GetService("VirtualUser")
+            if vu then
+                vu:CaptureController()
+                vu:ClickButton2(Vector2.new(0, 0))
+            end
+        end)
     end))
 
     -- restore saved profile settings on startup
