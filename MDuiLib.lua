@@ -7281,7 +7281,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local ArcHolder = Instance.new("Frame")
     ArcHolder.Name = "ResizeArc"
     ArcHolder.AnchorPoint = Vector2.new(1, 1)
-    ArcHolder.Size = UDim2.new(0, 34, 0, 34)
+    ArcHolder.Size = UDim2.new(0, 15, 0, 15)
     ArcHolder.Position = UDim2.new(1, GAP + THICK, 1, GAP + THICK)
     ArcHolder.BackgroundTransparency = 1
     ArcHolder.ClipsDescendants = true
