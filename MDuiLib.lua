@@ -1011,6 +1011,14 @@ end
 
 Library.GetThemedDarkColor = GetThemedDarkColor
 
+local function GetOnAccent(bg)
+    if typeof(bg) ~= "Color3" then return Color3.fromRGB(255, 255, 255) end
+    local lum = 0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B
+    return lum > 0.6 and Color3.fromRGB(20, 22, 28) or Color3.fromRGB(255, 255, 255)
+end
+
+Library.GetOnAccent = GetOnAccent
+
 function Library:RegisterTheme(name, data)
     if type(name) ~= "string" or type(data) ~= "table" then return end
     local defaultTheme = Library.ThemePresets.Dark
@@ -1209,6 +1217,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local MainContainer = nil
     local MainContentFrame = nil
     local UIScaleConstraint = nil
+    local GetTargetViewportScale = nil
 
     local function TrackConn(conn)
         if conn then
@@ -2149,7 +2158,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
         local jsonString = HttpService:JSONEncode(tabData)
         EnsureConfigFolder()
-        local filePath = ConfigFolderPath .. "/TAB_" .. tabName:gsub("[^%w_%-]", "_") .. "_" .. configName .. ".json"
+        local filePath = GetConfigFolderPath() .. "/TAB_" .. tabName:gsub("[^%w_%-]", "_") .. "_" .. configName .. ".json"
         local success = pcall(function()
             if writefile then writefile(filePath, jsonString) end
         end)
@@ -2166,7 +2175,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if not tabName or tabName == "" then return false end
         configName = configName or "TabConfig"
         EnsureConfigFolder()
-        local filePath = ConfigFolderPath .. "/TAB_" .. tabName:gsub("[^%w_%-]", "_") .. "_" .. configName .. ".json"
+        local filePath = GetConfigFolderPath() .. "/TAB_" .. tabName:gsub("[^%w_%-]", "_") .. "_" .. configName .. ".json"
         local loadedData = nil
         pcall(function()
             if readfile and isfile and isfile(filePath) then
@@ -3445,7 +3454,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnText.FontFace = FontTabBtn
         BtnText.RichText = true
         BtnText.Text = text or "Button"
-        BtnText.TextColor3 = Window.CurrentTheme.Text
+        BtnText.TextColor3 = GetOnAccent(Window.CurrentTheme.ButtonBG)
         BtnText.TextScaled = false
         BtnText.TextSize = 14
         BtnText.TextWrapped = true
@@ -3464,7 +3473,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ArrowIcon.Position = UDim2.new(1, -23, 0.5, -9)
             ArrowIcon.BackgroundTransparency = 1
             ArrowIcon.Image = "rbxassetid://2418686949"
-            ArrowIcon.ImageColor3 = Window.CurrentTheme.Text
+            ArrowIcon.ImageColor3 = GetOnAccent(Window.CurrentTheme.ButtonBG)
             ArrowIcon.ZIndex = 11
             ArrowIcon.Parent = BtnFrame
         else
@@ -3787,7 +3796,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BaseCircle.Size = UDim2.new(1, 0, 1, 0)
         BaseCircle.BackgroundTransparency = 1
         BaseCircle.Image = "rbxassetid://118376432250064"
-        BaseCircle.ImageColor3 = initialState and Color3.fromRGB(255, 255, 255) or Window.CurrentTheme.ButtonBG
+        BaseCircle.ImageColor3 = initialState and GetOnAccent(Window.CurrentTheme.ButtonBG) or Window.CurrentTheme.ButtonBG
         BaseCircle.ZIndex = 11
         BaseCircle.Parent = KnobFrame
 
@@ -3815,7 +3824,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local targetKnobPos = isToggled and UDim2.new(1, -13, 0.5, 0) or UDim2.new(0, 13, 0.5, 0)
             local targetRotation = isToggled and 0 or 225
             local targetBG = isToggled and Window.CurrentTheme.ButtonBG or GetThemedDarkColor(Window.CurrentTheme)
-            local targetBaseColor = isToggled and Color3.fromRGB(255, 255, 255) or Window.CurrentTheme.ButtonBG
+            local targetBaseColor = isToggled and GetOnAccent(Window.CurrentTheme.ButtonBG) or Window.CurrentTheme.ButtonBG
             local targetOverlayColor = isToggled and Window.CurrentTheme.ButtonBG or Color3.fromRGB(255, 255, 255)
 
             TweenService:Create(KnobFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
@@ -4623,13 +4632,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ApplyBtn.BorderSizePixel = 0
         ApplyBtn.FontFace = FontTabBtn
         ApplyBtn.Text = "Apply color"
-        ApplyBtn.TextColor3 = Window.CurrentTheme.Text
+        ApplyBtn.TextColor3 = GetOnAccent(Window.CurrentTheme.ButtonBG)
         ApplyBtn.TextSize = 12
         ApplyBtn.ZIndex = 83
         ApplyBtn.Parent = ModalCard
 
         local ApplyCorner = Instance.new("UICorner")
-        ApplyCorner.CornerRadius = UDim.new(0, 6)
+        ApplyCorner.CornerRadius = UDim.new(0, 8)
         ApplyCorner.Parent = ApplyBtn
 
         local isDraggingSV = false
@@ -4867,7 +4876,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CancelBtn.Parent = BtnRow
 
         local CancelCorner = Instance.new("UICorner")
-        CancelCorner.CornerRadius = UDim.new(0, 6)
+        CancelCorner.CornerRadius = UDim.new(0, 8)
         CancelCorner.Parent = CancelBtn
 
         local YesBtn = Instance.new("TextButton")
@@ -4877,13 +4886,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         YesBtn.BorderSizePixel = 0
         YesBtn.FontFace = FontTabBtn
         YesBtn.Text = yesText
-        YesBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        YesBtn.TextColor3 = GetOnAccent(Window.CurrentTheme.ButtonBG)
         YesBtn.TextSize = 11
         YesBtn.ZIndex = 123
         YesBtn.Parent = BtnRow
 
         local YesCorner = Instance.new("UICorner")
-        YesCorner.CornerRadius = UDim.new(0, 6)
+        YesCorner.CornerRadius = UDim.new(0, 8)
         YesCorner.Parent = YesBtn
 
         local function Close()
@@ -5199,7 +5208,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnText.FontFace = FontTabBtn
         BtnText.RichText = true
         BtnText.Text = text or "Function"
-        BtnText.TextColor3 = Window.CurrentTheme.Text
+        BtnText.TextColor3 = GetOnAccent(Window.CurrentTheme.ButtonBG)
         BtnText.TextScaled = false
         BtnText.TextSize = isSmall and 11 or 14
         BtnText.TextWrapped = true
@@ -5435,7 +5444,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BaseCircle.Rotation = isToggled and 0 or 225
         BaseCircle.BackgroundTransparency = 1
         BaseCircle.Image = "rbxassetid://118376432250064"
-        BaseCircle.ImageColor3 = isToggled and Color3.fromRGB(255, 255, 255) or Window.CurrentTheme.ButtonBG
+        BaseCircle.ImageColor3 = isToggled and GetOnAccent(Window.CurrentTheme.ButtonBG) or Window.CurrentTheme.ButtonBG
         BaseCircle.ZIndex = 12
         BaseCircle.Parent = KnobFolder
 
@@ -5467,7 +5476,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local targetKnobPos = isToggled and UDim2.new(1, -12, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
             local targetRotation = isToggled and 0 or 225
             local targetBG = isToggled and Window.CurrentTheme.ButtonBG or GetThemedDarkColor(Window.CurrentTheme)
-            local targetBaseColor = isToggled and Color3.fromRGB(255, 255, 255) or Window.CurrentTheme.ButtonBG
+            local targetBaseColor = isToggled and GetOnAccent(Window.CurrentTheme.ButtonBG) or Window.CurrentTheme.ButtonBG
             local targetOverlayColor = isToggled and Window.CurrentTheme.ButtonBG or Color3.fromRGB(255, 255, 255)
 
             TweenService:Create(BaseCircle, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
@@ -6393,7 +6402,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TooltipFrame.Name = GenerateSafeName("Tooltip")
     TooltipFrame.Size = UDim2.new(0, 100, 0, 26)
     TooltipFrame.BackgroundColor3 = (Window.CurrentTheme and Window.CurrentTheme.CardBG) or Color3.fromRGB(24, 26, 34)
-    TooltipFrame.BackgroundTransparency = 1
+    TooltipFrame.BackgroundTransparency = 0.05
     TooltipFrame.BorderSizePixel = 0
     TooltipFrame.ZIndex = 10000
     TooltipFrame.Visible = false
@@ -6410,7 +6419,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TooltipStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     TooltipStroke.Parent = TooltipFrame
 
-    AddUIShadow(TooltipFrame, 12, 0.45)
+    local TooltipShadow = AddUIShadow(TooltipFrame, 12, 0.45)
+    TooltipFrame.BackgroundTransparency = 1
+    if TooltipShadow then TooltipShadow.Transparency = 1 end
 
     local TooltipPadding = Instance.new("UIPadding")
     TooltipPadding.PaddingLeft = UDim.new(0, 10)
@@ -6435,6 +6446,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     Window.TooltipFrame = TooltipFrame
     Window.TooltipStroke = TooltipStroke
+    Window.TooltipShadow = TooltipShadow
 
     local activeTooltipTarget = nil
     local tooltipTween = nil
@@ -6467,6 +6479,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TweenService:Create(TooltipFrame, TweenInfo.new(0.15), {BackgroundTransparency = 0.05}):Play()
             TweenService:Create(TooltipStroke, TweenInfo.new(0.15), {Transparency = 0.2}):Play()
             TweenService:Create(TooltipText, TweenInfo.new(0.15), {TextTransparency = 0}):Play()
+            if TooltipShadow then
+                local intensity = Library.ShadowIntensity or (1 / 1.8)
+                local curTrans = 1 - math.clamp((1 - 0.45) * intensity, 0, 1)
+                TweenService:Create(TooltipShadow, TweenInfo.new(0.15), {Transparency = curTrans}):Play()
+            end
         end))
 
         TrackConn(guiObject.MouseMoved:Connect(function()
@@ -6484,6 +6501,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TweenService:Create(TooltipFrame, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play()
                 TweenService:Create(TooltipStroke, TweenInfo.new(0.15), {Transparency = 1}):Play()
                 TweenService:Create(TooltipText, TweenInfo.new(0.15), {TextTransparency = 1}):Play()
+                if TooltipShadow then
+                    TweenService:Create(TooltipShadow, TweenInfo.new(0.15), {Transparency = 1}):Play()
+                end
                 task.delay(0.16, function()
                     if activeTooltipTarget == nil then
                         TooltipFrame.Visible = false
@@ -6703,7 +6723,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         ResetNodes()
-        TrackConn(WebCanvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(ResetNodes))
+        local _webResizeDebounce = nil
+        TrackConn(WebCanvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+            if _webResizeDebounce then task.cancel(_webResizeDebounce) end
+            _webResizeDebounce = task.delay(0.2, function()
+                _webResizeDebounce = nil
+                ResetNodes()
+            end)
+        end))
 
         TrackConn(RunService.RenderStepped:Connect(function(dt)
             if not WebCanvas or not WebCanvas.Parent or not screenGui.Enabled then return end
@@ -6806,7 +6833,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
 
-    local function GetTargetViewportScale()
+    GetTargetViewportScale = function()
         if not Camera then return 0.85 end
         local viewport = Camera.ViewportSize
         local scaleX = viewport.X / 680
@@ -7340,7 +7367,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     ActiveTabGlow.Name = "ActiveTabGlow"
     ActiveTabGlow.Size = UDim2.new(0, 155, 0, 30)
     ActiveTabGlow.Position = UDim2.new(0, 10, 0, 0)
-    ActiveTabGlow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    ActiveTabGlow.BackgroundColor3 = (Window.CurrentTheme and Window.CurrentTheme.ButtonBG) or Color3.fromRGB(80, 110, 220)
     ActiveTabGlow.BackgroundTransparency = 1
     ActiveTabGlow.BorderSizePixel = 0
     ActiveTabGlow.ZIndex = 3
@@ -7350,16 +7377,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local ActiveCorner = Instance.new("UICorner")
     ActiveCorner.CornerRadius = UDim.new(0, 6)
     ActiveCorner.Parent = ActiveTabGlow
-
-    local ActiveGradient = Instance.new("UIGradient")
-    ActiveGradient.Name = "ActiveGradient"
-    ActiveGradient.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0.0, 1.0),
-        NumberSequenceKeypoint.new(0.2, 0.75),
-        NumberSequenceKeypoint.new(0.8, 0.75),
-        NumberSequenceKeypoint.new(1.0, 1.0)
-    })
-    ActiveGradient.Parent = ActiveTabGlow
 
     Window.SidebarIndicatorLayer = SidebarIndicatorLayer
     Window.ActiveTabGlow = ActiveTabGlow
@@ -7385,18 +7402,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ActiveTabGlow.Position = targetPos
             ActiveTabGlow.Size = targetSize
             ActiveTabGlow.Visible = true
-            if instant and ActiveTabGlow.BackgroundTransparency > 0 then
+            if instant and ActiveTabGlow.BackgroundTransparency > 0.85 then
                 TweenService:Create(ActiveTabGlow, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                    BackgroundTransparency = 0
+                    BackgroundTransparency = 0.85
                 }):Play()
             else
-                ActiveTabGlow.BackgroundTransparency = 0
+                ActiveTabGlow.BackgroundTransparency = 0.85
             end
         else
             TweenService:Create(ActiveTabGlow, TweenInfo.new(0.30, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                 Position = targetPos,
                 Size = targetSize,
-                BackgroundTransparency = 0
+                BackgroundTransparency = 0.85
             }):Play()
         end
     end
@@ -7791,7 +7808,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         AccentBar.Position = UDim2.new(0, 0, 0, 0)
         AccentBar.BackgroundColor3 = accentCol
         AccentBar.BorderSizePixel = 0
-        AccentBar.ZIndex = 35
+        AccentBar.ZIndex = 34
         AccentBar.Parent = NotifContainer
 
         local AccentCorner = Instance.new("UICorner")
@@ -7881,7 +7898,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ProgressBarBG.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         ProgressBarBG.BackgroundTransparency = 0.6
         ProgressBarBG.BorderSizePixel = 0
-        ProgressBarBG.ZIndex = 34
+        ProgressBarBG.ZIndex = 33
         ProgressBarBG.Parent = NotifMain
 
         local ProgressBar = Instance.new("Frame")
@@ -7890,7 +7907,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ProgressBar.Position = UDim2.new(0, 0, 0, 0)
         ProgressBar.BackgroundColor3 = accentCol
         ProgressBar.BorderSizePixel = 0
-        ProgressBar.ZIndex = 35
+        ProgressBar.ZIndex = 34
         ProgressBar.Parent = ProgressBarBG
 
         local progressTween = TweenService:Create(ProgressBar, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
@@ -8034,7 +8051,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         -- Animate sidebar tab buttons
         local oldTargetSize = Window.SidebarCollapsed and 11 or 15
-        local newTargetSize = Window.SidebarCollapsed and 11 or 18
+        local newTargetSize = Window.SidebarCollapsed and 11 or 16
 
         if oldTab and oldTab.Button then
             TweenService:Create(oldTab.Button, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
@@ -8111,35 +8128,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
     function Window:AddSidebarBigDivider(layoutOrder)
-        local DivideFrame = Instance.new("ImageLabel")
-        DivideFrame.Name = "DIVIDEFRAME"
-        DivideFrame.Size = UDim2.new(0, 140, 0, 5)
-        DivideFrame.BackgroundTransparency = 1
-        DivideFrame.Image = "rbxassetid://133887791984569"
-        DivideFrame.ImageColor3 = Window.CurrentTheme.Divider
-        DivideFrame.ScaleType = Enum.ScaleType.Stretch
-        DivideFrame.BorderSizePixel = 0
-        DivideFrame.LayoutOrder = layoutOrder or 2
-        DivideFrame.Parent = SidebarScroll
-
-        table.insert(Window.SidebarDividers, DivideFrame)
-        return DivideFrame
+        local dummy = Instance.new("Frame")
+        dummy.Visible = false
+        return dummy
     end
 
     function Window:AddSidebarSmallDivider(layoutOrder)
-        local DivideFrameSmall = Instance.new("ImageLabel")
-        DivideFrameSmall.Name = "DIVIDEFRAMESMALL"
-        DivideFrameSmall.Size = UDim2.new(0, 140, 0, 3)
-        DivideFrameSmall.BackgroundTransparency = 1
-        DivideFrameSmall.Image = "rbxassetid://133887791984569"
-        DivideFrameSmall.ImageColor3 = Window.CurrentTheme.Divider
-        DivideFrameSmall.ScaleType = Enum.ScaleType.Stretch
-        DivideFrameSmall.BorderSizePixel = 0
-        DivideFrameSmall.LayoutOrder = layoutOrder or 4
-        DivideFrameSmall.Parent = SidebarScroll
-
-        table.insert(Window.SidebarDividers, DivideFrameSmall)
-        return DivideFrameSmall
+        local dummy = Instance.new("Frame")
+        dummy.Visible = false
+        return dummy
     end
 
     function Window:SetSidebarWidth(width)
@@ -8211,7 +8208,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         tab.Button.TextXAlignment = Enum.TextXAlignment.Left
                     end
                     tab.Button.Text = fullTabName
-                    tab.Button.TextSize = (Window.ActiveTab == name or Window.ActiveTab == tab.Name) and 17 or 15
+                    tab.Button.TextSize = (Window.ActiveTab == name or Window.ActiveTab == tab.Name) and 16 or 15
                     tab.Button.ZIndex = 4
                 end
             end
@@ -8256,9 +8253,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             totalTabs = totalTabs + 1
         end
 
-        if autoDivider or (Window.AutoSmallDividers and totalTabs > 0 and not Window._FirstTabCreated) then
-            Window:AddSidebarSmallDivider((layoutOrder or (totalTabs + 1)) - 0.5)
-        end
         Window._FirstTabCreated = true
 
         local TabContainer = Instance.new("Frame")
@@ -8346,7 +8340,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TabButton.BackgroundTransparency = 1
         TabButton.FontFace = FontTabBtn
         TabButton.TextColor3 = Window.CurrentTheme.SubText
-        TabButton.TextSize = 16
+        TabButton.TextSize = 15
         TabButton.TextYAlignment = Enum.TextYAlignment.Center
         TabButton.ZIndex = 4
         TabButton.Parent = TabContainer
@@ -8649,6 +8643,105 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             table.insert(Window.RegisteredMDButtons, buttonData)
 
             return buttonData
+        end
+
+        function TabObj:AddCard(configOrTitle, desc, parentContainer)
+            local cardTitle, cardDesc, cardOpts
+            if type(configOrTitle) == "table" and not configOrTitle.IsA then
+                cardTitle = configOrTitle.Title or configOrTitle.Name or configOrTitle.Text or configOrTitle[1] or "Card"
+                cardDesc = configOrTitle.Desc or configOrTitle.Description or configOrTitle[2] or ""
+                cardOpts = configOrTitle
+                parentContainer = configOrTitle.Parent or configOrTitle.Row or configOrTitle.parentRow or parentContainer
+            else
+                cardTitle = tostring(configOrTitle or "Card")
+                cardDesc = desc or ""
+                cardOpts = {}
+            end
+
+            local targetParent = ResolveParent(parentContainer) or TabObj.CurrentSectionContainer or ContentFrame
+            local isInside = (targetParent ~= ContentFrame)
+            local hasDesc = cardDesc and cardDesc ~= ""
+            local cardH = cardOpts.Height or (hasDesc and 56 or 44)
+
+            local CardFrame = Instance.new("Frame")
+            CardFrame.Name = "MDCard_" .. cardTitle:gsub("%s+", "_")
+            CardFrame:SetAttribute("MDCard", true)
+            CardFrame.Size = isInside and UDim2.new(1, 0, 0, cardH) or UDim2.new(1, -10, 0, cardH)
+            CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
+            CardFrame.BackgroundTransparency = (isInside and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
+            CardFrame.BorderSizePixel = 0
+            CardFrame.ZIndex = 10
+            CardFrame.Parent = targetParent
+
+            local CardCorner = Instance.new("UICorner")
+            local connectMode = cardOpts.Connect or cardOpts.Connected or cardOpts.connectMode or cardOpts.PositionInGroup
+            if connectMode == "Top" or connectMode == "First" then
+                ApplyCornerRadii(CardCorner, 12, 12, 0, 0)
+            elseif connectMode == "Middle" then
+                ApplyCornerRadii(CardCorner, 0, 0, 0, 0)
+            elseif connectMode == "Bottom" or connectMode == "Last" then
+                ApplyCornerRadii(CardCorner, 0, 0, 12, 12)
+            elseif connectMode == "Left" then
+                ApplyCornerRadii(CardCorner, 12, 0, 0, 12)
+            elseif connectMode == "Right" then
+                ApplyCornerRadii(CardCorner, 0, 12, 12, 0)
+            else
+                CardCorner.CornerRadius = UDim.new(0, 12)
+            end
+            CardCorner.Parent = CardFrame
+
+            local CardStroke = Instance.new("UIStroke")
+            CardStroke.Color = Window.CurrentTheme.Border
+            CardStroke.Thickness = 1
+            CardStroke.Transparency = (isInside and Window.SectionsTransparent) and 1 or 0.8
+            CardStroke.Parent = CardFrame
+
+            AddUIShadow(CardFrame, 8, 0.4)
+
+            local TitleLabel = Instance.new("TextLabel")
+            TitleLabel.Name = "Title"
+            TitleLabel.Size = hasDesc and UDim2.new(1, -24, 0, 20) or UDim2.new(1, -24, 1, 0)
+            TitleLabel.Position = hasDesc and UDim2.new(0, 12, 0, 8) or UDim2.new(0, 12, 0, 0)
+            TitleLabel.BackgroundTransparency = 1
+            TitleLabel.Font = Enum.Font.GothamMedium
+            TitleLabel.Text = cardTitle
+            TitleLabel.TextColor3 = Window.CurrentTheme.Text
+            TitleLabel.TextSize = 14
+            TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+            TitleLabel.ZIndex = 11
+            TitleLabel.Parent = CardFrame
+
+            local DescLabel
+            if hasDesc then
+                DescLabel = Instance.new("TextLabel")
+                DescLabel.Name = "Desc"
+                DescLabel.Size = UDim2.new(1, -24, 0, 16)
+                DescLabel.Position = UDim2.new(0, 12, 0, 28)
+                DescLabel.BackgroundTransparency = 1
+                DescLabel.Font = Enum.Font.Gotham
+                DescLabel.Text = cardDesc
+                DescLabel.TextColor3 = Window.CurrentTheme.SubText
+                DescLabel.TextSize = 11
+                DescLabel.TextXAlignment = Enum.TextXAlignment.Left
+                DescLabel.ZIndex = 11
+                DescLabel.Parent = CardFrame
+            end
+
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+
+            local cardObj = {
+                Frame = CardFrame,
+                Instance = CardFrame,
+                Container = CardFrame,
+                SetTitle = function(self, t) TitleLabel.Text = tostring(t) end,
+                SetText = function(self, t) TitleLabel.Text = tostring(t) end,
+                SetDesc = function(self, d)
+                    if DescLabel then
+                        DescLabel.Text = tostring(d)
+                    end
+                end,
+            }
+            return cardObj
         end
 
         function TabObj:AddLabel(textOrConfig, options, parentContainer)
@@ -10340,8 +10433,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local _strokeBase = Window.CurrentTheme.Divider or Color3.fromRGB(65, 70, 88)
             StrokeGradient.Color = _buildStrokeSeq(_strokeBase, 0)
 
+            local _lastStrokeUpdate = 0
             local _sConn = RunService.Heartbeat:Connect(function(dt)
                 if not SectionCard or not SectionCard.Parent then return end
+                if not ContentFrame.Visible or not ScriptUi.Enabled then return end
+                local now = os.clock()
+                if now - _lastStrokeUpdate < 0.033 then return end
+                _lastStrokeUpdate = now
                 _strokeOffset = _strokeOffset + dt * 0.8
                 if StrokeGradient and StrokeGradient.Parent then
                     StrokeGradient.Color = _buildStrokeSeq(_strokeBase, _strokeOffset)
@@ -10655,6 +10753,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return TabObj:AddLongButton(arg1, arg2, arg3 or 1.0, ItemContainer)
             end
             SectionObj.AddCardButton = SectionObj.AddButton
+            function SectionObj:AddCard(configOrTitle, desc)
+                return TabObj:AddCard(configOrTitle, desc, ItemContainer)
+            end
             function SectionObj:AddButtonRow(buttonList, height)
                 return TabObj:AddButtonRow(buttonList, height or 24, ItemContainer)
             end
@@ -10916,7 +11017,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CheckIcon.AnchorPoint = Vector2.new(0.5, 0.5)
             CheckIcon.BackgroundTransparency = 1
             CheckIcon.Image = tostring(_checkIconId):find("://") and tostring(_checkIconId) or ("rbxassetid://" .. tostring(_checkIconId))
-            CheckIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+            CheckIcon.ImageColor3 = GetOnAccent(Window.CurrentTheme.ButtonBG)
             CheckIcon.ImageTransparency = isChecked and 0 or 1
             CheckIcon.ZIndex = 13
             CheckIcon.Parent = BoxOuter
@@ -10953,7 +11054,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if checked then
                     TweenService:Create(BoxOuter, tweenI, {BackgroundColor3 = Window.CurrentTheme.ButtonBG}):Play()
                     TweenService:Create(BoxStroke, tweenI, {Color = Window.CurrentTheme.ButtonBG, Transparency = 0}):Play()
-                    TweenService:Create(CheckIcon, tweenI, {ImageTransparency = 0}):Play()
+                    TweenService:Create(CheckIcon, tweenI, {ImageTransparency = 0, ImageColor3 = GetOnAccent(Window.CurrentTheme.ButtonBG)}):Play()
                 else
                     TweenService:Create(BoxOuter, tweenI, {BackgroundColor3 = offBG}):Play()
                     TweenService:Create(BoxStroke, tweenI, {Color = offStroke, Transparency = 0.3}):Play()
@@ -11296,6 +11397,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local suffix = (type(sliderOptions) == "table" and (sliderOptions.Suffix or (sliderOptions.ValueFormat == "percent" and "%") or ""))
                 or (type(sliderOptions) == "string" and sliderOptions)
                 or ""
+            local isRow = targetParent and (targetParent.Name == "RowFrame" or targetParent.Name == "HorizontalGroup")
             local isGroup = targetParent and (targetParent.Name == "ToggleGroup" or targetParent.Name == "VerticalGroup" or targetParent.Name == "HorizontalGroup")
             local isCard = not customParent or targetParent == ContentFrame or (targetParent and (targetParent.Name == "RowFrame" or isGroup))
 
@@ -11583,7 +11685,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Position = UDim2.new(0, 0, 0, 0)
             }):Play()
             TabButton.TextColor3 = Window.CurrentTheme.Text
-            TabButton.TextSize = 23
+            TabButton.TextSize = 16
             TabButton.FontFace = FontFingerPaintBold
             HoverGlow.BackgroundTransparency = 1
             task.defer(function()
@@ -11595,7 +11697,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ContentFrame.Visible = false
             ContentFrame.Position = UDim2.new(0, 0, 0, 0)
             TabButton.TextColor3 = Window.CurrentTheme.SubText
-            TabButton.TextSize = 16
+            TabButton.TextSize = 15
             TabButton.FontFace = FontTabBtn
             HoverGlow.BackgroundTransparency = 1
         end
@@ -11605,7 +11707,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     -- Default built-in settings tab builder
     local function CreateDefaultSettingsTab()
-        Window:AddSidebarBigDivider(998)
         local SettingsTab = Window:CreateTab("Settings", 999, "settings")
 
         local audioSection = SettingsTab:AddSection("Audio & Notifications")
@@ -11842,6 +11943,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             cardCorner.CornerRadius = UDim.new(0, 8)
             cardCorner.Parent = card
 
+            local cardScale = Instance.new("UIScale")
+            cardScale.Scale = 1
+            cardScale.Parent = card
+
             local isSelected = (Window.CurrentThemeKey == themeKey) or (themeKey == "Custom" and Window.IsCustomTheme)
 
             local stroke = Instance.new("UIStroke")
@@ -11942,8 +12047,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         Transparency = 0.2,
                         Color = Window.CurrentTheme.ButtonBG
                     }):Play()
-                    TweenService:Create(card, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                        Position = UDim2.new(0, 0, 0, -2)
+                    TweenService:Create(cardScale, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        Scale = 1.03
                     }):Play()
                 end
             end))
@@ -11956,8 +12061,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         Transparency = 0.7,
                         Color = divColor
                     }):Play()
-                    TweenService:Create(card, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                        Position = UDim2.new(0, 0, 0, 0)
+                    TweenService:Create(cardScale, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        Scale = 1.0
                     }):Play()
                 end
             end))
@@ -12914,6 +13019,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
+        if Window.ActiveTabGlow and Window.ActiveTabGlow.Parent then
+            if animated then
+                TweenService:Create(Window.ActiveTabGlow, tweenInfo, {BackgroundColor3 = newTheme.ButtonBG}):Play()
+            else
+                Window.ActiveTabGlow.BackgroundColor3 = newTheme.ButtonBG
+            end
+        end
+
 
         for _, btnData in ipairs(Window.RegisteredMDButtons) do
             if btnData and btnData.RefreshTheme then
@@ -12924,11 +13037,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 else
                     btnData.Frame.BackgroundColor3 = newTheme.ButtonBG
                 end
+                local onAccent = GetOnAccent(newTheme.ButtonBG)
                 if btnData.TextLabel then
                     if animated then
-                        TweenService:Create(btnData.TextLabel, tweenInfo, {TextColor3 = newTheme.Text}):Play()
+                        TweenService:Create(btnData.TextLabel, tweenInfo, {TextColor3 = onAccent}):Play()
                     else
-                        btnData.TextLabel.TextColor3 = newTheme.Text
+                        btnData.TextLabel.TextColor3 = onAccent
                     end
                 end
                 if btnData.Stroke then
@@ -12937,9 +13051,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
                 if btnData.ArrowIcon then
                     if animated then
-                        TweenService:Create(btnData.ArrowIcon, tweenInfo, {ImageColor3 = newTheme.Text}):Play()
+                        TweenService:Create(btnData.ArrowIcon, tweenInfo, {ImageColor3 = onAccent}):Play()
                     else
-                        btnData.ArrowIcon.ImageColor3 = newTheme.Text
+                        btnData.ArrowIcon.ImageColor3 = onAccent
                     end
                 end
             end
