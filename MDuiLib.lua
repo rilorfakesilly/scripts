@@ -7272,27 +7272,103 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LocalTime.ZIndex = 6
     LocalTime.Parent = BottomFrame
 
-    local ResizeBtnFrame = Instance.new("Frame")
-    ResizeBtnFrame.Size = UDim2.new(0, 35, 0, 35)
-    ResizeBtnFrame.Position = UDim2.new(1, -40, 0, 9)
-    ResizeBtnFrame.BackgroundTransparency = 1
-    ResizeBtnFrame.ZIndex = 6
-    ResizeBtnFrame.Parent = BottomFrame
+    -- Corner Resize Handle (rounded frame poking outside bottom-right corner)
+    local ResizeHandle = Instance.new("Frame")
+    ResizeHandle.Name = "ResizeHandle"
+    ResizeHandle.Size = UDim2.new(0, 22, 0, 22)
+    ResizeHandle.AnchorPoint = Vector2.new(0.5, 0.5)
+    ResizeHandle.Position = UDim2.new(1, 0, 1, 0)
+    ResizeHandle.BackgroundColor3 = Window.CurrentTheme.CardBG
+    ResizeHandle.BackgroundTransparency = 0.05
+    ResizeHandle.BorderSizePixel = 0
+    ResizeHandle.ZIndex = 30
+    ResizeHandle.Parent = MainContainer
 
-    local ResizeBtn = Instance.new("ImageButton")
-    ResizeBtn.Size = UDim2.new(1, 0, 1, 0)
-    ResizeBtn.Position = UDim2.new(0, 0, 0.025, 0)
+    local HandleCorner = Instance.new("UICorner")
+    HandleCorner.CornerRadius = UDim.new(0, 8)
+    HandleCorner.Parent = ResizeHandle
+
+    local HandleStroke = Instance.new("UIStroke")
+    HandleStroke.Thickness = 1.2
+    HandleStroke.Color = Window.CurrentTheme.Divider
+    HandleStroke.Transparency = 0.3
+    HandleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    HandleStroke.Parent = ResizeHandle
+
+    AddUIShadow(ResizeHandle, 10, 0.45, 29)
+
+    -- 3 diagonal grip lines (-45 deg)
+    local gripLines = {}
+    local lineSpecs = {
+        { size = UDim2.new(0, 6, 0, 2), pos = UDim2.new(0.5, -4, 0.5, -4) },
+        { size = UDim2.new(0, 10, 0, 2), pos = UDim2.new(0.5, 0, 0.5, 0) },
+        { size = UDim2.new(0, 6, 0, 2), pos = UDim2.new(0.5, 4, 0.5, 4) },
+    }
+    for _, spec in ipairs(lineSpecs) do
+        local gLine = Instance.new("Frame")
+        gLine.Name = "GripLine"
+        gLine.Size = spec.size
+        gLine.Position = spec.pos
+        gLine.AnchorPoint = Vector2.new(0.5, 0.5)
+        gLine.Rotation = -45
+        gLine.BackgroundColor3 = Window.CurrentTheme.Text
+        gLine.BackgroundTransparency = 0.35
+        gLine.BorderSizePixel = 0
+        gLine.ZIndex = 32
+        gLine.Parent = ResizeHandle
+
+        local gCorner = Instance.new("UICorner")
+        gCorner.CornerRadius = UDim.new(1, 0)
+        gCorner.Parent = gLine
+
+        table.insert(gripLines, gLine)
+    end
+
+    local ResizeBtn = Instance.new("TextButton")
+    ResizeBtn.Name = "ResizeHit"
+    ResizeBtn.Size = UDim2.new(1, 10, 1, 10)
+    ResizeBtn.Position = UDim2.new(0.5, 0, 0.5, 0)
+    ResizeBtn.AnchorPoint = Vector2.new(0.5, 0.5)
     ResizeBtn.BackgroundTransparency = 1
-    ResizeBtn.ZIndex = 6
-    ResizeBtn.Parent = ResizeBtnFrame
+    ResizeBtn.Text = ""
+    ResizeBtn.Active = true
+    ResizeBtn.ZIndex = 35
+    ResizeBtn.Parent = ResizeHandle
 
-    local ResizeIcon = Instance.new("ImageLabel")
-    ResizeIcon.Size = UDim2.new(0, 28, 0, 28)
-    ResizeIcon.Position = UDim2.new(0.085, 0, 0.085, 0)
-    ResizeIcon.BackgroundTransparency = 1
-    ResizeIcon.Image = "rbxassetid://104249430704982"
-    ResizeIcon.ZIndex = 7
-    ResizeIcon.Parent = ResizeBtn
+    local normalHandleSize = UDim2.new(0, 22, 0, 22)
+    local hoverHandleSize = UDim2.new(0, 25, 0, 25)
+    local handleTweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+
+    TrackConn(ResizeBtn.MouseEnter:Connect(function()
+        PlayHoverSFX()
+        TweenService:Create(ResizeHandle, handleTweenInfo, {
+            Size = hoverHandleSize,
+            BackgroundColor3 = Window.CurrentTheme.ButtonBG or Window.CurrentTheme.CardBG
+        }):Play()
+        if HandleStroke then
+            TweenService:Create(HandleStroke, handleTweenInfo, {Transparency = 0}):Play()
+        end
+        for _, gl in ipairs(gripLines) do
+            TweenService:Create(gl, handleTweenInfo, {BackgroundTransparency = 0.1}):Play()
+        end
+    end))
+
+    TrackConn(ResizeBtn.MouseLeave:Connect(function()
+        TweenService:Create(ResizeHandle, handleTweenInfo, {
+            Size = normalHandleSize,
+            BackgroundColor3 = Window.CurrentTheme.CardBG
+        }):Play()
+        if HandleStroke then
+            TweenService:Create(HandleStroke, handleTweenInfo, {Transparency = 0.3}):Play()
+        end
+        for _, gl in ipairs(gripLines) do
+            TweenService:Create(gl, handleTweenInfo, {BackgroundTransparency = 0.35}):Play()
+        end
+    end))
+
+    Window.ResizeHandle = ResizeHandle
+    Window.ResizeHandleStroke = HandleStroke
+    Window.ResizeGripLines = gripLines
 
     AttachUniversalDrag(TopFrame, MainContainer)
     AttachUniversalDrag(LeftFrame, MainContainer)
@@ -11453,9 +11529,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     TrackConn(UserInputService.InputChanged:Connect(function(input)
         if IsResizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - ResizeStartPos
-            local newWidth = math.clamp(StartWindowSize.X.Offset + delta.X, 500, 1000)
-            local newHeight = math.clamp(StartWindowSize.Y.Offset + delta.Y, 340, 700)
+            local scale = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
+            if scale <= 0 then scale = 1 end
+            local deltaX = (input.Position.X - ResizeStartPos.X) / scale
+            local deltaY = (input.Position.Y - ResizeStartPos.Y) / scale
+            local newWidth = math.clamp(StartWindowSize.X.Offset + deltaX, 500, 1000)
+            local newHeight = math.clamp(StartWindowSize.Y.Offset + deltaY, 340, 700)
             MainContainer.Size = UDim2.new(0, newWidth, 0, newHeight)
             LastWindowSize = MainContainer.Size
         end
@@ -12258,6 +12337,34 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TweenService:Create(Window._MadebyText, tweenInfo, {TextColor3 = newTheme.Text}):Play()
             else
                 Window._MadebyText.TextColor3 = newTheme.Text
+            end
+        end
+
+        if Window.ResizeHandle and Window.ResizeHandle.Parent then
+            if animated then
+                TweenService:Create(Window.ResizeHandle, tweenInfo, {BackgroundColor3 = newTheme.CardBG}):Play()
+                if Window.ResizeHandleStroke then
+                    TweenService:Create(Window.ResizeHandleStroke, tweenInfo, {Color = newTheme.Divider}):Play()
+                end
+                if Window.ResizeGripLines then
+                    for _, gl in ipairs(Window.ResizeGripLines) do
+                        if gl and gl.Parent then
+                            TweenService:Create(gl, tweenInfo, {BackgroundColor3 = newTheme.Text}):Play()
+                        end
+                    end
+                end
+            else
+                Window.ResizeHandle.BackgroundColor3 = newTheme.CardBG
+                if Window.ResizeHandleStroke then
+                    Window.ResizeHandleStroke.Color = newTheme.Divider
+                end
+                if Window.ResizeGripLines then
+                    for _, gl in ipairs(Window.ResizeGripLines) do
+                        if gl and gl.Parent then
+                            gl.BackgroundColor3 = newTheme.Text
+                        end
+                    end
+                end
             end
         end
 
