@@ -6,6 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local Debris = game:GetService("Debris")
+local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -3963,12 +3964,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end))
 
-        TrackConn(dragHandle.InputCancelled:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                isDragging = false
-            end
-        end))
-
         TrackConn(UserInputService.WindowFocusReleased:Connect(function()
             isDragging = false
         end))
@@ -4767,12 +4762,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end))
 
         TrackConn(UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                StopDragging()
-            end
-        end))
-
-        TrackConn(Trigger.InputCancelled:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 StopDragging()
             end
@@ -9425,7 +9414,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CardCorner.Parent = CardFrame
 
             local CardStroke = Instance.new("UIStroke")
-            CardStroke.Color = Window.CurrentTheme.Border
+            CardStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(80, 85, 100)
             CardStroke.Thickness = 1
             CardStroke.Transparency = (isInside and Window.SectionsTransparent) and 1 or 0.8
             CardStroke.Parent = CardFrame
@@ -12752,13 +12741,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end
                 end
             end
-            miniDragStart = nil
-            miniHasMoved = false
-        end
-    end))
-
-    TrackConn(MinimizedImage.InputCancelled:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             miniDragStart = nil
             miniHasMoved = false
         end
