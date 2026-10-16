@@ -1,5 +1,6 @@
 local Library = {}
 
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -584,18 +585,23 @@ Library.GetIcon = Library.GetIcon
 
 local _MontserratFamily = Font.fromEnum(Enum.Font.Montserrat).Family
 
-local FontTitle   = Font.new(_MontserratFamily, Enum.FontWeight.Bold,     Enum.FontStyle.Normal)
-local FontTabBtn  = Font.new(_MontserratFamily, Enum.FontWeight.SemiBold,  Enum.FontStyle.Normal)
-local FontRegular = Font.new(_MontserratFamily, Enum.FontWeight.Regular,   Enum.FontStyle.Normal)
-local FontLight   = Font.new(_MontserratFamily, Enum.FontWeight.Light,     Enum.FontStyle.Normal)
+local FontBold     = Font.new(_MontserratFamily, Enum.FontWeight.Bold,     Enum.FontStyle.Normal)
+local FontSemiBold = Font.new(_MontserratFamily, Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+local FontMedium   = Font.new(_MontserratFamily, Enum.FontWeight.Medium,   Enum.FontStyle.Normal)
+local FontRegular  = Font.new(_MontserratFamily, Enum.FontWeight.Regular,  Enum.FontStyle.Normal)
+local FontLight    = Font.new(_MontserratFamily, Enum.FontWeight.Light,    Enum.FontStyle.Normal)
 
-local FontFingerPaintBold = FontTitle
+local FontTitle   = FontMedium
+local FontTabBtn  = FontSemiBold
+local FontFingerPaintBold = FontMedium
 local FontFingerPaintRegular = FontRegular
-local FontFingerPaintHeavy = FontTitle
-local FontFingerPaintMedium = FontTabBtn
+local FontFingerPaintHeavy = FontMedium
+local FontFingerPaintMedium = FontMedium
 
+Library.FontBold = FontBold
 Library.FontTitle = FontTitle
 Library.FontTabBtn = FontTabBtn
+Library.FontMedium = FontMedium
 Library.FontRegular = FontRegular
 Library.FontLight = FontLight
 
@@ -616,15 +622,15 @@ Library.ThemePresets = {
             Color3.fromRGB(40, 42, 54)
         },
         MinGradient = {
-            Color3.fromRGB(80, 130, 240),
-            Color3.fromRGB(120, 165, 255),
-            Color3.fromRGB(60, 105, 215)
+            Color3.fromRGB(155, 160, 172),
+            Color3.fromRGB(190, 195, 205),
+            Color3.fromRGB(125, 130, 142)
         },
         Divider = Color3.fromRGB(65, 70, 88),
         Text = Color3.fromRGB(240, 240, 245),
         SubText = Color3.fromRGB(180, 185, 200),
         CardBG = Color3.fromRGB(25, 27, 34),
-        ButtonBG = Color3.fromRGB(80, 130, 240),
+        ButtonBG = Color3.fromRGB(155, 160, 172),
     },
     VeryDark = {
         Name = "Very Dark",
@@ -642,15 +648,15 @@ Library.ThemePresets = {
             Color3.fromRGB(20, 22, 28)
         },
         MinGradient = {
-            Color3.fromRGB(90, 125, 245),
-            Color3.fromRGB(130, 165, 255),
-            Color3.fromRGB(70, 95, 200)
+            Color3.fromRGB(135, 140, 152),
+            Color3.fromRGB(170, 175, 186),
+            Color3.fromRGB(105, 110, 122)
         },
         Divider = Color3.fromRGB(40, 44, 58),
         Text = Color3.fromRGB(230, 235, 245),
         SubText = Color3.fromRGB(160, 165, 180),
         CardBG = Color3.fromRGB(10, 11, 14),
-        ButtonBG = Color3.fromRGB(90, 125, 245),
+        ButtonBG = Color3.fromRGB(135, 140, 152),
     },
     Midnight = {
         Name = "Midnight",
@@ -746,15 +752,15 @@ Library.ThemePresets = {
             Color3.fromRGB(200, 205, 220)
         },
         MinGradient = {
-            Color3.fromRGB(60, 120, 240),
-            Color3.fromRGB(120, 175, 255),
-            Color3.fromRGB(45, 95, 210)
+            Color3.fromRGB(110, 115, 128),
+            Color3.fromRGB(150, 155, 168),
+            Color3.fromRGB(80, 85, 96)
         },
         Divider = Color3.fromRGB(180, 190, 210),
         Text = Color3.fromRGB(30, 32, 40),
         SubText = Color3.fromRGB(70, 75, 90),
         CardBG = Color3.fromRGB(255, 255, 255),
-        ButtonBG = Color3.fromRGB(60, 120, 240),
+        ButtonBG = Color3.fromRGB(110, 115, 128),
     },
     Coffee = {
         Name = "Coffee",
@@ -997,7 +1003,7 @@ Library.ActiveWindows = {}
 local function GetThemedDarkColor(theme)
     theme = theme or Library.CurrentTheme or (Library.ThemePresets and Library.ThemePresets.Dark)
     local cardBG = (theme and theme.CardBG) or Color3.fromRGB(30, 32, 40)
-    local buttonBG = (theme and theme.ButtonBG) or Color3.fromRGB(80, 120, 240)
+    local buttonBG = (theme and theme.ButtonBG) or Color3.fromRGB(155, 160, 172)
     local h, s, v = Color3.toHSV(cardBG)
     if v > 0.82 and s < 0.2 then
         return Color3.fromRGB(220, 225, 235)
@@ -6866,10 +6872,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return ok and content or nil
     end
 
+    Window.NoiseOverlays = {}
+
     local function AddNoise(targetFrame, options)
         options = options or {}
         local size = options.Size or Window.NoiseSize or 128
-        local nType = options.Type or Window.NoiseType or "Texture"
         local enabled = (options.Enabled ~= nil) and options.Enabled or (Window.NoiseEnabled == true)
 
         local noise = Instance.new("ImageLabel")
@@ -6883,37 +6890,50 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         noise.ImageTransparency = options.Transparency or Window.NoiseTransparency or 0.88
         noise.Visible = enabled
         noise.ZIndex = 2
-        noise.Parent = targetFrame
 
-        local function ApplyNoiseStyle()
-            local curSize = Window.NoiseSize or size
-            noise.TileSize = UDim2.new(0, curSize, 0, curSize)
-            local curType = tostring(Window.NoiseType or nType):lower()
-            if curType == "generated" then
-                local content = MakeNoiseContent(curSize)
-                if content then
-                    noise.Image = ""
-                    pcall(function() noise.ImageContent = content end)
-                else
-                    pcall(function() noise.ImageContent = nil end)
-                    noise.Image = "http://www.roblox.com/asset/?id=15628729082"
-                end
-            else
-                pcall(function() noise.ImageContent = nil end)
-                noise.Image = "http://www.roblox.com/asset/?id=15628729082"
-            end
-            noise.Visible = (Window.NoiseEnabled == true)
+        if options.CornerRadii then
+            local nc = Instance.new("UICorner")
+            ApplyCornerRadii(nc, unpack(options.CornerRadii))
+            nc.Parent = noise
         end
 
-        ApplyNoiseStyle()
-        Window._NoiseUpdateFunc = ApplyNoiseStyle
+        noise.Parent = targetFrame
+
+        table.insert(Window.NoiseOverlays, noise)
         Window.NoiseOverlay = noise
         return noise
     end
+
+    local function UpdateNoise()
+        local enabled = (Window.NoiseEnabled == true)
+        local curSize = Window.NoiseSize or 128
+        local trans = Window.NoiseTransparency or 0.88
+        local content = nil
+        if enabled then
+            content = MakeNoiseContent(curSize)
+        end
+
+        for _, n in ipairs(Window.NoiseOverlays or {}) do
+            if n and n.Parent then
+                n.TileSize = UDim2.new(0, curSize, 0, curSize)
+                n.ImageTransparency = trans
+                n.Visible = enabled
+                if enabled and content then
+                    n.Image = ""
+                    pcall(function() n.ImageContent = content end)
+                else
+                    pcall(function() n.ImageContent = nil end)
+                    n.Image = ""
+                end
+            end
+        end
+    end
+
     Window.AddNoise = AddNoise
     Library.AddNoise = AddNoise
     Window.MakeNoiseContent = MakeNoiseContent
     Library.MakeNoiseContent = MakeNoiseContent
+    Window._NoiseUpdateFunc = UpdateNoise
 
     GetTargetViewportScale = function()
         if not Camera then return 0.85 end
@@ -6948,6 +6968,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local TopCorner = Instance.new("UICorner")
     ApplyCornerRadii(TopCorner, 8, 8, 0, 0)
     TopCorner.Parent = TopFrame
+
+    local TopFrameNoise = AddNoise(TopFrame, { CornerRadii = {8, 8, 0, 0} })
 
     local MDTextFolder = Instance.new("Folder")
     MDTextFolder.Name = "Text"
@@ -7409,6 +7431,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LeftFrame.ZIndex = 1
     LeftFrame.Parent = MainContainer
 
+    local LeftFrameNoise = AddNoise(LeftFrame)
+
     -- Main content panel background
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
@@ -7421,7 +7445,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MainFrame.ZIndex = 1
     MainFrame.Parent = MainContainer
 
-    -- Optional Noise Overlay on MainFrame only (default off)
+    -- Optional Noise Overlay on MainFrame
     local MainFrameNoise = AddNoise(MainFrame)
 
     -- Init Spiderweb Background at ZIndex 2 (Above LeftFrame & MainFrame panel backgrounds, below UI contents)
@@ -7598,6 +7622,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     ApplyCornerRadii(BottomCorner, 0, 0, 8, 8)
     BottomCorner.Parent = BottomFrame
 
+    local BottomFrameNoise = AddNoise(BottomFrame, { CornerRadii = {0, 0, 8, 8} })
+
     local MDicon = Instance.new("ImageLabel")
     MDicon.Name = "Icon"
     MDicon.Size = UDim2.new(0, 34, 0, 34)
@@ -7623,7 +7649,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MadebyText.AnchorPoint = Vector2.new(0, 0)
     MadebyText.Position = UDim2.new(0, 54, 0, 7)
     MadebyText.BackgroundTransparency = 1
-    MadebyText.FontFace = FontTitle
+    MadebyText.FontFace = FontRegular
     MadebyText.Text = (scriptName and scriptName ~= "" and scriptName) or (hubTitle and hubTitle ~= "" and hubTitle) or (Window.ScriptName and Window.ScriptName ~= "" and Window.ScriptName) or "script name"
     MadebyText.TextColor3 = Window.CurrentTheme.Text
     MadebyText.TextSize = 14
@@ -8147,7 +8173,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TextSize = newTargetSize,
                 TextColor3 = Window.CurrentTheme.Text
             }):Play()
-            newTab.Button.FontFace = FontFingerPaintBold
+            newTab.Button.FontFace = FontBold
             if newTab.HoverGlow then
                 TweenService:Create(newTab.HoverGlow, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                     BackgroundTransparency = 1
@@ -11504,7 +11530,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             if isCard and (type(sliderOptions) ~= "table" or sliderOptions.AsCard ~= false) then
                 local isInSection = (customParent and targetParent ~= ContentFrame) or (targetParent == TabObj.CurrentSectionContainer) or IsInsideSection(targetParent)
-                local sliderH = isGroup and (isInSection and 40 or 50) or (isInSection and 45 or 56)
+                local sliderH = isGroup and (isInSection and 48 or 58) or (isInSection and 54 or 64)
                 local cardSize = isGroup and UDim2.new(1, 0, 0, sliderH) or (isRow and UDim2.new(0.485, -4, 0, sliderH) or UDim2.new(1, -10, 0, sliderH))
 
                 local SliderCard = Instance.new("Frame")
@@ -11564,7 +11590,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     or sliderName
                     or "Slider"
 
-                local titleY = isInSection and 5 or 8
+                local titleY = isGroup and (isInSection and 6 or 8) or (isInSection and 7 or 10)
                 local TitleLabel = Instance.new("TextLabel")
                 TitleLabel.Name = "SliderTitle"
                 TitleLabel.Size = UDim2.new(1, -115, 0, 20)
@@ -11573,7 +11599,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TitleLabel.FontFace = FontFingerPaintRegular
                 TitleLabel.Text = displayTitle
                 TitleLabel.TextColor3 = Window.CurrentTheme.Text
-                TitleLabel.TextSize = isInSection and 12 or 14
+                TitleLabel.TextSize = 14
                 TitleLabel.TextWrapped = true
                 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
                 TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
@@ -11588,7 +11614,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ValueLabel.BackgroundTransparency = 1
                 ValueLabel.FontFace = FontFingerPaintRegular
                 ValueLabel.TextColor3 = Window.CurrentTheme.Text
-                ValueLabel.TextSize = isInSection and 10 or 11
+                ValueLabel.TextSize = 13
                 ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
                 ValueLabel.TextYAlignment = Enum.TextYAlignment.Center
                 ValueLabel.ZIndex = 11
@@ -11620,7 +11646,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
                 effectiveOpts.TriggerOnRelease = false
 
-                local trackY = isInSection and 26 or 34
+                local trackY = isGroup and (isInSection and 28 or 36) or (isInSection and 32 or 40)
                 local trackH = isInSection and 10 or 12
                 local trackPadX = isInSection and 26 or 28
                 local sliderData
@@ -11920,17 +11946,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Window.RegisteredToggles["Shadows"]               = bgToggles[3]
         Window.RegisteredToggles["SectionBGTransparent"]  = bgToggles[4]
         Window.RegisteredToggles["BackgroundNoise"]       = bgToggles[5]
-
-        local noiseTypeDropdown = SettingsTab:AddDropdown({
-            Title = "Noise style",
-            Options = {"Texture", "Generated"},
-            Default = Window.NoiseType or "Texture",
-            Callback = function(selected)
-                Window:SetNoiseType(selected)
-                Window:Notify("Settings", "Noise style: " .. selected, 2)
-            end
-        })
-        Window.RegisteredDropdowns["NoiseType"] = noiseTypeDropdown
 
         local noiseSizeSlider = SettingsTab:AddSlider({
             Title = "Noise tile size",
@@ -13884,7 +13899,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
     function Window:SetNoiseType(noiseType)
-        Window.NoiseType = noiseType or "Texture"
+        Window.NoiseType = "Generated"
         if Window._NoiseUpdateFunc then
             Window._NoiseUpdateFunc()
         end
@@ -13911,8 +13926,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     function Window:SetNoiseTransparency(transparency)
         Window.NoiseTransparency = tonumber(transparency) or 0.88
-        if Window.NoiseOverlay then
-            Window.NoiseOverlay.ImageTransparency = Window.NoiseTransparency
+        for _, n in ipairs(Window.NoiseOverlays or {}) do
+            if n and n.Parent then
+                n.ImageTransparency = Window.NoiseTransparency
+            end
         end
     end
 
