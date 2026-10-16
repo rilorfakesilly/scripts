@@ -774,7 +774,9 @@ Library.Shadows = {} -- maps shadow instance to original transparency
 local function AddUIShadow(parentFrame, blurRadius, transparency, color)
     blurRadius = blurRadius or 20
     transparency = transparency or 0.5
-    color = color or Color3.fromRGB(0, 0, 0)
+    if typeof(color) ~= "Color3" then
+        color = Color3.fromRGB(0, 0, 0)
+    end
 
     local intensity = Library.ShadowIntensity or (1 / 1.8)
     local isSuppressed = false
@@ -7295,7 +7297,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     HandleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     HandleStroke.Parent = ResizeHandle
 
-    AddUIShadow(ResizeHandle, 10, 0.45, 29)
+    AddUIShadow(ResizeHandle, 10, 0.45, Color3.fromRGB(0, 0, 0))
 
     -- 3 diagonal grip lines (-45 deg)
     local gripLines = {}
