@@ -2519,19 +2519,35 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local connectMode = dropConfig.Connect or dropConfig.Connected or dropConfig.connectMode or dropConfig.PositionInGroup
         local Corner = Instance.new("UICorner")
-        if connectMode == "Top" or connectMode == "First" then
-            ApplyCornerRadii(Corner, 12, 12, 0, 0)
-        elseif connectMode == "Middle" then
-            ApplyCornerRadii(Corner, 0, 0, 0, 0)
-        elseif connectMode == "Bottom" or connectMode == "Last" then
-            ApplyCornerRadii(Corner, 0, 0, 12, 12)
-        elseif connectMode == "Left" then
-            ApplyCornerRadii(Corner, 12, 0, 0, 12)
-        elseif connectMode == "Right" then
-            ApplyCornerRadii(Corner, 0, 12, 12, 0)
-        else
-            Corner.CornerRadius = UDim.new(0, 12)
+        local function ApplyCardCorner(open)
+            if not Corner or not Corner.Parent then return end
+            if open then
+                if connectMode == "Left" then
+                    ApplyCornerRadii(Corner, 12, 0, 0, 0)
+                elseif connectMode == "Right" then
+                    ApplyCornerRadii(Corner, 0, 12, 0, 0)
+                elseif connectMode == "Middle" or connectMode == "Bottom" or connectMode == "Last" then
+                    ApplyCornerRadii(Corner, 0, 0, 0, 0)
+                else
+                    ApplyCornerRadii(Corner, 12, 12, 0, 0)
+                end
+            else
+                if connectMode == "Top" or connectMode == "First" then
+                    ApplyCornerRadii(Corner, 12, 12, 0, 0)
+                elseif connectMode == "Middle" then
+                    ApplyCornerRadii(Corner, 0, 0, 0, 0)
+                elseif connectMode == "Bottom" or connectMode == "Last" then
+                    ApplyCornerRadii(Corner, 0, 0, 12, 12)
+                elseif connectMode == "Left" then
+                    ApplyCornerRadii(Corner, 12, 0, 0, 12)
+                elseif connectMode == "Right" then
+                    ApplyCornerRadii(Corner, 0, 12, 12, 0)
+                else
+                    Corner.CornerRadius = UDim.new(0, 12)
+                end
+            end
         end
+        ApplyCardCorner(false)
         Corner.Parent = DropdownFrame
 
         if not connectMode then
@@ -2595,8 +2611,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DropdownContent.Name = GenerateSafeName("DropdownContent")
         DropdownContent.Size = UDim2.new(0, 0, 0, 0)
         DropdownContent.Position = UDim2.new(0, 0, 0, 0)
-        DropdownContent.BackgroundColor3 = Window.CurrentTheme.CardBG
-        DropdownContent.BackgroundTransparency = 0.05
+        DropdownContent.BackgroundColor3 = DropdownFrame.BackgroundColor3
+        DropdownContent.BackgroundTransparency = (inSection and Window.SectionsTransparent) and (Window.ElementsTransparency or 0.33) or DropdownFrame.BackgroundTransparency
         DropdownContent.BorderSizePixel = 0
         DropdownContent.ClipsDescendants = true
         DropdownContent.Visible = false
@@ -2604,17 +2620,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DropdownContent.Parent = Window.DropdownOverlay or MainContainer
 
         local ContentCorner = Instance.new("UICorner")
-        ContentCorner.CornerRadius = UDim.new(0, 8)
+        ApplyCornerRadii(ContentCorner, 0, 0, 12, 12)
         ContentCorner.Parent = DropdownContent
 
-        local ContentStroke = Instance.new("UIStroke")
-        ContentStroke.Thickness = 1
-        ContentStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(80, 85, 100)
-        ContentStroke.Transparency = 0.6
-        ContentStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        ContentStroke.Parent = DropdownContent
-
-        AddUIShadow(DropdownContent, 20, 0.5)
+        local HeaderDivider = Instance.new("Frame")
+        HeaderDivider.Name = "HeaderDivider"
+        HeaderDivider.Size = UDim2.new(1, -20, 0, 1)
+        HeaderDivider.Position = UDim2.new(0, 10, 0, 0)
+        HeaderDivider.BackgroundColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(80, 85, 100)
+        HeaderDivider.BackgroundTransparency = 0.65
+        HeaderDivider.BorderSizePixel = 0
+        HeaderDivider.ZIndex = 502
+        HeaderDivider.Parent = DropdownContent
 
         -- Auto-enable search for long lists
         local isSearchable = (dropConfig.Searchable == true or dropConfig.Search == true or dropConfig.searchable == true) or (#options > 8)
@@ -2834,6 +2851,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             t.Completed:Connect(function()
                 if not isExpanded then
                     DropdownContent.Visible = false
+                    ApplyCardCorner(false)
                 end
             end)
         end
@@ -2990,7 +3008,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local fSize = DropdownFrame.AbsoluteSize
 
             local relX = (fPos.X - oPos.X) / scale
-            local relY = ((fPos.Y - oPos.Y) / scale) + (fSize.Y / scale) + 4
+            local relY = ((fPos.Y - oPos.Y) / scale) + (fSize.Y / scale)
             local width = fSize.X / scale
 
             DropdownContent.Position = UDim2.new(0, relX, 0, relY)
@@ -3116,6 +3134,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     options = dynamicOpts
                 end
             end
+
+            ApplyCardCorner(true)
+            DropdownContent.BackgroundColor3 = DropdownFrame.BackgroundColor3
+            DropdownContent.BackgroundTransparency = (inSection and Window.SectionsTransparent) and (Window.ElementsTransparency or 0.33) or DropdownFrame.BackgroundTransparency
 
             local visibleCount = RebuildItemRows("")
             local scale = (UIScaleConstraint and UIScaleConstraint.Scale > 0) and UIScaleConstraint.Scale or 1
@@ -3368,7 +3390,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TitleText.TextColor3 = theme.Text
                 ArrowIcon.ImageColor3 = theme.Text
                 DropdownContent.BackgroundColor3 = theme.CardBG
-                ContentStroke.Color = theme.Divider or Color3.fromRGB(80, 85, 100)
+                DropdownContent.BackgroundTransparency = (inSec and Window.SectionsTransparent) and (Window.ElementsTransparency or 0.33) or DropdownFrame.BackgroundTransparency
+                if HeaderDivider then
+                    HeaderDivider.BackgroundColor3 = theme.Divider or Color3.fromRGB(80, 85, 100)
+                end
                 if SearchContainer then
                     SearchContainer.BackgroundColor3 = GetThemedDarkColor(theme)
                 end
