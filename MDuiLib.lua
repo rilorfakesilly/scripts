@@ -1,5 +1,5 @@
 local Library = {}
-Library.Version = "2.38.1"
+
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
