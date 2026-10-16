@@ -1,5 +1,4 @@
 local Library = {}
-Library.Version = "2.38.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -3964,10 +3963,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end))
 
-        TrackConn(UserInputService.InputCancelled:Connect(function(input)
+        TrackConn(dragHandle.InputCancelled:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 isDragging = false
             end
+        end))
+
+        TrackConn(UserInputService.WindowFocusReleased:Connect(function()
+            isDragging = false
         end))
     end
 
@@ -4769,8 +4772,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end))
 
-        TrackConn(UserInputService.InputCancelled:Connect(function(input)
+        TrackConn(Trigger.InputCancelled:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                StopDragging()
+            end
+        end))
+
+        TrackConn(UserInputService.WindowFocusReleased:Connect(function()
+            if isDragging then
                 StopDragging()
             end
         end))
@@ -12748,11 +12757,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
     end))
 
-    TrackConn(UserInputService.InputCancelled:Connect(function(input)
+    TrackConn(MinimizedImage.InputCancelled:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             miniDragStart = nil
             miniHasMoved = false
         end
+    end))
+
+    TrackConn(UserInputService.WindowFocusReleased:Connect(function()
+        miniDragStart = nil
+        miniHasMoved = false
     end))
 
     -- Click particle effects
