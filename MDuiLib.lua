@@ -1,5 +1,5 @@
 local Library = {}
-
+Library.Version = "2.38.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -2455,22 +2455,58 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return boxObj
     end
 
-    function Window:CreateMDDropdown(parent, position, size, title, options, defaultOption, onSelect, dropConfig)
+    local function BuildGenericDropdown(isMulti, parent, position, size, title, options, defaultVal, onSelect, dropConfig)
         parent = ResolveParent(parent)
-        size = size or UDim2.new(1, -10, 0, 62)
+        local inSection = IsInsideSection(parent)
+        local defaultCardH = inSection and 42 or 44
+        size = size or UDim2.new(1, -10, 0, defaultCardH)
         position = position or UDim2.new(0, 0, 0, 0)
-        if (not options or #options == 0) and type(dropConfig) == "table" then
+        
+        dropConfig = (type(dropConfig) == "table") and dropConfig or {}
+        if (not options or #options == 0) then
             options = dropConfig.Options or dropConfig.options or dropConfig.Values or dropConfig.values or dropConfig.List or options
         end
         options = options or {}
-        if not defaultOption and type(dropConfig) == "table" then
-            defaultOption = dropConfig.Default or dropConfig.default
-        end
-        defaultOption = defaultOption or options[1] or "Select..."
 
-        local inSection = IsInsideSection(parent)
+        local selectedOption = nil
+        local selectedMap = {}
+
+        if isMulti then
+            local defSels = defaultVal
+            if defSels == nil then
+                defSels = dropConfig.Default or dropConfig.default or dropConfig.Selections or {}
+            end
+            if type(defSels) == "table" then
+                for k, v in pairs(defSels) do
+                    if type(k) == "number" then
+                        selectedMap[tostring(v)] = true
+                    elseif v == true then
+                        selectedMap[tostring(k)] = true
+                    end
+                end
+            elseif type(defSels) == "string" then
+                selectedMap[tostring(defSels)] = true
+            end
+        else
+            selectedOption = defaultVal
+            if selectedOption == nil then
+                selectedOption = dropConfig.Default or dropConfig.default or options[1] or "Select..."
+            end
+        end
+
+        local function GetSelectedList()
+            local list = {}
+            for _, opt in ipairs(options) do
+                local optStr = tostring(opt)
+                if selectedMap[optStr] then
+                    table.insert(list, opt)
+                end
+            end
+            return list
+        end
+
         local DropdownFrame = Instance.new("Frame")
-        DropdownFrame.Name = GenerateSafeName("Dropdown")
+        DropdownFrame.Name = GenerateSafeName(isMulti and "MultiDropdown" or "Dropdown")
         DropdownFrame:SetAttribute("MDCard", true)
         DropdownFrame.Size = size
         DropdownFrame.Position = position
@@ -2481,7 +2517,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DropdownFrame.ClipsDescendants = false
         DropdownFrame.Parent = parent
 
-        local connectMode = (type(dropConfig) == "table" and (dropConfig.Connect or dropConfig.Connected or dropConfig.connectMode or dropConfig.PositionInGroup))
+        local connectMode = dropConfig.Connect or dropConfig.Connected or dropConfig.connectMode or dropConfig.PositionInGroup
         local Corner = Instance.new("UICorner")
         if connectMode == "Top" or connectMode == "First" then
             ApplyCornerRadii(Corner, 12, 12, 0, 0)
@@ -2505,32 +2541,41 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        local MDTextFolder = Instance.new("Folder")
-        MDTextFolder.Name = GenerateSafeName("Text")
-        MDTextFolder.Parent = DropdownFrame
-
         local TitleText = Instance.new("TextLabel")
-        TitleText.Name = "drpdwntext"
-        TitleText.Size = UDim2.new(1, -70, 0, 39)
-        TitleText.Position = UDim2.new(0, 14, 0.5, -19)
+        TitleText.Name = "DropdownTitle"
+        TitleText.Size = UDim2.new(1, -60, 1, 0)
+        TitleText.Position = UDim2.new(0, 14, 0, 0)
         TitleText.BackgroundTransparency = 1
         TitleText.FontFace = FontFingerPaintRegular
-        TitleText.RichText = true
-        local displayTitle = (title and title ~= "") and (title .. ": " .. defaultOption) or defaultOption
-        TitleText.Text = displayTitle
         TitleText.TextColor3 = Window.CurrentTheme.Text
-        TitleText.TextScaled = false
         TitleText.TextSize = 14
-        TitleText.TextWrapped = true
+        TitleText.TextTruncate = Enum.TextTruncate.AtEnd
         TitleText.TextXAlignment = Enum.TextXAlignment.Left
         TitleText.TextYAlignment = Enum.TextYAlignment.Center
         TitleText.ZIndex = 11
-        TitleText.Parent = MDTextFolder
+        TitleText.Parent = DropdownFrame
+
+        local function UpdateTitleDisplay()
+            if isMulti then
+                local sels = GetSelectedList()
+                local count = #sels
+                if count == 0 then
+                    TitleText.Text = (title and title ~= "") and (title .. ": None") or "None"
+                elseif count == 1 then
+                    TitleText.Text = (title and title ~= "") and (title .. ": " .. tostring(sels[1])) or tostring(sels[1])
+                else
+                    TitleText.Text = (title and title ~= "") and (title .. ": (" .. tostring(count) .. " Selected)") or ("(" .. tostring(count) .. " Selected)")
+                end
+            else
+                TitleText.Text = (title and title ~= "") and (title .. ": " .. tostring(selectedOption or "")) or tostring(selectedOption or "")
+            end
+        end
+        UpdateTitleDisplay()
 
         local ArrowIcon = Instance.new("ImageLabel")
-        ArrowIcon.Name = GenerateSafeName("Icon")
-        ArrowIcon.Size = UDim2.new(0, 18, 0, 18)
-        ArrowIcon.Position = UDim2.new(1, -46, 0.5, -8)
+        ArrowIcon.Name = "ArrowIcon"
+        ArrowIcon.Size = UDim2.new(0, 14, 0, 14)
+        ArrowIcon.Position = UDim2.new(1, -26, 0.5, -7)
         ArrowIcon.BackgroundTransparency = 1
         ArrowIcon.Image = "rbxassetid://11552476728"
         ArrowIcon.ImageColor3 = Window.CurrentTheme.Text
@@ -2545,10 +2590,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         HeaderTrigger.ZIndex = 12
         HeaderTrigger.Parent = DropdownFrame
 
-        local isSearchable = (type(dropConfig) == "table" and (dropConfig.Searchable or dropConfig.Search or dropConfig.searchable)) or false
-
+        -- Dropdown Content overlay menu
         local DropdownContent = Instance.new("Frame")
-        DropdownContent.Name = GenerateSafeName("Content")
+        DropdownContent.Name = GenerateSafeName("DropdownContent")
         DropdownContent.Size = UDim2.new(0, 0, 0, 0)
         DropdownContent.Position = UDim2.new(0, 0, 0, 0)
         DropdownContent.BackgroundColor3 = Window.CurrentTheme.CardBG
@@ -2560,56 +2604,127 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DropdownContent.Parent = Window.DropdownOverlay or MainContainer
 
         local ContentCorner = Instance.new("UICorner")
-        ContentCorner.CornerRadius = UDim.new(0, 12)
+        ContentCorner.CornerRadius = UDim.new(0, 8)
         ContentCorner.Parent = DropdownContent
+
+        local ContentStroke = Instance.new("UIStroke")
+        ContentStroke.Thickness = 1
+        ContentStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(80, 85, 100)
+        ContentStroke.Transparency = 0.6
+        ContentStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        ContentStroke.Parent = DropdownContent
 
         AddUIShadow(DropdownContent, 20, 0.5)
 
-        local SearchContainer = Instance.new("Frame")
-        SearchContainer.Name = GenerateSafeName("Search")
-        SearchContainer.Size = UDim2.new(1, -10, 0, 26)
-        SearchContainer.Position = UDim2.new(0, 5, 0, 5)
-        SearchContainer.BackgroundColor3 = (Window.CurrentTheme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(230, 235, 245) or Color3.fromRGB(18, 20, 26)
-        SearchContainer.BackgroundTransparency = 0.1
-        SearchContainer.BorderSizePixel = 0
-        SearchContainer.ZIndex = 502
-        SearchContainer.Visible = isSearchable
-        SearchContainer.Parent = DropdownContent
+        -- Auto-enable search for long lists
+        local isSearchable = (dropConfig.Searchable == true or dropConfig.Search == true or dropConfig.searchable == true) or (#options > 8)
 
-        local SearchCorner = Instance.new("UICorner")
-        ApplyCornerRadii(SearchCorner, 6, 6, 6, 6)
-        SearchCorner.Parent = SearchContainer
+        local topOffset = 5
+        local SearchContainer = nil
+        local SearchInput = nil
 
-        local SearchIcon = Instance.new("ImageLabel")
-        SearchIcon.Name = GenerateSafeName("Icon")
-        SearchIcon.Size = UDim2.new(0, 14, 0, 14)
-        SearchIcon.Position = UDim2.new(0, 6, 0.5, -7)
-        SearchIcon.BackgroundTransparency = 1
-        SearchIcon.Image = "rbxassetid://6031154871"
-        SearchIcon.ImageColor3 = Window.CurrentTheme.SubText
-        SearchIcon.ZIndex = 503
-        SearchIcon.Parent = SearchContainer
+        if isSearchable then
+            SearchContainer = Instance.new("Frame")
+            SearchContainer.Name = "SearchContainer"
+            SearchContainer.Size = UDim2.new(1, -10, 0, 26)
+            SearchContainer.Position = UDim2.new(0, 5, 0, topOffset)
+            SearchContainer.BackgroundColor3 = GetThemedDarkColor(Window.CurrentTheme)
+            SearchContainer.BackgroundTransparency = 0.1
+            SearchContainer.BorderSizePixel = 0
+            SearchContainer.ZIndex = 502
+            SearchContainer.Parent = DropdownContent
 
-        local SearchInput = Instance.new("TextBox")
-        SearchInput.Name = GenerateSafeName("Input")
-        SearchInput.Size = UDim2.new(1, -26, 1, 0)
-        SearchInput.Position = UDim2.new(0, 24, 0, 0)
-        SearchInput.BackgroundTransparency = 1
-        SearchInput.FontFace = FontFingerPaintRegular
-        SearchInput.PlaceholderText = "Search..."
-        SearchInput.PlaceholderColor3 = Window.CurrentTheme.SubText
-        SearchInput.Text = ""
-        SearchInput.TextColor3 = Window.CurrentTheme.Text
-        SearchInput.TextSize = 11
-        SearchInput.TextXAlignment = Enum.TextXAlignment.Left
-        SearchInput.ClearTextOnFocus = false
-        SearchInput.ZIndex = 503
-        SearchInput.Parent = SearchContainer
+            local sCorner = Instance.new("UICorner")
+            sCorner.CornerRadius = UDim.new(0, 6)
+            sCorner.Parent = SearchContainer
+
+            local sIcon = Instance.new("ImageLabel")
+            sIcon.Size = UDim2.new(0, 14, 0, 14)
+            sIcon.Position = UDim2.new(0, 6, 0.5, -7)
+            sIcon.BackgroundTransparency = 1
+            sIcon.Image = "rbxassetid://6031154871"
+            sIcon.ImageColor3 = Window.CurrentTheme.SubText
+            sIcon.ZIndex = 503
+            sIcon.Parent = SearchContainer
+
+            SearchInput = Instance.new("TextBox")
+            SearchInput.Size = UDim2.new(1, -26, 1, 0)
+            SearchInput.Position = UDim2.new(0, 24, 0, 0)
+            SearchInput.BackgroundTransparency = 1
+            SearchInput.FontFace = FontFingerPaintRegular
+            SearchInput.PlaceholderText = "Search..."
+            SearchInput.PlaceholderColor3 = Window.CurrentTheme.SubText
+            SearchInput.Text = ""
+            SearchInput.TextColor3 = Window.CurrentTheme.Text
+            SearchInput.TextSize = 11
+            SearchInput.TextXAlignment = Enum.TextXAlignment.Left
+            SearchInput.ClearTextOnFocus = false
+            SearchInput.ZIndex = 503
+            SearchInput.Parent = SearchContainer
+
+            topOffset = topOffset + 26 + 4
+        end
+
+        local ActionsBar = nil
+        local SelectAllBtn = nil
+        local ClearBtn = nil
+
+        if isMulti then
+            ActionsBar = Instance.new("Frame")
+            ActionsBar.Name = "ActionsBar"
+            ActionsBar.Size = UDim2.new(1, -10, 0, 20)
+            ActionsBar.Position = UDim2.new(0, 5, 0, topOffset)
+            ActionsBar.BackgroundTransparency = 1
+            ActionsBar.BorderSizePixel = 0
+            ActionsBar.ZIndex = 502
+            ActionsBar.Parent = DropdownContent
+
+            SelectAllBtn = Instance.new("TextButton")
+            SelectAllBtn.Name = "SelectAllBtn"
+            SelectAllBtn.Size = UDim2.new(0.5, -3, 1, 0)
+            SelectAllBtn.Position = UDim2.new(0, 0, 0, 0)
+            SelectAllBtn.BackgroundTransparency = 1
+            SelectAllBtn.FontFace = FontFingerPaintRegular
+            SelectAllBtn.Text = "Select all"
+            SelectAllBtn.TextColor3 = Window.CurrentTheme.SubText
+            SelectAllBtn.TextSize = 11
+            SelectAllBtn.TextXAlignment = Enum.TextXAlignment.Left
+            SelectAllBtn.ZIndex = 503
+            SelectAllBtn.Parent = ActionsBar
+
+            ClearBtn = Instance.new("TextButton")
+            ClearBtn.Name = "ClearBtn"
+            ClearBtn.Size = UDim2.new(0.5, -3, 1, 0)
+            ClearBtn.Position = UDim2.new(0.5, 3, 0, 0)
+            ClearBtn.BackgroundTransparency = 1
+            ClearBtn.FontFace = FontFingerPaintRegular
+            ClearBtn.Text = "Clear"
+            ClearBtn.TextColor3 = Window.CurrentTheme.SubText
+            ClearBtn.TextSize = 11
+            ClearBtn.TextXAlignment = Enum.TextXAlignment.Right
+            ClearBtn.ZIndex = 503
+            ClearBtn.Parent = ActionsBar
+
+            TrackConn(SelectAllBtn.MouseEnter:Connect(function()
+                TweenService:Create(SelectAllBtn, TweenInfo.new(0.15), {TextColor3 = Window.CurrentTheme.Text}):Play()
+            end))
+            TrackConn(SelectAllBtn.MouseLeave:Connect(function()
+                TweenService:Create(SelectAllBtn, TweenInfo.new(0.15), {TextColor3 = Window.CurrentTheme.SubText}):Play()
+            end))
+            TrackConn(ClearBtn.MouseEnter:Connect(function()
+                TweenService:Create(ClearBtn, TweenInfo.new(0.15), {TextColor3 = Window.CurrentTheme.Text}):Play()
+            end))
+            TrackConn(ClearBtn.MouseLeave:Connect(function()
+                TweenService:Create(ClearBtn, TweenInfo.new(0.15), {TextColor3 = Window.CurrentTheme.SubText}):Play()
+            end))
+
+            topOffset = topOffset + 20 + 4
+        end
 
         local InnerScroll = Instance.new("ScrollingFrame")
-        InnerScroll.Name = GenerateSafeName("Scroll")
-        InnerScroll.Size = isSearchable and UDim2.new(1, -10, 1, -41) or UDim2.new(1, -10, 1, -10)
-        InnerScroll.Position = isSearchable and UDim2.new(0, 5, 0, 36) or UDim2.new(0, 5, 0, 5)
+        InnerScroll.Name = "InnerScroll"
+        InnerScroll.Position = UDim2.new(0, 5, 0, topOffset)
+        InnerScroll.Size = UDim2.new(1, -10, 1, -(topOffset + 5))
         InnerScroll.BackgroundTransparency = 1
         InnerScroll.BorderSizePixel = 0
         InnerScroll.ScrollBarThickness = 0
@@ -2618,21 +2733,258 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local ListLayout = Instance.new("UIListLayout")
         ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        ListLayout.Padding = UDim.new(0, 5)
+        ListLayout.Padding = UDim.new(0, 3)
         ListLayout.Parent = InnerScroll
 
-        local selectedOption = defaultOption
+        local NoResultsLabel = Instance.new("TextLabel")
+        NoResultsLabel.Name = "NoResults"
+        NoResultsLabel.Size = UDim2.new(1, 0, 0, 28)
+        NoResultsLabel.BackgroundTransparency = 1
+        NoResultsLabel.FontFace = FontFingerPaintRegular
+        NoResultsLabel.Text = "No results"
+        NoResultsLabel.TextColor3 = Window.CurrentTheme.SubText
+        NoResultsLabel.TextSize = 12
+        NoResultsLabel.TextXAlignment = Enum.TextXAlignment.Center
+        NoResultsLabel.TextYAlignment = Enum.TextYAlignment.Center
+        NoResultsLabel.Visible = false
+        NoResultsLabel.ZIndex = 503
+        NoResultsLabel.Parent = InnerScroll
+
+        local ROW_HEIGHT = 28
+        local itemRows = {}
+        local visibleItems = {}
+        local highlightIndex = nil
         local isExpanded = false
         local dropObj = nil
+        local currentFilter = ""
+        local keyboardConn = nil
+
+        local function UpdateRowVisuals(optStr, animate)
+            local row = itemRows[optStr]
+            if not row then return end
+            local twInfo = animate and TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out) or nil
+
+            if isMulti then
+                local isSel = (selectedMap[optStr] == true)
+                local targetBg = Window.CurrentTheme.AccentBG
+                local targetTrans = isSel and 0.45 or 0.85
+                local boxBg = isSel and Window.CurrentTheme.ButtonBG or GetThemedDarkColor(Window.CurrentTheme)
+                local boxTrans = isSel and 0 or 0.2
+                local iconTrans = isSel and 0 or 1
+                local textCol = isSel and Window.CurrentTheme.Text or Window.CurrentTheme.SubText
+
+                if animate then
+                    TweenService:Create(row.Button, twInfo, { BackgroundColor3 = targetBg, BackgroundTransparency = targetTrans }):Play()
+                    TweenService:Create(row.BoxOuter, twInfo, { BackgroundColor3 = boxBg, BackgroundTransparency = boxTrans }):Play()
+                    TweenService:Create(row.CheckIcon, twInfo, { ImageTransparency = iconTrans }):Play()
+                    TweenService:Create(row.Label, twInfo, { TextColor3 = textCol }):Play()
+                else
+                    row.Button.BackgroundColor3 = targetBg
+                    row.Button.BackgroundTransparency = targetTrans
+                    row.BoxOuter.BackgroundColor3 = boxBg
+                    row.BoxOuter.BackgroundTransparency = boxTrans
+                    row.CheckIcon.ImageTransparency = iconTrans
+                    row.Label.TextColor3 = textCol
+                end
+            else
+                local isSel = (tostring(optStr) == tostring(selectedOption))
+                local targetBg = isSel and Window.CurrentTheme.ButtonBG or Window.CurrentTheme.AccentBG
+                local targetTrans = isSel and 0.15 or 0.65
+                local textCol = isSel and GetOnAccent(Window.CurrentTheme.ButtonBG) or Window.CurrentTheme.Text
+
+                if animate then
+                    TweenService:Create(row.Button, twInfo, { BackgroundColor3 = targetBg, BackgroundTransparency = targetTrans, TextColor3 = textCol }):Play()
+                else
+                    row.Button.BackgroundColor3 = targetBg
+                    row.Button.BackgroundTransparency = targetTrans
+                    row.Button.TextColor3 = textCol
+                end
+            end
+        end
+
+        local function UpdateHighlightVisuals()
+            for idx, item in ipairs(visibleItems) do
+                local isHl = (idx == highlightIndex)
+                if item.HighlightStroke then
+                    item.HighlightStroke.Transparency = isHl and 0.2 or 1
+                end
+            end
+        end
+
+        local function CloseDropdown()
+            if not isExpanded then return end
+            isExpanded = false
+            if keyboardConn then
+                keyboardConn:Disconnect()
+                keyboardConn = nil
+            end
+            if Window.ActiveDropdown == dropObj then
+                Window.ActiveDropdown = nil
+            end
+            highlightIndex = nil
+            UpdateHighlightVisuals()
+
+            TweenService:Create(ArrowIcon, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Rotation = 0}):Play()
+            local scale = (UIScaleConstraint and UIScaleConstraint.Scale > 0) and UIScaleConstraint.Scale or 1
+            local curWidth = DropdownContent.AbsoluteSize.X / scale
+            local t = TweenService:Create(DropdownContent, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, curWidth, 0, 0)
+            })
+            t:Play()
+            t.Completed:Connect(function()
+                if not isExpanded then
+                    DropdownContent.Visible = false
+                end
+            end)
+        end
+
+        local function RebuildItemRows(filterText)
+            if filterText ~= nil then
+                currentFilter = tostring(filterText):lower()
+            end
+
+            for _, child in ipairs(InnerScroll:GetChildren()) do
+                if child:IsA("TextButton") then child:Destroy() end
+            end
+            itemRows = {}
+            visibleItems = {}
+            highlightIndex = nil
+
+            local _checkIconId = Library:GetIcon("check") or "86817768619372"
+            local iconAsset = tostring(_checkIconId):find("://") and tostring(_checkIconId) or ("rbxassetid://" .. tostring(_checkIconId))
+
+            for idx, opt in ipairs(options) do
+                local optStr = tostring(opt)
+                local matches = (currentFilter == "" or optStr:lower():find(currentFilter, 1, true))
+
+                if matches then
+                    local ItemBtn = Instance.new("TextButton")
+                    ItemBtn.Name = "Item_" .. optStr
+                    ItemBtn.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
+                    ItemBtn.BorderSizePixel = 0
+                    ItemBtn.ZIndex = 503
+                    ItemBtn.Parent = InnerScroll
+
+                    local itemCorner = Instance.new("UICorner")
+                    itemCorner.CornerRadius = UDim.new(0, 6)
+                    itemCorner.Parent = ItemBtn
+
+                    local hlStroke = Instance.new("UIStroke")
+                    hlStroke.Name = "HighlightStroke"
+                    hlStroke.Thickness = 1.2
+                    hlStroke.Color = Window.CurrentTheme.Text
+                    hlStroke.Transparency = 1
+                    hlStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                    hlStroke.Parent = ItemBtn
+
+                    local rowData = {
+                        Button = ItemBtn,
+                        HighlightStroke = hlStroke,
+                        Opt = opt,
+                        Index = #visibleItems + 1
+                    }
+
+                    if isMulti then
+                        ItemBtn.Text = ""
+
+                        local BoxOuter = Instance.new("Frame")
+                        BoxOuter.Name = "CheckBox"
+                        BoxOuter.Size = UDim2.new(0, 16, 0, 16)
+                        BoxOuter.Position = UDim2.new(0, 6, 0.5, -8)
+                        BoxOuter.BorderSizePixel = 0
+                        BoxOuter.ZIndex = 504
+                        BoxOuter.Parent = ItemBtn
+
+                        local bCorner = Instance.new("UICorner")
+                        bCorner.CornerRadius = UDim.new(0, 4)
+                        bCorner.Parent = BoxOuter
+
+                        local bStroke = Instance.new("UIStroke")
+                        bStroke.Thickness = 1
+                        bStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(80, 85, 100)
+                        bStroke.Transparency = 0.4
+                        bStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                        bStroke.Parent = BoxOuter
+
+                        local CheckIcon = Instance.new("ImageLabel")
+                        CheckIcon.Name = "CheckIcon"
+                        CheckIcon.Size = UDim2.new(0, 12, 0, 12)
+                        CheckIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+                        CheckIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+                        CheckIcon.BackgroundTransparency = 1
+                        CheckIcon.Image = iconAsset
+                        CheckIcon.ImageColor3 = GetOnAccent(Window.CurrentTheme.ButtonBG)
+                        CheckIcon.ZIndex = 505
+                        CheckIcon.Parent = BoxOuter
+
+                        local ItemLabel = Instance.new("TextLabel")
+                        ItemLabel.Name = "Label"
+                        ItemLabel.Size = UDim2.new(1, -34, 1, 0)
+                        ItemLabel.Position = UDim2.new(0, 28, 0, 0)
+                        ItemLabel.BackgroundTransparency = 1
+                        ItemLabel.FontFace = FontFingerPaintRegular
+                        ItemLabel.Text = optStr
+                        ItemLabel.TextSize = 12
+                        ItemLabel.TextXAlignment = Enum.TextXAlignment.Left
+                        ItemLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                        ItemLabel.ZIndex = 504
+                        ItemLabel.Parent = ItemBtn
+
+                        rowData.BoxOuter = BoxOuter
+                        rowData.CheckIcon = CheckIcon
+                        rowData.Label = ItemLabel
+
+                        ItemBtn.MouseButton1Click:Connect(function()
+                            PlayClickSFX()
+                            selectedMap[optStr] = not selectedMap[optStr]
+                            UpdateRowVisuals(optStr, true)
+                            UpdateTitleDisplay()
+                            if onSelect then
+                                pcall(onSelect, GetSelectedList(), opt, selectedMap[optStr])
+                            end
+                        end)
+                    else
+                        ItemBtn.FontFace = FontFingerPaintRegular
+                        ItemBtn.Text = optStr
+                        ItemBtn.TextSize = 12
+                        ItemBtn.TextXAlignment = Enum.TextXAlignment.Left
+                        ItemBtn.TextTruncate = Enum.TextTruncate.AtEnd
+
+                        local pad = Instance.new("UIPadding")
+                        pad.PaddingLeft = UDim.new(0, 8)
+                        pad.Parent = ItemBtn
+
+                        ItemBtn.MouseButton1Click:Connect(function()
+                            PlayClickSFX()
+                            selectedOption = opt
+                            UpdateTitleDisplay()
+                            UpdateRowVisuals(optStr, true)
+                            CloseDropdown()
+                            if onSelect then
+                                pcall(onSelect, selectedOption)
+                            end
+                        end)
+                    end
+
+                    itemRows[optStr] = rowData
+                    table.insert(visibleItems, rowData)
+                    UpdateRowVisuals(optStr, false)
+                end
+            end
+
+            local visibleCount = #visibleItems
+            NoResultsLabel.Visible = (visibleCount == 0)
+            local totalContentY = (visibleCount > 0) and ((visibleCount * ROW_HEIGHT) + ((visibleCount - 1) * 3)) or 28
+            InnerScroll.CanvasSize = UDim2.new(0, 0, 0, totalContentY)
+            return visibleCount
+        end
 
         local function UpdateDropdownPos()
             if not DropdownFrame or not DropdownFrame.Parent then return end
             local overlay = Window.DropdownOverlay or MainContainer
             if not overlay then return end
 
-            local scale = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
-            if scale <= 0 then scale = 1 end
-
+            local scale = (UIScaleConstraint and UIScaleConstraint.Scale > 0) and UIScaleConstraint.Scale or 1
             local fPos = DropdownFrame.AbsolutePosition
             local oPos = overlay.AbsolutePosition
             local fSize = DropdownFrame.AbsoluteSize
@@ -2645,107 +2997,103 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return width
         end
 
-        local function CloseDropdown()
-            if not isExpanded then return end
-            isExpanded = false
-            if Window.ActiveDropdown == dropObj then
-                Window.ActiveDropdown = nil
-            end
-            TweenService:Create(ArrowIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = 0}):Play()
-            local scale = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
-            if scale <= 0 then scale = 1 end
-            local curWidth = DropdownContent.AbsoluteSize.X / scale
-            local t = TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, curWidth, 0, 0)
-            })
-            t:Play()
-            t.Completed:Connect(function()
-                if not isExpanded then
-                    DropdownContent.Visible = false
-                end
-            end)
-        end
-
-        local currentFilter = ""
-        local function RefreshOptions(newOptions, filterText)
-            options = newOptions or options
-            if filterText ~= nil then
-                currentFilter = tostring(filterText):lower()
-            end
-            for _, child in ipairs(InnerScroll:GetChildren()) do
-                if child:IsA("TextButton") then child:Destroy() end
-            end
-
-            for idx, opt in ipairs(options) do
-                local optStr = tostring(opt)
-                if currentFilter == "" or optStr:lower():find(currentFilter, 1, true) then
-                    local ItemBtn = Instance.new("TextButton")
-                    ItemBtn.Name = GenerateSafeName("Item")
-                    ItemBtn.Size = UDim2.new(1, -6, 0, 34)
-                    ItemBtn.BackgroundColor3 = (opt == selectedOption) and Window.CurrentTheme.ButtonBG or Window.CurrentTheme.AccentBG
-                    ItemBtn.BackgroundTransparency = 0.1
-                    ItemBtn.FontFace = FontFingerPaintRegular
-                    ItemBtn.RichText = true
-                    ItemBtn.Text = optStr
-                    ItemBtn.TextColor3 = Window.CurrentTheme.Text
-                    ItemBtn.TextSize = 13
-                    ItemBtn.ZIndex = 503
-                    ItemBtn.Parent = InnerScroll
-
-                    local ItemCorner = Instance.new("UICorner")
-                    ApplyCornerRadii(ItemCorner, 6, 6, 6, 6)
-                    ItemCorner.Parent = ItemBtn
-
-                    ItemBtn.MouseButton1Click:Connect(function()
-                        PlayClickSFX()
-                        selectedOption = opt
-                        local newDisplay = (title and title ~= "") and (title .. ": " .. selectedOption) or selectedOption
-                        TitleText.Text = newDisplay
-                        
-                        CloseDropdown()
-
-                        if onSelect then onSelect(selectedOption) end
-                    end)
-                end
-            end
-            local visibleCount = 0
-            for _, child in ipairs(InnerScroll:GetChildren()) do
-                if child:IsA("TextButton") and child.Visible ~= false then
-                    visibleCount = visibleCount + 1
-                end
-            end
-            local totalContentY = visibleCount > 0 and ((visibleCount * 34) + ((visibleCount - 1) * 5)) or 0
-            InnerScroll.CanvasSize = UDim2.new(0, 0, 0, totalContentY)
-        end
-
         local function UpdateDropdownHeight()
             if not isExpanded then return end
-            local visibleCount = 0
-            for _, child in ipairs(InnerScroll:GetChildren()) do
-                if child:IsA("TextButton") and child.Visible ~= false then
-                    visibleCount = visibleCount + 1
-                end
-            end
-            local extraH = isSearchable and 36 or 0
-            local contentH = visibleCount > 0 and ((visibleCount * 34) + ((visibleCount - 1) * 5)) or 34
-            local neededH = contentH + (isSearchable and 41 or 10)
-            local maxH = 205 + extraH
-            local targetHeight = math.min(neededH, maxH)
+            local visibleCount = #visibleItems
+            local contentH = (visibleCount > 0) and ((visibleCount * ROW_HEIGHT) + ((visibleCount - 1) * 3)) or 28
+            local neededH = topOffset + contentH + 5
+            local maxH = 220
+            local targetHeight = math.clamp(neededH, topOffset + 32, maxH)
 
-            local scale = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
-            if scale <= 0 then scale = 1 end
+            local scale = (UIScaleConstraint and UIScaleConstraint.Scale > 0) and UIScaleConstraint.Scale or 1
             local curWidth = DropdownContent.AbsoluteSize.X / scale
             TweenService:Create(DropdownContent, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                 Size = UDim2.new(0, curWidth, 0, targetHeight)
             }):Play()
         end
 
-        TrackConn(SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
-            RefreshOptions(options, SearchInput.Text)
-            UpdateDropdownHeight()
-        end))
+        if SearchInput then
+            TrackConn(SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
+                RebuildItemRows(SearchInput.Text)
+                UpdateDropdownHeight()
+            end))
+        end
 
-        RefreshOptions(options)
+        if SelectAllBtn then
+            TrackConn(SelectAllBtn.MouseButton1Click:Connect(function()
+                PlayClickSFX()
+                for _, opt in ipairs(options) do
+                    selectedMap[tostring(opt)] = true
+                end
+                for k in pairs(itemRows) do
+                    UpdateRowVisuals(k, true)
+                end
+                UpdateTitleDisplay()
+                if onSelect then
+                    pcall(onSelect, GetSelectedList(), nil, true)
+                end
+            end))
+        end
+
+        if ClearBtn then
+            TrackConn(ClearBtn.MouseButton1Click:Connect(function()
+                PlayClickSFX()
+                selectedMap = {}
+                for k in pairs(itemRows) do
+                    UpdateRowVisuals(k, true)
+                end
+                UpdateTitleDisplay()
+                if onSelect then
+                    pcall(onSelect, GetSelectedList(), nil, false)
+                end
+            end))
+        end
+
+        local function ConnectKeyboard()
+            if keyboardConn then keyboardConn:Disconnect() keyboardConn = nil end
+            highlightIndex = nil
+            keyboardConn = UserInputService.InputBegan:Connect(function(input, gpe)
+                if not isExpanded then return end
+                if input.KeyCode == Enum.KeyCode.Escape then
+                    if SearchInput and SearchInput:IsFocused() then SearchInput:ReleaseFocus() end
+                    CloseDropdown()
+                elseif input.KeyCode == Enum.KeyCode.Down then
+                    if #visibleItems == 0 then return end
+                    highlightIndex = (highlightIndex == nil) and 1 or math.min(#visibleItems, highlightIndex + 1)
+                    UpdateHighlightVisuals()
+                    local targetCanvasY = math.clamp((highlightIndex - 1) * (ROW_HEIGHT + 3) - 10, 0, 9999)
+                    InnerScroll.CanvasPosition = Vector2.new(0, targetCanvasY)
+                elseif input.KeyCode == Enum.KeyCode.Up then
+                    if #visibleItems == 0 then return end
+                    highlightIndex = (highlightIndex == nil) and #visibleItems or math.max(1, highlightIndex - 1)
+                    UpdateHighlightVisuals()
+                    local targetCanvasY = math.clamp((highlightIndex - 1) * (ROW_HEIGHT + 3) - 10, 0, 9999)
+                    InnerScroll.CanvasPosition = Vector2.new(0, targetCanvasY)
+                elseif input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.KeypadEnter then
+                    if SearchInput and SearchInput:IsFocused() then SearchInput:ReleaseFocus() end
+                    if highlightIndex and visibleItems[highlightIndex] then
+                        local targetItem = visibleItems[highlightIndex]
+                        if isMulti then
+                            local optStr = tostring(targetItem.Opt)
+                            selectedMap[optStr] = not selectedMap[optStr]
+                            UpdateRowVisuals(optStr, true)
+                            UpdateTitleDisplay()
+                            if onSelect then
+                                pcall(onSelect, GetSelectedList(), targetItem.Opt, selectedMap[optStr])
+                            end
+                        else
+                            selectedOption = targetItem.Opt
+                            UpdateTitleDisplay()
+                            UpdateRowVisuals(tostring(selectedOption), true)
+                            CloseDropdown()
+                            if onSelect then
+                                pcall(onSelect, selectedOption)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
 
         local function OpenDropdown()
             if Window.ActiveDropdown and Window.ActiveDropdown ~= dropObj then
@@ -2754,11 +3102,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Window.ActiveDropdown = dropObj
             isExpanded = true
 
-            if DropdownContent.Parent ~= (Window.DropdownOverlay or MainContainer) then
-                DropdownContent.Parent = (Window.DropdownOverlay or MainContainer)
+            local overlay = Window.DropdownOverlay or MainContainer
+            if DropdownContent.Parent ~= overlay then
+                DropdownContent.Parent = overlay
             end
 
-            if isSearchable then
+            if SearchInput then
                 SearchInput.Text = ""
             end
             if type(dropConfig) == "table" and type(dropConfig.GetOptions) == "function" then
@@ -2767,30 +3116,50 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     options = dynamicOpts
                 end
             end
-            RefreshOptions(options, isSearchable and SearchInput.Text or "")
 
-            local scale = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
-            if scale <= 0 then scale = 1 end
+            local visibleCount = RebuildItemRows("")
+            local scale = (UIScaleConstraint and UIScaleConstraint.Scale > 0) and UIScaleConstraint.Scale or 1
             local width = UpdateDropdownPos() or (DropdownFrame.AbsoluteSize.X / scale)
-            local visibleCount = 0
-            for _, child in ipairs(InnerScroll:GetChildren()) do
-                if child:IsA("TextButton") and child.Visible ~= false then
-                    visibleCount = visibleCount + 1
-                end
-            end
-            local extraH = isSearchable and 36 or 0
-            local contentH = visibleCount > 0 and ((visibleCount * 34) + ((visibleCount - 1) * 5)) or 34
-            local neededH = contentH + (isSearchable and 41 or 10)
-            local maxH = 205 + extraH
-            local targetHeight = math.min(neededH, maxH)
+
+            local contentH = (visibleCount > 0) and ((visibleCount * ROW_HEIGHT) + ((visibleCount - 1) * 3)) or 28
+            local neededH = topOffset + contentH + 5
+            local targetHeight = math.clamp(neededH, topOffset + 32, 220)
 
             DropdownContent.Size = UDim2.new(0, width, 0, 0)
             DropdownContent.Visible = true
 
-            TweenService:Create(ArrowIcon, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = 180}):Play()
-            TweenService:Create(DropdownContent, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            TweenService:Create(ArrowIcon, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = 180}):Play()
+            TweenService:Create(DropdownContent, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                 Size = UDim2.new(0, width, 0, targetHeight)
             }):Play()
+
+            -- Fade items in smoothly
+            for _, item in ipairs(visibleItems) do
+                local btn = item.Button
+                local isSel = isMulti and (selectedMap[tostring(item.Opt)] == true) or (tostring(item.Opt) == tostring(selectedOption))
+                local targetBgTrans = isMulti and (isSel and 0.45 or 0.85) or (isSel and 0.15 or 0.65)
+                btn.BackgroundTransparency = 1
+                if not isMulti then
+                    btn.TextTransparency = 1
+                    TweenService:Create(btn, TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                        BackgroundTransparency = targetBgTrans,
+                        TextTransparency = 0
+                    }):Play()
+                else
+                    if item.Label then
+                        item.Label.TextTransparency = 1
+                        TweenService:Create(item.Label, TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 0 }):Play()
+                    end
+                    if item.BoxOuter then
+                        item.BoxOuter.BackgroundTransparency = 1
+                        local boxTarget = isSel and 0 or 0.2
+                        TweenService:Create(item.BoxOuter, TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = boxTarget }):Play()
+                    end
+                    TweenService:Create(btn, TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = targetBgTrans }):Play()
+                end
+            end
+
+            ConnectKeyboard()
         end
 
         TrackConn(HeaderTrigger.MouseEnter:Connect(function()
@@ -2836,58 +3205,123 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         TrackConn(DropdownFrame.AncestryChanged:Connect(function(_, newParent)
             if not newParent then
+                if keyboardConn then keyboardConn:Disconnect() keyboardConn = nil end
                 pcall(function() DropdownContent:Destroy() end)
             end
         end))
 
         dropObj = {
             Frame = DropdownFrame,
+            CardFrame = DropdownFrame,
             Content = DropdownContent,
+            Menu = DropdownContent,
             InnerScroll = InnerScroll,
             TitleText = TitleText,
+            TitleLabel = TitleText,
             ArrowIcon = ArrowIcon,
             Close = CloseDropdown,
             Open = OpenDropdown,
+
+            -- Single dropdown methods
             GetSelected = function() return selectedOption end,
-            GetValue = function() return selectedOption end,
+            GetValue = function() return isMulti and GetSelectedList() or selectedOption end,
             SetSelected = function(selfOrOpt, maybeOpt, maybeTrigger)
                 local opt, trigger
-                if selfOrOpt == dropObj then
-                    opt = maybeOpt
-                    trigger = maybeTrigger
-                else
-                    opt = selfOrOpt
-                    trigger = maybeOpt
-                end
+                if selfOrOpt == dropObj then opt = maybeOpt trigger = maybeTrigger
+                else opt = selfOrOpt trigger = maybeOpt end
                 selectedOption = opt
-                local newDisplay = (title and title ~= "") and (title .. ": " .. tostring(selectedOption or "")) or tostring(selectedOption or "")
-                TitleText.Text = newDisplay
-                RefreshOptions(options)
+                UpdateTitleDisplay()
+                for k in pairs(itemRows) do
+                    UpdateRowVisuals(k, true)
+                end
                 if trigger and onSelect then onSelect(selectedOption) end
             end,
             SetValue = function(selfOrOpt, maybeOpt, maybeTrigger)
                 return dropObj.SetSelected(selfOrOpt, maybeOpt, maybeTrigger)
             end,
+
+            -- Multi dropdown methods
+            GetSelections = GetSelectedList,
+            GetSelectedList = GetSelectedList,
+            SetSelections = function(selfOrSels, maybeSels, maybeTrigger)
+                local sels, trigger
+                if selfOrSels == dropObj then sels = maybeSels trigger = maybeTrigger
+                else sels = selfOrSels trigger = maybeSels end
+                selectedMap = {}
+                if type(sels) == "table" then
+                    for k, v in pairs(sels) do
+                        if type(k) == "number" then selectedMap[tostring(v)] = true
+                        elseif v == true then selectedMap[tostring(k)] = true end
+                    end
+                elseif type(sels) == "string" then
+                    selectedMap[tostring(sels)] = true
+                end
+                UpdateTitleDisplay()
+                for k in pairs(itemRows) do
+                    UpdateRowVisuals(k, true)
+                end
+                if trigger and onSelect then
+                    pcall(onSelect, GetSelectedList(), nil, nil)
+                end
+            end,
+            Select = function(selfOrOpt, maybeOpt, maybeTrigger)
+                local opt, trigger
+                if selfOrOpt == dropObj then opt = maybeOpt trigger = maybeTrigger
+                else opt = selfOrOpt trigger = maybeOpt end
+                if opt then
+                    selectedMap[tostring(opt)] = true
+                    UpdateTitleDisplay()
+                    UpdateRowVisuals(tostring(opt), true)
+                    if trigger and onSelect then pcall(onSelect, GetSelectedList(), opt, true) end
+                end
+            end,
+            Deselect = function(selfOrOpt, maybeOpt, maybeTrigger)
+                local opt, trigger
+                if selfOrOpt == dropObj then opt = maybeOpt trigger = maybeTrigger
+                else opt = selfOrOpt trigger = maybeOpt end
+                if opt then
+                    selectedMap[tostring(opt)] = nil
+                    UpdateTitleDisplay()
+                    UpdateRowVisuals(tostring(opt), true)
+                    if trigger and onSelect then pcall(onSelect, GetSelectedList(), opt, false) end
+                end
+            end,
+            Toggle = function(selfOrOpt, maybeOpt, maybeTrigger)
+                local opt, trigger
+                if selfOrOpt == dropObj then opt = maybeOpt trigger = maybeTrigger
+                else opt = selfOrOpt trigger = maybeOpt end
+                if opt then
+                    local cur = selectedMap[tostring(opt)] == true
+                    selectedMap[tostring(opt)] = not cur
+                    UpdateTitleDisplay()
+                    UpdateRowVisuals(tostring(opt), true)
+                    if trigger and onSelect then pcall(onSelect, GetSelectedList(), opt, not cur) end
+                end
+            end,
+
+            -- Shared options manipulation
             RefreshOptions = function(selfOrOpts, maybeOpts)
                 local newOpts = (type(selfOrOpts) == "table" and selfOrOpts ~= dropObj) and selfOrOpts or maybeOpts or options
-                RefreshOptions(newOpts)
+                options = newOpts
+                RebuildItemRows(currentFilter)
+                UpdateDropdownHeight()
             end,
-            SetValues = function(selfOrOpts, maybeOpts)
-                return dropObj.SetOptions(selfOrOpts, maybeOpts)
-            end,
-            GetValues = function() return options end,
-            GetOptions = function() return options end,
             SetOptions = function(selfOrOpts, maybeOpts)
                 local newOpts = (type(selfOrOpts) == "table" and selfOrOpts ~= dropObj) and selfOrOpts or maybeOpts or {}
                 options = newOpts
-                RefreshOptions(options)
+                RebuildItemRows(currentFilter)
+                UpdateDropdownHeight()
                 return dropObj
             end,
+            GetOptions = function() return options end,
+            SetValues = function(selfOrOpts, maybeOpts) return dropObj.SetOptions(selfOrOpts, maybeOpts) end,
+            GetValues = function() return options end,
             AddOption = function(selfOrOpt, maybeOpt)
                 local newOpt = (type(selfOrOpt) == "string" or type(selfOrOpt) == "number") and selfOrOpt or maybeOpt
                 if newOpt then
                     table.insert(options, tostring(newOpt))
-                    RefreshOptions(options)
+                    RebuildItemRows(currentFilter)
+                    UpdateDropdownHeight()
                 end
                 return dropObj
             end,
@@ -2899,33 +3333,31 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         break
                     end
                 end
+                selectedMap[optToRemove] = nil
                 if tostring(selectedOption) == optToRemove then
                     selectedOption = options[1] or ""
-                    local newDisplay = (title and title ~= "") and (title .. ": " .. tostring(selectedOption or "")) or tostring(selectedOption or "")
-                    TitleText.Text = newDisplay
+                    UpdateTitleDisplay()
                 end
-                RefreshOptions(options)
+                RebuildItemRows(currentFilter)
+                UpdateDropdownHeight()
                 return dropObj
             end,
             ClearOptions = function()
                 options = {}
                 selectedOption = ""
-                local newDisplay = (title and title ~= "") and (title .. ": ") or ""
-                TitleText.Text = newDisplay
-                RefreshOptions(options)
+                selectedMap = {}
+                UpdateTitleDisplay()
+                RebuildItemRows(currentFilter)
+                UpdateDropdownHeight()
                 return dropObj
             end,
+
             SearchContainer = SearchContainer,
             SearchInput = SearchInput,
             WithSearch = function(self, enabled)
                 isSearchable = (enabled ~= false)
-                SearchContainer.Visible = isSearchable
-                if isSearchable then
-                    InnerScroll.Position = UDim2.new(0, 5, 0, 36)
-                    InnerScroll.Size = UDim2.new(1, -10, 1, -41)
-                else
-                    InnerScroll.Position = UDim2.new(0, 5, 0, 5)
-                    InnerScroll.Size = UDim2.new(1, -10, 1, -10)
+                if SearchContainer then
+                    SearchContainer.Visible = isSearchable
                 end
                 return dropObj
             end,
@@ -2936,7 +3368,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TitleText.TextColor3 = theme.Text
                 ArrowIcon.ImageColor3 = theme.Text
                 DropdownContent.BackgroundColor3 = theme.CardBG
-                InnerScroll.ScrollBarImageColor3 = theme.Divider
+                ContentStroke.Color = theme.Divider or Color3.fromRGB(80, 85, 100)
                 if SearchContainer then
                     SearchContainer.BackgroundColor3 = GetThemedDarkColor(theme)
                 end
@@ -2944,7 +3376,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     SearchInput.TextColor3 = theme.Text
                     SearchInput.PlaceholderColor3 = theme.SubText
                 end
-                RefreshOptions(options)
+                for k in pairs(itemRows) do
+                    UpdateRowVisuals(k, false)
+                end
             end
         }
 
@@ -2961,7 +3395,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         dropObj.WithSaveKey = function(self, key)
             if key and key ~= "" then
                 self.SaveKey = key
-                Window.RegisteredDropdowns[key] = self
+                if isMulti then
+                    Window.RegisteredMultiDropdowns[key] = self
+                else
+                    Window.RegisteredDropdowns[key] = self
+                end
             end
             return self
         end
@@ -2969,31 +3407,62 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             self.SetSelected(opt, triggerCb)
             return self
         end
-        dropObj.WithOptions = function(self, newOpts)
-            options = newOpts or {}
-            self.RefreshOptions(options)
+        dropObj.WithSelections = function(self, sels, triggerCb)
+            self:SetSelections(sels, triggerCb)
             return self
         end
+        dropObj.WithOptions = function(self, newOpts)
+            return self.SetOptions(newOpts)
+        end
 
-        local saveKey = (dropConfig and type(dropConfig) == "table" and (dropConfig.SaveKey or dropConfig.saveKey or dropConfig.Identifier or dropConfig.identifier or dropConfig.Id or dropConfig.id)) or (title and title ~= "" and title) or ("Dropdown_" .. (#Window.RegisteredDropdownsList + 1))
+        local saveKey = (dropConfig and type(dropConfig) == "table" and (dropConfig.SaveKey or dropConfig.saveKey or dropConfig.Identifier or dropConfig.identifier or dropConfig.Id or dropConfig.id)) or (title and title ~= "" and title) or ((isMulti and "MultiDropdown_" or "Dropdown_") .. (isMulti and (#Window.RegisteredMultiDropdownsList + 1) or (#Window.RegisteredDropdownsList + 1)))
         dropObj.SaveKey = saveKey
         dropObj.Name = saveKey
-        Window.RegisteredDropdowns[saveKey] = dropObj
-        if title and title ~= "" and not Window.RegisteredDropdowns[title] then
-            Window.RegisteredDropdowns[title] = dropObj
-        end
-        if dropConfig and type(dropConfig) == "table" then
-            local altId = dropConfig.Id or dropConfig.id or dropConfig.Identifier or dropConfig.identifier or dropConfig.SaveKey or dropConfig.saveKey
-            if altId and not Window.RegisteredDropdowns[altId] then
-                Window.RegisteredDropdowns[altId] = dropObj
+
+        if isMulti then
+            if saveKey and saveKey ~= "" then
+                Window.RegisteredMultiDropdowns[saveKey] = dropObj
             end
+            if title and title ~= "" and not Window.RegisteredMultiDropdowns[title] then
+                Window.RegisteredMultiDropdowns[title] = dropObj
+            end
+            if dropConfig and type(dropConfig) == "table" then
+                local altId = dropConfig.Id or dropConfig.id or dropConfig.Identifier or dropConfig.identifier or dropConfig.SaveKey or dropConfig.saveKey
+                if altId and not Window.RegisteredMultiDropdowns[altId] then
+                    Window.RegisteredMultiDropdowns[altId] = dropObj
+                end
+            end
+            table.insert(Window.RegisteredMultiDropdownsList, dropObj)
+        else
+            if saveKey and saveKey ~= "" then
+                Window.RegisteredDropdowns[saveKey] = dropObj
+            end
+            if title and title ~= "" and not Window.RegisteredDropdowns[title] then
+                Window.RegisteredDropdowns[title] = dropObj
+            end
+            if dropConfig and type(dropConfig) == "table" then
+                local altId = dropConfig.Id or dropConfig.id or dropConfig.Identifier or dropConfig.identifier or dropConfig.SaveKey or dropConfig.saveKey
+                if altId and not Window.RegisteredDropdowns[altId] then
+                    Window.RegisteredDropdowns[altId] = dropObj
+                end
+            end
+            table.insert(Window.RegisteredDropdownsList, dropObj)
         end
-        table.insert(Window.RegisteredDropdownsList, dropObj)
+
         if dropConfig and type(dropConfig) == "table" and (dropConfig.Tooltip or dropConfig.tooltip) then
             dropObj:WithTooltip(dropConfig.Tooltip or dropConfig.tooltip)
         end
 
+        RebuildItemRows("")
         return dropObj
+    end
+
+    function Window:CreateMDDropdown(parent, position, size, title, options, defaultOption, onSelect, dropConfig)
+        return BuildGenericDropdown(false, parent, position, size, title, options, defaultOption, onSelect, dropConfig)
+    end
+
+    function Window:CreateMDMultiDropdown(parent, position, size, title, options, defaultSelections, onSelect, multiConfig)
+        return BuildGenericDropdown(true, parent, position, size, title, options, defaultSelections, onSelect, multiConfig)
     end
 
     function Window:CreateMDDropdownHalf(parent, position, size, title, options, defaultOption, onSelect)
@@ -6419,6 +6888,23 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     DropdownOverlay.Parent = MainContainer
     Window.DropdownOverlay = DropdownOverlay
 
+    -- Global listener to close active dropdown on outside click
+    TrackConn(UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        local active = Window.ActiveDropdown
+        if not active or not active.Content or not active.Frame then return end
+        local p = input.Position
+        local function inside(gui)
+            if not gui or not gui.Parent then return false end
+            local a, s = gui.AbsolutePosition, gui.AbsoluteSize
+            return p.X >= a.X and p.X <= a.X + s.X and p.Y >= a.Y and p.Y <= a.Y + s.Y
+        end
+        if not inside(active.Content) and not inside(active.Frame) then
+            pcall(function() active.Close() end)
+        end
+    end))
+
     -- Global floating tooltip engine
     local TooltipFrame = Instance.new("Frame")
     TooltipFrame.Name = GenerateSafeName("Tooltip")
@@ -9339,400 +9825,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 multiOpts = {}
             end
 
+            parentRow = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
             local targetParent = parentRow or ContentFrame
-            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, parentRow and 0.5 or 1.0)
-            local cardSize = explicitUDim or (parentRow and ComputeRowItemWidth(fraction or 0.5, 44) or UDim2.new(1, -10, 0, 44))
+            local isGroup = parentRow and (parentRow.Name == "ToggleGroup" or parentRow.Name == "VerticalGroup" or parentRow.Name == "HorizontalGroup")
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isGroup) and 0.5 or 1.0)
+            local defaultH = isGroup and 38 or (parentRow and 42) or 44
+            local cardSize = explicitUDim or (isGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
             local pos = position or UDim2.new(0, 0, 0, 0)
 
-            local selectedMap = {}
-            if type(defSels) == "table" then
-                for k, v in pairs(defSels) do
-                    if type(k) == "number" then
-                        selectedMap[tostring(v)] = true
-                    elseif v == true then
-                        selectedMap[tostring(k)] = true
-                    end
-                end
-            elseif type(defSels) == "string" then
-                selectedMap[defSels] = true
-            end
-
-            local function GetSelectedList()
-                local list = {}
-                for opt, isSel in pairs(selectedMap) do
-                    if isSel then table.insert(list, opt) end
-                end
-                table.sort(list)
-                return list
-            end
-
-            local inSection = IsInsideSection(targetParent)
-            local CardFrame = Instance.new("Frame")
-            CardFrame.Name = GenerateSafeName("Card")
-            CardFrame:SetAttribute("MDCard", true)
-            CardFrame.Size = cardSize
-            CardFrame.Position = pos
-            CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-            CardFrame.BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
-            CardFrame.BorderSizePixel = 0
-            CardFrame.ZIndex = 10
-            CardFrame.Parent = targetParent
-
-            local CardCorner = Instance.new("UICorner")
-            CardCorner.CornerRadius = UDim.new(0, 8)
-            CardCorner.Parent = CardFrame
-
-            local shadow = AddUIShadow(CardFrame, 20, 0.5)
-            if inSection and Window.SectionsTransparent and shadow then
-                pcall(function() shadow.Visible = false end)
-            end
-
-            local TitleLabel = Instance.new("TextLabel")
-            TitleLabel.Name = "DropdownTitle"
-            TitleLabel.Size = UDim2.new(1, -40, 1, 0)
-            TitleLabel.Position = UDim2.new(0, 14, 0, 0)
-            TitleLabel.BackgroundTransparency = 1
-            TitleLabel.FontFace = FontFingerPaintRegular
-            TitleLabel.Text = title
-            TitleLabel.TextColor3 = Window.CurrentTheme.Text
-            TitleLabel.TextSize = 14
-            TitleLabel.TextTruncate = Enum.TextTruncate.AtEnd
-            TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-            TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
-            TitleLabel.ZIndex = 11
-            TitleLabel.Parent = CardFrame
-
-            local ArrowIcon = Instance.new("ImageLabel")
-            ArrowIcon.Name = "ArrowIcon"
-            ArrowIcon.Size = UDim2.new(0, 14, 0, 14)
-            ArrowIcon.Position = UDim2.new(1, -26, 0.5, -7)
-            ArrowIcon.BackgroundTransparency = 1
-            ArrowIcon.Image = "rbxassetid://6031091004"
-            ArrowIcon.ImageColor3 = Window.CurrentTheme.Text
-            ArrowIcon.ZIndex = 11
-            ArrowIcon.Parent = CardFrame
-
-            local ClickButton = Instance.new("TextButton")
-            ClickButton.Name = "ClickButton"
-            ClickButton.Size = UDim2.new(1, 0, 1, 0)
-            ClickButton.BackgroundTransparency = 1
-            ClickButton.Text = ""
-            ClickButton.ZIndex = 12
-            ClickButton.Parent = CardFrame
-
-            local function UpdateTitleDisplay()
-                local count = 0
-                for _, sel in pairs(selectedMap) do
-                    if sel then count = count + 1 end
-                end
-                if count == 0 then
-                    TitleLabel.Text = title .. ": None"
-                elseif count == 1 then
-                    local single = GetSelectedList()[1] or "1 selected"
-                    TitleLabel.Text = title .. ": " .. single
-                else
-                    TitleLabel.Text = title .. ": (" .. tostring(count) .. " Selected)"
-                end
-            end
-            UpdateTitleDisplay()
-
-            local DropdownMenu = Instance.new("Frame")
-            DropdownMenu.Name = GenerateSafeName("Menu")
-            DropdownMenu.Size = UDim2.new(0, 200, 0, 0)
-            DropdownMenu.BackgroundColor3 = Window.CurrentTheme.CardBG
-            DropdownMenu.BackgroundTransparency = 0.05
-            DropdownMenu.BorderSizePixel = 0
-            DropdownMenu.ClipsDescendants = true
-            DropdownMenu.ZIndex = 600
-            DropdownMenu.Visible = false
-            DropdownMenu.Parent = Window.DropdownOverlay or MainContainer
-
-            local MenuCorner = Instance.new("UICorner")
-            MenuCorner.CornerRadius = UDim.new(0, 8)
-            MenuCorner.Parent = DropdownMenu
-
-            local MenuStroke = Instance.new("UIStroke")
-            MenuStroke.Thickness = 1.2
-            MenuStroke.Color = Color3.fromRGB(255, 255, 255)
-            MenuStroke.Transparency = 0.6
-            MenuStroke.Parent = DropdownMenu
-
-            AddUIShadow(DropdownMenu, 20, 0.5)
-
-            local MenuScroll = Instance.new("ScrollingFrame")
-            MenuScroll.Size = UDim2.new(1, -8, 1, -8)
-            MenuScroll.Position = UDim2.new(0, 4, 0, 4)
-            MenuScroll.BackgroundTransparency = 1
-            MenuScroll.BorderSizePixel = 0
-            MenuScroll.ScrollBarThickness = 2
-            MenuScroll.ScrollBarImageColor3 = Window.CurrentTheme.Divider
-            MenuScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            MenuScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-            MenuScroll.ZIndex = 601
-            MenuScroll.Parent = DropdownMenu
-
-            local MenuLayout = Instance.new("UIListLayout")
-            MenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
-            MenuLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-            MenuLayout.Padding = UDim.new(0, 4)
-            MenuLayout.Parent = MenuScroll
-
-            local isOpen = false
-
-            local function RefreshOptions()
-                for _, child in ipairs(MenuScroll:GetChildren()) do
-                    if child:IsA("GuiObject") then child:Destroy() end
-                end
-
-                for _, opt in ipairs(dropOpts) do
-                    local optStr = tostring(opt)
-                    local isSelected = selectedMap[optStr] == true
-
-                    local itemBtn = Instance.new("TextButton")
-                    itemBtn.Name = "Option_" .. optStr
-                    itemBtn.Size = UDim2.new(1, 0, 0, 28)
-                    itemBtn.BackgroundColor3 = isSelected and Window.CurrentTheme.ButtonBG or Color3.fromRGB(0, 0, 0)
-                    itemBtn.BackgroundTransparency = isSelected and 0.15 or 0.8
-                    itemBtn.Text = ""
-                    itemBtn.ZIndex = 602
-                    itemBtn.Parent = MenuScroll
-
-                    local itemCorner = Instance.new("UICorner")
-                    itemCorner.CornerRadius = UDim.new(0, 6)
-                    itemCorner.Parent = itemBtn
-
-                    local checkIcon = Instance.new("TextLabel")
-                    checkIcon.Size = UDim2.new(0, 20, 1, 0)
-                    checkIcon.Position = UDim2.new(0, 4, 0, 0)
-                    checkIcon.BackgroundTransparency = 1
-                    checkIcon.FontFace = FontFingerPaintBold
-                    checkIcon.Text = isSelected and "[✓]" or "[  ]"
-                    checkIcon.TextColor3 = isSelected and Color3.fromRGB(80, 255, 140) or Window.CurrentTheme.SubText
-                    checkIcon.TextSize = 10
-                    checkIcon.ZIndex = 603
-                    checkIcon.Parent = itemBtn
-
-                    local itemLabel = Instance.new("TextLabel")
-                    itemLabel.Size = UDim2.new(1, -30, 1, 0)
-                    itemLabel.Position = UDim2.new(0, 26, 0, 0)
-                    itemLabel.BackgroundTransparency = 1
-                    itemLabel.FontFace = FontFingerPaintRegular
-                    itemLabel.Text = optStr
-                    itemLabel.TextColor3 = isSelected and Window.CurrentTheme.Text or Window.CurrentTheme.SubText
-                    itemLabel.TextSize = 12
-                    itemLabel.TextXAlignment = Enum.TextXAlignment.Left
-                    itemLabel.TextTruncate = Enum.TextTruncate.AtEnd
-                    itemLabel.ZIndex = 603
-                    itemLabel.Parent = itemBtn
-
-                    itemBtn.MouseButton1Click:Connect(function()
-                        PlayClickSFX()
-                        selectedMap[optStr] = not selectedMap[optStr]
-                        local nowSel = selectedMap[optStr]
-                        checkIcon.Text = nowSel and "[✓]" or "[  ]"
-                        checkIcon.TextColor3 = nowSel and Color3.fromRGB(80, 255, 140) or Window.CurrentTheme.SubText
-                        itemLabel.TextColor3 = nowSel and Window.CurrentTheme.Text or Window.CurrentTheme.SubText
-                        itemBtn.BackgroundColor3 = nowSel and Window.CurrentTheme.ButtonBG or Color3.fromRGB(0, 0, 0)
-                        itemBtn.BackgroundTransparency = nowSel and 0.15 or 0.8
-                        UpdateTitleDisplay()
-                        if cb then
-                            pcall(cb, GetSelectedList(), optStr, nowSel)
-                        end
-                    end)
-                end
-            end
-
-            local function CloseDropdown()
-                if not isOpen then return end
-                isOpen = false
-                TweenService:Create(ArrowIcon, TweenInfo.new(0.2), {Rotation = 0}):Play()
-                TweenService:Create(DropdownMenu, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                    Size = UDim2.new(0, DropdownMenu.Size.X.Offset, 0, 0)
-                }):Play()
-                task.delay(0.21, function()
-                    if not isOpen then DropdownMenu.Visible = false end
-                end)
-            end
-
-            local function OpenDropdown()
-                if isOpen then
-                    CloseDropdown()
-                    return
-                end
-                if Window.ActiveDropdown and Window.ActiveDropdown.Close then
-                    pcall(function() Window.ActiveDropdown.Close() end)
-                end
-                Window.ActiveDropdown = { Close = CloseDropdown }
-
-                RefreshOptions()
-                isOpen = true
-                local overlay = Window.DropdownOverlay or MainContainer
-                if DropdownMenu.Parent ~= overlay then
-                    DropdownMenu.Parent = overlay
-                end
-
-                local absPos = CardFrame.AbsolutePosition
-                local absSize = CardFrame.AbsoluteSize
-                local overlayPos = (overlay and overlay.AbsolutePosition) or Vector2.new(0, 0)
-                local scale = (UIScaleConstraint and UIScaleConstraint.Scale > 0) and UIScaleConstraint.Scale or 1.0
-
-                local relX = (absPos.X - overlayPos.X) / scale
-                local relY = (absPos.Y - overlayPos.Y + absSize.Y + 4) / scale
-                local width = absSize.X / scale
-                local height = math.min(#dropOpts * 32 + 10, 160)
-
-                DropdownMenu.Position = UDim2.new(0, relX, 0, relY)
-                DropdownMenu.Size = UDim2.new(0, width, 0, 0)
-                DropdownMenu.Visible = true
-
-                TweenService:Create(ArrowIcon, TweenInfo.new(0.2), {Rotation = 180}):Play()
-                TweenService:Create(DropdownMenu, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                    Size = UDim2.new(0, width, 0, height)
-                }):Play()
-            end
-
-            TrackConn(ClickButton.MouseButton1Click:Connect(function()
-                PlayClickSFX()
-                OpenDropdown()
-            end))
-
-            local saveKey = (multiOpts and (multiOpts.SaveKey or multiOpts.saveKey or multiOpts.Identifier or multiOpts.identifier or multiOpts.Id or multiOpts.id)) or title
-            local multiDropData = {
-                Name = saveKey,
-                SaveKey = saveKey,
-                TabName = tabName,
-                CardFrame = CardFrame,
-                Menu = DropdownMenu,
-                Close = CloseDropdown,
-                Open = OpenDropdown,
-                GetSelections = GetSelectedList,
-                SetSelections = function(self, listOrMap, triggerCb)
-                    selectedMap = {}
-                    if type(listOrMap) == "table" then
-                        for k, v in pairs(listOrMap) do
-                            if type(k) == "number" then
-                                selectedMap[tostring(v)] = true
-                            elseif v == true then
-                                selectedMap[tostring(k)] = true
-                            end
-                        end
-                    elseif type(listOrMap) == "string" then
-                        selectedMap[listOrMap] = true
-                    end
-                    UpdateTitleDisplay()
-                    RefreshOptions()
-                    if triggerCb and cb then
-                        pcall(cb, GetSelectedList(), nil, nil)
-                    end
-                end,
-                Select = function(self, opt, triggerCb)
-                    selectedMap[tostring(opt)] = true
-                    UpdateTitleDisplay()
-                    RefreshOptions()
-                    if triggerCb and cb then pcall(cb, GetSelectedList(), opt, true) end
-                end,
-                Deselect = function(self, opt, triggerCb)
-                    selectedMap[tostring(opt)] = nil
-                    UpdateTitleDisplay()
-                    RefreshOptions()
-                    if triggerCb and cb then pcall(cb, GetSelectedList(), opt, false) end
-                end,
-                Toggle = function(self, opt, triggerCb)
-                    local cur = selectedMap[tostring(opt)] == true
-                    selectedMap[tostring(opt)] = not cur
-                    UpdateTitleDisplay()
-                    RefreshOptions()
-                    if triggerCb and cb then pcall(cb, GetSelectedList(), opt, not cur) end
-                end,
-                RefreshOptions = RefreshOptions,
-                SetOptions = function(selfOrOpts, maybeOpts)
-                    local newOpts = (type(selfOrOpts) == "table" and selfOrOpts ~= multiDropData) and selfOrOpts or maybeOpts or {}
-                    dropOpts = newOpts
-                    RefreshOptions()
-                    return multiDropData
-                end,
-                AddOption = function(selfOrOpt, maybeOpt)
-                    local newOpt = (type(selfOrOpt) == "string" or type(selfOrOpt) == "number") and selfOrOpt or maybeOpt
-                    if newOpt then
-                        table.insert(dropOpts, tostring(newOpt))
-                        RefreshOptions()
-                    end
-                    return multiDropData
-                end,
-                RemoveOption = function(selfOrOpt, maybeOpt)
-                    local optToRemove = (type(selfOrOpt) == "string" or type(selfOrOpt) == "number") and tostring(selfOrOpt) or tostring(maybeOpt or "")
-                    for i, v in ipairs(dropOpts) do
-                        if tostring(v) == optToRemove then
-                            table.remove(dropOpts, i)
-                            break
-                        end
-                    end
-                    selectedMap[optToRemove] = nil
-                    UpdateTitleDisplay()
-                    RefreshOptions()
-                    return multiDropData
-                end,
-                ClearOptions = function()
-                    dropOpts = {}
-                    selectedMap = {}
-                    UpdateTitleDisplay()
-                    RefreshOptions()
-                    return multiDropData
-                end,
-                RefreshTheme = function(theme)
-                    local inSec = IsInsideSection(CardFrame)
-                    CardFrame.BackgroundColor3 = theme.CardBG
-                    CardFrame.BackgroundTransparency = (inSec and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
-                    TitleLabel.TextColor3 = theme.Text
-                    ArrowIcon.ImageColor3 = theme.Text
-                    DropdownMenu.BackgroundColor3 = theme.CardBG
-                    MenuScroll.ScrollBarImageColor3 = theme.Divider
-                    RefreshOptions()
-                end
-            }
-
-            multiDropData.WithCallback = function(self, fn)
-                cb = fn
-                return self
-            end
-            multiDropData.WithTooltip = function(self, tt)
-                if Window.AttachTooltip and CardFrame then
-                    Window:AttachTooltip(CardFrame, tt)
-                end
-                return self
-            end
-            multiDropData.WithSaveKey = function(self, key)
-                if key and key ~= "" then
-                    self.SaveKey = key
-                    Window.RegisteredMultiDropdowns[key] = self
-                end
-                return self
-            end
-            multiDropData.WithSelections = function(self, sels, triggerCb)
-                self:SetSelections(sels, triggerCb)
-                return self
-            end
-
-            if multiOpts and type(multiOpts) == "table" and (multiOpts.Tooltip or multiOpts.tooltip) then
-                multiDropData:WithTooltip(multiOpts.Tooltip or multiOpts.tooltip)
-            end
-            if multiOpts and type(multiOpts) == "table" and (multiOpts.SaveKey or multiOpts.saveKey) then
-                multiDropData:WithSaveKey(multiOpts.SaveKey or multiOpts.saveKey)
-            end
-
-            if saveKey and saveKey ~= "" then
-                Window.RegisteredMultiDropdowns[saveKey] = multiDropData
-            end
-            if title and title ~= "" and not Window.RegisteredMultiDropdowns[title] then
-                Window.RegisteredMultiDropdowns[title] = multiDropData
-            end
-            if multiOpts and type(multiOpts) == "table" then
-                local altId = multiOpts.Id or multiOpts.id or multiOpts.Identifier or multiOpts.identifier or multiOpts.SaveKey or multiOpts.saveKey
-                if altId and not Window.RegisteredMultiDropdowns[altId] then
-                    Window.RegisteredMultiDropdowns[altId] = multiDropData
-                end
-            end
-            table.insert(Window.RegisteredMultiDropdownsList, multiDropData)
+            local multiDropData = Window:CreateMDMultiDropdown(targetParent, pos, cardSize, title, dropOpts, defSels, cb, multiOpts)
 
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
             table.insert(Window.SearchableItems, {
@@ -9740,7 +9841,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Name = title or "MultiDropdown",
                 Desc = "",
                 TabName = tabName,
-                Instance = CardFrame
+                Instance = multiDropData.Frame
             })
 
             return multiDropData
