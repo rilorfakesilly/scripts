@@ -27,6 +27,8 @@ local UserInputService = game:GetService("UserInputService")
 local TeleportService = game:GetService("TeleportService")
 local ContentProvider = game:GetService("ContentProvider")
 local LightingService = game:GetService("Lighting")
+local TweenService   = game:GetService("TweenService")
+local Debris         = game:GetService("Debris")
 math.randomseed(math.random(1000, 9999) + tick())
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -121,7 +123,6 @@ state = {
     aimbotEnabled = false,
     autoAimEnabled = false,
     autoAimWallbang = false,
-    autoAimPredictionMode = "Auto (MoveDirection)",
     antiFlingEnabled = false,
     chinaHatEnabled = false,
     spinbotEnabled = false,
@@ -135,10 +136,19 @@ state = {
     chamsMurdererColor = Color3.fromRGB(255, 70, 70),
     chamsSheriffColor = Color3.fromRGB(90, 120, 255),
     chamsInnocentColor = Color3.fromRGB(50, 230, 110),
+    chamsFillTransparency = 0.45,
+    chamsOutlineTransparency = 0,
     boxEspEnabled = false,
     nameEspEnabled = true,
     roleEspEnabled = true,
     gunEspEnabled = true,
+    skeletonEspEnabled = false,
+    skeletonColorMode = "Normal",
+    skeletonUseRoleColor = true,
+    skeletonColor = Color3.fromRGB(255, 255, 255),
+    skeletonColor2 = Color3.fromRGB(0, 170, 255),
+    skeletonThickness = 1.5,
+    skeletonTransparency = 0,
     
     -- select targets for physics flinging
     targetUsername = "",
@@ -188,6 +198,10 @@ state = {
     -- queue automated box purchases
     autoOpenCratesEnabled = false,
     selectedCrateType = "MysteryBox1",
+    autoServerHopEnabled = false,
+    autoServerHopIntervalMin = 15,
+    autoServerHopWaitForRound = true,
+    lastServerHopTimer = 0,
     colorShiftSpeed = 3,
     configFileName = "MM2_MD_CONFIG.json",
 
@@ -495,7 +509,7 @@ end
 
 
 
--- live mm2values.com online scraper and item value cache
+-- MM2 Values Cache & Scraper (mm2checker.com)
 local MM2Values = {}
 local MM2ValuesNormalized = {}
 local MM2ValuesByRarity = {}
@@ -504,123 +518,2926 @@ local MM2ValueDisplays = {}
 local isFetchingMM2Values = false
 local hasFetchedMM2Values = false
 
+local function storeItem(rName, name, numVal)
+    if not name or name == '' or not numVal then return end
+    if not MM2ValuesByRarity[rName]           then MM2ValuesByRarity[rName] = {} end
+    if not MM2ValuesNormalizedByRarity[rName] then MM2ValuesNormalizedByRarity[rName] = {} end
+
+    local normKey = name:lower():gsub('[^%w]', '')
+    MM2Values[name]                             = numVal
+    MM2ValuesNormalized[normKey]                 = numVal
+    MM2ValuesByRarity[rName][name]               = numVal
+    MM2ValuesNormalizedByRarity[rName][normKey]     = numVal
+    MM2ValueDisplays[name]                      = tostring(numVal)
+
+    -- Chroma aliases: "C. Traveler's Gun" <-> "Chroma Traveler's Gun"
+    if name:find('^C%.%s*') then
+        local chromaName = name:gsub('^C%.%s*', 'Chroma ')
+        local cNorm = chromaName:lower():gsub('[^%w]', '')
+        MM2Values[chromaName] = numVal
+        MM2ValuesNormalized[cNorm] = numVal
+        MM2ValuesByRarity[rName][chromaName] = numVal
+        MM2ValuesNormalizedByRarity[rName][cNorm] = numVal
+    elseif name:find('^Chroma%s+') then
+        local cDotName = name:gsub('^Chroma%s+', 'C. ')
+        local cNorm = cDotName:lower():gsub('[^%w]', '')
+        MM2Values[cDotName] = numVal
+        MM2ValuesNormalized[cNorm] = numVal
+        MM2ValuesByRarity[rName][cDotName] = numVal
+        MM2ValuesNormalizedByRarity[rName][cNorm] = numVal
+    end
+
+    -- Index without parentheses e.g. "Cursed (Knife)" -> "Cursed"
+    local noParens = name:gsub('%s*%b()', ''):gsub('^%s+', ''):gsub('%s+$', '')
+    if noParens ~= name and noParens ~= '' then
+        local npNorm = noParens:lower():gsub('[^%w]', '')
+        if not MM2Values[noParens] then MM2Values[noParens] = numVal end
+        if not MM2ValuesNormalized[npNorm] then MM2ValuesNormalized[npNorm] = numVal end
+        if not MM2ValuesByRarity[rName][noParens] then MM2ValuesByRarity[rName][noParens] = numVal end
+        if not MM2ValuesNormalizedByRarity[rName][npNorm] then MM2ValuesNormalizedByRarity[rName][npNorm] = numVal end
+    end
+
+    -- Index without weapon suffix
+    local noSuf = name
+        :gsub('%s+[Kk]nife$', '')
+        :gsub('%s+[Gg]un$',   '')
+        :gsub('%s+[Aa]xe$',   '')
+        :gsub('%s+[Ss]cythe$','')
+        :gsub('%s+[Ss]word$', '')
+        :gsub('%s+[Bb]lade$', '')
+        :gsub('%s+[Dd]agger$','')
+        :gsub('%s+[Ss]aber$', '')
+    if noSuf ~= name and noSuf ~= '' then
+        local noSufNorm = noSuf:lower():gsub('[^%w]', '')
+        if not MM2Values[noSuf]                         then MM2Values[noSuf] = numVal end
+        if not MM2ValuesNormalized[noSufNorm]           then MM2ValuesNormalized[noSufNorm] = numVal end
+        if not MM2ValuesByRarity[rName][noSuf]          then MM2ValuesByRarity[rName][noSuf] = numVal end
+        if not MM2ValuesNormalizedByRarity[rName][noSufNorm] then MM2ValuesNormalizedByRarity[rName][noSufNorm] = numVal end
+    end
+end
+
+-- Pre-compiled static MM2Checker item values (always available instantly without HTTP)
+local MM2_STATIC_VALUES = {
+    ["2015"] = { val = 0.8, rarity = "Common" },
+    ["8Bit"] = { val = 0.05, rarity = "Common" },
+    ["<3"] = { val = 14, rarity = "Pets" },
+    ["Abduction"] = { val = 0.15, rarity = "Uncommon" },
+    ["Abstract"] = { val = 0.3, rarity = "Rare" },
+    ["Ace"] = { val = 0.3, rarity = "Rare" },
+    ["Adurite (Gun)"] = { val = 0.2, rarity = "Uncommon" },
+    ["Adurite (Knife)"] = { val = 0.2, rarity = "Uncommon" },
+    ["Alex"] = { val = 4, rarity = "Common" },
+    ["Alienbeam"] = { val = 3046, rarity = "Godly" },
+    ["Aliens"] = { val = 0.12, rarity = "Common" },
+    ["America"] = { val = 10, rarity = "Vintage" },
+    ["Amerilaser"] = { val = 31, rarity = "Godly" },
+    ["Apocalypse (Gun)"] = { val = 0.45, rarity = "Common" },
+    ["Apocalypse (Knife)"] = { val = 0.45, rarity = "Common" },
+    ["Aqua"] = { val = 0.05, rarity = "Common" },
+    ["Aquarium (Gun)"] = { val = 0.6, rarity = "Legendary" },
+    ["Aquarium (Knife)"] = { val = 0.45, rarity = "Legendary" },
+    ["Arctic (Gun)"] = { val = 7, rarity = "Legendary" },
+    ["Arctic (Knife)"] = { val = 0.8, rarity = "Legendary" },
+    ["Asteroid"] = { val = 4, rarity = "Common" },
+    ["Aurora (Gun)"] = { val = 1, rarity = "Rare" },
+    ["Aurora (Knife)"] = { val = 16, rarity = "Rare" },
+    ["Australis"] = { val = 137, rarity = "Godly" },
+    ["Bacon"] = { val = 0.3, rarity = "Rare" },
+    ["Badger"] = { val = 1, rarity = "Pets" },
+    ["Balloons"] = { val = 0.1, rarity = "Common" },
+    ["Bat"] = { val = 0.23, rarity = "Pets" },
+    ["Bats"] = { val = 4, rarity = "Rare" },
+    ["Bats (2020)"] = { val = 0.25, rarity = "Common" },
+    ["Bats (Gun)"] = { val = 1, rarity = "Common" },
+    ["Bats (Knife)"] = { val = 171, rarity = "Common" },
+    ["Bats Gun (2024)"] = { val = 0.15, rarity = "Common" },
+    ["Bats Knife (2024)"] = { val = 0.1, rarity = "Common" },
+    ["Battleaxe"] = { val = 16, rarity = "Godly" },
+    ["Battleaxe II"] = { val = 23, rarity = "Godly" },
+    ["Batwing"] = { val = 62, rarity = "Ancient" },
+    ["Bauble"] = { val = 1232, rarity = "Godly" },
+    ["Beach"] = { val = 41, rarity = "Legendary" },
+    ["Bear"] = { val = 0.15, rarity = "Pets" },
+    ["Bells"] = { val = 0.1, rarity = "Common" },
+    ["Big Kill"] = { val = 0.05, rarity = "Common" },
+    ["Bio"] = { val = 0.38, rarity = "Rare" },
+    ["Bioblade"] = { val = 14, rarity = "Godly" },
+    ["Biogun"] = { val = 0.2, rarity = "Uncommon" },
+    ["Bit"] = { val = 0.05, rarity = "Common" },
+    ["Black"] = { val = 0.3, rarity = "Rare" },
+    ["Black Cat"] = { val = 274, rarity = "Pets" },
+    ["Blaster"] = { val = 25, rarity = "Godly" },
+    ["Bleached"] = { val = 0.05, rarity = "Common" },
+    ["Blizzard"] = { val = 219, rarity = "Godly" },
+    ["Blood"] = { val = 11, rarity = "Vintage" },
+    ["Bloom"] = { val = 431, rarity = "Godly" },
+    ["Blossom"] = { val = 0.8, rarity = "Common" },
+    ["Blue"] = { val = 0.2, rarity = "Uncommon" },
+    ["Blue Elite"] = { val = 4, rarity = "Legendary" },
+    ["Blue Pumpkin (2018)"] = { val = 301, rarity = "Pets" },
+    ["Blue Pumpkin (2019)"] = { val = 3, rarity = "Pets" },
+    ["Blue Pumpkin (2020)"] = { val = 4, rarity = "Pets" },
+    ["Blue Scratch"] = { val = 3, rarity = "Legendary" },
+    ["Blue Seer"] = { val = 4, rarity = "Godly" },
+    ["Bluesteel (Gun)"] = { val = 0.2, rarity = "Uncommon" },
+    ["Bluesteel (Knife)"] = { val = 0.2, rarity = "Uncommon" },
+    ["Boneblade"] = { val = 10, rarity = "Godly" },
+    ["Bones"] = { val = 1, rarity = "Common" },
+    ["Bones (Knife)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Borders"] = { val = 0.05, rarity = "Common" },
+    ["Borealis"] = { val = 144, rarity = "Godly" },
+    ["Box of Blue Papers"] = { val = 3, rarity = "Other" },
+    ["Box of Fertilizer"] = { val = 3, rarity = "Other" },
+    ["Box of Gold Papers"] = { val = 3, rarity = "Other" },
+    ["Box of Green Papers"] = { val = 3, rarity = "Other" },
+    ["Box of Purple Papers"] = { val = 3, rarity = "Other" },
+    ["Box of Red Papers"] = { val = 3, rarity = "Other" },
+    ["Box of Ultra Wrap"] = { val = 3, rarity = "Other" },
+    ["Brains"] = { val = 1, rarity = "Common" },
+    ["Brains 2022"] = { val = 0.23, rarity = "Uncommon" },
+    ["Branches"] = { val = 41, rarity = "Uncommon" },
+    ["Broken"] = { val = 10, rarity = "Legendary" },
+    ["Brown"] = { val = 0.05, rarity = "Common" },
+    ["Brush"] = { val = 0.2, rarity = "Uncommon" },
+    ["Bunnies"] = { val = 5, rarity = "Legendary" },
+    ["Bunny"] = { val = 0.8, rarity = "Common" },
+    ["Butterflies"] = { val = 0.25, rarity = "Rare" },
+    ["C. Candleflame"] = { val = 62, rarity = "Godly" },
+    ["C. Constellation"] = { val = 49284, rarity = "Godly" },
+    ["C. Cookiecane"] = { val = 52, rarity = "Godly" },
+    ["C. Darkbringer"] = { val = 103, rarity = "Godly" },
+    ["C. Deathshard"] = { val = 52, rarity = "Godly" },
+    ["C. Elderwood Blade"] = { val = 62, rarity = "Godly" },
+    ["C. Fire Bunny"] = { val = 7, rarity = "Pets" },
+    ["C. Gingerblade"] = { val = 44, rarity = "Godly" },
+    ["C. Heart Wand"] = { val = 6503, rarity = "Godly" },
+    ["C. Lightbringer"] = { val = 96, rarity = "Godly" },
+    ["C. Snow Dagger"] = { val = 7872, rarity = "Godly" },
+    ["C. Snowcannon"] = { val = 11636, rarity = "Godly" },
+    ["C. Swirly Gun"] = { val = 62, rarity = "Godly" },
+    ["C. Traveler's Gun"] = { val = 308025, rarity = "Godly" },
+    ["C. Vampire's Gun"] = { val = 47915, rarity = "Godly" },
+    ["Camo (Gun)"] = { val = 0.2, rarity = "Uncommon" },
+    ["Camo (Knife)"] = { val = 0.2, rarity = "Uncommon" },
+    ["Candied (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Candied (Knife)"] = { val = 0.15, rarity = "Common" },
+    ["Candies (2016)"] = { val = 0.1, rarity = "Other" },
+    ["Candies (2017)"] = { val = 0.05, rarity = "Other" },
+    ["Candle"] = { val = 0.15, rarity = "Common" },
+    ["Candleflame"] = { val = 55, rarity = "Godly" },
+    ["Candleflame (Gun)"] = { val = 0.25, rarity = "Rare" },
+    ["Candles"] = { val = 0.15, rarity = "Common" },
+    ["Candy"] = { val = 116, rarity = "Godly" },
+    ["Candy Corn (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Candy Corn (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Candy Swirl (Gun)"] = { val = 7, rarity = "Rare" },
+    ["Candy Swirl (Knife)"] = { val = 1, rarity = "Rare" },
+    ["CandyCorn (2019)"] = { val = 4, rarity = "Common" },
+    ["CandyCorn (Gun)"] = { val = 0.15, rarity = "Common" },
+    ["CandyCorn (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["CandyCorn 2017"] = { val = 21, rarity = "Common" },
+    ["Cane (Gun)"] = { val = 0.8, rarity = "Rare" },
+    ["Cane (Knife)"] = { val = 0.8, rarity = "Rare" },
+    ["Cane 2018 (Gun)"] = { val = 0.6, rarity = "Rare" },
+    ["Cane 2021 (Gun)"] = { val = 0.23, rarity = "Common" },
+    ["Cane 2021 (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Cane Knife (2018)"] = { val = 1232, rarity = "Rare" },
+    ["Canes (Gun)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Canes (Knife)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Cardboard"] = { val = 0.05, rarity = "Common" },
+    ["Carrot"] = { val = 0.8, rarity = "Common" },
+    ["Carrot (Gun)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Carrot (Knife)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Carrot Bunny"] = { val = 0.38, rarity = "Pets" },
+    ["Carrots"] = { val = 0.15, rarity = "Common" },
+    ["Carved (Gun)"] = { val = 0.15, rarity = "Common" },
+    ["Carved (Knife)"] = { val = 0.15, rarity = "Common" },
+    ["Cat"] = { val = 0.05, rarity = "Pets" },
+    ["Cats"] = { val = 0.15, rarity = "Common" },
+    ["Caution"] = { val = 0.2, rarity = "Uncommon" },
+    ["Cavern (Gun)"] = { val = 1, rarity = "Legendary" },
+    ["Cavern (Knife)"] = { val = 10, rarity = "Legendary" },
+    ["Celestial"] = { val = 2396, rarity = "Ancient" },
+    ["Checkers"] = { val = 0.23, rarity = "Uncommon" },
+    ["Cheddar"] = { val = 0.2, rarity = "Uncommon" },
+    ["Cheesy"] = { val = 0.2, rarity = "Uncommon" },
+    ["Cherry"] = { val = 0.05, rarity = "Common" },
+    ["Chick"] = { val = 0.15, rarity = "Common" },
+    ["Chill"] = { val = 14, rarity = "Godly" },
+    ["Chilly"] = { val = 10, rarity = "Pets" },
+    ["Choco"] = { val = 0.8, rarity = "Common" },
+    ["Chroma Alienbeam"] = { val = 41070, rarity = "Godly" },
+    ["Chroma Bauble"] = { val = 52022, rarity = "Godly" },
+    ["Chroma Blizzard"] = { val = 10952, rarity = "Godly" },
+    ["Chroma Boneblade"] = { val = 37, rarity = "Godly" },
+    ["Chroma Evergreen"] = { val = 82140, rarity = "Godly" },
+    ["Chroma Evergun"] = { val = 105413, rarity = "Godly" },
+    ["Chroma Fang"] = { val = 48, rarity = "Godly" },
+    ["Chroma Fire Bat"] = { val = 7, rarity = "Pets" },
+    ["Chroma Fire Bear"] = { val = 7, rarity = "Pets" },
+    ["Chroma Fire Cat"] = { val = 7, rarity = "Pets" },
+    ["Chroma Fire Dog"] = { val = 7, rarity = "Pets" },
+    ["Chroma Fire Fox"] = { val = 7, rarity = "Pets" },
+    ["Chroma Fire Pig"] = { val = 7, rarity = "Pets" },
+    ["Chroma Gemstone"] = { val = 44, rarity = "Godly" },
+    ["Chroma Heat"] = { val = 44, rarity = "Godly" },
+    ["Chroma Laser"] = { val = 57, rarity = "Godly" },
+    ["Chroma Luger"] = { val = 75, rarity = "Godly" },
+    ["Chroma Ornament"] = { val = 3628, rarity = "Godly" },
+    ["Chroma Raygun"] = { val = 20193, rarity = "Godly" },
+    ["Chroma Saw"] = { val = 41, rarity = "Godly" },
+    ["Chroma Seer"] = { val = 44, rarity = "Godly" },
+    ["Chroma Shark"] = { val = 48, rarity = "Godly" },
+    ["Chroma Slasher"] = { val = 52, rarity = "Godly" },
+    ["Chroma Snowstorm"] = { val = 5818, rarity = "Godly" },
+    ["Chroma Sunrise"] = { val = 15401, rarity = "Godly" },
+    ["Chroma Sunset"] = { val = 8898, rarity = "Godly" },
+    ["Chroma Sweet"] = { val = 3902, rarity = "Godly" },
+    ["Chroma Tides"] = { val = 41, rarity = "Godly" },
+    ["Chroma Treat"] = { val = 6640, rarity = "Godly" },
+    ["Chroma Watergun"] = { val = 4655, rarity = "Godly" },
+    ["Chromatic (Gun)"] = { val = 0.8, rarity = "Legendary" },
+    ["Chromatic (Knife)"] = { val = 1, rarity = "Legendary" },
+    ["Circuit"] = { val = 0.2, rarity = "Uncommon" },
+    ["Clan"] = { val = 0.05, rarity = "Common" },
+    ["Clockwork"] = { val = 14, rarity = "Godly" },
+    ["Clown (Gun)"] = { val = 0.05, rarity = "Common" },
+    ["Clown (Knife)"] = { val = 0.05, rarity = "Common" },
+    ["Clown Gun (2024)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Clownfish (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Clownfish (Knife)"] = { val = 0.15, rarity = "Common" },
+    ["Coal"] = { val = 0.15, rarity = "Common" },
+    ["Coal (Gun)"] = { val = 0.12, rarity = "Common" },
+    ["Coal (Knife)"] = { val = 16, rarity = "Common" },
+    ["Coal 2021 (Gun)"] = { val = 0.15, rarity = "Common" },
+    ["Coal 2021 (Knife)"] = { val = 0.23, rarity = "Common" },
+    ["Coal 2022 (Gun)"] = { val = 0.12, rarity = "Common" },
+    ["Coal 2022 (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Coconut"] = { val = 0.1, rarity = "Common" },
+    ["Cold"] = { val = 0.05, rarity = "Common" },
+    ["Combat"] = { val = 0.05, rarity = "Common" },
+    ["Combat II"] = { val = 14, rarity = "Common" },
+    ["Constellation"] = { val = 3559, rarity = "Godly" },
+    ["Cookie (Gun)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Cookie (Knife)"] = { val = 0.25, rarity = "Uncommon" },
+    ["Cookieblade"] = { val = 4, rarity = "Godly" },
+    ["Cookiecane"] = { val = 21, rarity = "Godly" },
+    ["Copper"] = { val = 0.05, rarity = "Common" },
+    ["Corl"] = { val = 4, rarity = "Common" },
+    ["Corrupt"] = { val = 821, rarity = "Other" },
+    ["Cotton Candy"] = { val = 55, rarity = "Legendary" },
+    ["Cowboy"] = { val = 5, rarity = "Vintage" },
+    ["Cracks (Gun)"] = { val = 0.12, rarity = "Common" },
+    ["Cracks (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Cupid"] = { val = 0.6, rarity = "Legendary" },
+    ["Curse"] = { val = 0.38, rarity = "Rare" },
+    ["Cursed (Gun)"] = { val = 0.45, rarity = "Legendary" },
+    ["Cursed (Knife)"] = { val = 0.6, rarity = "Legendary" },
+    ["Damp"] = { val = 0.25, rarity = "Rare" },
+    ["Darkbringer"] = { val = 55, rarity = "Godly" },
+    ["Darkgun"] = { val = 0.8, rarity = "Rare" },
+    ["Darkknife"] = { val = 23, rarity = "Rare" },
+    ["Darkness (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Darkness (Knife)"] = { val = 0.12, rarity = "Common" },
+    ["Darkshot"] = { val = 1930, rarity = "Godly" },
+    ["Darksword"] = { val = 1903, rarity = "Godly" },
+    ["Deathshard"] = { val = 18, rarity = "Godly" },
+    ["Deathspeaker"] = { val = 1, rarity = "Pets" },
+    ["Decorated"] = { val = 0.23, rarity = "Uncommon" },
+    ["Deep Sea"] = { val = 0.23, rarity = "Rare" },
+    ["Denis"] = { val = 4, rarity = "Common" },
+    ["Dog"] = { val = 0.05, rarity = "Pets" },
+    ["Doge"] = { val = 0.2, rarity = "Uncommon" },
+    ["Dogey"] = { val = 151, rarity = "Pets" },
+    ["Dolphins"] = { val = 0.1, rarity = "Common" },
+    ["Donut"] = { val = 0.15, rarity = "Uncommon" },
+    ["Dungeon"] = { val = 68, rarity = "Rare" },
+    ["Eclipse"] = { val = 0.23, rarity = "Uncommon" },
+    ["Eco"] = { val = 0.05, rarity = "Common" },
+    ["Ecto"] = { val = 11, rarity = "Common" },
+    ["Egg"] = { val = 0.8, rarity = "Common" },
+    ["Eggblade"] = { val = 7, rarity = "Godly" },
+    ["Elderwood Blade"] = { val = 55, rarity = "Godly" },
+    ["Elderwood Revolver"] = { val = 55, rarity = "Godly" },
+    ["Elderwood Scythe"] = { val = 62, rarity = "Ancient" },
+    ["Electro"] = { val = 1, rarity = "Pets" },
+    ["Elf"] = { val = 14, rarity = "Pets" },
+    ["Elf (2018)"] = { val = 1, rarity = "Common" },
+    ["Elf (2019)"] = { val = 287, rarity = "Pets" },
+    ["Elf (2023)"] = { val = 0.1, rarity = "Common" },
+    ["Elf (Gun)"] = { val = 0.8, rarity = "Common" },
+    ["Elf (Knife)"] = { val = 23, rarity = "Common" },
+    ["Elf 2017"] = { val = 0.15, rarity = "Common" },
+    ["Elite"] = { val = 0.38, rarity = "Legendary" },
+    ["Elitey"] = { val = 0.12, rarity = "Pets" },
+    ["Emerald"] = { val = 0.8, rarity = "Legendary" },
+    ["Energized (Gun)"] = { val = 1, rarity = "Legendary" },
+    ["Energized (Knife)"] = { val = 0.8, rarity = "Legendary" },
+    ["Engraved"] = { val = 0.05, rarity = "Common" },
+    ["Etched"] = { val = 0.23, rarity = "Common" },
+    ["Eternal"] = { val = 11, rarity = "Godly" },
+    ["Eternal II"] = { val = 11, rarity = "Godly" },
+    ["Eternal III"] = { val = 14, rarity = "Godly" },
+    ["Eternal IV"] = { val = 14, rarity = "Godly" },
+    ["Eternalcane"] = { val = 21, rarity = "Godly" },
+    ["Euro"] = { val = 5, rarity = "Common" },
+    ["Evergreen"] = { val = 3354, rarity = "Godly" },
+    ["Evergun"] = { val = 4518, rarity = "Godly" },
+    ["Eyeball"] = { val = 10, rarity = "Pets" },
+    ["Eyes"] = { val = 0.23, rarity = "Uncommon" },
+    ["Fade"] = { val = 0.5, rarity = "Legendary" },
+    ["Fairy"] = { val = 11, rarity = "Pets" },
+    ["Fall"] = { val = 0.1, rarity = "Common" },
+    ["Fall Camo"] = { val = 0.23, rarity = "Uncommon" },
+    ["Fallout"] = { val = 0.05, rarity = "Common" },
+    ["Fang"] = { val = 14, rarity = "Godly" },
+    ["Fire Bat"] = { val = 0.8, rarity = "Pets" },
+    ["Fire Bear"] = { val = 0.8, rarity = "Pets" },
+    ["Fire Bunny"] = { val = 0.8, rarity = "Pets" },
+    ["Fire Cat"] = { val = 0.8, rarity = "Pets" },
+    ["Fire Dog"] = { val = 0.8, rarity = "Pets" },
+    ["Fire Fox"] = { val = 0.8, rarity = "Pets" },
+    ["Fire Pig"] = { val = 0.8, rarity = "Pets" },
+    ["Fireplace"] = { val = 0.15, rarity = "Uncommon" },
+    ["Flames"] = { val = 7, rarity = "Godly" },
+    ["Floatie"] = { val = 0.23, rarity = "Uncommon" },
+    ["Flora"] = { val = 445, rarity = "Godly" },
+    ["Floral (Gun)"] = { val = 0.25, rarity = "Rare" },
+    ["Floral (Knife)"] = { val = 11, rarity = "Rare" },
+    ["Flowerwood"] = { val = 274, rarity = "Godly" },
+    ["Flowerwood Gun"] = { val = 281, rarity = "Godly" },
+    ["Forest"] = { val = 0.15, rarity = "Uncommon" },
+    ["Fox"] = { val = 0.1, rarity = "Pets" },
+    ["Fragile (Gun)"] = { val = 0.25, rarity = "Common" },
+    ["Fragile (Knife)"] = { val = 0.25, rarity = "Common" },
+    ["Frostbird"] = { val = 1, rarity = "Pets" },
+    ["Frostbite"] = { val = 10, rarity = "Godly" },
+    ["Frosted (Gun)"] = { val = 0.45, rarity = "Common" },
+    ["Frosted (Knife)"] = { val = 23, rarity = "Common" },
+    ["Frostfade (Gun)"] = { val = 0.45, rarity = "Legendary" },
+    ["Frostfade (Knife)"] = { val = 1, rarity = "Legendary" },
+    ["Frostflame (Gun)"] = { val = 0.38, rarity = "Rare" },
+    ["Frostflame (Knife)"] = { val = 0.25, rarity = "Rare" },
+    ["Frostsaber"] = { val = 14, rarity = "Godly" },
+    ["Frosty"] = { val = 0.25, rarity = "Uncommon" },
+    ["Frozen (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Frozen (Knife)"] = { val = 0.15, rarity = "Common" },
+    ["Fusion"] = { val = 0.5, rarity = "Legendary" },
+    ["Future"] = { val = 0.23, rarity = "Uncommon" },
+    ["Galactic"] = { val = 0.3, rarity = "Rare" },
+    ["Galaxy"] = { val = 0.3, rarity = "Rare" },
+    ["Gemstone"] = { val = 21, rarity = "Godly" },
+    ["Ghastly (Gun)"] = { val = 4, rarity = "Rare" },
+    ["Ghastly (Knife)"] = { val = 0.25, rarity = "Rare" },
+    ["Ghost"] = { val = 14, rarity = "Vintage" },
+    ["Ghost (Gun)"] = { val = 3, rarity = "Legendary" },
+    ["Ghost (Knife)"] = { val = 7, rarity = "Legendary" },
+    ["Ghostblade"] = { val = 10, rarity = "Godly" },
+    ["Ghostfire"] = { val = 0.8, rarity = "Rare" },
+    ["Ghostly"] = { val = 0.15, rarity = "Uncommon" },
+    ["Ghosts (2023)"] = { val = 0.15, rarity = "Common" },
+    ["Ghosts (2024)"] = { val = 0.1, rarity = "Common" },
+    ["Ghosts (Gun)"] = { val = 0.38, rarity = "Rare" },
+    ["Ghosts (Knife)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Ghosty"] = { val = 4, rarity = "Common" },
+    ["Ghoulish"] = { val = 68, rarity = "Common" },
+    ["Gift Bag (Gun)"] = { val = 0.12, rarity = "Common" },
+    ["Gift Bag (Knife)"] = { val = 0.15, rarity = "Common" },
+    ["Gifted"] = { val = 0.8, rarity = "Uncommon" },
+    ["Gifts (2024)"] = { val = 0.15, rarity = "Common" },
+    ["Gifts (Gun)"] = { val = 0.25, rarity = "Common" },
+    ["Gifts (Knife)"] = { val = 110, rarity = "Common" },
+    ["Gifts 2015"] = { val = 0.45, rarity = "Other" },
+    ["Giftwrap"] = { val = 0.1, rarity = "Common" },
+    ["Ginger (Gun)"] = { val = 0.8, rarity = "Rare" },
+    ["Ginger (Knife)"] = { val = 0.8, rarity = "Rare" },
+    ["Ginger Luger"] = { val = 23, rarity = "Godly" },
+    ["Gingerblade"] = { val = 21, rarity = "Godly" },
+    ["Gingerbread"] = { val = 0.23, rarity = "Uncommon" },
+    ["Gingerbread (Gun)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Gingerbread (Knife)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Gingercookie (Gun)"] = { val = 0.38, rarity = "Rare" },
+    ["Gingercookie (Knife)"] = { val = 0.38, rarity = "Rare" },
+    ["Gingerheart"] = { val = 0.25, rarity = "Uncommon" },
+    ["Gingermint"] = { val = 21, rarity = "Godly" },
+    ["Gingerscope"] = { val = 24300, rarity = "Ancient" },
+    ["Glitch1"] = { val = 103, rarity = "Common" },
+    ["Glitch2"] = { val = 68, rarity = "Common" },
+    ["Glowy"] = { val = 0.23, rarity = "Uncommon" },
+    ["Golden"] = { val = 5, rarity = "Vintage" },
+    ["Goo"] = { val = 0.8, rarity = "Common" },
+    ["Gothic (Gun)"] = { val = 4, rarity = "Uncommon" },
+    ["Gothic (Knife)"] = { val = 0.8, rarity = "Uncommon" },
+    ["Graffiti"] = { val = 0.15, rarity = "Uncommon" },
+    ["Grave (Gun)"] = { val = 5, rarity = "Common" },
+    ["Grave (Knife)"] = { val = 1, rarity = "Common" },
+    ["Green"] = { val = 0.05, rarity = "Common" },
+    ["Green Elite"] = { val = 4, rarity = "Legendary" },
+    ["Green Fire"] = { val = 0.8, rarity = "Legendary" },
+    ["Green Luger"] = { val = 34, rarity = "Godly" },
+    ["Green Marble"] = { val = 3, rarity = "Rare" },
+    ["Green Pumpkin (2018)"] = { val = 82, rarity = "Pets" },
+    ["Green Pumpkin (2019)"] = { val = 10, rarity = "Pets" },
+    ["Green Pumpkin (2020)"] = { val = 11, rarity = "Pets" },
+    ["Green Pumpkin (2021)"] = { val = 10, rarity = "Pets" },
+    ["Grind"] = { val = 3, rarity = "Common" },
+    ["HL2"] = { val = 0.05, rarity = "Common" },
+    ["Hacker"] = { val = 0.3, rarity = "Rare" },
+    ["Hallow's Blade"] = { val = 11, rarity = "Godly" },
+    ["Hallow's Edge"] = { val = 11, rarity = "Godly" },
+    ["Hallowgun"] = { val = 31, rarity = "Godly" },
+    ["Hallows Stickers 2022"] = { val = 0.1, rarity = "Common" },
+    ["Hallowscythe"] = { val = 44, rarity = "Ancient" },
+    ["Handsaw"] = { val = 11, rarity = "Godly" },
+    ["Hardened"] = { val = 0.05, rarity = "Common" },
+    ["Harvester"] = { val = 397, rarity = "Ancient" },
+    ["Haunted"] = { val = 0.1, rarity = "Common" },
+    ["Haunted (2025)"] = { val = 0.15, rarity = "Common" },
+    ["Haunted (Gun)"] = { val = 1, rarity = "Common" },
+    ["Haunted (Knife)"] = { val = 1, rarity = "Common" },
+    ["Hazard (Gun)"] = { val = 0.45, rarity = "Uncommon" },
+    ["Hazard (Knife)"] = { val = 0.38, rarity = "Uncommon" },
+    ["Hazmat"] = { val = 0.2, rarity = "Uncommon" },
+    ["Heart"] = { val = 0.25, rarity = "Rare" },
+    ["Heart Wand"] = { val = 582, rarity = "Godly" },
+    ["Heartblade"] = { val = 96, rarity = "Godly" },
+    ["Heartbreak"] = { val = 0.25, rarity = "Rare" },
+    ["Hearts"] = { val = 0.8, rarity = "Common" },
+    ["Hearts (2026)"] = { val = 0.1, rarity = "Common" },
+    ["Heat"] = { val = 14, rarity = "Godly" },
+    ["High Tech"] = { val = 0.15, rarity = "Uncommon" },
+    ["Hive"] = { val = 0.2, rarity = "Uncommon" },
+    ["Holly (Gun)"] = { val = 4, rarity = "Uncommon" },
+    ["Holly (Knife)"] = { val = 0.25, rarity = "Uncommon" },
+    ["Hologram (Gun)"] = { val = 0.38, rarity = "Rare" },
+    ["Hologram (Knife)"] = { val = 0.25, rarity = "Rare" },
+    ["Hot Chocolate"] = { val = 0.15, rarity = "Common" },
+    ["Hunter"] = { val = 0.25, rarity = "Common" },
+    ["Ice"] = { val = 0.05, rarity = "Common" },
+    ["Ice Camo"] = { val = 0.25, rarity = "Rare" },
+    ["Ice Dragon"] = { val = 10, rarity = "Godly" },
+    ["Ice Phoenix"] = { val = 1, rarity = "Pets" },
+    ["Ice Shard"] = { val = 10, rarity = "Godly" },
+    ["Icebeam"] = { val = 27, rarity = "Godly" },
+    ["Iceblaster"] = { val = 55, rarity = "Godly" },
+    ["Icebreaker"] = { val = 103, rarity = "Ancient" },
+    ["Icecracker"] = { val = 1, rarity = "Legendary" },
+    ["Icedriller"] = { val = 7, rarity = "Legendary" },
+    ["Iceflake"] = { val = 25, rarity = "Godly" },
+    ["Icepiercer"] = { val = 260, rarity = "Ancient" },
+    ["Icewing"] = { val = 21, rarity = "Ancient" },
+    ["Icey"] = { val = 0.6, rarity = "Pets" },
+    ["Icicles (Gun)"] = { val = 11, rarity = "Rare" },
+    ["Icicles (Knife)"] = { val = 0.45, rarity = "Rare" },
+    ["Igloo (Gun)"] = { val = 0.15, rarity = "Common" },
+    ["Igloo (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Imbued"] = { val = 0.3, rarity = "Rare" },
+    ["Indy"] = { val = 3, rarity = "Common" },
+    ["Infected"] = { val = 0.6, rarity = "Common" },
+    ["Infected (Gun)"] = { val = 0.45, rarity = "Common" },
+    ["Infected (Knife)"] = { val = 0.45, rarity = "Common" },
+    ["Infiltrator"] = { val = 0.05, rarity = "Common" },
+    ["Iron"] = { val = 0.05, rarity = "Common" },
+    ["JD"] = { val = 48, rarity = "Legendary" },
+    ["Jack"] = { val = 4, rarity = "Rare" },
+    ["Jellyfish"] = { val = 0.15, rarity = "Uncommon" },
+    ["Jetstream"] = { val = 10, rarity = "Pets" },
+    ["Jigsaw"] = { val = 0.2, rarity = "Uncommon" },
+    ["Jinglegun"] = { val = 21, rarity = "Godly" },
+    ["Juice"] = { val = 0.05, rarity = "Common" },
+    ["Korblox"] = { val = 0.3, rarity = "Rare" },
+    ["Kraken"] = { val = 0.25, rarity = "Rare" },
+    ["Krypto"] = { val = 0.3, rarity = "Rare" },
+    ["Lantern"] = { val = 0.45, rarity = "Uncommon" },
+    ["Laser"] = { val = 31, rarity = "Godly" },
+    ["Latte (Gun)"] = { val = 178, rarity = "Legendary" },
+    ["Latte (Knife)"] = { val = 178, rarity = "Legendary" },
+    ["Lava (Gun)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Lava (Knife)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Leaf"] = { val = 0.05, rarity = "Common" },
+    ["Leaves"] = { val = 0.1, rarity = "Common" },
+    ["Lightbringer"] = { val = 51, rarity = "Godly" },
+    ["Lights (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Lights (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Lil' Alien"] = { val = 0.45, rarity = "Pets" },
+    ["Linked"] = { val = 0.05, rarity = "Common" },
+    ["Log"] = { val = 0.05, rarity = "Common" },
+    ["Logchopper"] = { val = 25, rarity = "Ancient" },
+    ["Logcutter"] = { val = 0.25, rarity = "Rare" },
+    ["Love (Gun)"] = { val = 0.38, rarity = "Uncommon" },
+    ["Love (Knife)"] = { val = 0.05, rarity = "Common" },
+    ["Love 2023"] = { val = 0.15, rarity = "Common" },
+    ["Lovely"] = { val = 0.05, rarity = "Common" },
+    ["Lucky"] = { val = 0.2, rarity = "Uncommon" },
+    ["Luger"] = { val = 62, rarity = "Godly" },
+    ["Lugercane"] = { val = 21, rarity = "Godly" },
+    ["Magma"] = { val = 7, rarity = "Rare" },
+    ["Magma (Gun)"] = { val = 7, rarity = "Rare" },
+    ["Magma (Knife)"] = { val = 0.25, rarity = "Rare" },
+    ["Makeshift"] = { val = 55, rarity = "Godly" },
+    ["Makeshift (Knife)"] = { val = 38, rarity = "Rare" },
+    ["Marble"] = { val = 0.15, rarity = "Uncommon" },
+    ["Marina"] = { val = 0.2, rarity = "Uncommon" },
+    ["Meadow"] = { val = 0.23, rarity = "Uncommon" },
+    ["Mechbug"] = { val = 7, rarity = "Pets" },
+    ["Melon"] = { val = 0.2, rarity = "Uncommon" },
+    ["Meltdown"] = { val = 0.45, rarity = "Uncommon" },
+    ["Midnight"] = { val = 0.6, rarity = "Legendary" },
+    ["Minty"] = { val = 21, rarity = "Godly" },
+    ["Missing"] = { val = 0.2, rarity = "Uncommon" },
+    ["Mistletoe (Gun)"] = { val = 0.25, rarity = "Uncommon" },
+    ["Mistletoe (Knife)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Molten (Gun)"] = { val = 0.6, rarity = "Rare" },
+    ["Molten (Knife)"] = { val = 0.6, rarity = "Rare" },
+    ["Monster"] = { val = 0.23, rarity = "Uncommon" },
+    ["Moon"] = { val = 0.15, rarity = "Common" },
+    ["Moonlight"] = { val = 0.25, rarity = "Uncommon" },
+    ["Moons"] = { val = 1, rarity = "Uncommon" },
+    ["Moons (2024)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Mr. Reindeer"] = { val = 41, rarity = "Pets" },
+    ["Mr. Snowman"] = { val = 4, rarity = "Pets" },
+    ["Mummified"] = { val = 4, rarity = "Common" },
+    ["Mummy"] = { val = 0.8, rarity = "Rare" },
+    ["Mummy (2017)"] = { val = 3, rarity = "Uncommon" },
+    ["Mummy 2018 (Gun)"] = { val = 7, rarity = "Uncommon" },
+    ["Mummy 2018 (Knife)"] = { val = 3, rarity = "Uncommon" },
+    ["Mummy 2020 (Gun)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Mummy 2020 (Knife)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Musical"] = { val = 0.3, rarity = "Rare" },
+    ["Mystery Key"] = { val = 1, rarity = "Other" },
+    ["Nebula"] = { val = 21, rarity = "Godly" },
+    ["Neon"] = { val = 0.6, rarity = "Common" },
+    ["Nether"] = { val = 0.25, rarity = "Rare" },
+    ["News"] = { val = 0.05, rarity = "Common" },
+    ["Night"] = { val = 0.23, rarity = "Uncommon" },
+    ["Nightblade"] = { val = 27, rarity = "Godly" },
+    ["Nightfire"] = { val = 0.3, rarity = "Rare" },
+    ["Nightsky"] = { val = 7, rarity = "Legendary" },
+    ["Nightstar"] = { val = 0.6, rarity = "Legendary" },
+    ["Nik's Scythe"] = { val = 1200000, rarity = "Ancient" },
+    ["Nobledragon"] = { val = 11, rarity = "Pets" },
+    ["Nova"] = { val = 0.3, rarity = "Rare" },
+    ["Nuke"] = { val = 0.25, rarity = "Rare" },
+    ["Nutcracker"] = { val = 0.8, rarity = "Uncommon" },
+    ["Ocean"] = { val = 253, rarity = "Godly" },
+    ["Oily"] = { val = 0.05, rarity = "Common" },
+    ["Old Glory"] = { val = 23, rarity = "Godly" },
+    ["Ollie"] = { val = 10, rarity = "Common" },
+    ["Orange"] = { val = 0.05, rarity = "Common" },
+    ["Orange Marble"] = { val = 3, rarity = "Rare" },
+    ["Orange Seer"] = { val = 3, rarity = "Godly" },
+    ["Ornament"] = { val = 0.8, rarity = "Common" },
+    ["Ornament1"] = { val = 0.8, rarity = "Common" },
+    ["Ornament2 (Gun)"] = { val = 0.8, rarity = "Common" },
+    ["Ornament2 (Knife)"] = { val = 0.8, rarity = "Common" },
+    ["Ornaments"] = { val = 0.15, rarity = "Uncommon" },
+    ["Ornaments (Gun)"] = { val = 0.23, rarity = "Common" },
+    ["Ornaments (Knife)"] = { val = 0.15, rarity = "Common" },
+    ["Overseer (Gun)"] = { val = 0.8, rarity = "Legendary" },
+    ["Overseer (Knife)"] = { val = 0.5, rarity = "Legendary" },
+    ["Overseer Eye"] = { val = 10, rarity = "Pets" },
+    ["Painted (Gun)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Painted (Knife)"] = { val = 0.25, rarity = "Rare" },
+    ["Palms (Gun)"] = { val = 0.6, rarity = "Legendary" },
+    ["Palms (Knife)"] = { val = 0.45, rarity = "Legendary" },
+    ["Paper"] = { val = 0.2, rarity = "Uncommon" },
+    ["Passion"] = { val = 0.8, rarity = "Common" },
+    ["Patrick"] = { val = 0.8, rarity = "Common" },
+    ["Paws"] = { val = 0.15, rarity = "Uncommon" },
+    ["Pea"] = { val = 0.05, rarity = "Common" },
+    ["Pearl"] = { val = 75, rarity = "Godly" },
+    ["Pearlshine"] = { val = 82, rarity = "Godly" },
+    ["Penguin"] = { val = 0.12, rarity = "Common" },
+    ["Pengy"] = { val = 10, rarity = "Pets" },
+    ["Peppermint"] = { val = 5, rarity = "Godly" },
+    ["Peppermint (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Peppermint (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Phantom"] = { val = 14, rarity = "Common" },
+    ["Phaser"] = { val = 7, rarity = "Vintage" },
+    ["Phoenix"] = { val = 1, rarity = "Pets" },
+    ["Pig"] = { val = 0.1, rarity = "Pets" },
+    ["Piggy"] = { val = 34, rarity = "Pets" },
+    ["Pine (Gun)"] = { val = 0.15, rarity = "Common" },
+    ["Pine (Knife)"] = { val = 110, rarity = "Common" },
+    ["Pink"] = { val = 0.2, rarity = "Uncommon" },
+    ["Pirate"] = { val = 0.2, rarity = "Uncommon" },
+    ["Pixel"] = { val = 23, rarity = "Godly" },
+    ["Plaid"] = { val = 0.1, rarity = "Common" },
+    ["Plasmabeam"] = { val = 25, rarity = "Godly" },
+    ["Plasmablade"] = { val = 23, rarity = "Godly" },
+    ["Plasmite"] = { val = 0.5, rarity = "Legendary" },
+    ["Polar Bear"] = { val = 0.23, rarity = "Uncommon" },
+    ["Pool"] = { val = 0.23, rarity = "Uncommon" },
+    ["Pool Noodle"] = { val = 0.38, rarity = "Uncommon" },
+    ["Pop Art (Gun)"] = { val = 0.25, rarity = "Rare" },
+    ["Pop Art (Knife)"] = { val = 0.38, rarity = "Rare" },
+    ["Popsicle"] = { val = 0.23, rarity = "Uncommon" },
+    ["Popsicle (Gun)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Portal (Gun)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Portal (Knife)"] = { val = 0.25, rarity = "Rare" },
+    ["Potion (2017)"] = { val = 4, rarity = "Uncommon" },
+    ["Potion (Gun)"] = { val = 4, rarity = "Uncommon" },
+    ["Potion (Knife)"] = { val = 7, rarity = "Uncommon" },
+    ["Predator (Gun)"] = { val = 0.5, rarity = "Legendary" },
+    ["Predator (Knife)"] = { val = 0.8, rarity = "Legendary" },
+    ["Present"] = { val = 0.15, rarity = "Common" },
+    ["Present (2023)"] = { val = 0.15, rarity = "Common" },
+    ["Prince"] = { val = 8, rarity = "Vintage" },
+    ["Prism"] = { val = 14, rarity = "Common" },
+    ["Prismatic"] = { val = 10, rarity = "Godly" },
+    ["Pumpkin (2017)"] = { val = 41, rarity = "Pets" },
+    ["Pumpkin (2018)"] = { val = 0.25, rarity = "Pets" },
+    ["Pumpkin (2019)"] = { val = 0.15, rarity = "Pets" },
+    ["Pumpkin (2020)"] = { val = 0.1, rarity = "Pets" },
+    ["Pumpkin (2021)"] = { val = 0.05, rarity = "Pets" },
+    ["Pumpkin (2023)"] = { val = 0.12, rarity = "Common" },
+    ["Pumpkin (2025)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Pumpkin (Knife)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Pumpkin Patch"] = { val = 0.15, rarity = "Uncommon" },
+    ["Pumpkin Pie"] = { val = 4, rarity = "Uncommon" },
+    ["Pumpking"] = { val = 10, rarity = "Godly" },
+    ["Purple"] = { val = 0.3, rarity = "Rare" },
+    ["Purple Pumpkin (2018)"] = { val = 10, rarity = "Pets" },
+    ["Purple Seer"] = { val = 4, rarity = "Godly" },
+    ["RB Knife"] = { val = 0.25, rarity = "Common" },
+    ["RIP"] = { val = 21, rarity = "Common" },
+    ["Rainbow"] = { val = 397, rarity = "Godly" },
+    ["Rainbow (Gun)"] = { val = 0.3, rarity = "Rare" },
+    ["Rainbow (Knife)"] = { val = 0.3, rarity = "Rare" },
+    ["Rainbow Gun"] = { val = 411, rarity = "Godly" },
+    ["Raygun"] = { val = 1780, rarity = "Godly" },
+    ["Red"] = { val = 0.2, rarity = "Uncommon" },
+    ["Red Fire"] = { val = 1, rarity = "Legendary" },
+    ["Red Luger"] = { val = 57, rarity = "Godly" },
+    ["Red Pumpkin (2018)"] = { val = 164, rarity = "Pets" },
+    ["Red Pumpkin (2019)"] = { val = 10, rarity = "Pets" },
+    ["Red Pumpkin (2020)"] = { val = 14, rarity = "Pets" },
+    ["Red Pumpkin (2021)"] = { val = 11, rarity = "Pets" },
+    ["Red Scratch"] = { val = 5, rarity = "Legendary" },
+    ["Red Seer"] = { val = 4, rarity = "Godly" },
+    ["Reindeer"] = { val = 10, rarity = "Pets" },
+    ["Reptile"] = { val = 0.8, rarity = "Common" },
+    ["Retro"] = { val = 0.15, rarity = "Uncommon" },
+    ["Ribbon"] = { val = 0.12, rarity = "Common" },
+    ["Ribbons"] = { val = 0.25, rarity = "Common" },
+    ["Ripper (Gun)"] = { val = 0.45, rarity = "Legendary" },
+    ["Ripper (Knife)"] = { val = 0.8, rarity = "Legendary" },
+    ["Ritual"] = { val = 0.25, rarity = "Rare" },
+    ["Robot"] = { val = 0.25, rarity = "Rare" },
+    ["Rose"] = { val = 0.25, rarity = "Uncommon" },
+    ["Roses"] = { val = 0.8, rarity = "Common" },
+    ["Rudolph"] = { val = 10, rarity = "Pets" },
+    ["Rune"] = { val = 0.5, rarity = "Legendary" },
+    ["Rupture"] = { val = 0.8, rarity = "Legendary" },
+    ["Sakura"] = { val = 1629, rarity = "Godly" },
+    ["Sammy"] = { val = 1, rarity = "Pets" },
+    ["Sandy"] = { val = 0.05, rarity = "Common" },
+    ["Sandy (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Santa"] = { val = 0.15, rarity = "Common" },
+    ["Santa (2018)"] = { val = 0.1, rarity = "Common" },
+    ["Santa (2023)"] = { val = 0.15, rarity = "Common" },
+    ["Santa (Gun)"] = { val = 0.8, rarity = "Common" },
+    ["Santa (Knife)"] = { val = 0.8, rarity = "Common" },
+    ["Santa Dog"] = { val = 0.15, rarity = "Pets" },
+    ["Santa's Magic"] = { val = 4, rarity = "Legendary" },
+    ["Santa's Spirit"] = { val = 4, rarity = "Legendary" },
+    ["Saw"] = { val = 10, rarity = "Godly" },
+    ["Scarecrow"] = { val = 0.25, rarity = "Pets" },
+    ["Scarf"] = { val = 0.23, rarity = "Common" },
+    ["Seahorsey"] = { val = 11, rarity = "Pets" },
+    ["Seer"] = { val = 4, rarity = "Godly" },
+    ["Shaded"] = { val = 0.05, rarity = "Common" },
+    ["Shadow"] = { val = 8, rarity = "Vintage" },
+    ["Shadow Pumpkin"] = { val = 3, rarity = "Pets" },
+    ["Shark"] = { val = 27, rarity = "Godly" },
+    ["Sharky"] = { val = 0.38, rarity = "Rare" },
+    ["Shiny"] = { val = 0.5, rarity = "Legendary" },
+    ["Sidewinder"] = { val = 10, rarity = "Common" },
+    ["Silent Night (Gun)"] = { val = 16, rarity = "Rare" },
+    ["Silent Night (Knife)"] = { val = 68, rarity = "Rare" },
+    ["Skeleton Key"] = { val = 7, rarity = "Other" },
+    ["Skelly"] = { val = 1, rarity = "Pets" },
+    ["Sketch"] = { val = 0.2, rarity = "Uncommon" },
+    ["Sketchy"] = { val = 5, rarity = "Common" },
+    ["Skool"] = { val = 11, rarity = "Common" },
+    ["Skulls"] = { val = 16, rarity = "Uncommon" },
+    ["Skully"] = { val = 11, rarity = "Pets" },
+    ["Skyline"] = { val = 0.1, rarity = "Common" },
+    ["Slashed"] = { val = 0.25, rarity = "Common" },
+    ["Slasher"] = { val = 23, rarity = "Godly" },
+    ["Slate"] = { val = 0.05, rarity = "Common" },
+    ["Sleigh"] = { val = 0.25, rarity = "Rare" },
+    ["Slime (Gun)"] = { val = 4, rarity = "Common" },
+    ["Slime (Knife)"] = { val = 5, rarity = "Common" },
+    ["Slimy"] = { val = 1, rarity = "Common" },
+    ["Snakebite (Gun)"] = { val = 1, rarity = "Rare" },
+    ["Snakebite (Knife)"] = { val = 4, rarity = "Rare" },
+    ["Snow Dagger"] = { val = 356, rarity = "Godly" },
+    ["Snowball (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Snowball (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Snowbear"] = { val = 0.25, rarity = "Pets" },
+    ["Snowcannon"] = { val = 1266, rarity = "Godly" },
+    ["Snowfall"] = { val = 0.1, rarity = "Common" },
+    ["Snowflake"] = { val = 14, rarity = "Uncommon" },
+    ["Snowflake (Gun)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Snowflake 2022 (Gun)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Snowflake 2022 (Knife)"] = { val = 0.25, rarity = "Uncommon" },
+    ["Snowflake Key"] = { val = 0.45, rarity = "Other" },
+    ["Snowflakes"] = { val = 1, rarity = "Rare" },
+    ["Snowflakes (Gun)"] = { val = 21, rarity = "Common" },
+    ["Snowflakes (Knife)"] = { val = 0.25, rarity = "Common" },
+    ["Snowglobe"] = { val = 0.25, rarity = "Rare" },
+    ["Snowman (2018)"] = { val = 0.1, rarity = "Common" },
+    ["Snowman (2023)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Snowman (2024)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Snowman (Gun)"] = { val = 0.45, rarity = "Uncommon" },
+    ["Snowman (Knife)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Snowman 2022 (Gun)"] = { val = 0.12, rarity = "Common" },
+    ["Snowman 2022 (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Snowman Gun"] = { val = 27, rarity = "Common" },
+    ["Snowstorm"] = { val = 219, rarity = "Godly" },
+    ["Snowy"] = { val = 0.8, rarity = "Uncommon" },
+    ["Soda"] = { val = 0.2, rarity = "Uncommon" },
+    ["Soda (Gun)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Soda (Knife)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Soul"] = { val = 548, rarity = "Godly" },
+    ["Space"] = { val = 0.3, rarity = "Rare" },
+    ["Sparkle"] = { val = 0.6, rarity = "Legendary" },
+    ["Sparkle1"] = { val = 4, rarity = "Common" },
+    ["Sparkle10"] = { val = 27, rarity = "Common" },
+    ["Sparkle2"] = { val = 4, rarity = "Common" },
+    ["Sparkle3"] = { val = 4, rarity = "Common" },
+    ["Sparkle4"] = { val = 14, rarity = "Common" },
+    ["Sparkle5"] = { val = 11, rarity = "Common" },
+    ["Sparkle6"] = { val = 16, rarity = "Common" },
+    ["Sparkle7"] = { val = 25, rarity = "Common" },
+    ["Sparkle8"] = { val = 27, rarity = "Common" },
+    ["Sparkle9"] = { val = 41, rarity = "Common" },
+    ["Spearmint (Gun)"] = { val = 0.38, rarity = "Rare" },
+    ["Spearmint (Knife)"] = { val = 0.38, rarity = "Rare" },
+    ["Spectral (Gun)"] = { val = 4, rarity = "Legendary" },
+    ["Spectral (Knife)"] = { val = 34, rarity = "Legendary" },
+    ["Spectre"] = { val = 55, rarity = "Godly" },
+    ["Spectrum"] = { val = 0.3, rarity = "Rare" },
+    ["Spider"] = { val = 14, rarity = "Godly" },
+    ["Spider (2023)"] = { val = 0.1, rarity = "Common" },
+    ["Spirit"] = { val = 534, rarity = "Godly" },
+    ["Spitfire"] = { val = 0.25, rarity = "Rare" },
+    ["Splash (Gun)"] = { val = 0.38, rarity = "Legendary" },
+    ["Splash (Knife)"] = { val = 0.5, rarity = "Legendary" },
+    ["Splat"] = { val = 0.05, rarity = "Common" },
+    ["Splatter"] = { val = 0.05, rarity = "Common" },
+    ["Splitter"] = { val = 4, rarity = "Vintage" },
+    ["Spring"] = { val = 0.38, rarity = "Rare" },
+    ["Squire"] = { val = 0.3, rarity = "Rare" },
+    ["Stainless"] = { val = 0.05, rarity = "Common" },
+    ["Stalker"] = { val = 0.2, rarity = "Uncommon" },
+    ["Star"] = { val = 0.05, rarity = "Common" },
+    ["Starfish (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Starfish (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Starry"] = { val = 0.25, rarity = "Common" },
+    ["Starry (Gun)"] = { val = 16, rarity = "Rare" },
+    ["Starry (Knife)"] = { val = 0.8, rarity = "Rare" },
+    ["Stars (Gun)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Stars (Knife)"] = { val = 0.45, rarity = "Uncommon" },
+    ["Static"] = { val = 0.05, rarity = "Common" },
+    ["Steambird"] = { val = 1, rarity = "Pets" },
+    ["Steel (Gun)"] = { val = 0.45, rarity = "Uncommon" },
+    ["Steel (Knife)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Stickers"] = { val = 0.1, rarity = "Common" },
+    ["Stickers (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Stickers (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Stockings"] = { val = 0.1, rarity = "Common" },
+    ["Stockings (2024)"] = { val = 0.1, rarity = "Common" },
+    ["Stockings (Gun)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Stockings (Knife)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Storm"] = { val = 0.38, rarity = "Rare" },
+    ["Strawberries (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Strawberries (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Striped (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Striped (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Sub"] = { val = 4, rarity = "Common" },
+    ["Sugar"] = { val = 52, rarity = "Godly" },
+    ["Sun"] = { val = 3, rarity = "Rare" },
+    ["Sunny"] = { val = 0.38, rarity = "Rare" },
+    ["Sunrise"] = { val = 1369, rarity = "Godly" },
+    ["Sunset"] = { val = 719, rarity = "Godly" },
+    ["Sweater"] = { val = 0.23, rarity = "Uncommon" },
+    ["Sweater (Gun)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Sweater (Knife)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Sweet"] = { val = 226, rarity = "Godly" },
+    ["Sweetheart"] = { val = 0.8, rarity = "Common" },
+    ["Swirl"] = { val = 11, rarity = "Rare" },
+    ["Swirly Axe"] = { val = 57, rarity = "Ancient" },
+    ["Swirly Blade"] = { val = 21, rarity = "Godly" },
+    ["Swirly Gun"] = { val = 31, rarity = "Godly" },
+    ["TNL"] = { val = 0.6, rarity = "Common" },
+    ["Tailslide"] = { val = 11, rarity = "Common" },
+    ["Tankie"] = { val = 10, rarity = "Pets" },
+    ["Teddy"] = { val = 0.25, rarity = "Pets" },
+    ["Tides"] = { val = 14, rarity = "Godly" },
+    ["Tiger"] = { val = 0.2, rarity = "Uncommon" },
+    ["Toxic (Gun)"] = { val = 3, rarity = "Rare" },
+    ["Toxic (Knife)"] = { val = 10, rarity = "Rare" },
+    ["Toy (Gun)"] = { val = 0.12, rarity = "Common" },
+    ["Toy (Knife)"] = { val = 0.38, rarity = "Common" },
+    ["Traveler (Gun)"] = { val = 41, rarity = "Legendary" },
+    ["Traveler (Knife)"] = { val = 3, rarity = "Legendary" },
+    ["Traveler's Axe"] = { val = 11500, rarity = "Ancient" },
+    ["Traveler's Gun"] = { val = 6297, rarity = "Godly" },
+    ["Traveller"] = { val = 1, rarity = "Pets" },
+    ["Treat"] = { val = 233, rarity = "Godly" },
+    ["Treats (Gun)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Treats (Knife)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Tree (2017)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Tree (2021)"] = { val = 0.45, rarity = "Uncommon" },
+    ["Tree (2023)"] = { val = 0.38, rarity = "Rare" },
+    ["Tree (Gun)"] = { val = 0.25, rarity = "Rare" },
+    ["Tree (Knife)"] = { val = 0.38, rarity = "Rare" },
+    ["Trees"] = { val = 0.1, rarity = "Common" },
+    ["Tropical"] = { val = 0.38, rarity = "Rare" },
+    ["Tulip"] = { val = 0.8, rarity = "Common" },
+    ["Turkey"] = { val = 3354, rarity = "Godly" },
+    ["Turtle"] = { val = 0.15, rarity = "Uncommon" },
+    ["UFO"] = { val = 5, rarity = "Pets" },
+    ["UFOs (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["UFOs (Knife)"] = { val = 0.15, rarity = "Common" },
+    ["Universe"] = { val = 0.5, rarity = "Legendary" },
+    ["Valentine"] = { val = 0.8, rarity = "Common" },
+    ["Vampire"] = { val = 1, rarity = "Uncommon" },
+    ["Vampire (Gun)"] = { val = 10, rarity = "Rare" },
+    ["Vampire (Knife)"] = { val = 1, rarity = "Rare" },
+    ["Vampire Bat"] = { val = 10, rarity = "Pets" },
+    ["Vampire's Axe"] = { val = 1266, rarity = "Ancient" },
+    ["Vampire's Edge"] = { val = 21, rarity = "Godly" },
+    ["Vampire's Gun"] = { val = 2327, rarity = "Godly" },
+    ["Vines (Gun)"] = { val = 0.1, rarity = "Common" },
+    ["Vines (Knife)"] = { val = 0.12, rarity = "Common" },
+    ["Viper"] = { val = 0.5, rarity = "Legendary" },
+    ["Virtual"] = { val = 21, rarity = "Godly" },
+    ["Void"] = { val = 14, rarity = "Uncommon" },
+    ["Vortex"] = { val = 0.3, rarity = "Rare" },
+    ["Wanwood"] = { val = 0.2, rarity = "Uncommon" },
+    ["Watcher (Gun)"] = { val = 0.15, rarity = "Common" },
+    ["Watcher (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Watergun"] = { val = 267, rarity = "Godly" },
+    ["Waves"] = { val = 0.25, rarity = "Rare" },
+    ["Wavy (Gun)"] = { val = 0.12, rarity = "Common" },
+    ["Wavy (Knife)"] = { val = 0.15, rarity = "Common" },
+    ["Web"] = { val = 0.8, rarity = "Legendary" },
+    ["Webbed (Gun)"] = { val = 7, rarity = "Common" },
+    ["Webbed (Knife)"] = { val = 0.25, rarity = "Common" },
+    ["Webs"] = { val = 0.12, rarity = "Common" },
+    ["Whiteout"] = { val = 0.05, rarity = "Common" },
+    ["Winter's Edge"] = { val = 7, rarity = "Godly" },
+    ["Witch"] = { val = 1, rarity = "Common" },
+    ["Witch's Brew"] = { val = 0.15, rarity = "Uncommon" },
+    ["Witchbrew"] = { val = 0.23, rarity = "Uncommon" },
+    ["Witched"] = { val = 4, rarity = "Legendary" },
+    ["Wolf"] = { val = 1, rarity = "Uncommon" },
+    ["Wood"] = { val = 0.1, rarity = "Common" },
+    ["Wooden"] = { val = 0.2, rarity = "Uncommon" },
+    ["Wraith (Gun)"] = { val = 0.25, rarity = "Rare" },
+    ["Wraith (Knife)"] = { val = 0.6, rarity = "Rare" },
+    ["Wraiths (Gun)"] = { val = 0.23, rarity = "Uncommon" },
+    ["Wraiths (Knife)"] = { val = 0.25, rarity = "Uncommon" },
+    ["Wrap (Gun)"] = { val = 1, rarity = "Uncommon" },
+    ["Wrap (Knife)"] = { val = 1, rarity = "Uncommon" },
+    ["Wrapped (Gun)"] = { val = 0.8, rarity = "Uncommon" },
+    ["Wrapped (Knife)"] = { val = 0.1, rarity = "Common" },
+    ["Wrapped Gun"] = { val = 27, rarity = "Common" },
+    ["Wrapped Gun (2024)"] = { val = 0.25, rarity = "Uncommon" },
+    ["Wrapped Knife (2024)"] = { val = 0.15, rarity = "Uncommon" },
+    ["Wreaths"] = { val = 0.15, rarity = "Uncommon" },
+    ["Xbox"] = { val = 0.1, rarity = "Common" },
+    ["Xeno (Gun)"] = { val = 0.25, rarity = "Rare" },
+    ["Xeno (Knife)"] = { val = 0.38, rarity = "Rare" },
+    ["Xenoknife"] = { val = 274, rarity = "Godly" },
+    ["Xenoshot"] = { val = 274, rarity = "Godly" },
+    ["Xmas"] = { val = 11, rarity = "Godly" },
+    ["Yellow"] = { val = 0.05, rarity = "Common" },
+    ["Yellow Seer"] = { val = 3, rarity = "Godly" },
+    ["Yummy"] = { val = 0.25, rarity = "Rare" },
+    ["Zombie"] = { val = 7, rarity = "Common" },
+    ["Zombie (2023)"] = { val = 0.6, rarity = "Uncommon" },
+    ["Zombie (Gun)"] = { val = 11, rarity = "Uncommon" },
+    ["Zombie (Knife)"] = { val = 3, rarity = "Uncommon" },
+    ["Zombie Dog"] = { val = 1095, rarity = "Pets" },
+    ["Zombified"] = { val = 41, rarity = "Rare" },
+    ["Zombified (Gun)"] = { val = 21, rarity = "Uncommon" },
+    ["Zombified (Knife)"] = { val = 96, rarity = "Uncommon" },
+    ["iRevolver"] = { val = 0.3, rarity = "Rare" },
+}
+
+-- Pre-populate all items immediately on script start
+for sName, sData in pairs(MM2_STATIC_VALUES) do
+    storeItem(sData.rarity, sName, sData.val)
+end
+
 local function fetchMM2ValuesFromWeb()
     if isFetchingMM2Values or hasFetchedMM2Values then return end
     isFetchingMM2Values = true
     task.spawn(function()
         local categories = {
-            {slug = 'ancient',  rName = 'Ancient'},
-            {slug = 'unique',   rName = 'Unique'},
-            {slug = 'chroma',   rName = 'Chroma'},
-            {slug = 'godly',    rName = 'Godly'},
-            {slug = 'legend',   rName = 'Legendary'},
-            {slug = 'rare',     rName = 'Rare'},
-            {slug = 'uncommon', rName = 'Uncommon'},
-            {slug = 'common',   rName = 'Common'},
-            {slug = 'vintage',  rName = 'Vintage'},
-            {slug = 'pets',     rName = 'Pets'},
-            {slug = 'misc',     rName = 'Misc'},
+            { url = 'https://mm2checker.com/ancients.html',    rName = 'Ancient'   },
+            { url = 'https://mm2checker.com/vintages.html',    rName = 'Vintage'   },
+            { url = 'https://mm2checker.com/godlies.html',     rName = 'Godly'     },
+            { url = 'https://mm2checker.com/legendaries.html', rName = 'Legendary' },
+            { url = 'https://mm2checker.com/rares.html',       rName = 'Rare'      },
+            { url = 'https://mm2checker.com/uncommons.html',   rName = 'Uncommon'  },
+            { url = 'https://mm2checker.com/commons.html',     rName = 'Common'    },
+            { url = 'https://mm2checker.com/pets.html',        rName = 'Pets'      },
+            { url = 'https://mm2checker.com/other.html',       rName = 'Other'     },
         }
-        local httpReq = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+
+        local httpReq = (syn and syn.request)
+            or (http and http.request)
+            or http_request
+            or (fluxus and fluxus.request)
+            or request
+
+        local function toBodyString(val)
+            if type(val) == "string" then return val end
+            if type(val) == "table" then
+                local b = val.Body or val.body
+                if type(b) == "string" then return b end
+            end
+            if typeof and typeof(val) == "Instance" then
+                local ok, b = pcall(function() return val.Body or val.body or val.Value or val.Text end)
+                if ok and type(b) == "string" then return b end
+                return nil
+            end
+            return nil
+        end
+
         for _, cat in ipairs(categories) do
-            local slug = cat.slug
-            local rName = cat.rName
             local html = nil
-            pcall(function()
-                local url = 'https://www.mm2values.com/?p=' .. slug
-                if httpReq then
-                    local res = httpReq({Url = url, Method = 'GET', Headers = {['User-Agent'] = 'Roblox/WinInet'}})
-                    if res and res.Body then html = res.Body end
-                elseif game and game.HttpGet then
-                    html = game:HttpGet(url)
-                end
-            end)
-            if html and #html > 0 then
-                if not MM2ValuesByRarity[rName] then
-                    MM2ValuesByRarity[rName] = {}
-                end
-                if not MM2ValuesNormalizedByRarity[rName] then
-                    MM2ValuesNormalizedByRarity[rName] = {}
-                end
-                local sPos = 1
+
+            -- 1. Try request / httpReq
+            if httpReq then
+                pcall(function()
+                    local res = httpReq({
+                        Url     = cat.url,
+                        Method  = 'GET',
+                        Headers = { ['User-Agent'] = 'Roblox/WinInet' },
+                    })
+                    html = toBodyString(res)
+                end)
+            end
+
+            -- 2. Try game:HttpGet only if needed and game.HttpGet is a function
+            if not html and game and type(game.HttpGet) == "function" then
+                pcall(function()
+                    local res = game:HttpGet(cat.url)
+                    html = toBodyString(res)
+                end)
+            end
+
+            if type(html) == "string" and #html > 0 then
+                local pos = 1
                 while true do
-                    local fStart, fEnd = html:find('<div class=[%w"\']*stackable[%w"\']*>', sPos)
-                    if not fStart then break end
-                    local nStart = html:find('<div class=[%w"\']*stackable[%w"\']*>', fEnd + 1)
-                    local block
-                    if nStart then
-                        block = html:sub(fEnd + 1, nStart - 1)
-                    else
-                        block = html:sub(fEnd + 1, fEnd + 4000)
-                    end
-                    sPos = fEnd + 1
+                    local idStart, idEnd, itemName = html:find('<div%s+class="box"%s+id="([^"]+)"', pos)
+                    if not idStart then break end
+                    pos = idEnd + 1
 
-                    local bTag = block:match('<b>(.-)</b>')
-                    if bTag then
-                        local cleanName = bTag:gsub('<.->', ''):gsub('^%s+', ''):gsub('%s+$', '')
-                        -- check calculator numeric value first (e.g. .22 for Pier, .23 for Space, .42 for Bubbles)
-                        local calcValStr = block:match('runCalc%s*%(%s*[^,]+%s*,%s*[\'"]([^\'"]+)[\'"]')
-                                        or block:match('stackValue%s*%(%s*[^,]+%s*,%s*[\'"]([^\'"]+)[\'"]')
-                        -- extract raw display string for tooltip/display (e.g. 2 X (T1) Uncommon or 250)
-                        local vDisplay = block:match('Value:%s*([^\r\n<]+)')
-                        if vDisplay then
-                            vDisplay = vDisplay:gsub('^%s+', ''):gsub('%s+$', '')
+                    local _, valEnd, rawVal = html:find(
+                        '<span%s+class="itemvalue">([^<]+)</span>',
+                        idEnd
+                    )
+                    if valEnd then
+                        local cleanVal = rawVal:gsub(',', ''):gsub('%s+', '')
+                        local numVal = tonumber(cleanVal)
+                        if numVal and numVal > 0 then
+                            storeItem(cat.rName, itemName, numVal)
                         end
-
-                        local numVal = nil
-                        if calcValStr then
-                            calcValStr = calcValStr:gsub(',', ''):gsub('%s+', '')
-                            numVal = tonumber(calcValStr)
-                        end
-                        if not numVal and vDisplay then
-                            local numPart = vDisplay:match('^([%d%.,]+)')
-                            if numPart then
-                                numVal = tonumber((numPart:gsub(',', '')))
-                            end
-                        end
-
-                        if cleanName ~= '' and numVal then
-                            local normKey = cleanName:lower():gsub('[^%w]', '')
-                            MM2Values[cleanName] = numVal
-                            MM2ValuesNormalized[normKey] = numVal
-                            MM2ValuesByRarity[rName][cleanName] = numVal
-                            MM2ValuesNormalizedByRarity[rName][normKey] = numVal
-
-                            if vDisplay and vDisplay ~= '' then
-                                MM2ValueDisplays[cleanName] = vDisplay
-                            end
-
-                            -- index base name without brackets or tool suffixes
-                            local baseName = cleanName:gsub('%s*%(.-%)', ''):gsub('^%s+', ''):gsub('%s+$', '')
-                            if baseName ~= '' then
-                                local baseNorm = baseName:lower():gsub('[^%w]', '')
-                                if not MM2Values[baseName] then MM2Values[baseName] = numVal end
-                                if not MM2ValuesNormalized[baseNorm] then MM2ValuesNormalized[baseNorm] = numVal end
-                                if not MM2ValuesByRarity[rName][baseName] then MM2ValuesByRarity[rName][baseName] = numVal end
-                                if not MM2ValuesNormalizedByRarity[rName][baseNorm] then MM2ValuesNormalizedByRarity[rName][baseNorm] = numVal end
-
-                                local noSuf = baseName:gsub('%s+[Kk]nife$', ''):gsub('%s+[Gg]un$', ''):gsub('%s+[Aa]xe$', ''):gsub('%s+[Ss]cythe$', '')
-                                if noSuf ~= '' then
-                                    local noSufNorm = noSuf:lower():gsub('[^%w]', '')
-                                    if not MM2Values[noSuf] then MM2Values[noSuf] = numVal end
-                                    if not MM2ValuesNormalized[noSufNorm] then MM2ValuesNormalized[noSufNorm] = numVal end
-                                    if not MM2ValuesByRarity[rName][noSuf] then MM2ValuesByRarity[rName][noSuf] = numVal end
-                                    if not MM2ValuesNormalizedByRarity[rName][noSufNorm] then MM2ValuesNormalizedByRarity[rName][noSufNorm] = numVal end
-                                end
-                            end
-                        end
+                        pos = valEnd + 1
                     end
                 end
             end
+
             task.wait(0.2)
         end
+
         hasFetchedMM2Values = true
         isFetchingMM2Values = false
     end)
 end
 
--- trigger live values scrape from mm2values.com
+-- background refresh
 pcall(fetchMM2ValuesFromWeb)
+
+-- asset-id -> full mm2checker name (for gun/knife disambiguation)
+local MM2_ITEM_ASSET_MAP = {
+    ["196749885"] = "Adurite (Knife)",
+    ["196750197"] = "Bluesteel (Knife)",
+    ["196750305"] = "Deathshard",
+    ["196750384"] = "Default (Knife)",
+    ["196750422"] = "Galaxy",
+    ["196750668"] = "Ice",
+    ["196750845"] = "Love (Knife)",
+    ["196750899"] = "Plasmite",
+    ["196750963"] = "Rainbow (Knife)",
+    ["196751441"] = "Wanwood",
+    ["196751515"] = "S1 Test Knife",
+    ["196751752"] = "America",
+    ["196751820"] = "Default (Gun)",
+    ["196751943"] = "Laser",
+    ["196751989"] = "Golden",
+    ["196752052"] = "Cowboy",
+    ["196752144"] = "Phaser",
+    ["196752289"] = "Adurite (Gun)",
+    ["196752330"] = "Big Kill",
+    ["196752379"] = "Bluesteel (Gun)",
+    ["196752456"] = "Camo (Gun)",
+    ["196752499"] = "Cold",
+    ["196752601"] = "Fallout",
+    ["196752683"] = "Galactic",
+    ["196752718"] = "Imbued",
+    ["196752812"] = "Iron",
+    ["196752926"] = "Viper",
+    ["197499641"] = "Reptile",
+    ["197626358"] = "Gifted",
+    ["197638833"] = "Future",
+    ["197656593"] = "Nether",
+    ["197663897"] = "Midnight",
+    ["197829003"] = "Night",
+    ["197829561"] = "Spitfire",
+    ["197830043"] = "Overseer (Gun)",
+    ["197879343"] = "Corrupt",
+    ["198042673"] = "Luger",
+    ["198433893"] = "Linked",
+    ["198434520"] = "Slate",
+    ["198434881"] = "Borders",
+    ["198439107"] = "Stalker",
+    ["198439692"] = "Missing",
+    ["198440101"] = "Cheesy",
+    ["198440414"] = "Krypto",
+    ["198441038"] = "Spectrum",
+    ["198441413"] = "Overseer (Knife)",
+    ["198441783"] = "Seer",
+    ["198442811"] = "Fang",
+    ["198443382"] = "Checker",
+    ["198443956"] = "Damp",
+    ["198444909"] = "Emerald",
+    ["198566885"] = "Neon (Knife)",
+    ["200953094"] = "Infected (Knife)",
+    ["201238541"] = "Heat",
+    ["201542790"] = "TNL",
+    ["203806022"] = "Infiltrator",
+    ["203807397"] = "Juice",
+    ["203807690"] = "Engraved",
+    ["203807904"] = "Star",
+    ["203808108"] = "Sketch",
+    ["203808190"] = "Marina",
+    ["203808317"] = "Cheddar",
+    ["203809168"] = "iRevolver",
+    ["203810176"] = "Predator (Gun)",
+    ["203819271"] = "Hacker",
+    ["203858533"] = "Shark",
+    ["203867650"] = "Love (Gun)",
+    ["203869110"] = "Sparkle",
+    ["203869308"] = "Molten (Gun)",
+    ["235366460"] = "Clan",
+    ["235366729"] = "Cardboard",
+    ["235366771"] = "Stainless",
+    ["235366815"] = "Donut",
+    ["235366870"] = "Paper",
+    ["235366945"] = "Circuit",
+    ["235371276"] = "Doge",
+    ["235371439"] = "Splash (Knife)",
+    ["235371508"] = "Vortex",
+    ["235371686"] = "Nova",
+    ["235371809"] = "Molten (Knife)",
+    ["235372015"] = "Predator (Knife)",
+    ["235381341"] = "Saw",
+    ["237336076"] = "Goo",
+    ["238545971"] = "Pea",
+    ["238546032"] = "News",
+    ["238546100"] = "HL2",
+    ["238546356"] = "Wooden",
+    ["238546400"] = "Soda (Gun)",
+    ["238546422"] = "Caution",
+    ["238546467"] = "Bacon",
+    ["238546577"] = "Ace",
+    ["238546660"] = "Universe",
+    ["238546983"] = "Laser",
+    ["238549030"] = "Bit",
+    ["241095344"] = "Elite",
+    ["295269977"] = "Skool",
+    ["305503783"] = "Sidewinder",
+    ["305503942"] = "Grind",
+    ["305504173"] = "Euro",
+    ["305504399"] = "Ollie",
+    ["305506822"] = "Tailslide",
+    ["305506951"] = "Indy",
+    ["306046703"] = "Prism",
+    ["310709709"] = "Sparkle1",
+    ["310710191"] = "Sparkle2",
+    ["310710694"] = "Sparkle3",
+    ["310712788"] = "Sparkle4",
+    ["310713235"] = "Sparkle5",
+    ["310713648"] = "Sparkle6",
+    ["310714089"] = "Sparkle7",
+    ["310714407"] = "Sparkle8",
+    ["310715104"] = "Sparkle9",
+    ["310715768"] = "Sparkle10",
+    ["315099010"] = "Jack",
+    ["315100702"] = "Rupture",
+    ["315104004"] = "Web",
+    ["315155591"] = "Mummy (Gun)",
+    ["315500879"] = "Bleached",
+    ["315501118"] = "Clown (Knife)",
+    ["315501170"] = "Oily",
+    ["315501208"] = "Aqua",
+    ["315501297"] = "Hazmat",
+    ["315501369"] = "Melon (Knife)",
+    ["315501434"] = "Hive",
+    ["315501501"] = "Korblox",
+    ["315501560"] = "Squire",
+    ["315501640"] = "Fade",
+    ["315506122"] = "Slasher",
+    ["331140746"] = "Cane (Knife)",
+    ["331744703"] = "Ginger (Knife)",
+    ["331745341"] = "Ornament2 (Knife)",
+    ["331745428"] = "Ornament",
+    ["331745500"] = "Wrapped (Knife)",
+    ["331745577"] = "Tree (Knife)",
+    ["331745799"] = "Snowman (Knife)",
+    ["331746096"] = "Santa (Knife)",
+    ["331746317"] = "Elf (Knife)",
+    ["332011125"] = "Snowy",
+    ["332021011"] = "Candy",
+    ["332022166"] = "Chill",
+    ["332044583"] = "Red Luger",
+    ["332044679"] = "Green Luger",
+    ["332496861"] = "Santa (Gun)",
+    ["332497038"] = "Ginger (Gun)",
+    ["332497103"] = "Wrapped (Gun)",
+    ["332497144"] = "Ornament1",
+    ["332497187"] = "Cane (Gun)",
+    ["332497550"] = "Ornament2 (Gun)",
+    ["332497603"] = "Snowman (Gun)",
+    ["332497657"] = "Nutcracker",
+    ["332497688"] = "Tree (Gun)",
+    ["332731156"] = "Green Elite",
+    ["332767999"] = "Elf (Gun)",
+    ["332848695"] = "Sugar",
+    ["363150149"] = "Valentine",
+    ["363150334"] = "Passion",
+    ["363150561"] = "Blossom (Knife)",
+    ["363150761"] = "Sweetheart",
+    ["363352002"] = "Roses",
+    ["363352211"] = "Hearts",
+    ["365567889"] = "Eco",
+    ["365567962"] = "Log",
+    ["365568056"] = "Sandy (Knife)",
+    ["365568163"] = "Static",
+    ["365568602"] = "Brush",
+    ["365569126"] = "Jigsaw",
+    ["365569265"] = "Lucky",
+    ["365569428"] = "Abstract",
+    ["365569566"] = "Musical",
+    ["365569686"] = "Fusion",
+    ["383476085"] = "Patrick",
+    ["386276987"] = "Virtual",
+    ["386277381"] = "Blaster",
+    ["387874071"] = "Carrot (Knife)",
+    ["387874365"] = "Bunny",
+    ["387874661"] = "Tulip",
+    ["387874991"] = "Choco",
+    ["387875405"] = "Egg",
+    ["435933179"] = "Cotton Candy",
+    ["439325100"] = "Xbox",
+    ["446050753"] = "Amerilaser",
+    ["473569625"] = "Tides",
+    ["473570051"] = "Old Glory",
+    ["473570519"] = "Clockwork",
+    ["473571549"] = "Spider",
+    ["473572138"] = "Handsaw",
+    ["473572568"] = "Xmas",
+    ["473573054"] = "Pixel",
+    ["473573464"] = "Blood",
+    ["473574001"] = "Splitter",
+    ["473574401"] = "Ghost (Knife)",
+    ["473575049"] = "Prince",
+    ["473625645"] = "Brown",
+    ["473625785"] = "Green",
+    ["473625906"] = "Yellow",
+    ["473626025"] = "Orange",
+    ["473626150"] = "Red",
+    ["473626317"] = "Blue",
+    ["473626473"] = "Pink",
+    ["473626646"] = "Black",
+    ["473626740"] = "Purple",
+    ["473626979"] = "Shiny",
+    ["474030882"] = "Shadow",
+    ["475478854"] = "Nightblade",
+    ["476599365"] = "Asteroid",
+    ["531873011"] = "Orange Marble",
+    ["531873080"] = "Ghosty",
+    ["531873154"] = "Moons",
+    ["531873248"] = "Vampire (Knife)",
+    ["531873371"] = "Scratch",
+    ["531873487"] = "Wolf",
+    ["531873553"] = "Witch",
+    ["531873625"] = "Bats (Knife)",
+    ["531873816"] = "Bones (Knife)",
+    ["531873956"] = "Brains (Knife)",
+    ["531878205"] = "Hallow's Edge",
+    ["546159020"] = "Alex",
+    ["546159250"] = "Sub",
+    ["546161062"] = "Denis",
+    ["546161470"] = "Sketchy",
+    ["546161858"] = "Corl",
+    ["566867312"] = "JD",
+    ["585872642"] = "Ice Dragon",
+    ["585873746"] = "Flames",
+    ["619605312"] = "Eternal",
+    ["1132775323"] = "Hallow's Blade",
+    ["1133237368"] = "BattleAxe",
+    ["1133316381"] = "Scratch",
+    ["1133317890"] = "Magma (Knife)",
+    ["1133325465"] = "Webs (Knife)",
+    ["1133331679"] = "Ecto",
+    ["1133331885"] = "Zombie (Knife)",
+    ["1133332075"] = "Phantom",
+    ["1133337797"] = "CandyCorn",
+    ["1133352032"] = "Mummy (Knife)",
+    ["1133366632"] = "Potion (Knife)",
+    ["1133366830"] = "Green Marble",
+    ["1138143590"] = "Pumpking",
+    ["1268699212"] = "Present",
+    ["1268699677"] = "Coal (Knife)",
+    ["1268703023"] = "Elf (Knife)",
+    ["1268703618"] = "Santa (Knife)",
+    ["1268704124"] = "Tree (Knife)",
+    ["1268704507"] = "Frosty",
+    ["1268704902"] = "Sweater (Knife)",
+    ["1268705527"] = "Gingerbread (Knife)",
+    ["1268705947"] = "Snowy",
+    ["1268706374"] = "Green Fire",
+    ["1268708987"] = "Winter's Edge",
+    ["1268710824"] = "Ice Shard",
+    ["1268932977"] = "Snowflake (Knife)",
+    ["1269256860"] = "Red Fire",
+    ["1269374321"] = "Blue Elite",
+    ["1269580035"] = "Frostsaber",
+    ["1489495701"] = "Blue Candy",
+    ["1520188792"] = "Gold Candy",
+    ["1520189487"] = "Bronze Candy",
+    ["1520190188"] = "Silver Candy",
+    ["2511340308"] = "Gold Hallow",
+    ["2511341094"] = "Silver Hallow",
+    ["2511342846"] = "Bronze Hallow",
+    ["2511343130"] = "Red Hallow",
+    ["2511791893"] = "Batwing",
+    ["2513505477"] = "Boneblade",
+    ["2513535503"] = "BattleAxe II",
+    ["2513598419"] = "Boneblade",
+    ["2513728474"] = "Grave (Knife)",
+    ["2513731746"] = "Grave (Gun)",
+    ["2513732731"] = "Bats (Knife)",
+    ["2513732969"] = "Ghost (Knife)",
+    ["2513733542"] = "Mummy (Knife)",
+    ["2513733741"] = "Haunted (Knife)",
+    ["2513733987"] = "Potion (Knife)",
+    ["2513734227"] = "Slime (Knife)",
+    ["2513734535"] = "Toxic (Knife)",
+    ["2513734708"] = "Vampire (Knife)",
+    ["2513734908"] = "Zombie (Knife)",
+    ["2513741174"] = "Bats (Gun)",
+    ["2513741407"] = "Ghost (Gun)",
+    ["2513741663"] = "Mummy (Gun)",
+    ["2513741901"] = "Haunted (Gun)",
+    ["2513742133"] = "Potion (Gun)",
+    ["2513742319"] = "Slime (Gun)",
+    ["2513742519"] = "Toxic (Gun)",
+    ["2513742751"] = "Vampire (Gun)",
+    ["2513743298"] = "Zombie (Gun)",
+    ["2533351841"] = "Nik's Scythe",
+    ["2545253030"] = "Eternal II",
+    ["2669336659"] = "Gingerblade",
+    ["2669637780"] = "Santa (Knife)",
+    ["2669638285"] = "Coal (Knife)",
+    ["2669638508"] = "Cane (Knife)",
+    ["2669638742"] = "Ginger (Knife)",
+    ["2669638990"] = "Holly (Knife)",
+    ["2669639638"] = "Icicles (Knife)",
+    ["2669639913"] = "Snowflake (Knife)",
+    ["2669640152"] = "Snowman (Knife)",
+    ["2669640357"] = "Wrapped (Knife)",
+    ["2669640567"] = "Sweater (Knife)",
+    ["2669784920"] = "Coal (Gun)",
+    ["2669785184"] = "Elf (Gun)",
+    ["2669785546"] = "Cane (Gun)",
+    ["2669785821"] = "Ginger (Gun)",
+    ["2669786044"] = "Icicles (Gun)",
+    ["2669786261"] = "Holly (Gun)",
+    ["2669786515"] = "Snowflake (Gun)",
+    ["2669786846"] = "Snowman (Gun)",
+    ["2669787088"] = "Sweater (Gun)",
+    ["2669787533"] = "Wrapped (Gun)",
+    ["2672349340"] = "Gingerblade",
+    ["2674983099"] = "Ginger Luger",
+    ["3183085102"] = "Icewing",
+    ["3183597816"] = "Gemstone",
+    ["3183598040"] = "Gemstone",
+    ["3183604570"] = "Combat",
+    ["3183605392"] = "Copper",
+    ["3183605810"] = "Hardened",
+    ["3183606225"] = "Camo (Knife)",
+    ["3183606579"] = "Tiger",
+    ["3183607442"] = "Space",
+    ["3183607894"] = "Rune",
+    ["3183639522"] = "Splat",
+    ["3183639867"] = "Pirate",
+    ["3183640145"] = "Rainbow (Gun)",
+    ["3184122829"] = "Red Seer",
+    ["3184124504"] = "Orange Seer",
+    ["3184124768"] = "Yellow Seer",
+    ["3184125087"] = "Blue Seer",
+    ["3184125244"] = "Purple Seer",
+    ["3184125538"] = "Seer",
+    ["3187390667"] = "Deathshard",
+    ["3187392501"] = "Fang",
+    ["3187392992"] = "Saw",
+    ["3187393285"] = "Slasher",
+    ["3187394934"] = "Tides",
+    ["3187395238"] = "Heat",
+    ["3187395551"] = "Luger",
+    ["3187395738"] = "Shark",
+    ["3187395952"] = "Laser",
+    ["3215260149"] = "Gold Sugar",
+    ["3215261680"] = "Silver Sugar",
+    ["3215261913"] = "Bronze Sugar",
+    ["3215262120"] = "Blue Sugar",
+    ["3279011390"] = "Eternal III",
+    ["4210915060"] = "Skulls",
+    ["4210920512"] = "Dungeon",
+    ["4210925026"] = "Snakebite (Gun)",
+    ["4210926347"] = "Bones (Gun)",
+    ["4210928053"] = "Zombified (Knife)",
+    ["4210929184"] = "Brains (Knife)",
+    ["4210931354"] = "Pumpkin (Knife)",
+    ["4210932676"] = "Slimy",
+    ["4210934082"] = "Candy Corn (Knife)",
+    ["4210936652"] = "Webbed (Gun)",
+    ["4210938270"] = "Witched",
+    ["4210939388"] = "Snakebite (Knife)",
+    ["4210941474"] = "Monster (Gun)",
+    ["4210943691"] = "Branches",
+    ["4210944924"] = "Zombified (Gun)",
+    ["4210946577"] = "Mummified",
+    ["4210947993"] = "RIP",
+    ["4210949599"] = "Webbed (Knife)",
+    ["4211142894"] = "Elderwood Revolver",
+    ["4211148191"] = "Elderwood Scythe",
+    ["4221789003"] = "Ghostblade",
+    ["4468574885"] = "Blue Elderwood (Gun)",
+    ["4468583758"] = "Silver Elderwood (Gun)",
+    ["4468584345"] = "Gold Elderwood (Gun)",
+    ["4468585407"] = "Bronze Elderwood (Gun)",
+    ["4488391411"] = "Eternalcane",
+    ["4528484880"] = "Frostbite",
+    ["4534853444"] = "Frosted (Knife)",
+    ["4534855045"] = "Snowflakes (Knife)",
+    ["4534855710"] = "Pine (Knife)",
+    ["4534856285"] = "Gifts (Knife)",
+    ["4534856940"] = "Gingerbread (Knife)",
+    ["4534857523"] = "Frozen (Knife)",
+    ["4534858185"] = "Lights (Knife)",
+    ["4534860226"] = "Candy Swirl (Knife)",
+    ["4534860689"] = "Aurora (Knife)",
+    ["4534861110"] = "Cavern (Knife)",
+    ["4534866065"] = "Snowflakes (Gun)",
+    ["4534866678"] = "Frosted (Gun)",
+    ["4534867381"] = "Gifts (Gun)",
+    ["4534871260"] = "Pine (Gun)",
+    ["4534872116"] = "Gingerbread (Gun)",
+    ["4534872673"] = "Lights (Gun)",
+    ["4534873956"] = "Frozen (Gun)",
+    ["4534874602"] = "Candy Swirl (Gun)",
+    ["4534875165"] = "Aurora (Gun)",
+    ["4534875511"] = "Cavern (Gun)",
+    ["4535408229"] = "Minty",
+    ["4535482609"] = "Lugercane",
+    ["4535483042"] = "Santa's Magic",
+    ["4535644282"] = "Logchopper",
+    ["4659626370"] = "Splash (Gun)",
+    ["4659626966"] = "Nightfire",
+    ["4659627458"] = "Bio (Gun)",
+    ["4659627976"] = "Clown (Gun)",
+    ["4659634072"] = "Deep Sea",
+    ["4659634630"] = "Graffiti",
+    ["4659635055"] = "High Tech",
+    ["4659635584"] = "Lovely",
+    ["4659636085"] = "Shaded",
+    ["4659636452"] = "Leaf",
+    ["4749070432"] = "Lightbringer",
+    ["4749071819"] = "???",
+    ["4751500761"] = "Lightbringer",
+    ["4751501078"] = "Darkbringer",
+    ["4751539262"] = "Bioblade",
+    ["4753346087"] = "Silver Minty",
+    ["4753347062"] = "Blue Minty",
+    ["4753347636"] = "Gold Minty",
+    ["4753348263"] = "Bronze Minty",
+    ["4753352581"] = "Silver Logchopper",
+    ["4753353471"] = "Blue Logchopper",
+    ["4753354123"] = "Bronze Logchopper",
+    ["4753354638"] = "Gold Logchopper",
+    ["4972196241"] = "Combat II",
+    ["4999958740"] = "Eternal IV",
+    ["5360359935"] = "Prismatic",
+    ["5866435364"] = "Candy Corn (Knife)",
+    ["5866436906"] = "Carved (Knife)",
+    ["5866438542"] = "Watcher (Knife)",
+    ["5866441301"] = "Ripper (Knife)",
+    ["5866442790"] = "Ghosts (Knife)",
+    ["5866444722"] = "Portal (Knife)",
+    ["5866447521"] = "Mummy (Knife)",
+    ["5866454590"] = "Candy Corn (Gun)",
+    ["5866457985"] = "Carved (Gun)",
+    ["5866459380"] = "Watcher (Gun)",
+    ["5866460591"] = "Ripper (Gun)",
+    ["5866461926"] = "Portal (Gun)",
+    ["5866463755"] = "Mummy (Gun)",
+    ["5866465099"] = "Ghosts (Gun)",
+    ["5872490600"] = "Pumpkin (Knife)",
+    ["5872491708"] = "Candle",
+    ["5872492951"] = "Bones (Knife)",
+    ["5873256998"] = "Vampire's Edge",
+    ["5877016863"] = "Hallowscythe",
+    ["5878721461"] = "Hallowgun",
+    ["5929317433"] = "Slashed",
+    ["5930729222"] = "Bats (Knife)",
+    ["5930731295"] = "Starry (Gun)",
+    ["5984754897"] = "RB Knife",
+    ["6084838617"] = "Gold Vamp's Edge",
+    ["6084840560"] = "Silver Vamp's Edge",
+    ["6084842077"] = "Bronze Vamp's Edge",
+    ["6084854835"] = "Blue Vamp's Edge",
+    ["6085035357"] = "Peppermint (Knife)",
+    ["6121847170"] = "Gift Bag (Knife)",
+    ["6121848805"] = "Icecracker",
+    ["6121850031"] = "Gingerbread (Knife)",
+    ["6121851313"] = "Silent Night (Knife)",
+    ["6121853160"] = "Ornaments (Knife)",
+    ["6121854816"] = "Wrap (Knife)",
+    ["6121860619"] = "Gingerbread (Gun)",
+    ["6121862034"] = "Silent Night (Gun)",
+    ["6121863515"] = "Ornaments (Gun)",
+    ["6121864813"] = "Gift Bag (Gun)",
+    ["6121866490"] = "Icedriller",
+    ["6121867603"] = "Wrap (Gun)",
+    ["6123335682"] = "Stockings (Knife)",
+    ["6123336879"] = "Trees",
+    ["6123338102"] = "Snowflakes (Knife)",
+    ["6123357775"] = "Santa's Spirit",
+    ["6125729383"] = "Icebreaker",
+    ["6125733703"] = "Cookieblade",
+    ["6125742758"] = "Jinglegun",
+    ["6125814417"] = "Iceblaster",
+    ["6404115112"] = "Gold Icebreaker",
+    ["6404126280"] = "Silver Icebreaker",
+    ["6404127119"] = "Bronze Icebreaker",
+    ["6404129111"] = "Red Icebreaker",
+    ["6404165933"] = "Gold Iceblaster",
+    ["6404166698"] = "Silver Iceblaster",
+    ["6404167442"] = "Bronze Iceblaster",
+    ["6404168049"] = "Red Iceblaster",
+    ["6413145922"] = "Heartblade",
+    ["6598123521"] = "Nebula",
+    ["6607277825"] = "Eggblade",
+    ["6711852603"] = "Cherry",
+    ["6967771328"] = "SharkSeeker",
+    ["7791485669"] = "Reaver",
+    ["7791511648"] = "Reaver",
+    ["7791640819"] = "Reaver",
+    ["7800220325"] = "Skulls",
+    ["7800221141"] = "Gothic (Knife)",
+    ["7800222135"] = "Haunted (Knife)",
+    ["7800222975"] = "Zombie (Knife)",
+    ["7800224197"] = "Moon",
+    ["7800224981"] = "Cracks (Knife)",
+    ["7800225996"] = "Magma (Knife)",
+    ["7800226793"] = "Spectral (Knife)",
+    ["7800227475"] = "Watcher (Knife)",
+    ["7800229084"] = "Stickers (Knife)",
+    ["7800250906"] = "Aliens",
+    ["7800251557"] = "Wraiths (Gun)",
+    ["7800252572"] = "Magma (Gun)",
+    ["7800253444"] = "Cat",
+    ["7800253970"] = "Gothic (Gun)",
+    ["7800254737"] = "Cracks (Gun)",
+    ["7800255531"] = "Spectral (Gun)",
+    ["7800256309"] = "Watcher (Gun)",
+    ["7800257010"] = "Stickers (Gun)",
+    ["7800257544"] = "Fall Camo",
+    ["7800847534"] = "Harvester",
+    ["7805833970"] = "Candleflame (Knife)",
+    ["7806121918"] = "Candleflame (Knife)",
+    ["7808362279"] = "Wraiths (Knife)",
+    ["8194217388"] = "Silver Harvester",
+    ["8194219645"] = "Blue Harvester",
+    ["8194221072"] = "Bronze Harvester",
+    ["8194222523"] = "Gold Harvester",
+    ["8304750295"] = "Cane (Knife)",
+    ["8304750877"] = "Aurora (Knife)",
+    ["8304751659"] = "Coal (Knife)",
+    ["8304752586"] = "Cookie (Knife)",
+    ["8304753468"] = "Snowman (Knife)",
+    ["8304754179"] = "Giftwrap",
+    ["8304754882"] = "Ribbons",
+    ["8304755417"] = "Stickers (Knife)",
+    ["8304756423"] = "Tree (Knife)",
+    ["8304757110"] = "Swirl",
+    ["8304757707"] = "Starry (Knife)",
+    ["8304766165"] = "Aurora (Gun)",
+    ["8304766932"] = "Snowman (Gun)",
+    ["8304767724"] = "Ice Camo",
+    ["8304768700"] = "Cane (Gun)",
+    ["8304769409"] = "Coal (Gun)",
+    ["8304770115"] = "Stickers (Gun)",
+    ["8304771148"] = "Cookie (Gun)",
+    ["8304772140"] = "Gingerbread (Gun)",
+    ["8304772774"] = "Starry (Gun)",
+    ["8304801000"] = "Swirly Axe",
+    ["8304805693"] = "Swirly Blade",
+    ["8304818186"] = "Iceflake",
+    ["8305264097"] = "Swirly Gun",
+    ["8311005531"] = "Icebeam",
+    ["8311393414"] = "Swirly Gun",
+    ["8626617523"] = "Dartbringer",
+    ["9552048857"] = "Blue Swirly (Knife)",
+    ["9552050165"] = "Bronze Swirly (Knife)",
+    ["9552051805"] = "Silver Swirly (Knife)",
+    ["9552054920"] = "Gold Swirly (Knife)",
+    ["9552060741"] = "Blue Swirly (Gun)",
+    ["9552063524"] = "Bronze Swirly (Gun)",
+    ["9552064240"] = "Silver Swirly (Gun)",
+    ["9552065167"] = "Gold Swirly (Gun)",
+    ["10014680882"] = "Plasmablade",
+    ["10014717343"] = "Plasmabeam",
+    ["11117375743"] = "Ghostly",
+    ["11229732037"] = "Phantom",
+    ["11229779932"] = "Spectre",
+    ["11229814357"] = "Bat",
+    ["11229837140"] = "Makeshift (Gun)",
+    ["11254057417"] = "Candy Corn (Knife)",
+    ["11254065007"] = "Eyeball",
+    ["11254067158"] = "Stickers (Knife)",
+    ["11254081561"] = "Darkness (Knife)",
+    ["11254083234"] = "Hazard (Knife)",
+    ["11254093910"] = "Lantern",
+    ["11254115609"] = "Witchbrew",
+    ["11254118399"] = "Wraith (Knife)",
+    ["11254123390"] = "Curse",
+    ["11254125546"] = "Vampire (Knife)",
+    ["11254145154"] = "Zombie Camo",
+    ["11254146743"] = "Survivor Camo",
+    ["11254152435"] = "Boney",
+    ["11254154978"] = "Hunter",
+    ["11254158802"] = "TestItem",
+    ["11254172968"] = "Apocalypse (Knife)",
+    ["11254175272"] = "Infected (Knife)",
+    ["11254180750"] = "Makeshift (Knife)",
+    ["11254182560"] = "Zombified (Knife)",
+    ["11254975176"] = "Elderwood Blade",
+    ["11255501940"] = "Apocalypse (Gun)",
+    ["11255502768"] = "Infected (Gun)",
+    ["11255503583"] = "Vampire (Gun)",
+    ["11255504462"] = "Wraith (Gun)",
+    ["11255505449"] = "Hazard (Gun)",
+    ["11255507374"] = "Darkness (Gun)",
+    ["11255558166"] = "Candy Corn (Gun)",
+    ["11262771067"] = "Elderwood Blade",
+    ["11284140034"] = "Ghostfire",
+    ["11284143055"] = "Moonlight",
+    ["11284145298"] = "Brains (Gun)",
+    ["11284147880"] = "Webs (Gun)",
+    ["11505913287"] = "Blue Elderwood (Knife)",
+    ["11505914752"] = "Bronze Elderwood (Knife)",
+    ["11505916486"] = "Silver Elderwood (Knife)",
+    ["11505917850"] = "Gold Elderwood (Knife)",
+    ["11548082732"] = "Void",
+    ["11834384755"] = "Candied (Knife)",
+    ["11834387858"] = "Stickers (Knife)",
+    ["11834390120"] = "Coal (Knife)",
+    ["11834391469"] = "Snowman (Knife)",
+    ["11834392930"] = "Stockings (Knife)",
+    ["11834394793"] = "Mistletoe (Knife)",
+    ["11834397133"] = "Snowflake (Knife)",
+    ["11834399071"] = "Gingerbread (Knife)",
+    ["11834400185"] = "Tree (Knife)",
+    ["11834401547"] = "Arctic (Knife)",
+    ["11834403282"] = "Wrapped (Knife)",
+    ["11834404402"] = "Frozen (Knife)",
+    ["11834432971"] = "Stickers (Gun)",
+    ["11834434264"] = "Coal (Gun)",
+    ["11834435627"] = "Candied (Gun)",
+    ["11834436620"] = "Snowman (Gun)",
+    ["11834437796"] = "Snowflake (Gun)",
+    ["11834438982"] = "Mistletoe (Gun)",
+    ["11834440319"] = "Stockings (Gun)",
+    ["11834441321"] = "Tree (Gun)",
+    ["11834442414"] = "Gingerbread (Gun)",
+    ["11834443783"] = "Arctic (Gun)",
+    ["11834445016"] = "Frozen (Gun)",
+    ["11855274019"] = "Icecrusher",
+    ["11855282546"] = "Icecrusher",
+    ["11855306927"] = "Cookiecane",
+    ["11855361567"] = "Icecrusher",
+    ["11872179646"] = "Gingermint",
+    ["11873640255"] = "Cookiecane",
+    ["11874071041"] = "Icepiercer",
+    ["12226688172"] = "Gold Icepiercer",
+    ["12226843957"] = "Silver Icepiercer",
+    ["12226920195"] = "Bronze Icepiercer",
+    ["12227133450"] = "Red Icepiercer",
+    ["12227137860"] = "Gold Icecrusher",
+    ["12227142478"] = "Silver Icecrusher",
+    ["12227148356"] = "Bronze Icecrusher",
+    ["12227186408"] = "Red Icecrusher",
+    ["12339323856"] = "Broken",
+    ["12339325736"] = "Rose",
+    ["12339327069"] = "Heart",
+    ["12339328595"] = "Love (Knife)",
+    ["12339366064"] = "Sakura",
+    ["12339377105"] = "Blossom (Gun)",
+    ["12965294432"] = "Fragile (Knife)",
+    ["12965298174"] = "Bio (Knife)",
+    ["12965302237"] = "Marble",
+    ["12965304445"] = "Chromatic (Knife)",
+    ["12965307410"] = "Carrot (Knife)",
+    ["12965311567"] = "Painted (Knife)",
+    ["12965335931"] = "Nuke",
+    ["12965339774"] = "Chromatic (Gun)",
+    ["12965344675"] = "Painted (Gun)",
+    ["12965349193"] = "Fragile (Gun)",
+    ["12966184630"] = "Rainbow (Knife)",
+    ["12966354606"] = "Rainbow (Gun)",
+    ["13944127959"] = "Toy (Knife)",
+    ["13944129596"] = "Stickers (Knife)",
+    ["13944131195"] = "Popsicle (Knife)",
+    ["13944132845"] = "Pool Noodle",
+    ["13944134705"] = "Floral (Knife)",
+    ["13944135892"] = "Beach",
+    ["13944151514"] = "Stickers (Gun)",
+    ["13944152795"] = "Toy (Gun)",
+    ["13944153861"] = "Melon (Gun)",
+    ["13944155639"] = "Sun",
+    ["13945892398"] = "Waves",
+    ["13945898892"] = "Ocean",
+    ["14967668214"] = "Ghoulish",
+    ["15070870271"] = "Traveler's Axe",
+    ["15080267070"] = "Darksword",
+    ["15080280688"] = "Darkshot",
+    ["15091321393"] = "Etched",
+    ["15091325210"] = "Vines (Knife)",
+    ["15091326116"] = "Ghosts (Knife)",
+    ["15091327743"] = "Pumpkin (Gun)",
+    ["15091339932"] = "Zombie (Knife)",
+    ["15091340751"] = "Meltdown",
+    ["15091341552"] = "Steel (Gun)",
+    ["15091342564"] = "Ghastly (Gun)",
+    ["15091343579"] = "Dark (Knife)",
+    ["15091344462"] = "Traveler (Gun)",
+    ["15091399982"] = "Spider",
+    ["15091400883"] = "Leaves (Knife)",
+    ["15091401811"] = "Wood",
+    ["15091402817"] = "Vines (Gun)",
+    ["15091403551"] = "Glowy",
+    ["15091404278"] = "Eclipse",
+    ["15091405483"] = "Steel (Knife)",
+    ["15091406343"] = "Dark (Gun)",
+    ["15091407068"] = "Ghastly (Knife)",
+    ["15091407901"] = "Traveler (Knife)",
+    ["15091442039"] = "Traveler's Gun",
+    ["15097897227"] = "Traveler's Gun",
+    ["15413114703"] = "Latte (Knife)",
+    ["15413116029"] = "Latte (Gun)",
+    ["15413117611"] = "Pumpkin Pie",
+    ["15413149176"] = "Turkey",
+    ["15415482999"] = "Scarf",
+    ["15635550625"] = "Santa (Gun)",
+    ["15635552019"] = "Ribbon",
+    ["15635553149"] = "Present",
+    ["15635556891"] = "Frozen (Knife)",
+    ["15635558021"] = "Fireplace",
+    ["15635558982"] = "Canes (Gun)",
+    ["15635559978"] = "Stars (Knife)",
+    ["15635560825"] = "Neon (Gun)",
+    ["15635563249"] = "Tree (Knife)",
+    ["15635565488"] = "Frostfade (Knife)",
+    ["15635568751"] = "Snowfall",
+    ["15635569893"] = "Elf (Gun)",
+    ["15635570486"] = "Bells",
+    ["15635571468"] = "Frozen (Gun)",
+    ["15635572427"] = "Snowman (Gun)",
+    ["15635574031"] = "Stars (Gun)",
+    ["15635574962"] = "Canes (Knife)",
+    ["15635575718"] = "Snowflake (Gun)",
+    ["15635576863"] = "Snowglobe",
+    ["15635577623"] = "Frostfade (Gun)",
+    ["15666469505"] = "Gingerscope",
+    ["15667157715"] = "Evergreen",
+    ["15682703596"] = "Evergun",
+    ["15683140564"] = "Gingerscythe",
+    ["15683175970"] = "Synthwave",
+    ["15683188776"] = "Gingerscythe",
+    ["15694110573"] = "Evergreen",
+    ["15695405379"] = "Red Traveler's",
+    ["15695407020"] = "Bronze Traveler's",
+    ["15695407742"] = "Silver Traveler's",
+    ["15695408631"] = "Gold Traveler's",
+    ["16959755393"] = "Wavy (Knife)",
+    ["16959771850"] = "Carrot (Knife)",
+    ["16959775902"] = "Spring",
+    ["16959778188"] = "Robot",
+    ["16960077712"] = "Wavy (Gun)",
+    ["16960082652"] = "Carrot (Gun)",
+    ["16963860501"] = "Flowerwood (Knife)",
+    ["16963894455"] = "Flowerwood (Gun)",
+    ["16964346058"] = "Splatter",
+    ["16964448042"] = "Blue Gingerscythe",
+    ["16964449392"] = "Bronze Gingerscythe",
+    ["16964450895"] = "Silver Gingerscythe",
+    ["16964452491"] = "Gold Gingerscythe",
+    ["16964462231"] = "Blue Gingerscope",
+    ["16964465320"] = "Bronze Gingerscope",
+    ["16964468980"] = "Silver Gingerscope",
+    ["16964471890"] = "Gold Gingerscope",
+    ["18322137551"] = "Palms (Knife)",
+    ["18322166908"] = "Turtle",
+    ["18322176343"] = "Starfish (Knife)",
+    ["18322178053"] = "Waves",
+    ["18322179563"] = "Sharky",
+    ["18322181701"] = "Jellyfish",
+    ["18322183619"] = "Clownfish (Knife)",
+    ["18322189584"] = "Starfish (Gun)",
+    ["18322191060"] = "Popsicle (Gun)",
+    ["18322192817"] = "Palms (Gun)",
+    ["18322194067"] = "Floatie",
+    ["18322197952"] = "Clownfish (Gun)",
+    ["18322621319"] = "Pearl",
+    ["18322646152"] = "Pearlshine",
+    ["18323751219"] = "Floral (Gun)",
+    ["18323751962"] = "Balloons",
+    ["18323752709"] = "Sandy (Gun)",
+    ["18351388416"] = "Watergun",
+    ["18351401528"] = "Watergun",
+    ["70701057041846"] = "Gold Snow Dagger",
+    ["70973050894155"] = "Snowstorm",
+    ["71088901904009"] = "Logcutter",
+    ["71228862432065"] = "Lights (Knife)",
+    ["71258273720666"] = "Bats (Gun)",
+    ["71511736314707"] = "Silver Raygun",
+    ["71982363966070"] = "Clown (Gun)",
+    ["72230744607038"] = "Bronze Synthwave",
+    ["72638846676083"] = "Wrapped (Knife)",
+    ["73148873488539"] = "Peppermint (Gun)",
+    ["73203940450745"] = "Igloo (Knife)",
+    ["73486056426142"] = "Leaves (Knife)",
+    ["73897192147749"] = "Strawberries (Knife)",
+    ["73980008491741"] = "Neopolitan",
+    ["74908113882525"] = "Gingerbread (Gun)",
+    ["74917318027165"] = "Sleigh",
+    ["75123474631661"] = "Stickers (Gun)",
+    ["75233248021696"] = "Soul",
+    ["75237025203058"] = "Coconut",
+    ["75608370390005"] = "Skyline",
+    ["76250851065456"] = "Gold Raygun",
+    ["76288270695961"] = "Stockings (Gun)",
+    ["76461209737867"] = "Bones (Knife)",
+    ["76537883908961"] = "Treats (Gun)",
+    ["76914260444878"] = "Carrots",
+    ["77271917200992"] = "Turtles",
+    ["77607127867154"] = "Alienbeam",
+    ["77773918675860"] = "Hologram (Knife)",
+    ["78153346812503"] = "Fall",
+    ["78199422065424"] = "Forest",
+    ["78432760615312"] = "Wreaths",
+    ["78479059410850"] = "Heart Wand",
+    ["79235438948261"] = "Heartbreak",
+    ["79722325448464"] = "Xenoshot",
+    ["80492487454400"] = "Xeno (Knife)",
+    ["80900354672590"] = "Aquarium (Knife)",
+    ["81352860339620"] = "Spearmint (Gun)",
+    ["83838802472095"] = "Silver Snowcannon",
+    ["83843575465564"] = "Stickers (Knife)",
+    ["84030107970606"] = "UFOs (Gun)",
+    ["84481559639371"] = "Bauble",
+    ["84605926178412"] = "Peppermint (Knife)",
+    ["84743767811732"] = "Bronze Snowcannon",
+    ["85299848190695"] = "Retro",
+    ["85751270338066"] = "Snowman (Knife)",
+    ["85766514163212"] = "Red Constellation",
+    ["86258299490709"] = "Energized (Knife)",
+    ["86405207895194"] = "Candy Corn (Knife)",
+    ["87189663191639"] = "Icecream",
+    ["87617250559234"] = "Red Snow Dagger",
+    ["88928894807422"] = "Blizzard",
+    ["89899263078420"] = "Soda (Knife)",
+    ["90170220549489"] = "Lava (Gun)",
+    ["90194465176219"] = "Haunted (Knife)",
+    ["90241292303974"] = "Silver Celestial",
+    ["90274872705656"] = "Vampire's Gun",
+    ["90526048501163"] = "Pop Art (Gun)",
+    ["90549252812333"] = "Bunnies",
+    ["90595111293037"] = "Candleflame (Gun)",
+    ["90622014285727"] = "Frozen (Gun)",
+    ["90751163516480"] = "Eyes",
+    ["91224254479440"] = "Stickers (Gun)",
+    ["91446990047399"] = "Moons",
+    ["93320180084418"] = "Penguin",
+    ["93906279038399"] = "Sunny",
+    ["94311965719769"] = "Nightsky",
+    ["95328449981238"] = "Snow Dagger",
+    ["95517099886712"] = "Igloo (Gun)",
+    ["96164363513384"] = "Cherries",
+    ["97369825731567"] = "Storm",
+    ["97641024072972"] = "UFOs (Knife)",
+    ["98506456649552"] = "Spearmint (Knife)",
+    ["98868784444742"] = "Stickers (Knife)",
+    ["99160839686845"] = "Gingercookie (Gun)",
+    ["99939659856909"] = "Hearts",
+    ["100461386281007"] = "Stickers (Knife)",
+    ["100576599313371"] = "Xeno (Knife)",
+    ["100747436297625"] = "Silver Constellation",
+    ["101343256002049"] = "Australis",
+    ["102130993592804"] = "Sweater (Knife)",
+    ["102283625659356"] = "Stickers (Knife)",
+    ["103455022994358"] = "Silver Synthwave",
+    ["103526268515240"] = "Sunset (Knife)",
+    ["104229967982042"] = "Gold Celestial",
+    ["104258636970738"] = "Lights (Gun)",
+    ["104416405402940"] = "Snowball (Gun)",
+    ["104747488009018"] = "Bats (Knife)",
+    ["104988218477551"] = "Frostflame (Knife)",
+    ["107190526940939"] = "Spirit",
+    ["107321881182350"] = "Meadow",
+    ["107508982214346"] = "Floral (Gun)",
+    ["107510647616718"] = "Abduction",
+    ["108122054293502"] = "Stickers (Gun)",
+    ["108331177567412"] = "Witch's Brew",
+    ["108635848059846"] = "Borealis",
+    ["108751717527377"] = "Hologram (Gun)",
+    ["108996627787763"] = "Frozen (Knife)",
+    ["109101361674956"] = "Reindeer",
+    ["109292073070223"] = "Monster (Knife)",
+    ["109929760056853"] = "Wrapped (Gun)",
+    ["110160120309916"] = "Blossom (Knife)",
+    ["110812086479763"] = "Red Snowcannon",
+    ["111092946728824"] = "Ornament",
+    ["111291962899457"] = "Tropical",
+    ["111408683823094"] = "Gingercookie (Knife)",
+    ["112511843095202"] = "Pool",
+    ["112811587103866"] = "Bronze Constellation",
+    ["113677688954146"] = "Yummy",
+    ["113979322866878"] = "Nightstar",
+    ["114197436469014"] = "Constellation",
+    ["114403390530326"] = "Energized (Gun)",
+    ["114781759936576"] = "Frostflame (Gun)",
+    ["115093067149752"] = "Candy Corn (Knife)",
+    ["115273559455814"] = "Gingerheart",
+    ["115280072896190"] = "Stickers (Knife)",
+    ["115298865715727"] = "Treats (Knife)",
+    ["115609046800090"] = "Gold Snowcannon",
+    ["116059045830205"] = "Kraken",
+    ["116361515042274"] = "Chick",
+    ["117088166092009"] = "Pumpkin Patch",
+    ["117473869340749"] = "Candy Corn (Gun)",
+    ["118334707962654"] = "Heart Wand",
+    ["118530164125152"] = "Striped (Gun)",
+    ["118557229750245"] = "Sweater (Gun)",
+    ["119157529694972"] = "Red Celestial",
+    ["119213058412452"] = "Sands",
+    ["119399643874968"] = "Bronze Celestial",
+    ["119626042140839"] = "Pumpkin (Knife)",
+    ["119914093248842"] = "Snowball (Knife)",
+    ["120089556380493"] = "Paws",
+    ["120248733900674"] = "Stickers (Knife)",
+    ["120422092957504"] = "Polar Bear",
+    ["120888453565511"] = "Beachy",
+    ["120907601916735"] = "Sunset (Gun)",
+    ["121681210724670"] = "Plaid",
+    ["122021199074749"] = "Ritual",
+    ["122078592955794"] = "Reindeer",
+    ["122762984016505"] = "Blue Synthwave",
+    ["122855768693454"] = "Cursed (Gun)",
+    ["123269723073737"] = "Pop Art (Knife)",
+    ["123955324398353"] = "Cupid",
+    ["124567820488562"] = "Duckies",
+    ["124860763249593"] = "Decorated",
+    ["126937716954396"] = "Sweet",
+    ["127489830827583"] = "Stickers (Gun)",
+    ["127570773123670"] = "Pier",
+    ["128427983277729"] = "Silver Snow Dagger",
+    ["128553215441980"] = "Bloom",
+    ["128646835922561"] = "Strawberries (Gun)",
+    ["129186939023729"] = "Snowcannon",
+    ["129290011017110"] = "Gifts (Knife)",
+    ["129460052425837"] = "Aquarium (Gun)",
+    ["129480661108374"] = "Sunrise",
+    ["129781304866793"] = "Candy Corn (Gun)",
+    ["129970927613267"] = "Leaves (Gun)",
+    ["130537925107449"] = "Starry (Knife)",
+    ["130837676383567"] = "Vampire's Axe",
+    ["131417913843701"] = "Lava (Knife)",
+    ["131626924640663"] = "Treat",
+    ["132040985617451"] = "Synthwave",
+    ["132354489228618"] = "Red Raygun",
+    ["132504094164819"] = "Ornaments (Knife)",
+    ["132525981806780"] = "Soda (Gun)",
+    ["132565936309463"] = "Cursed (Knife)",
+    ["132975248521820"] = "Gold Constellation",
+    ["133219566412887"] = "Dolphins",
+    ["133307062463653"] = "Hot Chocolate",
+    ["133654810681274"] = "Candles",
+    ["133828016595037"] = "Synthwave",
+    ["134312132943601"] = "Bronze Snow Dagger",
+    ["134429631587448"] = "Neon (Gun)",
+    ["134478959354477"] = "Gingerbread (Knife)",
+    ["134681523511387"] = "Ghosts (Knife)",
+    ["135606903872678"] = "Tourist",
+    ["135662872427976"] = "Butterflies",
+    ["136673966529736"] = "Celestial",
+    ["136747578920542"] = "Striped (Knife)",
+    ["138109619662236"] = "Sand",
+    ["138204709945147"] = "Flora",
+    ["138388933477235"] = "Bubbles",
+    ["138834911796124"] = "Gold Synthwave",
+    ["138881346504998"] = "Bronze Raygun",
+    ["139431943195380"] = "Raygun",
+    ["139755862211442"] = "Xeno (Gun)",
+    ["140366567839959"] = "Cats",
+}
+
+local MM2_ITEM_RARITY_MAP = {
+    ["196749885"] = "Uncommon",
+    ["196750197"] = "Uncommon",
+    ["196750305"] = "Godly",
+    ["196750384"] = "Common",
+    ["196750422"] = "Rare",
+    ["196750668"] = "Common",
+    ["196750845"] = "Common",
+    ["196750899"] = "Legendary",
+    ["196750963"] = "Rare",
+    ["196751441"] = "Uncommon",
+    ["196751515"] = "Common",
+    ["196751752"] = "Classic",
+    ["196751820"] = "Common",
+    ["196751943"] = "Classic",
+    ["196751989"] = "Classic",
+    ["196752052"] = "Classic",
+    ["196752144"] = "Classic",
+    ["196752289"] = "Uncommon",
+    ["196752330"] = "Common",
+    ["196752379"] = "Uncommon",
+    ["196752456"] = "Uncommon",
+    ["196752499"] = "Common",
+    ["196752601"] = "Common",
+    ["196752683"] = "Rare",
+    ["196752718"] = "Rare",
+    ["196752812"] = "Common",
+    ["196752926"] = "Legendary",
+    ["197499641"] = "Common",
+    ["197626358"] = "Uncommon",
+    ["197638833"] = "Uncommon",
+    ["197656593"] = "Rare",
+    ["197663897"] = "Legendary",
+    ["197829003"] = "Uncommon",
+    ["197829561"] = "Rare",
+    ["197830043"] = "Legendary",
+    ["197879343"] = "Unique",
+    ["198042673"] = "Godly",
+    ["198433893"] = "Common",
+    ["198434520"] = "Common",
+    ["198434881"] = "Common",
+    ["198439107"] = "Uncommon",
+    ["198439692"] = "Uncommon",
+    ["198440101"] = "Uncommon",
+    ["198440414"] = "Rare",
+    ["198441038"] = "Rare",
+    ["198441413"] = "Legendary",
+    ["198441783"] = "Godly",
+    ["198442811"] = "Godly",
+    ["198443382"] = "Uncommon",
+    ["198443956"] = "Rare",
+    ["198444909"] = "Legendary",
+    ["198566885"] = "Common",
+    ["200953094"] = "Common",
+    ["201238541"] = "Godly",
+    ["201542790"] = "Common",
+    ["203806022"] = "Common",
+    ["203807397"] = "Common",
+    ["203807690"] = "Common",
+    ["203807904"] = "Common",
+    ["203808108"] = "Uncommon",
+    ["203808190"] = "Uncommon",
+    ["203808317"] = "Uncommon",
+    ["203809168"] = "Rare",
+    ["203810176"] = "Legendary",
+    ["203819271"] = "Rare",
+    ["203858533"] = "Godly",
+    ["203867650"] = "Uncommon",
+    ["203869110"] = "Legendary",
+    ["203869308"] = "Rare",
+    ["235366460"] = "Common",
+    ["235366729"] = "Common",
+    ["235366771"] = "Common",
+    ["235366815"] = "Uncommon",
+    ["235366870"] = "Uncommon",
+    ["235366945"] = "Uncommon",
+    ["235371276"] = "Uncommon",
+    ["235371439"] = "Legendary",
+    ["235371508"] = "Rare",
+    ["235371686"] = "Rare",
+    ["235371809"] = "Rare",
+    ["235372015"] = "Legendary",
+    ["235381341"] = "Godly",
+    ["237336076"] = "Common",
+    ["238545971"] = "Common",
+    ["238546032"] = "Common",
+    ["238546100"] = "Common",
+    ["238546356"] = "Uncommon",
+    ["238546400"] = "Uncommon",
+    ["238546422"] = "Uncommon",
+    ["238546467"] = "Rare",
+    ["238546577"] = "Rare",
+    ["238546660"] = "Legendary",
+    ["238546983"] = "Godly",
+    ["238549030"] = "Common",
+    ["241095344"] = "Legendary",
+    ["295269977"] = "Common",
+    ["305503783"] = "Common",
+    ["305503942"] = "Common",
+    ["305504173"] = "Common",
+    ["305504399"] = "Common",
+    ["305506822"] = "Common",
+    ["305506951"] = "Common",
+    ["306046703"] = "Common",
+    ["310709709"] = "Common",
+    ["310710191"] = "Common",
+    ["310710694"] = "Common",
+    ["310712788"] = "Common",
+    ["310713235"] = "Common",
+    ["310713648"] = "Common",
+    ["310714089"] = "Common",
+    ["310714407"] = "Common",
+    ["310715104"] = "Common",
+    ["310715768"] = "Common",
+    ["315099010"] = "Rare",
+    ["315100702"] = "Legendary",
+    ["315104004"] = "Legendary",
+    ["315155591"] = "Rare",
+    ["315500879"] = "Common",
+    ["315501118"] = "Unique",
+    ["315501170"] = "Common",
+    ["315501208"] = "Common",
+    ["315501297"] = "Uncommon",
+    ["315501369"] = "Uncommon",
+    ["315501434"] = "Uncommon",
+    ["315501501"] = "Rare",
+    ["315501560"] = "Rare",
+    ["315501640"] = "Legendary",
+    ["315506122"] = "Godly",
+    ["331140746"] = "Rare",
+    ["331744703"] = "Rare",
+    ["331745341"] = "Common",
+    ["331745428"] = "Common",
+    ["331745500"] = "Uncommon",
+    ["331745577"] = "Legendary",
+    ["331745799"] = "Uncommon",
+    ["331746096"] = "Common",
+    ["331746317"] = "Common",
+    ["332011125"] = "Uncommon",
+    ["332021011"] = "Godly",
+    ["332022166"] = "Godly",
+    ["332044583"] = "Godly",
+    ["332044679"] = "Godly",
+    ["332496861"] = "Common",
+    ["332497038"] = "Rare",
+    ["332497103"] = "Uncommon",
+    ["332497144"] = "Common",
+    ["332497187"] = "Rare",
+    ["332497550"] = "Common",
+    ["332497603"] = "Uncommon",
+    ["332497657"] = "Uncommon",
+    ["332497688"] = "Legendary",
+    ["332731156"] = "Legendary",
+    ["332767999"] = "Common",
+    ["332848695"] = "Godly",
+    ["363150149"] = "Common",
+    ["363150334"] = "Common",
+    ["363150561"] = "Common",
+    ["363150761"] = "Common",
+    ["363352002"] = "Common",
+    ["363352211"] = "Common",
+    ["365567889"] = "Common",
+    ["365567962"] = "Common",
+    ["365568056"] = "Common",
+    ["365568163"] = "Common",
+    ["365568602"] = "Uncommon",
+    ["365569126"] = "Uncommon",
+    ["365569265"] = "Uncommon",
+    ["365569428"] = "Rare",
+    ["365569566"] = "Rare",
+    ["365569686"] = "Legendary",
+    ["383476085"] = "Common",
+    ["386276987"] = "Godly",
+    ["386277381"] = "Godly",
+    ["387874071"] = "Common",
+    ["387874365"] = "Common",
+    ["387874661"] = "Common",
+    ["387874991"] = "Common",
+    ["387875405"] = "Common",
+    ["435933179"] = "Legendary",
+    ["439325100"] = "Common",
+    ["446050753"] = "Godly",
+    ["473569625"] = "Godly",
+    ["473570051"] = "Godly",
+    ["473570519"] = "Godly",
+    ["473571549"] = "Godly",
+    ["473572138"] = "Godly",
+    ["473572568"] = "Godly",
+    ["473573054"] = "Godly",
+    ["473573464"] = "Classic",
+    ["473574001"] = "Classic",
+    ["473574401"] = "Classic",
+    ["473575049"] = "Classic",
+    ["473625645"] = "Common",
+    ["473625785"] = "Common",
+    ["473625906"] = "Common",
+    ["473626025"] = "Common",
+    ["473626150"] = "Uncommon",
+    ["473626317"] = "Uncommon",
+    ["473626473"] = "Uncommon",
+    ["473626646"] = "Rare",
+    ["473626740"] = "Rare",
+    ["473626979"] = "Legendary",
+    ["474030882"] = "Classic",
+    ["475478854"] = "Godly",
+    ["476599365"] = "Common",
+    ["531873011"] = "Rare",
+    ["531873080"] = "Common",
+    ["531873154"] = "Uncommon",
+    ["531873248"] = "Uncommon",
+    ["531873371"] = "Legendary",
+    ["531873487"] = "Uncommon",
+    ["531873553"] = "Common",
+    ["531873625"] = "Rare",
+    ["531873816"] = "Common",
+    ["531873956"] = "Common",
+    ["531878205"] = "Godly",
+    ["546159020"] = "Common",
+    ["546159250"] = "Common",
+    ["546161062"] = "Common",
+    ["546161470"] = "Common",
+    ["546161858"] = "Common",
+    ["566867312"] = "Legendary",
+    ["585872642"] = "Godly",
+    ["585873746"] = "Godly",
+    ["619605312"] = "Godly",
+    ["1132775323"] = "Godly",
+    ["1133237368"] = "Godly",
+    ["1133316381"] = "Legendary",
+    ["1133317890"] = "Rare",
+    ["1133325465"] = "Uncommon",
+    ["1133331679"] = "Common",
+    ["1133331885"] = "Common",
+    ["1133332075"] = "Common",
+    ["1133337797"] = "Common",
+    ["1133352032"] = "Uncommon",
+    ["1133366632"] = "Uncommon",
+    ["1133366830"] = "Rare",
+    ["1138143590"] = "Godly",
+    ["1268699212"] = "Common",
+    ["1268699677"] = "Common",
+    ["1268703023"] = "Common",
+    ["1268703618"] = "Common",
+    ["1268704124"] = "Uncommon",
+    ["1268704507"] = "Uncommon",
+    ["1268704902"] = "Uncommon",
+    ["1268705527"] = "Rare",
+    ["1268705947"] = "Rare",
+    ["1268706374"] = "Legendary",
+    ["1268708987"] = "Godly",
+    ["1268710824"] = "Godly",
+    ["1268932977"] = "Godly",
+    ["1269256860"] = "Legendary",
+    ["1269374321"] = "Legendary",
+    ["1269580035"] = "Godly",
+    ["1489495701"] = "Unique",
+    ["1520188792"] = "Unique",
+    ["1520189487"] = "Unique",
+    ["1520190188"] = "Unique",
+    ["2511340308"] = "Unique",
+    ["2511341094"] = "Unique",
+    ["2511342846"] = "Unique",
+    ["2511343130"] = "Unique",
+    ["2511791893"] = "Ancient",
+    ["2513505477"] = "Godly",
+    ["2513535503"] = "Godly",
+    ["2513598419"] = "Godly",
+    ["2513728474"] = "Common",
+    ["2513731746"] = "Common",
+    ["2513732731"] = "Common",
+    ["2513732969"] = "Legendary",
+    ["2513733542"] = "Uncommon",
+    ["2513733741"] = "Common",
+    ["2513733987"] = "Uncommon",
+    ["2513734227"] = "Common",
+    ["2513734535"] = "Rare",
+    ["2513734708"] = "Rare",
+    ["2513734908"] = "Uncommon",
+    ["2513741174"] = "Common",
+    ["2513741407"] = "Legendary",
+    ["2513741663"] = "Uncommon",
+    ["2513741901"] = "Common",
+    ["2513742133"] = "Uncommon",
+    ["2513742319"] = "Common",
+    ["2513742519"] = "Rare",
+    ["2513742751"] = "Rare",
+    ["2513743298"] = "Uncommon",
+    ["2533351841"] = "Ancient",
+    ["2545253030"] = "Godly",
+    ["2669336659"] = "Godly",
+    ["2669637780"] = "Common",
+    ["2669638285"] = "Common",
+    ["2669638508"] = "Rare",
+    ["2669638742"] = "Legendary",
+    ["2669638990"] = "Uncommon",
+    ["2669639638"] = "Rare",
+    ["2669639913"] = "Uncommon",
+    ["2669640152"] = "Common",
+    ["2669640357"] = "Common",
+    ["2669640567"] = "Uncommon",
+    ["2669784920"] = "Common",
+    ["2669785184"] = "Common",
+    ["2669785546"] = "Rare",
+    ["2669785821"] = "Legendary",
+    ["2669786044"] = "Rare",
+    ["2669786261"] = "Uncommon",
+    ["2669786515"] = "Uncommon",
+    ["2669786846"] = "Common",
+    ["2669787088"] = "Uncommon",
+    ["2669787533"] = "Common",
+    ["2672349340"] = "Godly",
+    ["2674983099"] = "Godly",
+    ["3183085102"] = "Ancient",
+    ["3183597816"] = "Godly",
+    ["3183598040"] = "Godly",
+    ["3183604570"] = "Common",
+    ["3183605392"] = "Common",
+    ["3183605810"] = "Common",
+    ["3183606225"] = "Uncommon",
+    ["3183606579"] = "Uncommon",
+    ["3183607442"] = "Rare",
+    ["3183607894"] = "Legendary",
+    ["3183639522"] = "Common",
+    ["3183639867"] = "Uncommon",
+    ["3183640145"] = "Rare",
+    ["3184122829"] = "Godly",
+    ["3184124504"] = "Godly",
+    ["3184124768"] = "Godly",
+    ["3184125087"] = "Godly",
+    ["3184125244"] = "Godly",
+    ["3184125538"] = "Godly",
+    ["3187390667"] = "Godly",
+    ["3187392501"] = "Godly",
+    ["3187392992"] = "Godly",
+    ["3187393285"] = "Godly",
+    ["3187394934"] = "Godly",
+    ["3187395238"] = "Godly",
+    ["3187395551"] = "Godly",
+    ["3187395738"] = "Godly",
+    ["3187395952"] = "Godly",
+    ["3215260149"] = "Unique",
+    ["3215261680"] = "Unique",
+    ["3215261913"] = "Unique",
+    ["3215262120"] = "Unique",
+    ["3279011390"] = "Godly",
+    ["4210915060"] = "Legendary",
+    ["4210920512"] = "Rare",
+    ["4210925026"] = "Rare",
+    ["4210926347"] = "Uncommon",
+    ["4210928053"] = "Uncommon",
+    ["4210929184"] = "Uncommon",
+    ["4210931354"] = "Common",
+    ["4210932676"] = "Common",
+    ["4210934082"] = "Common",
+    ["4210936652"] = "Common",
+    ["4210938270"] = "Legendary",
+    ["4210939388"] = "Rare",
+    ["4210941474"] = "Rare",
+    ["4210943691"] = "Uncommon",
+    ["4210944924"] = "Uncommon",
+    ["4210946577"] = "Common",
+    ["4210947993"] = "Common",
+    ["4210949599"] = "Common",
+    ["4211142894"] = "Godly",
+    ["4211148191"] = "Ancient",
+    ["4221789003"] = "Godly",
+    ["4468574885"] = "Unique",
+    ["4468583758"] = "Unique",
+    ["4468584345"] = "Unique",
+    ["4468585407"] = "Unique",
+    ["4488391411"] = "Godly",
+    ["4528484880"] = "Godly",
+    ["4534853444"] = "Common",
+    ["4534855045"] = "Common",
+    ["4534855710"] = "Common",
+    ["4534856285"] = "Common",
+    ["4534856940"] = "Uncommon",
+    ["4534857523"] = "Uncommon",
+    ["4534858185"] = "Uncommon",
+    ["4534860226"] = "Rare",
+    ["4534860689"] = "Rare",
+    ["4534861110"] = "Legendary",
+    ["4534866065"] = "Common",
+    ["4534866678"] = "Common",
+    ["4534867381"] = "Common",
+    ["4534871260"] = "Common",
+    ["4534872116"] = "Uncommon",
+    ["4534872673"] = "Uncommon",
+    ["4534873956"] = "Uncommon",
+    ["4534874602"] = "Rare",
+    ["4534875165"] = "Rare",
+    ["4534875511"] = "Legendary",
+    ["4535408229"] = "Godly",
+    ["4535482609"] = "Godly",
+    ["4535483042"] = "Legendary",
+    ["4535644282"] = "Ancient",
+    ["4659626370"] = "Legendary",
+    ["4659626966"] = "Rare",
+    ["4659627458"] = "Uncommon",
+    ["4659627976"] = "Common",
+    ["4659634072"] = "Rare",
+    ["4659634630"] = "Uncommon",
+    ["4659635055"] = "Uncommon",
+    ["4659635584"] = "Common",
+    ["4659636085"] = "Common",
+    ["4659636452"] = "Common",
+    ["4749070432"] = "Godly",
+    ["4749071819"] = "Godly",
+    ["4751500761"] = "Godly",
+    ["4751501078"] = "Godly",
+    ["4751539262"] = "Godly",
+    ["4753346087"] = "Unique",
+    ["4753347062"] = "Unique",
+    ["4753347636"] = "Unique",
+    ["4753348263"] = "Unique",
+    ["4753352581"] = "Unique",
+    ["4753353471"] = "Unique",
+    ["4753354123"] = "Unique",
+    ["4753354638"] = "Unique",
+    ["4972196241"] = "Common",
+    ["4999958740"] = "Godly",
+    ["5360359935"] = "Godly",
+    ["5866435364"] = "Common",
+    ["5866436906"] = "Common",
+    ["5866438542"] = "Common",
+    ["5866441301"] = "Legendary",
+    ["5866442790"] = "Uncommon",
+    ["5866444722"] = "Rare",
+    ["5866447521"] = "Uncommon",
+    ["5866454590"] = "Common",
+    ["5866457985"] = "Common",
+    ["5866459380"] = "Common",
+    ["5866460591"] = "Legendary",
+    ["5866461926"] = "Uncommon",
+    ["5866463755"] = "Uncommon",
+    ["5866465099"] = "Rare",
+    ["5872490600"] = "Uncommon",
+    ["5872491708"] = "Common",
+    ["5872492951"] = "Rare",
+    ["5873256998"] = "Godly",
+    ["5877016863"] = "Ancient",
+    ["5878721461"] = "Godly",
+    ["5929317433"] = "Common",
+    ["5930729222"] = "Common",
+    ["5930731295"] = "Common",
+    ["5984754897"] = "Common",
+    ["6084838617"] = "Unique",
+    ["6084840560"] = "Unique",
+    ["6084842077"] = "Unique",
+    ["6084854835"] = "Unique",
+    ["6085035357"] = "Godly",
+    ["6121847170"] = "Common",
+    ["6121848805"] = "Legendary",
+    ["6121850031"] = "Uncommon",
+    ["6121851313"] = "Rare",
+    ["6121853160"] = "Common",
+    ["6121854816"] = "Uncommon",
+    ["6121860619"] = "Uncommon",
+    ["6121862034"] = "Rare",
+    ["6121863515"] = "Common",
+    ["6121864813"] = "Common",
+    ["6121866490"] = "Legendary",
+    ["6121867603"] = "Uncommon",
+    ["6123335682"] = "Common",
+    ["6123336879"] = "Common",
+    ["6123338102"] = "Rare",
+    ["6123357775"] = "Legendary",
+    ["6125729383"] = "Ancient",
+    ["6125733703"] = "Godly",
+    ["6125742758"] = "Godly",
+    ["6125814417"] = "Godly",
+    ["6404115112"] = "Unique",
+    ["6404126280"] = "Unique",
+    ["6404127119"] = "Unique",
+    ["6404129111"] = "Unique",
+    ["6404165933"] = "Unique",
+    ["6404166698"] = "Unique",
+    ["6404167442"] = "Unique",
+    ["6404168049"] = "Unique",
+    ["6413145922"] = "Godly",
+    ["6598123521"] = "Godly",
+    ["6607277825"] = "Godly",
+    ["6711852603"] = "Common",
+    ["6967771328"] = "Unique",
+    ["7791485669"] = "Legendary",
+    ["7791511648"] = "Godly",
+    ["7791640819"] = "Ancient",
+    ["7800220325"] = "Uncommon",
+    ["7800221141"] = "Uncommon",
+    ["7800222135"] = "Common",
+    ["7800222975"] = "Uncommon",
+    ["7800224197"] = "Common",
+    ["7800224981"] = "Common",
+    ["7800225996"] = "Rare",
+    ["7800226793"] = "Legendary",
+    ["7800227475"] = "Rare",
+    ["7800229084"] = "Common",
+    ["7800250906"] = "Common",
+    ["7800251557"] = "Uncommon",
+    ["7800252572"] = "Rare",
+    ["7800253444"] = "Common",
+    ["7800253970"] = "Uncommon",
+    ["7800254737"] = "Common",
+    ["7800255531"] = "Legendary",
+    ["7800256309"] = "Rare",
+    ["7800257010"] = "Common",
+    ["7800257544"] = "Uncommon",
+    ["7800847534"] = "Ancient",
+    ["7805833970"] = "Godly",
+    ["7806121918"] = "Godly",
+    ["7808362279"] = "Uncommon",
+    ["8194217388"] = "Unique",
+    ["8194219645"] = "Unique",
+    ["8194221072"] = "Unique",
+    ["8194222523"] = "Unique",
+    ["8304750295"] = "Common",
+    ["8304750877"] = "Legendary",
+    ["8304751659"] = "Common",
+    ["8304752586"] = "Uncommon",
+    ["8304753468"] = "Uncommon",
+    ["8304754179"] = "Common",
+    ["8304754882"] = "Common",
+    ["8304755417"] = "Common",
+    ["8304756423"] = "Uncommon",
+    ["8304757110"] = "Rare",
+    ["8304757707"] = "Rare",
+    ["8304766165"] = "Legendary",
+    ["8304766932"] = "Uncommon",
+    ["8304767724"] = "Rare",
+    ["8304768700"] = "Common",
+    ["8304769409"] = "Common",
+    ["8304770115"] = "Common",
+    ["8304771148"] = "Uncommon",
+    ["8304772140"] = "Uncommon",
+    ["8304772774"] = "Rare",
+    ["8304801000"] = "Ancient",
+    ["8304805693"] = "Godly",
+    ["8304818186"] = "Godly",
+    ["8305264097"] = "Godly",
+    ["8311005531"] = "Godly",
+    ["8311393414"] = "Godly",
+    ["8626617523"] = "Unique",
+    ["9552048857"] = "Unique",
+    ["9552050165"] = "Unique",
+    ["9552051805"] = "Unique",
+    ["9552054920"] = "Unique",
+    ["9552060741"] = "Unique",
+    ["9552063524"] = "Unique",
+    ["9552064240"] = "Unique",
+    ["9552065167"] = "Unique",
+    ["10014680882"] = "Godly",
+    ["10014717343"] = "Godly",
+    ["11117375743"] = "Uncommon",
+    ["11229732037"] = "Godly",
+    ["11229779932"] = "Godly",
+    ["11229814357"] = "Godly",
+    ["11229837140"] = "Godly",
+    ["11254057417"] = "Common",
+    ["11254065007"] = "Common",
+    ["11254067158"] = "Common",
+    ["11254081561"] = "Common",
+    ["11254083234"] = "Uncommon",
+    ["11254093910"] = "Uncommon",
+    ["11254115609"] = "Uncommon",
+    ["11254118399"] = "Rare",
+    ["11254123390"] = "Rare",
+    ["11254125546"] = "Legendary",
+    ["11254145154"] = "Common",
+    ["11254146743"] = "Common",
+    ["11254152435"] = "Common",
+    ["11254154978"] = "Common",
+    ["11254158802"] = "Common",
+    ["11254172968"] = "Common",
+    ["11254175272"] = "Common",
+    ["11254180750"] = "Rare",
+    ["11254182560"] = "Rare",
+    ["11254975176"] = "Godly",
+    ["11255501940"] = "Common",
+    ["11255502768"] = "Common",
+    ["11255503583"] = "Legendary",
+    ["11255504462"] = "Rare",
+    ["11255505449"] = "Uncommon",
+    ["11255507374"] = "Common",
+    ["11255558166"] = "Common",
+    ["11262771067"] = "Godly",
+    ["11284140034"] = "Rare",
+    ["11284143055"] = "Uncommon",
+    ["11284145298"] = "Uncommon",
+    ["11284147880"] = "Common",
+    ["11505913287"] = "Unique",
+    ["11505914752"] = "Unique",
+    ["11505916486"] = "Unique",
+    ["11505917850"] = "Unique",
+    ["11548082732"] = "Uncommon",
+    ["11834384755"] = "Common",
+    ["11834387858"] = "Common",
+    ["11834390120"] = "Common",
+    ["11834391469"] = "Common",
+    ["11834392930"] = "Uncommon",
+    ["11834394793"] = "Uncommon",
+    ["11834397133"] = "Uncommon",
+    ["11834399071"] = "Rare",
+    ["11834400185"] = "Rare",
+    ["11834401547"] = "Legendary",
+    ["11834403282"] = "Common",
+    ["11834404402"] = "Common",
+    ["11834432971"] = "Common",
+    ["11834434264"] = "Common",
+    ["11834435627"] = "Common",
+    ["11834436620"] = "Common",
+    ["11834437796"] = "Uncommon",
+    ["11834438982"] = "Uncommon",
+    ["11834440319"] = "Uncommon",
+    ["11834441321"] = "Rare",
+    ["11834442414"] = "Rare",
+    ["11834443783"] = "Legendary",
+    ["11834445016"] = "Common",
+    ["11855274019"] = "Ancient",
+    ["11855282546"] = "Godly",
+    ["11855306927"] = "Godly",
+    ["11855361567"] = "Legendary",
+    ["11872179646"] = "Godly",
+    ["11873640255"] = "Godly",
+    ["11874071041"] = "Ancient",
+    ["12226688172"] = "Unique",
+    ["12226843957"] = "Unique",
+    ["12226920195"] = "Unique",
+    ["12227133450"] = "Unique",
+    ["12227137860"] = "Unique",
+    ["12227142478"] = "Unique",
+    ["12227148356"] = "Unique",
+    ["12227186408"] = "Unique",
+    ["12339323856"] = "Legendary",
+    ["12339325736"] = "Uncommon",
+    ["12339327069"] = "Rare",
+    ["12339328595"] = "Common",
+    ["12339366064"] = "Godly",
+    ["12339377105"] = "Godly",
+    ["12965294432"] = "Common",
+    ["12965298174"] = "Rare",
+    ["12965302237"] = "Uncommon",
+    ["12965304445"] = "Legendary",
+    ["12965307410"] = "Uncommon",
+    ["12965311567"] = "Rare",
+    ["12965335931"] = "Rare",
+    ["12965339774"] = "Legendary",
+    ["12965344675"] = "Uncommon",
+    ["12965349193"] = "Common",
+    ["12966184630"] = "Godly",
+    ["12966354606"] = "Godly",
+    ["13944127959"] = "Common",
+    ["13944129596"] = "Common",
+    ["13944131195"] = "Uncommon",
+    ["13944132845"] = "Uncommon",
+    ["13944134705"] = "Rare",
+    ["13944135892"] = "Legendary",
+    ["13944151514"] = "Common",
+    ["13944152795"] = "Common",
+    ["13944153861"] = "Uncommon",
+    ["13944155639"] = "Rare",
+    ["13945892398"] = "Godly",
+    ["13945898892"] = "Godly",
+    ["14967668214"] = "Common",
+    ["15070870271"] = "Ancient",
+    ["15080267070"] = "Godly",
+    ["15080280688"] = "Godly",
+    ["15091321393"] = "Common",
+    ["15091325210"] = "Common",
+    ["15091326116"] = "Common",
+    ["15091327743"] = "Common",
+    ["15091339932"] = "Uncommon",
+    ["15091340751"] = "Uncommon",
+    ["15091341552"] = "Uncommon",
+    ["15091342564"] = "Rare",
+    ["15091343579"] = "Rare",
+    ["15091344462"] = "Legendary",
+    ["15091399982"] = "Common",
+    ["15091400883"] = "Common",
+    ["15091401811"] = "Common",
+    ["15091402817"] = "Common",
+    ["15091403551"] = "Uncommon",
+    ["15091404278"] = "Uncommon",
+    ["15091405483"] = "Uncommon",
+    ["15091406343"] = "Rare",
+    ["15091407068"] = "Rare",
+    ["15091407901"] = "Legendary",
+    ["15091442039"] = "Godly",
+    ["15097897227"] = "Godly",
+    ["15413114703"] = "Legendary",
+    ["15413116029"] = "Legendary",
+    ["15413117611"] = "Uncommon",
+    ["15413149176"] = "Godly",
+    ["15415482999"] = "Common",
+    ["15635550625"] = "Common",
+    ["15635552019"] = "Common",
+    ["15635553149"] = "Common",
+    ["15635556891"] = "Common",
+    ["15635558021"] = "Uncommon",
+    ["15635558982"] = "Uncommon",
+    ["15635559978"] = "Uncommon",
+    ["15635560825"] = "Rare",
+    ["15635563249"] = "Rare",
+    ["15635565488"] = "Legendary",
+    ["15635568751"] = "Common",
+    ["15635569893"] = "Common",
+    ["15635570486"] = "Common",
+    ["15635571468"] = "Common",
+    ["15635572427"] = "Uncommon",
+    ["15635574031"] = "Uncommon",
+    ["15635574962"] = "Uncommon",
+    ["15635575718"] = "Rare",
+    ["15635576863"] = "Rare",
+    ["15635577623"] = "Legendary",
+    ["15666469505"] = "Ancient",
+    ["15667157715"] = "Godly",
+    ["15682703596"] = "Godly",
+    ["15683140564"] = "Legendary",
+    ["15683175970"] = "Godly",
+    ["15683188776"] = "Ancient",
+    ["15694110573"] = "Godly",
+    ["15695405379"] = "Unique",
+    ["15695407020"] = "Unique",
+    ["15695407742"] = "Unique",
+    ["15695408631"] = "Unique",
+    ["16959755393"] = "Common",
+    ["16959771850"] = "Uncommon",
+    ["16959775902"] = "Rare",
+    ["16959778188"] = "Rare",
+    ["16960077712"] = "Common",
+    ["16960082652"] = "Uncommon",
+    ["16963860501"] = "Godly",
+    ["16963894455"] = "Godly",
+    ["16964346058"] = "Common",
+    ["16964448042"] = "Unique",
+    ["16964449392"] = "Unique",
+    ["16964450895"] = "Unique",
+    ["16964452491"] = "Unique",
+    ["16964462231"] = "Unique",
+    ["16964465320"] = "Unique",
+    ["16964468980"] = "Unique",
+    ["16964471890"] = "Unique",
+    ["18322137551"] = "Legendary",
+    ["18322166908"] = "Uncommon",
+    ["18322176343"] = "Common",
+    ["18322178053"] = "Rare",
+    ["18322179563"] = "Rare",
+    ["18322181701"] = "Uncommon",
+    ["18322183619"] = "Common",
+    ["18322189584"] = "Common",
+    ["18322191060"] = "Uncommon",
+    ["18322192817"] = "Legendary",
+    ["18322194067"] = "Uncommon",
+    ["18322197952"] = "Common",
+    ["18322621319"] = "Godly",
+    ["18322646152"] = "Godly",
+    ["18323751219"] = "Rare",
+    ["18323751962"] = "Common",
+    ["18323752709"] = "Common",
+    ["18351388416"] = "Godly",
+    ["18351401528"] = "Godly",
+    ["70701057041846"] = "Unique",
+    ["70973050894155"] = "Godly",
+    ["71088901904009"] = "Rare",
+    ["71228862432065"] = "Common",
+    ["71258273720666"] = "Common",
+    ["71511736314707"] = "Unique",
+    ["71982363966070"] = "Uncommon",
+    ["72230744607038"] = "Unique",
+    ["72638846676083"] = "Uncommon",
+    ["73148873488539"] = "Common",
+    ["73203940450745"] = "Common",
+    ["73486056426142"] = "Common",
+    ["73897192147749"] = "Common",
+    ["73980008491741"] = "Uncommon",
+    ["74908113882525"] = "Uncommon",
+    ["74917318027165"] = "Rare",
+    ["75123474631661"] = "Common",
+    ["75233248021696"] = "Godly",
+    ["75237025203058"] = "Common",
+    ["75608370390005"] = "Common",
+    ["76250851065456"] = "Unique",
+    ["76288270695961"] = "Common",
+    ["76461209737867"] = "Uncommon",
+    ["76537883908961"] = "Uncommon",
+    ["76914260444878"] = "Common",
+    ["77271917200992"] = "Uncommon",
+    ["77607127867154"] = "Godly",
+    ["77773918675860"] = "Rare",
+    ["78153346812503"] = "Common",
+    ["78199422065424"] = "Uncommon",
+    ["78432760615312"] = "Uncommon",
+    ["78479059410850"] = "Godly",
+    ["79235438948261"] = "Rare",
+    ["79722325448464"] = "Godly",
+    ["80492487454400"] = "Rare",
+    ["80900354672590"] = "Legendary",
+    ["81352860339620"] = "Rare",
+    ["83838802472095"] = "Unique",
+    ["83843575465564"] = "Common",
+    ["84030107970606"] = "Common",
+    ["84481559639371"] = "Godly",
+    ["84605926178412"] = "Common",
+    ["84743767811732"] = "Unique",
+    ["85299848190695"] = "Uncommon",
+    ["85751270338066"] = "Uncommon",
+    ["85766514163212"] = "Unique",
+    ["86258299490709"] = "Legendary",
+    ["86405207895194"] = "Common",
+    ["87189663191639"] = "Godly",
+    ["87617250559234"] = "Unique",
+    ["88928894807422"] = "Godly",
+    ["89899263078420"] = "Uncommon",
+    ["90170220549489"] = "Uncommon",
+    ["90194465176219"] = "Common",
+    ["90241292303974"] = "Unique",
+    ["90274872705656"] = "Godly",
+    ["90526048501163"] = "Rare",
+    ["90549252812333"] = "Legendary",
+    ["90595111293037"] = "Rare",
+    ["90622014285727"] = "Legendary",
+    ["90751163516480"] = "Uncommon",
+    ["91224254479440"] = "Common",
+    ["91446990047399"] = "Uncommon",
+    ["93320180084418"] = "Common",
+    ["93906279038399"] = "Rare",
+    ["94311965719769"] = "Legendary",
+    ["95328449981238"] = "Godly",
+    ["95517099886712"] = "Common",
+    ["96164363513384"] = "Common",
+    ["97369825731567"] = "Rare",
+    ["97641024072972"] = "Common",
+    ["98506456649552"] = "Rare",
+    ["98868784444742"] = "Common",
+    ["99160839686845"] = "Rare",
+    ["99939659856909"] = "Common",
+    ["100461386281007"] = "Common",
+    ["100576599313371"] = "Godly",
+    ["100747436297625"] = "Unique",
+    ["101343256002049"] = "Godly",
+    ["102130993592804"] = "Uncommon",
+    ["102283625659356"] = "Common",
+    ["103455022994358"] = "Unique",
+    ["103526268515240"] = "Godly",
+    ["104229967982042"] = "Unique",
+    ["104258636970738"] = "Common",
+    ["104416405402940"] = "Common",
+    ["104747488009018"] = "Common",
+    ["104988218477551"] = "Rare",
+    ["107190526940939"] = "Godly",
+    ["107321881182350"] = "Uncommon",
+    ["107508982214346"] = "Uncommon",
+    ["107510647616718"] = "Uncommon",
+    ["108122054293502"] = "Common",
+    ["108331177567412"] = "Uncommon",
+    ["108635848059846"] = "Godly",
+    ["108751717527377"] = "Rare",
+    ["108996627787763"] = "Legendary",
+    ["109101361674956"] = "Common",
+    ["109292073070223"] = "Uncommon",
+    ["109929760056853"] = "Uncommon",
+    ["110160120309916"] = "Uncommon",
+    ["110812086479763"] = "Unique",
+    ["111092946728824"] = "Godly",
+    ["111291962899457"] = "Rare",
+    ["111408683823094"] = "Rare",
+    ["112511843095202"] = "Uncommon",
+    ["112811587103866"] = "Unique",
+    ["113677688954146"] = "Rare",
+    ["113979322866878"] = "Legendary",
+    ["114197436469014"] = "Godly",
+    ["114403390530326"] = "Legendary",
+    ["114781759936576"] = "Rare",
+    ["115093067149752"] = "Common",
+    ["115273559455814"] = "Uncommon",
+    ["115280072896190"] = "Common",
+    ["115298865715727"] = "Uncommon",
+    ["115609046800090"] = "Unique",
+    ["116059045830205"] = "Rare",
+    ["116361515042274"] = "Common",
+    ["117088166092009"] = "Uncommon",
+    ["117473869340749"] = "Common",
+    ["118334707962654"] = "Godly",
+    ["118530164125152"] = "Common",
+    ["118557229750245"] = "Uncommon",
+    ["119157529694972"] = "Unique",
+    ["119213058412452"] = "Godly",
+    ["119399643874968"] = "Unique",
+    ["119626042140839"] = "Uncommon",
+    ["119914093248842"] = "Common",
+    ["120089556380493"] = "Uncommon",
+    ["120248733900674"] = "Common",
+    ["120422092957504"] = "Uncommon",
+    ["120888453565511"] = "Godly",
+    ["120907601916735"] = "Rare",
+    ["121681210724670"] = "Common",
+    ["122021199074749"] = "Rare",
+    ["122078592955794"] = "Common",
+    ["122762984016505"] = "Unique",
+    ["122855768693454"] = "Legendary",
+    ["123269723073737"] = "Rare",
+    ["123955324398353"] = "Legendary",
+    ["124567820488562"] = "Common",
+    ["124860763249593"] = "Uncommon",
+    ["126937716954396"] = "Godly",
+    ["127489830827583"] = "Common",
+    ["127570773123670"] = "Rare",
+    ["128427983277729"] = "Unique",
+    ["128553215441980"] = "Godly",
+    ["128646835922561"] = "Common",
+    ["129186939023729"] = "Godly",
+    ["129290011017110"] = "Common",
+    ["129460052425837"] = "Legendary",
+    ["129480661108374"] = "Godly",
+    ["129781304866793"] = "Common",
+    ["129970927613267"] = "Uncommon",
+    ["130537925107449"] = "Uncommon",
+    ["130837676383567"] = "Unique",
+    ["131417913843701"] = "Uncommon",
+    ["131626924640663"] = "Godly",
+    ["132040985617451"] = "Legendary",
+    ["132354489228618"] = "Unique",
+    ["132504094164819"] = "Uncommon",
+    ["132525981806780"] = "Uncommon",
+    ["132565936309463"] = "Legendary",
+    ["132975248521820"] = "Unique",
+    ["133219566412887"] = "Common",
+    ["133307062463653"] = "Common",
+    ["133654810681274"] = "Common",
+    ["133828016595037"] = "Ancient",
+    ["134312132943601"] = "Unique",
+    ["134429631587448"] = "Rare",
+    ["134478959354477"] = "Uncommon",
+    ["134681523511387"] = "Common",
+    ["135606903872678"] = "Common",
+    ["135662872427976"] = "Rare",
+    ["136673966529736"] = "Ancient",
+    ["136747578920542"] = "Common",
+    ["138109619662236"] = "Common",
+    ["138204709945147"] = "Godly",
+    ["138388933477235"] = "Legendary",
+    ["138834911796124"] = "Unique",
+    ["138881346504998"] = "Unique",
+    ["139431943195380"] = "Godly",
+    ["139755862211442"] = "Rare",
+    ["140366567839959"] = "Common",
+}
+
+local function extractIconAssetId(imageUrl)
+    if not imageUrl then return nil end
+    local url = tostring(imageUrl)
+    local id = url:match("[?&]assetId=(%d+)")
+        or url:match("[?&]id=(%d+)")
+        or url:match("rbxassetid://(%d+)")
+        or url:match("/asset/%?id=(%d+)")
+    return id
+end
+
+-- Returns resolved full name (e.g. "Clown (Gun)") and rarity from an Icon ImageLabel
+local function resolveItemNameFromIcon(iconObj)
+    if not iconObj then return nil end
+    local id = extractIconAssetId(iconObj.Image)
+    if not id then return nil end
+    return MM2_ITEM_ASSET_MAP[id], MM2_ITEM_RARITY_MAP[id]
+end
 
 local function detectRarityFromColor(guiObj)
     if not guiObj then return nil end
@@ -645,6 +3462,9 @@ local function detectRarityFromColor(guiObj)
     if guiObj:IsA("GuiObject") and guiObj.BackgroundColor3 then
         addColor(guiObj.BackgroundColor3)
     end
+    if (guiObj:IsA("TextLabel") or guiObj:IsA("TextButton")) and guiObj.TextColor3 then
+        addColor(guiObj.TextColor3)
+    end
 
     -- inspect direct children colors
     for _, ch in ipairs(guiObj:GetChildren()) do
@@ -653,6 +3473,9 @@ local function detectRarityFromColor(guiObj)
         end
         if ch:IsA("GuiObject") and ch.BackgroundColor3 then
             addColor(ch.BackgroundColor3)
+        end
+        if (ch:IsA("TextLabel") or ch:IsA("TextButton")) and ch.TextColor3 then
+            addColor(ch.TextColor3)
         end
     end
 
@@ -664,6 +3487,9 @@ local function detectRarityFromColor(guiObj)
         if ch:IsA("GuiObject") and ch.BackgroundColor3 then
             addColor(ch.BackgroundColor3)
         end
+        if (ch:IsA("TextLabel") or ch:IsA("TextButton")) and ch.TextColor3 then
+            addColor(ch.TextColor3)
+        end
     end
 
     -- inspect parent card color
@@ -674,6 +3500,9 @@ local function detectRarityFromColor(guiObj)
         end
         if par.BackgroundColor3 then
             addColor(par.BackgroundColor3)
+        end
+        if (par:IsA("TextLabel") or par:IsA("TextButton")) and par.TextColor3 then
+            addColor(par.TextColor3)
         end
     end
 
@@ -713,27 +3542,53 @@ local function detectRarityFromColor(guiObj)
     return nil
 end
 
+local tierDefaults = {
+    Ancient   = 10,
+    Godly     = 2,
+    Vintage   = 5,
+    Classic   = 5,
+    Unique    = 1,
+    Legendary = 0.32,
+    Rare      = 0.22,
+    Uncommon  = 0.13,
+    Common    = 0.11,
+}
+
 local function getMM2ItemValue(rawName, rarity)
     if not rawName or rawName == "" then return 0 end
     local clean = rawName:gsub("^%s+", ""):gsub("%s+$", "")
     if clean:lower():find("default") then return 0 end
 
     local normKey = clean:lower():gsub("[^%w]", "")
-    local normNoSuf = clean:lower():gsub("%s+knife$", ""):gsub("%s+gun$", ""):gsub("%s+axe$", ""):gsub("%s+scythe$", ""):gsub("[^%w]", "")
+    local normNoSuf = clean:lower()
+        :gsub("%s+knife$", ""):gsub("%s+gun$", ""):gsub("%s+axe$", ""):gsub("%s+scythe$", "")
+        :gsub("%s+blade$", ""):gsub("%s+sword$", ""):gsub("%s+dagger$", "")
+        :gsub("[^%w]", "")
 
-    local tierDefaults = {
-        ["Legendary"] = 0.32,
-        ["Rare"] = 0.22,
-        ["Uncommon"] = 0.13,
-        ["Common"] = 0.11,
-        ["Godly"] = 2.0,
-        ["Chroma"] = 20.0,
-        ["Vintage"] = 3.0,
-        ["Ancient"] = 15.0,
-        ["Unique"] = 325.0,
-    }
+    -- 1. direct match in MM2Values
+    if MM2Values and MM2Values[clean] and MM2Values[clean] > 0 then
+        return MM2Values[clean]
+    end
 
-    -- 1. check rarity table if rarity is detected
+    -- 2. normalized key match in MM2ValuesNormalized
+    if MM2ValuesNormalized and MM2ValuesNormalized[normKey] and MM2ValuesNormalized[normKey] > 0 then
+        return MM2ValuesNormalized[normKey]
+    end
+
+    -- 3. Chroma alias ("Chroma Luger" <-> "C. Luger")
+    if clean:lower():find("^chroma%s+") then
+        local cDot = clean:gsub("^[Cc][Hh][Rr][Oo][Mm][Aa]%s+", "C. ")
+        if MM2Values and MM2Values[cDot] and MM2Values[cDot] > 0 then return MM2Values[cDot] end
+        local cNorm = cDot:lower():gsub("[^%w]", "")
+        if MM2ValuesNormalized and MM2ValuesNormalized[cNorm] and MM2ValuesNormalized[cNorm] > 0 then return MM2ValuesNormalized[cNorm] end
+    elseif clean:lower():find("^c%.%s*") then
+        local cFull = clean:gsub("^[Cc]%.%s*", "Chroma ")
+        if MM2Values and MM2Values[cFull] and MM2Values[cFull] > 0 then return MM2Values[cFull] end
+        local cNorm = cFull:lower():gsub("[^%w]", "")
+        if MM2ValuesNormalized and MM2ValuesNormalized[cNorm] and MM2ValuesNormalized[cNorm] > 0 then return MM2ValuesNormalized[cNorm] end
+    end
+
+    -- 4. rarity table match if rarity is detected
     if rarity and MM2ValuesByRarity and MM2ValuesByRarity[rarity] then
         local rTab = MM2ValuesByRarity[rarity]
         if rTab[clean] and rTab[clean] > 0 then return rTab[clean] end
@@ -744,22 +3599,14 @@ local function getMM2ItemValue(rawName, rarity)
         end
     end
 
-    -- 2. check global tables directly
-    if MM2Values and MM2Values[clean] and MM2Values[clean] > 0 then
-        return MM2Values[clean]
-    end
-    if MM2ValuesNormalized then
-        if MM2ValuesNormalized[normKey] and MM2ValuesNormalized[normKey] > 0 then
-            return MM2ValuesNormalized[normKey]
-        end
-        if MM2ValuesNormalized[normNoSuf] and MM2ValuesNormalized[normNoSuf] > 0 then
-            return MM2ValuesNormalized[normNoSuf]
-        end
+    -- 5. check without weapon suffix
+    if normNoSuf ~= normKey and MM2ValuesNormalized and MM2ValuesNormalized[normNoSuf] and MM2ValuesNormalized[normNoSuf] > 0 then
+        return MM2ValuesNormalized[normNoSuf]
     end
 
-    -- 3. check all other rarities
+    -- 6. check all other rarities
     if MM2ValuesNormalizedByRarity then
-        for _, checkR in ipairs({"Common", "Uncommon", "Rare", "Legendary", "Vintage", "Ancient", "Unique", "Godly", "Chroma"}) do
+        for _, checkR in ipairs({"Godly", "Ancient", "Vintage", "Legendary", "Rare", "Uncommon", "Common", "Pets", "Other"}) do
             local rNorm = MM2ValuesNormalizedByRarity[checkR]
             if rNorm then
                 if rNorm[normKey] and rNorm[normKey] > 0 then return rNorm[normKey] end
@@ -768,12 +3615,33 @@ local function getMM2ItemValue(rawName, rarity)
         end
     end
 
-    -- 4. fallback to tier default if detected, otherwise 0
+    -- 7. tier fallback for unlisted / new items
     if rarity and tierDefaults[rarity] then
         return tierDefaults[rarity]
     end
 
     return 0
+end
+
+-- Like getMM2ItemValue but uses icon to disambiguate gun vs knife.
+-- Returns 0 (skip) when name is ambiguous and icon gives no resolution.
+local function getMM2ItemValueWithIcon(rawName, rarity, iconObj)
+    local resolved, iconRarity = nil, nil
+    if iconObj then
+        resolved, iconRarity = resolveItemNameFromIcon(iconObj)
+    end
+    local effectiveRarity = rarity or iconRarity
+    if resolved then
+        local v = getMM2ItemValue(resolved, effectiveRarity)
+        if v and v > 0 then return v end
+    end
+    -- check if this base name is actually ambiguous (both gun+knife exist in DB)
+    if rawName and MM2Values then
+        local hasGun   = MM2Values[rawName .. " (Gun)"]   or MM2Values[rawName .. " Gun"]
+        local hasKnife = MM2Values[rawName .. " (Knife)"] or MM2Values[rawName .. " Knife"]
+        if hasGun and hasKnife then return 0 end  -- ambiguous, skip
+    end
+    return getMM2ItemValue(rawName, effectiveRarity)
 end
 
 local function getMM2ItemDisplay(rawName)
@@ -1848,153 +4716,47 @@ local function getAutoAimTarget()
     return targetPlayer, targetPart
 end
 
-local playerSpeedTracker = {}
-
-trackConnection(RunService.Heartbeat:Connect(function(dt)
-    if dt <= 0 or (state and state.unloaded) then return end
-    local now = tick()
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and isPlayerAlive(p) then
-            local char = p.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local data = playerSpeedTracker[p]
-                local currentPos = hrp.Position
-                if data and data.lastPos and (now - data.lastTime) > 0.005 then
-                    local elapsed = now - data.lastTime
-                    local deltaPos = currentPos - data.lastPos
-                    local horizontalDelta = Vector2.new(deltaPos.X, deltaPos.Z).Magnitude
-                    local currentSpeed = horizontalDelta / elapsed
-                    -- smooth measured physical speed (studs/s) via exponential moving average
-                    data.measuredSpeed = data.measuredSpeed and (data.measuredSpeed * 0.35 + currentSpeed * 0.65) or currentSpeed
-                    data.lastPos = currentPos
-                    data.lastTime = now
-                else
-                    playerSpeedTracker[p] = {
-                        lastPos = currentPos,
-                        lastTime = now,
-                        measuredSpeed = 16
-                    }
-                end
-            end
-        else
-            playerSpeedTracker[p] = nil
-        end
-    end
-end))
-
-local function calculateAimPosition(rawPos, part, predH, predV, overrideMode)
+local function calculateAimPosition(rawPos, part, predH, predV)
     if not part then return rawPos end
 
-    local mode = overrideMode or (state and state.autoAimPredictionMode) or (silentAimConfig and silentAimConfig.predictionMode) or "Auto (MoveDirection)"
-
-    -- Mode: None (zero prediction, targets current hitbox)
-    if mode == "None" then
-        return rawPos
-    end
-
-    local char = part.Parent
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    local root = char and (char:FindFirstChild("HumanoidRootPart") or part) or part
-
-    local physVel = Vector3.zero
+    local vel = Vector3.zero
     pcall(function()
-        physVel = root.AssemblyLinearVelocity or root.Velocity or Vector3.zero
+        vel = part.AssemblyLinearVelocity or part.Velocity or Vector3.zero
     end)
 
-    -- Dynamic one-way network latency + 1 server physics tick (16ms)
-    local pingTime = 0.05
-    pcall(function()
-        local rtt = LocalPlayer:GetNetworkPing()
-        if rtt and rtt > 0 then
-            pingTime = rtt
-        end
-    end)
-    local transitTime = (pingTime * 0.5) + 0.016
+    local hFactor = tonumber(predH) or 0
+    local vFactor = tonumber(predV) or 0
+    if hFactor < 0 then hFactor = 0 end
+    if vFactor < 0 then vFactor = 0 end
 
-    -- Real-time measured physical speed for target
-    local targetPlr = Players:GetPlayerFromCharacter(char)
-    local tracker = targetPlr and playerSpeedTracker[targetPlr]
-    local measuredSpeed = (tracker and tracker.measuredSpeed) or 16
-    local moveDir = hum and hum.MoveDirection or Vector3.zero
+    local offsetX = vel.X * hFactor
+    local offsetZ = vel.Z * hFactor
+    local offsetY = 0
 
-    -- Mode: Anti-cheater (clamps lead and catches teleporters)
-    if mode == "Anti-cheater" then
-        if measuredSpeed > 100 and moveDir.Magnitude < 0.1 then
-            return rawPos
-        end
-
-        local speed = math.clamp(measuredSpeed, 0, 50)
-        local targetDir = (moveDir.Magnitude > 0.05 and moveDir.Unit) or ((Vector2.new(physVel.X, physVel.Z).Magnitude > 0.5) and Vector3.new(physVel.X, 0, physVel.Z).Unit) or Vector3.zero
-        local leadVec = targetDir * (speed * transitTime)
-        if leadVec.Magnitude > 6.0 then
-            leadVec = leadVec.Unit * 6.0
-        end
-
-        local offsetY = 0
-        if math.abs(physVel.Y) > 1 then
-            offsetY = math.clamp(physVel.Y * transitTime, -4, 4)
-        end
-        return rawPos + Vector3.new(leadVec.X, offsetY, leadVec.Z)
-    end
-
-    -- Mode: Ping adaptive (physics velocity with ping compensation)
-    if mode == "Ping adaptive" then
-        local offsetX = physVel.X * transitTime
-        local offsetZ = physVel.Z * transitTime
-        local offsetY = 0
-        if math.abs(physVel.Y) > 1 then
-            offsetY = math.clamp(physVel.Y * transitTime, -6, 6)
-        end
-        return rawPos + Vector3.new(offsetX, offsetY, offsetZ)
-    end
-
-    -- Default / Best: Auto (MoveDirection)
-    -- Direction from MoveDirection (zero latency input intent)
-    -- Speed dynamically measured from frame-to-frame displacement (adapts to all perks/boosts)
-    local effectiveSpeed = (moveDir.Magnitude > 0.05) and measuredSpeed or Vector2.new(physVel.X, physVel.Z).Magnitude
-    if effectiveSpeed < 0.5 then
-        effectiveSpeed = 0
-    end
-
-    local leadDir = (moveDir.Magnitude > 0.05 and moveDir.Unit) or ((Vector2.new(physVel.X, physVel.Z).Magnitude > 0.5) and Vector3.new(physVel.X, 0, physVel.Z).Unit) or Vector3.zero
-    local leadHorizontal = leadDir * (effectiveSpeed * transitTime)
-
-    -- Clamp maximum horizontal lead so speed hacks never fling aim out of bounds
-    if leadHorizontal.Magnitude > 8.0 then
-        leadHorizontal = leadHorizontal.Unit * 8.0
-    end
-
-    -- Wall collision safety check: never predict targets through solid walls
-    if leadHorizontal.Magnitude > 0.3 then
-        local rayParams = RaycastParams.new()
-        rayParams.FilterType = Enum.RaycastFilterType.Exclude
-        rayParams.FilterDescendantsInstances = { char, LocalPlayer.Character }
-        rayParams.IgnoreWater = true
-        local hit = workspace:Raycast(rawPos, leadHorizontal, rayParams)
-        if hit and hit.Instance and hit.Instance.CanCollide then
-            local dist = (hit.Position - rawPos).Magnitude
-            if dist > 0.4 then
-                leadHorizontal = leadHorizontal.Unit * (dist - 0.2)
-            else
-                leadHorizontal = Vector3.zero
+    if vFactor > 0.001 then
+        local char = part.Parent
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        local isGrounded = false
+        if hum then
+            local floorMat = hum.FloorMaterial
+            if floorMat and floorMat ~= Enum.Material.Air then
+                isGrounded = true
             end
         end
+
+        if not isGrounded and math.abs(vel.Y) > 1 then
+            local grav = 196.2
+            pcall(function()
+                if Workspace.Gravity and Workspace.Gravity > 0 then
+                    grav = Workspace.Gravity
+                end
+            end)
+            local ballistic = (vel.Y * vFactor) - (0.5 * grav * (vFactor * vFactor))
+            offsetY = math.clamp(ballistic, -15, 15)
+        end
     end
 
-    -- Vertical lead & gravity arc compensation
-    local offsetY = 0
-    local isGrounded = false
-    if hum and hum.FloorMaterial and hum.FloorMaterial ~= Enum.Material.Air then
-        isGrounded = true
-    end
-    if not isGrounded and math.abs(physVel.Y) > 1 then
-        local grav = Workspace.Gravity or 196.2
-        local ballistic = (physVel.Y * transitTime) - (0.5 * grav * (transitTime * transitTime))
-        offsetY = math.clamp(ballistic, -10, 10)
-    end
-
-    return rawPos + Vector3.new(leadHorizontal.X, offsetY, leadHorizontal.Z)
+    return rawPos + Vector3.new(offsetX, offsetY, offsetZ)
 end
 
 local function getSilentAimPred()
@@ -4053,90 +6815,337 @@ local function updateTradeValues()
             local oldLbl = itemBg:FindFirstChild("TotalValueLabel")
             if oldLbl then oldLbl:Destroy() end
         end
+        local oldOfferTotal = offerFrame:FindFirstChild("TotalValueLabel")
+        if oldOfferTotal then oldOfferTotal:Destroy() end
 
         if slotContainer then
             -- mm2 trade slots are indexed NewItem1 through NewItem4 under trade offer containers
             for i = 1, 4 do
                 local slot = slotContainer:FindFirstChild("NewItem" .. i)
                 if slot then
-                    -- remove old value tag before updating item slot
-                    local oldSlotVal = slot:FindFirstChild("ValueLabel")
+                    local isFilled, rawName, nameObj, itemCont = isSlotFilled(slot)
+                    local oldSlotVal = slot:FindFirstChild("ValueLabel") or slot:FindFirstChild("ItemValueLabel")
                     if oldSlotVal then oldSlotVal:Destroy() end
 
-                    local isFilled, rawName, nameObj, itemCont = isSlotFilled(slot)
-                    local valLabel = itemCont and itemCont:FindFirstChild("ValueLabel")
+                    if itemCont then
+                        itemCont.ClipsDescendants = false
+                        local valLabel = itemCont:FindFirstChild("ItemValueLabel") or itemCont:FindFirstChild("ValueLabel")
+                        if isFilled and isTradeOpen then
+                            local amount = 1
+                            local amountObj = itemCont:FindFirstChild("Amount")
+                            if amountObj and amountObj.Visible and amountObj.Text ~= "" then
+                                local n = amountObj.Text:match("%d+")
+                                if n then amount = tonumber(n) or 1 end
+                            end
 
-                    if isFilled and isTradeOpen then
-                        local amount = 1
-                        local amountObj = itemCont:FindFirstChild("Amount")
+                            local iconObj = itemCont:FindFirstChild("Icon")
+                            local rarity = detectRarityFromColor(nameObj)
+                            local unitVal = getMM2ItemValueWithIcon(rawName, rarity, iconObj)
+                            local slotVal = unitVal * amount
+                            totalOfferVal = totalOfferVal + slotVal
+
+                            if not valLabel then
+                                valLabel = Instance.new("TextLabel")
+                                valLabel.Name = "ItemValueLabel"
+                                valLabel.BackgroundTransparency = 1
+                                valLabel.BorderSizePixel = 0
+                                valLabel.Size = UDim2.new(0, 60, 0, 18)
+                                valLabel.Position = UDim2.new(0.55, -4, 0, 3)
+                                valLabel.ZIndex = (itemCont.ZIndex or 1) + 20
+                                valLabel.Font = Enum.Font.GothamBold
+                                valLabel.TextSize = 13
+                                valLabel.TextXAlignment = Enum.TextXAlignment.Left
+                                valLabel.Parent = itemCont
+                            end
+                            valLabel.Name = "ItemValueLabel"
+                            valLabel.Visible = true
+                            valLabel.BackgroundTransparency = 1
+                            valLabel.Position = UDim2.new(0.55, -4, 0, 3)
+                            valLabel.TextXAlignment = Enum.TextXAlignment.Left
+                            valLabel.Text = formatValue(slotVal)
+                            applyRedGradient(valLabel)
+                        else
+                            if valLabel then
+                                valLabel.Visible = false
+                                valLabel.Text = ""
+                            end
+                        end
+                    end
+                end
+            end
+
+            -- place total value of current trade offer in this path:
+            -- game:GetService("Players").LocalPlayer.PlayerGui.TradeGUI.Container.Trade.TheirOffer.Container
+            -- the position of the text should be {0.025, 0}, {0.95, 3}
+            local totalLabel = slotContainer:FindFirstChild("TotalValueLabel")
+            if isTradeOpen then
+                if not totalLabel then
+                    totalLabel = Instance.new("TextLabel")
+                    totalLabel.Name = "TotalValueLabel"
+                    totalLabel.BackgroundTransparency = 1
+                    totalLabel.BorderSizePixel = 0
+                    totalLabel.Size = UDim2.new(0, 260, 0, 24)
+                    totalLabel.Position = UDim2.new(0.025, 0, 0.95, 3)
+                    totalLabel.ZIndex = (slotContainer.ZIndex or 1) + 20
+                    totalLabel.Font = Enum.Font.GothamBold
+                    totalLabel.TextSize = 16
+                    totalLabel.TextXAlignment = Enum.TextXAlignment.Left
+                    totalLabel.Parent = slotContainer
+                end
+                totalLabel.Visible = true
+                totalLabel.BackgroundTransparency = 1
+                totalLabel.Position = UDim2.new(0.025, 0, 0.95, 3)
+                totalLabel.TextXAlignment = Enum.TextXAlignment.Left
+                totalLabel.Text = "Total Value: " .. formatValue(totalOfferVal)
+                applyRedGradient(totalLabel)
+            elseif totalLabel then
+                totalLabel.Visible = false
+            end
+        end
+    end
+
+    processOffer(trade:FindFirstChild("YourOffer"))
+    processOffer(trade:FindFirstChild("TheirOffer"))
+end
+
+-- ── ViewProfile value overlays ───────────────────────────────────────────────
+local function updateViewProfileValues()
+    local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    if not playerGui then return end
+    local mainGui = playerGui:FindFirstChild("MainGUI")
+    if not mainGui then return end
+    local gameFrame = mainGui:FindFirstChild("Game")
+    local vp = gameFrame and gameFrame:FindFirstChild("ViewProfile")
+    if not vp or not vp.Visible then return end
+
+    local mainFrame = vp:FindFirstChild("Main")
+    local weapons   = mainFrame and mainFrame:FindFirstChild("Weapons")
+    local items     = weapons and weapons:FindFirstChild("Items")
+    if not items then return end
+
+    local containerRoot = items:FindFirstChild("Container")
+    if not containerRoot then return end
+
+    local grandTotal = 0
+
+    local function scanVPContainer(parentCont)
+        if not parentCont then return end
+        for _, card in ipairs(parentCont:GetChildren()) do
+            if card:IsA("GuiObject")
+                and card.Name ~= "UIListLayout"
+                and card.Name ~= "UIGridLayout"
+                and card.Name ~= "UIPadding" then
+                local nameObj = card:FindFirstChild("ItemName")
+                local label   = nameObj and nameObj:FindFirstChild("Label")
+                if label and label:IsA("TextLabel")
+                    and label.Text ~= ""
+                    and label.Text ~= "Item Name"
+                    and label.Text ~= "Label" then
+                    local skinName = label.Text:gsub("^%s+",""):gsub("%s+$","")
+                    local amount   = 1
+                    local cont     = card:FindFirstChild("Container")
+                    local amountObj = cont and cont:FindFirstChild("Amount")
+                    if amountObj and amountObj.Visible and amountObj.Text ~= "" then
+                        local n = amountObj.Text:match("%d+")
+                        if n then amount = tonumber(n) or 1 end
+                    end
+                    local iconObj  = cont and cont:FindFirstChild("Icon")
+                    local rarity   = detectRarityFromColor(nameObj)
+                    local unitVal  = getMM2ItemValueWithIcon(skinName, rarity, iconObj)
+                    local itemTotal = unitVal * amount
+                    grandTotal = grandTotal + itemTotal
+
+                    local oldCardBadge = card:FindFirstChild("VPValueLabel") or card:FindFirstChild("ItemValueLabel")
+                    if oldCardBadge then oldCardBadge:Destroy() end
+
+                    if cont then
+                        cont.ClipsDescendants = false
+                        card.ClipsDescendants = false
+                        local badge = cont:FindFirstChild("ItemValueLabel")
+                        if state.valueCalculatorEnabled and itemTotal > 0 then
+                            if not badge then
+                                badge = Instance.new("TextLabel")
+                                badge.Name = "ItemValueLabel"
+                                badge.BackgroundTransparency = 1
+                                badge.BorderSizePixel = 0
+                                badge.Size = UDim2.new(0, 60, 0, 18)
+                                badge.Position = UDim2.new(0.55, -4, 0, 3)
+                                badge.ZIndex = (cont.ZIndex or 1) + 20
+                                badge.Font = Enum.Font.GothamBold
+                                badge.TextSize = 13
+                                badge.TextXAlignment = Enum.TextXAlignment.Left
+                                badge.Parent = cont
+                            end
+                            badge.Visible = true
+                            badge.BackgroundTransparency = 1
+                            badge.Position = UDim2.new(0.55, -4, 0, 3)
+                            badge.TextXAlignment = Enum.TextXAlignment.Left
+                            badge.Text = formatValue(itemTotal)
+                            applyRedGradient(badge)
+                        elseif badge then
+                            badge.Visible = false
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local classic = containerRoot:FindFirstChild("Classic")
+    if classic then scanVPContainer(classic:FindFirstChild("Container")) end
+    local current = containerRoot:FindFirstChild("Current")
+    if current then scanVPContainer(current:FindFirstChild("Container")) end
+    local holiday = containerRoot:FindFirstChild("Holiday")
+    local holidayCont = holiday and holiday:FindFirstChild("Container")
+    if holidayCont then
+        scanVPContainer(holidayCont)
+        local xmas = holidayCont:FindFirstChild("Christmas")
+        if xmas then scanVPContainer(xmas:FindFirstChild("Container")) end
+        local hall = holidayCont:FindFirstChild("Halloween")
+        if hall then scanVPContainer(hall:FindFirstChild("Container")) end
+        for _, sub in ipairs(holidayCont:GetChildren()) do
+            if sub ~= xmas and sub ~= hall and sub:IsA("GuiObject") and sub.Name ~= "UIListLayout" and sub.Name ~= "UIPadding" and sub.Name ~= "UIGridLayout" then
+                local subCont = sub:FindFirstChild("Container")
+                if subCont then scanVPContainer(subCont) end
+            end
+        end
+    end
+
+    local oldVPTotal = (mainFrame and mainFrame:FindFirstChild("VPTotalValueLabel")) or (vp:FindFirstChild("VPTotalValueLabel"))
+    if oldVPTotal then oldVPTotal:Destroy() end
+
+    -- place total value in bottom left of:
+    -- game:GetService("Players").LocalPlayer.PlayerGui.MainGUI.Game.ViewProfile.Main.Weapons.Items
+    local totalLbl = items:FindFirstChild("VPTotalValueLabel")
+    if state.valueCalculatorEnabled and vp.Visible and items.Visible then
+        if not totalLbl then
+            totalLbl = Instance.new("TextLabel")
+            totalLbl.Name = "VPTotalValueLabel"
+            totalLbl.BackgroundTransparency = 1
+            totalLbl.BorderSizePixel = 0
+            totalLbl.Size = UDim2.new(0, 320, 0, 24)
+            totalLbl.AnchorPoint = Vector2.new(0, 1)
+            totalLbl.Position = UDim2.new(0, 6, 1, -4)
+            totalLbl.ZIndex = 100
+            totalLbl.Font = Enum.Font.GothamBold
+            totalLbl.TextSize = 18
+            totalLbl.TextXAlignment = Enum.TextXAlignment.Left
+            totalLbl.Parent = items
+        end
+        totalLbl.AnchorPoint = Vector2.new(0, 1)
+        totalLbl.Position = UDim2.new(0, 6, 1, -4)
+        totalLbl.Visible = true
+        totalLbl.BackgroundTransparency = 1
+        totalLbl.Text = "Total Value: " .. formatValue(grandTotal)
+        applyRedGradient(totalLbl)
+    elseif totalLbl then
+        totalLbl.Visible = false
+    end
+end
+
+-- ── TradeGUI item-selection panel values ─────────────────────────────────────
+-- Covers both the Weapons panel and the Pets panel inside the trade screen.
+local function updateTradeItemPanelValues()
+    local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    if not playerGui then return end
+    local tradeGui = playerGui:FindFirstChild("TradeGUI")
+    if not tradeGui then return end
+    local tradeContainer = tradeGui:FindFirstChild("Container")
+    local itemsRoot = tradeContainer and tradeContainer:FindFirstChild("Items")
+    if not itemsRoot or not itemsRoot.Visible then return end
+    local mainPanel = itemsRoot:FindFirstChild("Main")
+    if not mainPanel then return end
+
+    local function scanPanelItems(panelFrame)
+        if not panelFrame then return end
+        local itemsFrame = panelFrame:FindFirstChild("Items")
+        local contRoot   = itemsFrame and itemsFrame:FindFirstChild("Container")
+        if not contRoot then return end
+
+        local function scanFolder(folderCont)
+            if not folderCont then return end
+            for _, card in ipairs(folderCont:GetChildren()) do
+                if card:IsA("GuiObject")
+                    and card.Name ~= "UIListLayout"
+                    and card.Name ~= "UIGridLayout"
+                    and card.Name ~= "UIPadding" then
+                    local nameObj  = card:FindFirstChild("ItemName")
+                    local label    = nameObj and nameObj:FindFirstChild("Label")
+                    local cardCont = card:FindFirstChild("Container")
+                    local iconObj  = cardCont and cardCont:FindFirstChild("Icon")
+
+                    if label and label:IsA("TextLabel")
+                        and label.Text ~= ""
+                        and label.Text ~= "Item Name"
+                        and label.Text ~= "Label" then
+                        local skinName = label.Text:gsub("^%s+",""):gsub("%s+$","")
+                        local amount   = 1
+                        local amountObj = cardCont and cardCont:FindFirstChild("Amount")
                         if amountObj and amountObj.Visible and amountObj.Text ~= "" then
                             local n = amountObj.Text:match("%d+")
                             if n then amount = tonumber(n) or 1 end
                         end
+                        local rarity  = detectRarityFromColor(nameObj)
+                        local unitVal = getMM2ItemValueWithIcon(skinName, rarity, iconObj)
+                        local total   = unitVal * amount
 
-                        local rarity = detectRarityFromColor(nameObj)
-                        local unitVal = getMM2ItemValue(rawName, rarity)
-                        local slotVal = unitVal * amount
-                        totalOfferVal = totalOfferVal + slotVal
+                        local oldCardBadge = card:FindFirstChild("TradePanelValueLabel") or card:FindFirstChild("ItemValueLabel")
+                        if oldCardBadge then oldCardBadge:Destroy() end
 
-                        if not valLabel then
-                            valLabel = Instance.new("TextLabel")
-                            valLabel.Name = "ValueLabel"
-                            valLabel.BackgroundTransparency = 1
-                            valLabel.BorderSizePixel = 0
-                            valLabel.Size = UDim2.new(1, -4, 0, 20)
-                            valLabel.Position = UDim2.new(0, 0, 0, 2)
-                            valLabel.AnchorPoint = Vector2.new(0, 0)
-                            valLabel.ZIndex = (itemCont.ZIndex or 1) + 20
-                            valLabel.Font = Enum.Font.GothamBold
-                            valLabel.TextSize = 15
-                            valLabel.TextXAlignment = Enum.TextXAlignment.Right
-                            valLabel.Parent = itemCont
-                        end
-                        valLabel.Visible = true
-                        valLabel.BackgroundTransparency = 1
-                        valLabel.TextSize = 15
-                        valLabel.Text = "Value: " .. formatValue(slotVal)
-                        applyRedGradient(valLabel)
-                    else
-                        if valLabel then
-                            valLabel.Visible = false
-                            valLabel.Text = ""
+                        if cardCont then
+                            cardCont.ClipsDescendants = false
+                            card.ClipsDescendants = false
+                            local badge = cardCont:FindFirstChild("ItemValueLabel")
+                            if state.valueCalculatorEnabled and total > 0 then
+                                if not badge then
+                                    badge = Instance.new("TextLabel")
+                                    badge.Name = "ItemValueLabel"
+                                    badge.BackgroundTransparency = 1
+                                    badge.BorderSizePixel = 0
+                                    badge.Size = UDim2.new(0, 60, 0, 18)
+                                    badge.Position = UDim2.new(0.55, -4, 0, 3)
+                                    badge.ZIndex = (cardCont.ZIndex or 1) + 20
+                                    badge.Font = Enum.Font.GothamBold
+                                    badge.TextSize = 13
+                                    badge.TextXAlignment = Enum.TextXAlignment.Left
+                                    badge.Parent = cardCont
+                                end
+                                badge.Visible = true
+                                badge.BackgroundTransparency = 1
+                                badge.Position = UDim2.new(0.55, -4, 0, 3)
+                                badge.TextXAlignment = Enum.TextXAlignment.Left
+                                badge.Text = formatValue(total)
+                                applyRedGradient(badge)
+                            elseif badge then
+                                badge.Visible = false
+                            end
                         end
                     end
                 end
             end
         end
 
-        -- show aggregate offer worth for fair trading
-        local totalLabel = offerFrame:FindFirstChild("TotalValueLabel")
-        if isTradeOpen then
-            if not totalLabel then
-                totalLabel = Instance.new("TextLabel")
-                totalLabel.Name = "TotalValueLabel"
-                totalLabel.BackgroundTransparency = 1
-                totalLabel.BorderSizePixel = 0
-                totalLabel.Size = UDim2.new(0, 260, 0, 28)
-                totalLabel.AnchorPoint = Vector2.new(0.5, 0)
-                totalLabel.Position = UDim2.new(0.5, 0, 0, 4)
-                totalLabel.ZIndex = (offerFrame.ZIndex or 1) + 20
-                totalLabel.Font = Enum.Font.GothamBold
-                totalLabel.TextSize = 18
-                totalLabel.TextXAlignment = Enum.TextXAlignment.Center
-                totalLabel.Parent = offerFrame
+        local current = contRoot:FindFirstChild("Current")
+        if current then scanFolder(current:FindFirstChild("Container")) end
+        local classic = contRoot:FindFirstChild("Classic")
+        if classic then scanFolder(classic:FindFirstChild("Container")) end
+        local holiday = contRoot:FindFirstChild("Holiday")
+        if holiday then
+            local hCont = holiday:FindFirstChild("Container")
+            if hCont then
+                scanFolder(hCont)
+                for _, sub in ipairs(hCont:GetChildren()) do
+                    if sub:IsA("GuiObject") and sub.Name ~= "UIListLayout" and sub.Name ~= "UIPadding" and sub.Name ~= "UIGridLayout" then
+                        local sc = sub:FindFirstChild("Container")
+                        if sc then scanFolder(sc) end
+                    end
+                end
             end
-            totalLabel.Visible = true
-            totalLabel.BackgroundTransparency = 1
-            totalLabel.TextSize = 18
-            totalLabel.Text = "Total Value: " .. formatValue(totalOfferVal)
-            applyRedGradient(totalLabel)
-        elseif totalLabel then
-            totalLabel.Visible = false
         end
     end
 
-    processOffer(trade:FindFirstChild("YourOffer"))
-    processOffer(trade:FindFirstChild("TheirOffer"))
+    scanPanelItems(mainPanel:FindFirstChild("Weapons"))
+    scanPanelItems(mainPanel:FindFirstChild("Pets"))
 end
 
 local function updateInventoryValues()
@@ -4175,33 +7184,42 @@ local function updateInventoryValues()
                         if n then amount = tonumber(n) or 1 end
                     end
 
+                    local iconObj = cont and cont:FindFirstChild("Icon")
                     local rarity = detectRarityFromColor(nameObj)
-                    local unitVal = getMM2ItemValue(skinName, rarity)
+                    local unitVal = getMM2ItemValueWithIcon(skinName, rarity, iconObj)
                     local itemTotal = unitVal * amount
                     grandTotal = grandTotal + itemTotal
 
-                    local badge = card:FindFirstChild("ItemValueLabel")
-                    if state.valueCalculatorEnabled then
-                        if not badge then
-                            badge = Instance.new("TextLabel")
-                            badge.Name = "ItemValueLabel"
+                    local oldBadge = card:FindFirstChild("ItemValueLabel")
+                    if oldBadge then oldBadge:Destroy() end
+
+                    if cont then
+                        cont.ClipsDescendants = false
+                        card.ClipsDescendants = false
+                        local badge = cont:FindFirstChild("ItemValueLabel")
+                        if state.valueCalculatorEnabled and itemTotal > 0 then
+                            if not badge then
+                                badge = Instance.new("TextLabel")
+                                badge.Name = "ItemValueLabel"
+                                badge.BackgroundTransparency = 1
+                                badge.BorderSizePixel = 0
+                                badge.Size = UDim2.new(0, 60, 0, 18)
+                                badge.Position = UDim2.new(0.55, -4, 0, 3)
+                                badge.ZIndex = (cont.ZIndex or 1) + 20
+                                badge.Font = Enum.Font.GothamBold
+                                badge.TextSize = 13
+                                badge.TextXAlignment = Enum.TextXAlignment.Left
+                                badge.Parent = cont
+                            end
+                            badge.Visible = true
                             badge.BackgroundTransparency = 1
-                            badge.BorderSizePixel = 0
-                            badge.Size = UDim2.new(0, 75, 0, 20)
-                            badge.Position = UDim2.new(1, -77, 0, 2)
-                            badge.ZIndex = (card.ZIndex or 1) + 20
-                            badge.Font = Enum.Font.GothamBold
-                            badge.TextSize = 14
-                            badge.TextXAlignment = Enum.TextXAlignment.Right
-                            badge.Parent = card
+                            badge.Position = UDim2.new(0.55, -4, 0, 3)
+                            badge.TextXAlignment = Enum.TextXAlignment.Left
+                            badge.Text = formatValue(itemTotal)
+                            applyRedGradient(badge)
+                        elseif badge then
+                            badge.Visible = false
                         end
-                        badge.Visible = true
-                        badge.BackgroundTransparency = 1
-                        badge.TextSize = 14
-                        badge.Text = formatValue(itemTotal)
-                        applyRedGradient(badge)
-                    elseif badge then
-                        badge.Visible = false
                     end
                 end
             end
@@ -4217,45 +7235,44 @@ local function updateInventoryValues()
     local holiday = containerRoot:FindFirstChild("Holiday")
     local holidayCont = holiday and holiday:FindFirstChild("Container")
     if holidayCont then
+        scanCardContainer(holidayCont)
         local xmas = holidayCont:FindFirstChild("Christmas")
         if xmas then scanCardContainer(xmas:FindFirstChild("Container")) end
         local hall = holidayCont:FindFirstChild("Halloween")
         if hall then scanCardContainer(hall:FindFirstChild("Container")) end
+        for _, sub in ipairs(holidayCont:GetChildren()) do
+            if sub ~= xmas and sub ~= hall and sub:IsA("GuiObject") and sub.Name ~= "UIListLayout" and sub.Name ~= "UIPadding" and sub.Name ~= "UIGridLayout" then
+                local subCont = sub:FindFirstChild("Container")
+                if subCont then scanCardContainer(subCont) end
+            end
+        end
     end
 
-    -- remove old total label before re-anchoring
-    local oldInsideItems = items:FindFirstChild("TotalInventoryValueLabel")
+    local oldInsideItems = (mainFrame and mainFrame:FindFirstChild("TotalInventoryValueLabel")) or (inv:FindFirstChild("TotalInventoryValueLabel"))
     if oldInsideItems then oldInsideItems:Destroy() end
 
-    -- attach total inventory worth to main frame
-    local totalParent = mainFrame or inv
-    local totalInvLabel = totalParent:FindFirstChild("TotalInventoryValueLabel")
+    -- place total value of own inventory in bottom left of:
+    -- game:GetService("Players").LocalPlayer.PlayerGui.MainGUI.Game.Inventory.Main.Weapons.Items
+    local totalInvLabel = items:FindFirstChild("TotalInventoryValueLabel")
     if state.valueCalculatorEnabled and items.Visible and inv.Visible then
-        if weapons then weapons.ClipsDescendants = false end
-        if mainFrame then mainFrame.ClipsDescendants = false end
-
         if not totalInvLabel then
             totalInvLabel = Instance.new("TextLabel")
             totalInvLabel.Name = "TotalInventoryValueLabel"
             totalInvLabel.BackgroundTransparency = 1
             totalInvLabel.BorderSizePixel = 0
-            totalInvLabel.Size = UDim2.new(0, 320, 0, 28)
+            totalInvLabel.Size = UDim2.new(0, 320, 0, 24)
+            totalInvLabel.AnchorPoint = Vector2.new(0, 1)
+            totalInvLabel.Position = UDim2.new(0, 6, 1, -4)
             totalInvLabel.ZIndex = 100
             totalInvLabel.Font = Enum.Font.GothamBold
             totalInvLabel.TextSize = 18
             totalInvLabel.TextXAlignment = Enum.TextXAlignment.Left
-            totalInvLabel.Parent = totalParent
+            totalInvLabel.Parent = items
         end
-
-        pcall(function()
-            local posX = items.AbsolutePosition.X - totalParent.AbsolutePosition.X
-            local posY = items.AbsolutePosition.Y - totalParent.AbsolutePosition.Y + items.AbsoluteSize.Y + 4
-            totalInvLabel.Position = UDim2.new(0, math.max(10, posX), 0, posY)
-        end)
-
+        totalInvLabel.AnchorPoint = Vector2.new(0, 1)
+        totalInvLabel.Position = UDim2.new(0, 6, 1, -4)
         totalInvLabel.Visible = true
         totalInvLabel.BackgroundTransparency = 1
-        totalInvLabel.TextSize = 18
         totalInvLabel.Text = "Total Value: " .. formatValue(grandTotal)
         applyRedGradient(totalInvLabel)
     elseif totalInvLabel then
@@ -4268,6 +7285,8 @@ trackThread(task.spawn(function()
         if state.valueCalculatorEnabled then
             pcall(updateTradeValues)
             pcall(updateInventoryValues)
+            pcall(updateViewProfileValues)
+            pcall(updateTradeItemPanelValues)
             task.wait(0.25)
         else
             task.wait(1.5)
@@ -4325,19 +7344,6 @@ local function _buildScriptUI()
             Settings   = (Window.GetSettingsTab and Window:GetSettingsTab()) or Window.SettingsTab or Window:CreateTab("Settings", 999, "settings"),
         }
 
-        Window:AddSidebarBigDivider(2)
-
-        Window:AddSidebarSmallDivider(4)
-        Window:AddSidebarSmallDivider(6)
-        Window:AddSidebarSmallDivider(8)
-        Window:AddSidebarSmallDivider(10)
-
-        Window:AddSidebarBigDivider(12)
-
-        Window:AddSidebarSmallDivider(14)
-        Window:AddSidebarSmallDivider(16)
-        Window:AddSidebarSmallDivider(18)
-        Window:AddSidebarSmallDivider(20)
     end
 
     -- construct main overview controls
@@ -5231,6 +8237,38 @@ local function _buildScriptUI()
         Default = "MysteryBox1",
         Callback = function(v)
             state.selectedCrateType = v
+        end
+    })
+
+    Tabs.Autofarm:AddSection("Auto server hop")
+
+    Tabs.Autofarm:AddToggle("AutoServerHopEnabled", {
+        Title = "Auto server hop",
+        Default = false,
+        Slider = {
+            Title = "Hop timer",
+            Min = 1,
+            Max = 60,
+            Default = 15,
+            Increment = 1,
+            Rounding = 0,
+            Suffix = " min",
+            Callback = function(val)
+                state.autoServerHopIntervalMin = val
+            end
+        },
+        Callback = function(v)
+            state.autoServerHopEnabled = v
+            state.lastServerHopTimer = tick()
+            log("Auto server hop: " .. (v and ("Enabled (" .. tostring(state.autoServerHopIntervalMin or 15) .. " min)") or "Disabled"))
+        end
+    })
+
+    Tabs.Autofarm:AddToggle("AutoServerHopWaitForRound", {
+        Title = "Wait for round end",
+        Default = true,
+        Callback = function(v)
+            state.autoServerHopWaitForRound = v
         end
     })
 
@@ -6928,6 +9966,35 @@ local function _buildScriptUI()
     end)
     trackThread(autoOpenCratesThread)
 
+    -- automatically hop servers on a configurable timer
+    local autoServerHopThread = task.spawn(function()
+        while not state.unloaded do
+            task.wait(1)
+            if state.autoServerHopEnabled then
+                local intervalSec = (state.autoServerHopIntervalMin or 15) * 60
+                local elapsed = tick() - (state.lastServerHopTimer or tick())
+                if elapsed >= intervalSec then
+                    local canHop = true
+                    if state.autoServerHopWaitForRound and (state.roundActive or isRoundActiveUI()) then
+                        canHop = false
+                    end
+                    if canHop then
+                        state.lastServerHopTimer = tick()
+                        log("Auto server hop timer reached (" .. tostring(state.autoServerHopIntervalMin or 15) .. " min). Hopping server...")
+                        if Window and Window.Notify then
+                            Window:Notify("Auto Server Hop", "Timer reached (" .. tostring(state.autoServerHopIntervalMin or 15) .. " min). Finding a new server...", 3)
+                        end
+                        task.wait(1.5)
+                        serverHop()
+                    end
+                end
+            else
+                state.lastServerHopTimer = tick()
+            end
+        end
+    end)
+    trackThread(autoServerHopThread)
+
     -- construct character physics and movement controls
     Tabs.Player:AddSection("Movement")
 
@@ -7838,19 +10905,36 @@ local function _buildScriptUI()
             end
         },
         {
-            Id = "AutoAimPredMode",
-            Type = "Dropdown",
-            Title = "Prediction mode",
-            Description = "Auto tracks player speed & network latency (no sliders needed)",
-            Values = { "Auto (MoveDirection)", "Anti-cheater", "Ping adaptive", "None" },
-            Default = "Auto (MoveDirection)",
-            Callback = function(mode)
-                state.autoAimPredictionMode = mode
-                silentAimConfig.predictionMode = mode
-                log("Prediction mode: " .. tostring(mode))
+            Id = "AutoAimHorizPred",
+            Type = "Slider",
+            Title = "Horizontal prediction",
+            Description = "Lead moving targets horizontally (default 0.2)",
+            Min = 0,
+            Max = 200,
+            Default = 16,
+            Suffix = " %",
+            Callback = function(val)
+                local n = tonumber(val) or 0
+                silentAimConfig.horizontalPrediction = n / 100
+                silentAimConfig.predictionFactor = n / 100
+            end
+        },
+        {
+            Id = "AutoAimVertPred",
+            Type = "Slider",
+            Title = "Vertical prediction",
+            Description = "Lead jumping/falling targets vertically (default 0.2)",
+            Min = 0,
+            Max = 200,
+            Default = 13,
+            Suffix = " %",
+            Callback = function(val)
+                local n = tonumber(val) or 0
+                silentAimConfig.verticalPrediction = n / 100
             end
         }
     })
+
 
     Tabs.Player:AddSection("Silent aim")
     Tabs.Player:AddGroup({
@@ -7898,19 +10982,36 @@ local function _buildScriptUI()
             end
         },
         {
-            Id = "SilentAimPredMode",
-            Type = "Dropdown",
-            Title = "Prediction mode",
-            Description = "Auto tracks player speed & network latency (no sliders needed)",
-            Values = { "Auto (MoveDirection)", "Anti-cheater", "Ping adaptive", "None" },
-            Default = "Auto (MoveDirection)",
-            Callback = function(mode)
-                silentAimConfig.predictionMode = mode
-                state.autoAimPredictionMode = mode
-                log("Prediction mode: " .. tostring(mode))
+            Id = "SilentAimHorizPred",
+            Type = "Slider",
+            Title = "Horizontal prediction",
+            Description = "Lead moving targets horizontally (default 0.2)",
+            Min = 0,
+            Max = 200,
+            Default = 20,
+            Suffix = " %",
+            Callback = function(val)
+                local n = tonumber(val) or 0
+                silentAimConfig.horizontalPrediction = n / 100
+                silentAimConfig.predictionFactor = n / 100
+            end
+        },
+        {
+            Id = "SilentAimVertPred",
+            Type = "Slider",
+            Title = "Vertical prediction",
+            Description = "Lead jumping/falling targets vertically (default 0.2)",
+            Min = 0,
+            Max = 200,
+            Default = 20,
+            Suffix = " %",
+            Callback = function(val)
+                local n = tonumber(val) or 0
+                silentAimConfig.verticalPrediction = n / 100
             end
         }
     })
+
 
     Tabs.Player:AddCheckbox("SilentAimWallCheck", {
         Title = "Wall check",
@@ -9553,7 +12654,19 @@ local function _buildScriptUI()
                             math.sin(orbRotationAngle) * horizRadius
                         )
                         localOrb.Position = hrp.Position + Vector3.new(0, 0.5, 0) + offset
-                    
+
+                        -- live-apply size changes from slider
+                        local curSize = orbConfig.size
+                        if localOrb.Size.X ~= curSize then
+                            localOrb.Size = Vector3.new(curSize, curSize, curSize)
+                            local bgui2 = localOrb:FindFirstChild("OrbGui")
+                            if bgui2 then bgui2.Size = UDim2.new(curSize * 3, 0, curSize * 3, 0) end
+                            local a1 = localOrb:FindFirstChild("OrbAtt1")
+                            local a2 = localOrb:FindFirstChild("OrbAtt2")
+                            if a1 then a1.Position = Vector3.new(0,  curSize / 2, 0) end
+                            if a2 then a2.Position = Vector3.new(0, -curSize / 2, 0) end
+                        end
+
                         local bgui = localOrb:FindFirstChild("OrbGui")
                         local img = bgui and bgui:FindFirstChild("OrbImage")
                         if img then
@@ -10205,9 +13318,68 @@ end))
         { Name = "Enable ESP", Default = false, Callback = function(v) state.espEnabled = v end },
         { Name = "Esp chams", Default = true, Callback = function(v) state.chamsEnabled = v end },
         { Name = "Esp box", Default = false, Callback = function(v) state.boxEspEnabled = v end },
+        { Name = "Esp skeleton", Default = false, Callback = function(v) state.skeletonEspEnabled = v end },
         { Name = "Esp name", Default = true, Callback = function(v) state.nameEspEnabled = v end },
         { Name = "Esp role", Default = true, Callback = function(v) state.roleEspEnabled = v end },
         { Name = "Gun ESP", Default = true, Callback = function(v) state.gunEspEnabled = v end }
+    })
+
+    Tabs.Visuals:AddDropdown("SkeletonColorMode", {
+        Title = "Skeleton color mode",
+        Values = {"Normal", "Shift", "Gradient", "Rainbow"},
+        Default = "Normal",
+        Callback = function(v)
+            state.skeletonColorMode = v
+        end
+    })
+
+    Tabs.Visuals:AddToggle("SkeletonUseRoleColor", {
+        Title = "Skeleton use role color",
+        Default = true,
+        Callback = function(v)
+            state.skeletonUseRoleColor = v
+        end
+    })
+
+    Tabs.Visuals:AddGroup({
+        {
+            Id = "SkeletonColor1",
+            Type = "ColorPicker",
+            Title = "Skeleton primary color",
+            Default = Color3.fromRGB(255, 255, 255),
+            Callback = function(c) state.skeletonColor = c end
+        },
+        {
+            Id = "SkeletonColor2",
+            Type = "ColorPicker",
+            Title = "Skeleton secondary color",
+            Default = Color3.fromRGB(0, 170, 255),
+            Callback = function(c) state.skeletonColor2 = c end
+        }
+    })
+
+    Tabs.Visuals:AddSlider("SkeletonThickness", {
+        Title = "Skeleton line thickness",
+        Min = 1,
+        Max = 4,
+        Default = 1.5,
+        Increment = 0.5,
+        Rounding = 1,
+        Callback = function(v)
+            state.skeletonThickness = v
+        end
+    })
+
+    Tabs.Visuals:AddSlider("SkeletonTransparency", {
+        Title = "Skeleton transparency",
+        Min = 0,
+        Max = 1,
+        Default = 0,
+        Increment = 0.05,
+        Rounding = 2,
+        Callback = function(v)
+            state.skeletonTransparency = v
+        end
     })
 
     Tabs.Visuals:AddSlider("ESPMaxDistance", {
@@ -10254,7 +13426,41 @@ end))
         }
     })
 
+    Tabs.Visuals:AddSlider("ChamsFillTransparency", {
+        Title = "Highlight fill transparency",
+        Min = 0,
+        Max = 1,
+        Default = 0.45,
+        Increment = 0.05,
+        Rounding = 2,
+        Callback = function(v)
+            state.chamsFillTransparency = v
+            -- force redraw on all existing highlights next frame
+            for _, d in pairs(espPlayers) do
+                d.LastRoleColor = nil
+                d.LastChamsMode = nil
+            end
+        end
+    })
+
+    Tabs.Visuals:AddSlider("ChamsOutlineTransparency", {
+        Title = "Highlight outline transparency",
+        Min = 0,
+        Max = 1,
+        Default = 0,
+        Increment = 0.05,
+        Rounding = 2,
+        Callback = function(v)
+            state.chamsOutlineTransparency = v
+            for _, d in pairs(espPlayers) do
+                d.LastRoleColor = nil
+                d.LastChamsMode = nil
+            end
+        end
+    })
+
     Tabs.Visuals:AddSection("Body stuff")
+
     Tabs.Visuals:AddGroup({
         {
             Id = "TranslucentBodyEnabled",
@@ -11221,6 +14427,286 @@ end))
         end
     })
 
+    -- ── Gun ray / bullet tracer ─────────────────────────────────────────────
+    local tracerConfig = {
+        enabled       = false,
+        ownOnly       = false,
+        colorMode     = "Normal",
+        color         = Color3.fromRGB(255, 220, 50),
+        color2        = Color3.fromRGB(255, 85, 0),
+        duration      = 1.0,
+        width         = 0.25,
+        lightEmission = 3,
+        texture       = "rbxassetid://12781800668",
+        customTexture = "",
+    }
+
+    local tracerFadeTween = TweenInfo.new(0.2, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+
+    local function tracerToPosition(value)
+        if typeof(value) == "Vector3" then return value end
+        if typeof(value) == "CFrame"   then return value.Position end
+        if typeof(value) == "Instance" then
+            if value:IsA("Attachment") then return value.WorldPosition end
+            if value:IsA("BasePart")   then return value.Position end
+        end
+        return nil
+    end
+
+    local function tracerMakeAnchor(position, lifetime)
+        local p = Instance.new("Part")
+        p.Transparency = 1
+        p.Anchored     = true
+        p.CanCollide   = false
+        p.CanQuery     = false
+        p.Size         = Vector3.new(1, 1, 1)
+        p.CFrame       = CFrame.new(position)
+        Instance.new("Attachment", p)
+        Debris:AddItem(p, lifetime + 0.5)
+        p.Parent = workspace
+        return p
+    end
+
+    -- resolve beam ColorSequence from the active color mode
+    local function tracerColorSeq()
+        local mode = tracerConfig.colorMode
+        local c1   = tracerConfig.color
+        local c2   = tracerConfig.color2
+        if mode == "Rainbow" then
+            local c = getColor("Rainbow", c1, c2)
+            return ColorSequence.new(c)
+        elseif mode == "Gradient" then
+            -- true two-colour gradient along the beam length
+            return ColorSequence.new({
+                ColorSequenceKeypoint.new(0, c1),
+                ColorSequenceKeypoint.new(1, c2),
+            })
+        elseif mode == "Shift" then
+            local c = getColor("Shift", c1, c2)
+            return ColorSequence.new(c)
+        else
+            return ColorSequence.new(c1)
+        end
+    end
+
+    local function createTracer(startValue, endValue)
+        local sPos = tracerToPosition(startValue)
+        local ePos = tracerToPosition(endValue)
+        if not sPos or not ePos then return end
+
+        local dur = tracerConfig.duration
+        local w   = tracerConfig.width
+        local p0  = tracerMakeAnchor(sPos, dur)
+        local p1  = tracerMakeAnchor(ePos, dur)
+
+        local tex = tracerConfig.texture
+        if tracerConfig.customTexture and tracerConfig.customTexture ~= "" then
+            local digits = tostring(tracerConfig.customTexture):match("%d+")
+            if digits then tex = "rbxassetid://" .. digits end
+        end
+
+        local beam = Instance.new("Beam")
+        beam.FaceCamera     = true
+        beam.TextureSpeed   = 1.5
+        beam.TextureLength  = 2
+        beam.Width0         = w
+        beam.Width1         = w
+        beam.LightEmission  = tracerConfig.lightEmission
+        beam.LightInfluence = 0
+        beam.Brightness     = 2.5
+        beam.Texture        = tex
+        beam.Color          = tracerColorSeq()
+        beam.Transparency   = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.1),
+            NumberSequenceKeypoint.new(1, 0.1),
+        })
+        beam.Attachment0 = p0:FindFirstChildOfClass("Attachment")
+        beam.Attachment1 = p1:FindFirstChildOfClass("Attachment")
+        beam.Parent      = p0
+
+        -- For animated modes, update beam.Color every frame during its lifetime.
+        -- Gradient and Normal are static, so skip the loop for them.
+        local mode = tracerConfig.colorMode
+        if mode == "Rainbow" or mode == "Shift" then
+            local colorConn
+            colorConn = RunService.Heartbeat:Connect(function()
+                if not beam or not beam.Parent then
+                    colorConn:Disconnect()
+                    return
+                end
+                beam.Color = tracerColorSeq()
+            end)
+            -- safety disconnect after beam dies + a little extra
+            task.delay(dur + 0.5, function()
+                pcall(function() colorConn:Disconnect() end)
+            end)
+        end
+
+        task.delay(dur, function()
+            if beam and beam.Parent then
+                TweenService:Create(beam, tracerFadeTween, { Width0 = 0, Width1 = 0 }):Play()
+            end
+        end)
+    end
+
+
+    local tracerGunFiredConn   = nil
+    local tracerGunFiredRemote = nil
+    local tracerRoundClient    = nil
+
+    local function tracerIsLocalSheriff()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Gun") then return true end
+        local bp = LocalPlayer:FindFirstChildOfClass("Backpack")
+        if bp and bp:FindFirstChild("Gun") then return true end
+        if not tracerRoundClient then
+            pcall(function()
+                tracerRoundClient = require(
+                    ReplicatedStorage:WaitForChild("Modules", 2)
+                        :WaitForChild("CurrentRoundClient", 2)
+                )
+            end)
+        end
+        if tracerRoundClient then
+            local data = tracerRoundClient.PlayerData
+            local d = data and data[LocalPlayer.Name]
+            return d ~= nil and (d.Role == "Sheriff" or d.Role == "Hero")
+        end
+        return false
+    end
+
+    local function onGunFired(gun, startValue, endValue)
+        if not tracerConfig.enabled then return end
+        if tracerConfig.ownOnly then
+            local char = LocalPlayer.Character
+            if not char then return end
+            if not (typeof(gun) == "Instance" and gun:IsDescendantOf(char)) then return end
+            if not tracerIsLocalSheriff() then return end
+        end
+        createTracer(startValue, endValue)
+    end
+
+    local function connectGunFiredRemote()
+        local ok, remote = pcall(function()
+            return ReplicatedStorage
+                :WaitForChild("ClientServices", 2)
+                :WaitForChild("WeaponService", 2)
+                :WaitForChild("GunFired", 2)
+        end)
+        if not ok or not remote then return end
+        if tracerGunFiredConn
+            and tracerGunFiredRemote == remote
+            and tracerGunFiredConn.Connected then return end
+        if tracerGunFiredConn then
+            pcall(function() tracerGunFiredConn:Disconnect() end)
+            tracerGunFiredConn = nil
+        end
+        tracerGunFiredRemote = remote
+        tracerGunFiredConn   = remote.OnClientEvent:Connect(function(gun, sv, ev)
+            task.spawn(onGunFired, gun, sv, ev)
+        end)
+    end
+
+    -- reconnect loop: handles map reloads where the remote may change
+    do
+        local lastTracerPoll = 0
+        trackConnection(RunService.Heartbeat:Connect(function()
+            if state.unloaded then return end
+            if not tracerConfig.enabled then return end
+            local now = tick()
+            if now - lastTracerPoll < 1 then return end
+            lastTracerPoll = now
+            pcall(connectGunFiredRemote)
+        end))
+    end
+
+    -- Gun ray UI
+    Tabs.Visuals:AddSection("Gun ray")
+    Tabs.Visuals:AddToggle("GunTracerEnabled", {
+        Title    = "Gun ray",
+        Default  = false,
+        Callback = function(v)
+            tracerConfig.enabled = v
+            if v then pcall(connectGunFiredRemote) end
+        end
+    })
+    Tabs.Visuals:AddCheckbox("GunTracerOwnOnly", {
+        Title    = "Own shots only",
+        Default  = false,
+        Callback = function(v) tracerConfig.ownOnly = v end
+    })
+    Tabs.Visuals:AddDropdown("GunTracerColorMode", {
+        Title    = "Color mode",
+        Values   = { "Normal", "Rainbow", "Gradient", "Shift" },
+        Default  = "Normal",
+        Callback = function(v) tracerConfig.colorMode = v end
+    })
+    Tabs.Visuals:AddGroup({
+        {
+            Id       = "GunTracerColor",
+            Type     = "ColorPicker",
+            Title    = "Color",
+            Default  = Color3.fromRGB(255, 220, 50),
+            Callback = function(c) tracerConfig.color = c end
+        },
+        {
+            Id       = "GunTracerColor2",
+            Type     = "ColorPicker",
+            Title    = "Color 2 (Gradient / Shift)",
+            Default  = Color3.fromRGB(255, 85, 0),
+            Callback = function(c) tracerConfig.color2 = c end
+        }
+    })
+    Tabs.Visuals:AddDropdown("GunTracerTexture", {
+        Title    = "Ray texture",
+        Values   = { "Laser", "Custom" },
+        Default  = "Laser",
+        Callback = function(v)
+            if v == "Laser" then
+                tracerConfig.texture       = "rbxassetid://12781800668"
+                tracerConfig.customTexture = ""
+            end
+            -- "Custom" → user fills in the input below; texture resolved at fire time
+        end
+    })
+    Tabs.Visuals:AddInput("GunTracerCustomTex", {
+        Title       = "Custom texture ID",
+        Placeholder = "Asset ID or full rbxassetid://...",
+        Default     = "",
+        Callback    = function(v)
+            tracerConfig.customTexture = v
+        end
+    })
+    Tabs.Visuals:AddSlider("GunTracerDuration", {
+        Title     = "Duration",
+        Min       = 0.1,
+        Max       = 5,
+        Default   = 1,
+        Increment = 0.1,
+        Rounding  = 1,
+        Suffix    = " s",
+        Callback  = function(v) tracerConfig.duration = v end
+    })
+    Tabs.Visuals:AddSlider("GunTracerWidth", {
+        Title     = "Width",
+        Min       = 0.05,
+        Max       = 2,
+        Default   = 0.25,
+        Increment = 0.05,
+        Rounding  = 2,
+        Suffix    = " st",
+        Callback  = function(v) tracerConfig.width = v end
+    })
+    Tabs.Visuals:AddSlider("GunTracerGlow", {
+        Title     = "Light emission",
+        Min       = 0,
+        Max       = 10,
+        Default   = 3,
+        Increment = 0.5,
+        Rounding  = 1,
+        Callback  = function(v) tracerConfig.lightEmission = v end
+    })
+
     -- construct character animation overrides
     Tabs.Animations:AddSection("Custom animations")
     Tabs.Animations:AddGroup({
@@ -11807,6 +15293,12 @@ Tabs.World:AddSection("Skybox")
             safeRemoveDrawing(drawings.Box)
             safeRemoveDrawing(drawings.BoxOutline)
             safeRemoveDrawing(drawings.Name)
+            if drawings.SkeletonLines then
+                for _, line in ipairs(drawings.SkeletonLines) do
+                    safeRemoveDrawing(line)
+                end
+                drawings.SkeletonLines = nil
+            end
             if drawings.Highlight then
                 pcall(function() drawings.Highlight:Destroy() end)
                 drawings.Highlight = nil
@@ -11837,6 +15329,11 @@ Tabs.World:AddSection("Skybox")
             drawings.Name.Visible = false
             drawings.NameVisible = false
         end
+        if drawings.SkeletonLines then
+            for _, line in ipairs(drawings.SkeletonLines) do
+                if line.Visible then line.Visible = false end
+            end
+        end
     end
 
     local function hideESPDrawings(drawings, plr)
@@ -11854,6 +15351,90 @@ Tabs.World:AddSection("Skybox")
                 end
             end
         end
+    end
+
+    local function getSkeletonSegments(char)
+        local segments = {}
+        if not char then return segments end
+
+        local isR15 = char:FindFirstChild("UpperTorso") ~= nil
+        if isR15 then
+            local r15Joints = {
+                {"Head", "UpperTorso"},
+                {"UpperTorso", "LowerTorso"},
+                {"UpperTorso", "LeftUpperArm"},
+                {"LeftUpperArm", "LeftLowerArm"},
+                {"LeftLowerArm", "LeftHand"},
+                {"UpperTorso", "RightUpperArm"},
+                {"RightUpperArm", "RightLowerArm"},
+                {"RightLowerArm", "RightHand"},
+                {"LowerTorso", "LeftUpperLeg"},
+                {"LeftUpperLeg", "LeftLowerLeg"},
+                {"LeftLowerLeg", "LeftFoot"},
+                {"LowerTorso", "RightUpperLeg"},
+                {"RightUpperLeg", "RightLowerLeg"},
+                {"RightLowerLeg", "RightFoot"}
+            }
+            for _, pair in ipairs(r15Joints) do
+                local p1 = char:FindFirstChild(pair[1])
+                local p2 = char:FindFirstChild(pair[2])
+                if p1 and p2 and p1:IsA("BasePart") and p2:IsA("BasePart") then
+                    table.insert(segments, {p1.Position, p2.Position})
+                end
+            end
+        else
+            local head = char:FindFirstChild("Head")
+            local torso = char:FindFirstChild("Torso")
+            local lArm = char:FindFirstChild("Left Arm")
+            local rArm = char:FindFirstChild("Right Arm")
+            local lLeg = char:FindFirstChild("Left Leg")
+            local rLeg = char:FindFirstChild("Right Leg")
+
+            if torso and torso:IsA("BasePart") then
+                local tCf = torso.CFrame
+                local topTorso = tCf:PointToWorldSpace(Vector3.new(0, 0.8, 0))
+                local botTorso = tCf:PointToWorldSpace(Vector3.new(0, -0.8, 0))
+                local lShoulder = tCf:PointToWorldSpace(Vector3.new(-1, 0.6, 0))
+                local rShoulder = tCf:PointToWorldSpace(Vector3.new(1, 0.6, 0))
+                local lHip = tCf:PointToWorldSpace(Vector3.new(-0.5, -0.8, 0))
+                local rHip = tCf:PointToWorldSpace(Vector3.new(0.5, -0.8, 0))
+
+                if head and head:IsA("BasePart") then
+                    table.insert(segments, {topTorso, head.Position})
+                end
+                table.insert(segments, {topTorso, botTorso})
+
+                if lArm and lArm:IsA("BasePart") then
+                    local aCf = lArm.CFrame
+                    local lArmTop = aCf:PointToWorldSpace(Vector3.new(0, 0.8, 0))
+                    local lArmBot = aCf:PointToWorldSpace(Vector3.new(0, -0.8, 0))
+                    table.insert(segments, {lShoulder, lArmTop})
+                    table.insert(segments, {lArmTop, lArmBot})
+                end
+                if rArm and rArm:IsA("BasePart") then
+                    local aCf = rArm.CFrame
+                    local rArmTop = aCf:PointToWorldSpace(Vector3.new(0, 0.8, 0))
+                    local rArmBot = aCf:PointToWorldSpace(Vector3.new(0, -0.8, 0))
+                    table.insert(segments, {rShoulder, rArmTop})
+                    table.insert(segments, {rArmTop, rArmBot})
+                end
+                if lLeg and lLeg:IsA("BasePart") then
+                    local legCf = lLeg.CFrame
+                    local lLegTop = legCf:PointToWorldSpace(Vector3.new(0, 0.8, 0))
+                    local lLegBot = legCf:PointToWorldSpace(Vector3.new(0, -0.8, 0))
+                    table.insert(segments, {lHip, lLegTop})
+                    table.insert(segments, {lLegTop, lLegBot})
+                end
+                if rLeg and rLeg:IsA("BasePart") then
+                    local legCf = rLeg.CFrame
+                    local rLegTop = legCf:PointToWorldSpace(Vector3.new(0, 0.8, 0))
+                    local rLegBot = legCf:PointToWorldSpace(Vector3.new(0, -0.8, 0))
+                    table.insert(segments, {rHip, rLegTop})
+                    table.insert(segments, {rLegTop, rLegBot})
+                end
+            end
+        end
+        return segments
     end
 
     local function createESP(player)
@@ -11885,10 +15466,22 @@ Tabs.World:AddSection("Skybox")
         nameLabel.Outline = false
         nameLabel.Visible = false
 
+        local skeletonLines = {}
+        for i = 1, 16 do
+            local okL, line = pcall(function() return Drawing.new("Line") end)
+            if okL and line then
+                line.Thickness = state.skeletonThickness or 1.5
+                line.Transparency = 1 - (state.skeletonTransparency or 0)
+                line.Visible = false
+                table.insert(skeletonLines, line)
+            end
+        end
+
         espPlayers[player] = {
             Box               = box,
             BoxOutline        = outline,
             Name              = nameLabel,
+            SkeletonLines     = skeletonLines,
             Highlight         = nil,
             BoxVisible        = false,
             BoxOutlineVisible = false,
@@ -12041,21 +15634,27 @@ Tabs.World:AddSection("Skybox")
                                                 drawings.LastChamsMode = nil
                                             end
 
-                                            if drawings.LastRoleColor ~= roleColor or drawings.LastChamsMode ~= cMode then
+                                            if drawings.LastRoleColor ~= roleColor or drawings.LastChamsMode ~= cMode
+                                                or drawings.LastFillTransp ~= state.chamsFillTransparency
+                                                or drawings.LastOutlineTransp ~= state.chamsOutlineTransparency then
                                                 hl.FillColor = roleColor
                                                 hl.OutlineColor = roleColor
+                                                local fillT    = state.chamsFillTransparency    or 0.45
+                                                local outlineT = state.chamsOutlineTransparency or 0
                                                 if cMode == "Glow Outline" then
-                                                    hl.FillTransparency = 1.0
-                                                    hl.OutlineTransparency = 0
+                                                    hl.FillTransparency    = 1.0
+                                                    hl.OutlineTransparency = outlineT
                                                 elseif cMode == "Fill Only" then
-                                                    hl.FillTransparency = 0.3
+                                                    hl.FillTransparency    = fillT
                                                     hl.OutlineTransparency = 1.0
                                                 else
-                                                    hl.FillTransparency = 0.45
-                                                    hl.OutlineTransparency = 0
+                                                    hl.FillTransparency    = fillT
+                                                    hl.OutlineTransparency = outlineT
                                                 end
-                                                drawings.LastRoleColor = roleColor
-                                                drawings.LastChamsMode = cMode
+                                                drawings.LastRoleColor    = roleColor
+                                                drawings.LastChamsMode    = cMode
+                                                drawings.LastFillTransp   = state.chamsFillTransparency
+                                                drawings.LastOutlineTransp = state.chamsOutlineTransparency
                                             end
                                             if not hl.Enabled then
                                                 hl.Enabled = true
@@ -12158,6 +15757,60 @@ Tabs.World:AddSection("Skybox")
                                         elseif drawings.NameVisible then
                                             drawings.Name.Visible = false
                                             drawings.NameVisible = false
+                                        end
+
+                                        -- render character skeleton lines connecting joints
+                                        if state.skeletonEspEnabled and drawings.SkeletonLines then
+                                            local segments = getSkeletonSegments(char)
+                                            local totalSegs = #segments
+                                            local skelMode = state.skeletonColorMode or "Normal"
+                                            local skelUseRole = (state.skeletonUseRoleColor ~= false)
+                                            local c1 = (skelUseRole and roleColor) or (state.skeletonColor or Color3.fromRGB(255, 255, 255))
+                                            local c2 = state.skeletonColor2 or Color3.fromRGB(0, 170, 255)
+                                            local shiftSpeed = state.colorShiftSpeed or 3
+                                            local skelThickness = state.skeletonThickness or 1.5
+                                            local skelTrans = 1 - (state.skeletonTransparency or 0)
+
+                                            for i, line in ipairs(drawings.SkeletonLines) do
+                                                if i <= totalSegs then
+                                                    local seg = segments[i]
+                                                    local pA, onA = cam:WorldToViewportPoint(seg[1])
+                                                    local pB, onB = cam:WorldToViewportPoint(seg[2])
+                                                    if (onA or onB) and pA.Z > 0 and pB.Z > 0 then
+                                                        line.From = Vector2.new(pA.X, pA.Y)
+                                                        line.To = Vector2.new(pB.X, pB.Y)
+                                                        line.Thickness = skelThickness
+                                                        line.Transparency = skelTrans
+
+                                                        local charHeight = (height and height > 1) and height or 50
+                                                        local midY = (pA.Y + pB.Y) * 0.5
+                                                        local vertRatio = math.clamp((midY - boxY) / charHeight, 0, 1)
+                                                        local segColor = c1
+
+                                                        if skelMode == "Shift" then
+                                                            local tVal = (math.sin(tick() * shiftSpeed) + 1) * 0.5
+                                                            segColor = c1:Lerp(c2, tVal)
+                                                        elseif skelMode == "Gradient" then
+                                                            local tVal = (math.sin((vertRatio * math.pi * 2) - (tick() * shiftSpeed * 1.5)) + 1) * 0.5
+                                                            segColor = c1:Lerp(c2, tVal)
+                                                        elseif skelMode == "Rainbow" then
+                                                            local hue = ((tick() * (shiftSpeed * 0.15)) + (vertRatio * 0.5)) % 1.0
+                                                            segColor = Color3.fromHSV(hue, 1, 1)
+                                                        end
+
+                                                        line.Color = segColor
+                                                        line.Visible = true
+                                                    else
+                                                        line.Visible = false
+                                                    end
+                                                else
+                                                    line.Visible = false
+                                                end
+                                            end
+                                        elseif drawings.SkeletonLines then
+                                            for _, line in ipairs(drawings.SkeletonLines) do
+                                                if line.Visible then line.Visible = false end
+                                            end
                                         end
                                     end
                                 end
