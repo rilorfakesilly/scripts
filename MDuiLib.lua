@@ -616,15 +616,275 @@ Library.ThemePresets = {
             Color3.fromRGB(40, 42, 54)
         },
         MinGradient = {
-            Color3.fromRGB(65, 75, 100),
-            Color3.fromRGB(90, 105, 140),
-            Color3.fromRGB(50, 60, 85)
+            Color3.fromRGB(80, 130, 240),
+            Color3.fromRGB(120, 165, 255),
+            Color3.fromRGB(60, 105, 215)
         },
         Divider = Color3.fromRGB(65, 70, 88),
         Text = Color3.fromRGB(240, 240, 245),
         SubText = Color3.fromRGB(180, 185, 200),
         CardBG = Color3.fromRGB(25, 27, 34),
-        ButtonBG = Color3.fromRGB(30, 32, 40),
+        ButtonBG = Color3.fromRGB(80, 130, 240),
+    },
+    VeryDark = {
+        Name = "Very Dark",
+        MainBG = Color3.fromRGB(15, 16, 20),
+        MainTrans = 0.22,
+        AccentBG = Color3.fromRGB(24, 26, 34),
+        AccentTrans = 0.30,
+        TopBG = Color3.fromRGB(24, 26, 34),
+        TopTrans = 0.30,
+        BottomBG = Color3.fromRGB(24, 26, 34),
+        BottomTrans = 0.30,
+        BottomGradient = {
+            Color3.fromRGB(24, 26, 34),
+            Color3.fromRGB(35, 38, 50),
+            Color3.fromRGB(20, 22, 28)
+        },
+        MinGradient = {
+            Color3.fromRGB(90, 125, 245),
+            Color3.fromRGB(130, 165, 255),
+            Color3.fromRGB(70, 95, 200)
+        },
+        Divider = Color3.fromRGB(40, 44, 58),
+        Text = Color3.fromRGB(230, 235, 245),
+        SubText = Color3.fromRGB(160, 165, 180),
+        CardBG = Color3.fromRGB(10, 11, 14),
+        ButtonBG = Color3.fromRGB(90, 125, 245),
+    },
+    Midnight = {
+        Name = "Midnight",
+        MainBG = Color3.fromRGB(11, 15, 25),
+        MainTrans = 0.22,
+        AccentBG = Color3.fromRGB(16, 22, 38),
+        AccentTrans = 0.30,
+        TopBG = Color3.fromRGB(16, 22, 38),
+        TopTrans = 0.30,
+        BottomBG = Color3.fromRGB(16, 22, 38),
+        BottomTrans = 0.30,
+        BottomGradient = {
+            Color3.fromRGB(16, 22, 38),
+            Color3.fromRGB(25, 35, 60),
+            Color3.fromRGB(12, 17, 30)
+        },
+        MinGradient = {
+            Color3.fromRGB(70, 130, 240),
+            Color3.fromRGB(120, 170, 255),
+            Color3.fromRGB(50, 95, 200)
+        },
+        Divider = Color3.fromRGB(35, 48, 80),
+        Text = Color3.fromRGB(240, 245, 255),
+        SubText = Color3.fromRGB(155, 175, 210),
+        CardBG = Color3.fromRGB(8, 11, 18),
+        ButtonBG = Color3.fromRGB(70, 130, 240),
+    },
+    Nord = {
+        Name = "Nord",
+        MainBG = Color3.fromRGB(46, 52, 64),
+        MainTrans = 0.22,
+        AccentBG = Color3.fromRGB(59, 66, 82),
+        AccentTrans = 0.30,
+        TopBG = Color3.fromRGB(59, 66, 82),
+        TopTrans = 0.30,
+        BottomBG = Color3.fromRGB(59, 66, 82),
+        BottomTrans = 0.30,
+        BottomGradient = {
+            Color3.fromRGB(59, 66, 82),
+            Color3.fromRGB(67, 76, 94),
+            Color3.fromRGB(46, 52, 64)
+        },
+        MinGradient = {
+            Color3.fromRGB(136, 192, 208),
+            Color3.fromRGB(129, 161, 193),
+            Color3.fromRGB(94, 129, 172)
+        },
+        Divider = Color3.fromRGB(76, 86, 106),
+        Text = Color3.fromRGB(236, 239, 244),
+        SubText = Color3.fromRGB(175, 185, 205),
+        CardBG = Color3.fromRGB(36, 41, 51),
+        ButtonBG = Color3.fromRGB(136, 192, 208),
+    },
+    AMOLED = {
+        Name = "AMOLED",
+        MainBG = Color3.fromRGB(0, 0, 0),
+        MainTrans = 0.15,
+        AccentBG = Color3.fromRGB(12, 12, 12),
+        AccentTrans = 0.25,
+        TopBG = Color3.fromRGB(12, 12, 12),
+        TopTrans = 0.25,
+        BottomBG = Color3.fromRGB(12, 12, 12),
+        BottomTrans = 0.25,
+        BottomGradient = {
+            Color3.fromRGB(15, 15, 15),
+            Color3.fromRGB(30, 30, 30),
+            Color3.fromRGB(5, 5, 5)
+        },
+        MinGradient = {
+            Color3.fromRGB(255, 255, 255),
+            Color3.fromRGB(180, 180, 180),
+            Color3.fromRGB(120, 120, 120)
+        },
+        Divider = Color3.fromRGB(45, 45, 45),
+        Text = Color3.fromRGB(255, 255, 255),
+        SubText = Color3.fromRGB(160, 160, 160),
+        CardBG = Color3.fromRGB(8, 8, 8),
+        ButtonBG = Color3.fromRGB(240, 240, 240),
+    },
+    White = {
+        Name = "White",
+        MainBG = Color3.fromRGB(242, 244, 248),
+        MainTrans = 0.22,
+        AccentBG = Color3.fromRGB(210, 215, 228),
+        AccentTrans = 0.30,
+        TopBG = Color3.fromRGB(210, 215, 228),
+        TopTrans = 0.30,
+        BottomBG = Color3.fromRGB(210, 215, 228),
+        BottomTrans = 0.30,
+        BottomGradient = {
+            Color3.fromRGB(210, 215, 228),
+            Color3.fromRGB(230, 235, 245),
+            Color3.fromRGB(200, 205, 220)
+        },
+        MinGradient = {
+            Color3.fromRGB(60, 120, 240),
+            Color3.fromRGB(120, 175, 255),
+            Color3.fromRGB(45, 95, 210)
+        },
+        Divider = Color3.fromRGB(180, 190, 210),
+        Text = Color3.fromRGB(30, 32, 40),
+        SubText = Color3.fromRGB(70, 75, 90),
+        CardBG = Color3.fromRGB(255, 255, 255),
+        ButtonBG = Color3.fromRGB(60, 120, 240),
+    },
+    Coffee = {
+        Name = "Coffee",
+        MainBG = Color3.fromRGB(43, 31, 26),
+        MainTrans = 0.22,
+        AccentBG = Color3.fromRGB(54, 39, 32),
+        AccentTrans = 0.30,
+        TopBG = Color3.fromRGB(54, 39, 32),
+        TopTrans = 0.30,
+        BottomBG = Color3.fromRGB(54, 39, 32),
+        BottomTrans = 0.30,
+        BottomGradient = {
+            Color3.fromRGB(54, 39, 32),
+            Color3.fromRGB(75, 55, 45),
+            Color3.fromRGB(35, 25, 20)
+        },
+        MinGradient = {
+            Color3.fromRGB(198, 156, 109),
+            Color3.fromRGB(230, 195, 150),
+            Color3.fromRGB(150, 110, 75)
+        },
+        Divider = Color3.fromRGB(111, 78, 55),
+        Text = Color3.fromRGB(243, 233, 220),
+        SubText = Color3.fromRGB(190, 168, 148),
+        CardBG = Color3.fromRGB(31, 22, 18),
+        ButtonBG = Color3.fromRGB(198, 156, 109),
+    },
+    Dracula = {
+        Name = "Dracula",
+        MainBG = Color3.fromRGB(40, 42, 54),
+        MainTrans = 0.22,
+        AccentBG = Color3.fromRGB(33, 34, 44),
+        AccentTrans = 0.30,
+        TopBG = Color3.fromRGB(33, 34, 44),
+        TopTrans = 0.30,
+        BottomBG = Color3.fromRGB(33, 34, 44),
+        BottomTrans = 0.30,
+        BottomGradient = {
+            Color3.fromRGB(33, 34, 44),
+            Color3.fromRGB(50, 52, 68),
+            Color3.fromRGB(25, 26, 34)
+        },
+        MinGradient = {
+            Color3.fromRGB(189, 147, 249),
+            Color3.fromRGB(255, 121, 198),
+            Color3.fromRGB(139, 233, 253)
+        },
+        Divider = Color3.fromRGB(98, 114, 164),
+        Text = Color3.fromRGB(248, 248, 242),
+        SubText = Color3.fromRGB(150, 160, 195),
+        CardBG = Color3.fromRGB(30, 31, 41),
+        ButtonBG = Color3.fromRGB(189, 147, 249),
+    },
+    Rose = {
+        Name = "Rose",
+        MainBG = Color3.fromRGB(35, 24, 30),
+        MainTrans = 0.22,
+        AccentBG = Color3.fromRGB(48, 30, 40),
+        AccentTrans = 0.30,
+        TopBG = Color3.fromRGB(48, 30, 40),
+        TopTrans = 0.30,
+        BottomBG = Color3.fromRGB(48, 30, 40),
+        BottomTrans = 0.30,
+        BottomGradient = {
+            Color3.fromRGB(48, 30, 40),
+            Color3.fromRGB(68, 42, 58),
+            Color3.fromRGB(28, 18, 24)
+        },
+        MinGradient = {
+            Color3.fromRGB(235, 111, 146),
+            Color3.fromRGB(246, 193, 119),
+            Color3.fromRGB(196, 167, 231)
+        },
+        Divider = Color3.fromRGB(110, 60, 80),
+        Text = Color3.fromRGB(250, 240, 245),
+        SubText = Color3.fromRGB(200, 170, 185),
+        CardBG = Color3.fromRGB(26, 18, 22),
+        ButtonBG = Color3.fromRGB(235, 111, 146),
+    },
+    Mint = {
+        Name = "Mint",
+        MainBG = Color3.fromRGB(14, 42, 38),
+        MainTrans = 0.22,
+        AccentBG = Color3.fromRGB(18, 55, 49),
+        AccentTrans = 0.30,
+        TopBG = Color3.fromRGB(18, 55, 49),
+        TopTrans = 0.30,
+        BottomBG = Color3.fromRGB(18, 55, 49),
+        BottomTrans = 0.30,
+        BottomGradient = {
+            Color3.fromRGB(18, 55, 49),
+            Color3.fromRGB(28, 80, 72),
+            Color3.fromRGB(12, 36, 32)
+        },
+        MinGradient = {
+            Color3.fromRGB(94, 234, 180),
+            Color3.fromRGB(160, 245, 215),
+            Color3.fromRGB(52, 190, 145)
+        },
+        Divider = Color3.fromRGB(45, 140, 115),
+        Text = Color3.fromRGB(236, 253, 247),
+        SubText = Color3.fromRGB(160, 215, 198),
+        CardBG = Color3.fromRGB(10, 31, 28),
+        ButtonBG = Color3.fromRGB(94, 234, 180),
+    },
+    Amethyst = {
+        Name = "Amethyst",
+        MainBG = Color3.fromRGB(45, 18, 75),
+        MainTrans = 0.22,
+        AccentBG = Color3.fromRGB(68, 22, 105),
+        AccentTrans = 0.30,
+        TopBG = Color3.fromRGB(68, 22, 105),
+        TopTrans = 0.30,
+        BottomBG = Color3.fromRGB(68, 22, 105),
+        BottomTrans = 0.30,
+        BottomGradient = {
+            Color3.fromRGB(68, 22, 105),
+            Color3.fromRGB(100, 30, 160),
+            Color3.fromRGB(50, 15, 80)
+        },
+        MinGradient = {
+            Color3.fromRGB(168, 85, 247),
+            Color3.fromRGB(216, 180, 254),
+            Color3.fromRGB(147, 51, 234)
+        },
+        Divider = Color3.fromRGB(126, 34, 206),
+        Text = Color3.fromRGB(255, 255, 255),
+        SubText = Color3.fromRGB(225, 200, 245),
+        CardBG = Color3.fromRGB(32, 12, 55),
+        ButtonBG = Color3.fromRGB(168, 85, 247),
     },
     Original = {
         Name = "Blue",
@@ -650,85 +910,7 @@ Library.ThemePresets = {
         Text = Color3.fromRGB(255, 255, 255),
         SubText = Color3.fromRGB(200, 225, 255),
         CardBG = Color3.fromRGB(8, 45, 95),
-        ButtonBG = Color3.fromRGB(15, 65, 130),
-    },
-    White = {
-        Name = "White",
-        MainBG = Color3.fromRGB(242, 244, 248),
-        MainTrans = 0.22,
-        AccentBG = Color3.fromRGB(210, 215, 228),
-        AccentTrans = 0.30,
-        TopBG = Color3.fromRGB(210, 215, 228),
-        TopTrans = 0.30,
-        BottomBG = Color3.fromRGB(210, 215, 228),
-        BottomTrans = 0.30,
-        BottomGradient = {
-            Color3.fromRGB(210, 215, 228),
-            Color3.fromRGB(230, 235, 245),
-            Color3.fromRGB(200, 205, 220)
-        },
-        MinGradient = {
-            Color3.fromRGB(200, 210, 235),
-            Color3.fromRGB(240, 245, 255),
-            Color3.fromRGB(180, 195, 225)
-        },
-        Divider = Color3.fromRGB(180, 190, 210),
-        Text = Color3.fromRGB(30, 32, 40),
-        SubText = Color3.fromRGB(70, 75, 90),
-        CardBG = Color3.fromRGB(255, 255, 255),
-        ButtonBG = Color3.fromRGB(210, 215, 228),
-    },
-    VeryDark = {
-        Name = "Very dark",
-        MainBG = Color3.fromRGB(15, 16, 20),
-        MainTrans = 0.22,
-        AccentBG = Color3.fromRGB(24, 26, 34),
-        AccentTrans = 0.30,
-        TopBG = Color3.fromRGB(24, 26, 34),
-        TopTrans = 0.30,
-        BottomBG = Color3.fromRGB(24, 26, 34),
-        BottomTrans = 0.30,
-        BottomGradient = {
-            Color3.fromRGB(24, 26, 34),
-            Color3.fromRGB(35, 38, 50),
-            Color3.fromRGB(20, 22, 28)
-        },
-        MinGradient = {
-            Color3.fromRGB(45, 50, 68),
-            Color3.fromRGB(70, 78, 105),
-            Color3.fromRGB(35, 40, 55)
-        },
-        Divider = Color3.fromRGB(40, 44, 58),
-        Text = Color3.fromRGB(230, 235, 245),
-        SubText = Color3.fromRGB(160, 165, 180),
-        CardBG = Color3.fromRGB(10, 11, 14),
-        ButtonBG = Color3.fromRGB(24, 26, 34),
-    },
-    Amethyst = {
-        Name = "Amethyst",
-        MainBG = Color3.fromRGB(58, 20, 95),
-        MainTrans = 0.22,
-        AccentBG = Color3.fromRGB(88, 28, 135),
-        AccentTrans = 0.30,
-        TopBG = Color3.fromRGB(88, 28, 135),
-        TopTrans = 0.30,
-        BottomBG = Color3.fromRGB(88, 28, 135),
-        BottomTrans = 0.30,
-        BottomGradient = {
-            Color3.fromRGB(88, 28, 135),
-            Color3.fromRGB(126, 34, 206),
-            Color3.fromRGB(70, 20, 110)
-        },
-        MinGradient = {
-            Color3.fromRGB(147, 51, 234),
-            Color3.fromRGB(192, 132, 252),
-            Color3.fromRGB(126, 34, 206)
-        },
-        Divider = Color3.fromRGB(126, 34, 206),
-        Text = Color3.fromRGB(255, 255, 255),
-        SubText = Color3.fromRGB(225, 200, 245),
-        CardBG = Color3.fromRGB(45, 15, 75),
-        ButtonBG = Color3.fromRGB(60, 20, 90),
+        ButtonBG = Color3.fromRGB(40, 140, 240),
     },
     Nature = {
         Name = "Green",
@@ -754,9 +936,11 @@ Library.ThemePresets = {
         Text = Color3.fromRGB(255, 255, 255),
         SubText = Color3.fromRGB(200, 240, 215),
         CardBG = Color3.fromRGB(10, 45, 24),
-        ButtonBG = Color3.fromRGB(15, 60, 32),
+        ButtonBG = Color3.fromRGB(46, 204, 113),
     }
 }
+Library.ThemePresets.Blue = Library.ThemePresets.Original
+Library.ThemePresets.Green = Library.ThemePresets.Nature
 
 local function ApplyCornerRadii(uiCorner, topLeft, topRight, bottomLeft, bottomRight)
     pcall(function()
@@ -851,7 +1035,9 @@ function Library:RegisterTheme(name, data)
     Library.ThemePresets[name] = newTheme
 
     for _, win in ipairs(Library.ActiveWindows or {}) do
-        if win and win.ThemeContainer and win.ThemePresetBtnMap and not win.ThemePresetBtnMap[name] then
+        if win and win.CreateThemeSwatch then
+            pcall(function() win:CreateThemeSwatch(name, newTheme) end)
+        elseif win and win.ThemeContainer and win.ThemePresetBtnMap and not win.ThemePresetBtnMap[name] then
             local btnData = win:CreateMDButtonLong(win.ThemeContainer, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, 0), newTheme.Name, function()
                 win:ApplyTheme(name)
             end)
@@ -2110,13 +2296,47 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         task.defer(UpdateTextboxResponsiveLayout)
 
         local InputCorner = Instance.new("UICorner")
-        InputCorner.CornerRadius = UDim.new(0, 6)
+        InputCorner.CornerRadius = UDim.new(0, 8)
         InputCorner.Parent = InputBox
+
+        local InputStroke = Instance.new("UIStroke")
+        InputStroke.Thickness = 1
+        InputStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80)
+        InputStroke.Transparency = 0.5
+        InputStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        InputStroke.Parent = InputBox
+
+        TrackConn(InputBox.Focused:Connect(function()
+            TweenService:Create(InputStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Color = Window.CurrentTheme.ButtonBG,
+                Transparency = 0,
+                Thickness = 1.5
+            }):Play()
+        end))
+
+        TrackConn(BoxFrame.MouseEnter:Connect(function()
+            local inSec = IsInsideSection(BoxFrame)
+            if not (inSec and Window.SectionsTransparent) then
+                TweenService:Create(BoxFrame, TweenInfo.new(0.2), {
+                    BackgroundTransparency = math.max(0, (Window.ElementsTransparency or 0.33) - 0.12)
+                }):Play()
+            end
+        end))
+
+        TrackConn(BoxFrame.MouseLeave:Connect(function()
+            local inSec = IsInsideSection(BoxFrame)
+            if not (inSec and Window.SectionsTransparent) then
+                TweenService:Create(BoxFrame, TweenInfo.new(0.2), {
+                    BackgroundTransparency = (inSec and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
+                }):Play()
+            end
+        end))
 
         local boxObj = {
             Frame = BoxFrame,
             TitleLabel = TitleLabel,
             InputBox = InputBox,
+            InputStroke = InputStroke,
             GetText = function() return InputBox.Text end,
             SetText = function(txt, triggerCallback)
                 InputBox.Text = txt or ""
@@ -2137,6 +2357,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 InputBox.TextColor3 = theme.Text
                 InputBox.PlaceholderColor3 = theme.SubText
                 InputBox.BackgroundColor3 = GetThemedDarkColor(theme)
+                if InputStroke then
+                    InputStroke.Color = theme.Divider or Color3.fromRGB(60, 65, 80)
+                end
             end
         }
 
@@ -2168,6 +2391,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         TrackConn(InputBox.FocusLost:Connect(function(enterPressed)
             PlayClickSFX()
+            TweenService:Create(InputStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Color = Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80),
+                Transparency = 0.5,
+                Thickness = 1
+            }):Play()
             if onSubmit then onSubmit(InputBox.Text, enterPressed) end
         end))
 
@@ -2533,6 +2761,25 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Size = UDim2.new(0, width, 0, targetHeight)
             }):Play()
         end
+
+        TrackConn(HeaderTrigger.MouseEnter:Connect(function()
+            PlayHoverSFX()
+            local inSec = IsInsideSection(DropdownFrame)
+            if not (inSec and Window.SectionsTransparent) then
+                TweenService:Create(DropdownFrame, TweenInfo.new(0.2), {
+                    BackgroundTransparency = math.max(0, (Window.ElementsTransparency or 0.33) - 0.12)
+                }):Play()
+            end
+        end))
+
+        TrackConn(HeaderTrigger.MouseLeave:Connect(function()
+            local inSec = IsInsideSection(DropdownFrame)
+            if not (inSec and Window.SectionsTransparent) then
+                TweenService:Create(DropdownFrame, TweenInfo.new(0.2), {
+                    BackgroundTransparency = (inSec and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
+                }):Play()
+            end
+        end))
 
         TrackConn(HeaderTrigger.MouseButton1Click:Connect(function()
             PlayClickSFX()
@@ -3088,6 +3335,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ScriptUi.Enabled = true
         end
 
+        if UIScaleConstraint and MainContainer then
+            local targetScale = (GetTargetViewportScale and GetTargetViewportScale()) or 1.0
+            UIScaleConstraint.Scale = targetScale * 0.92
+            TweenService:Create(UIScaleConstraint, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Scale = targetScale
+            }):Play()
+        end
+
         -- Snapshot default config state after full initialization
         if not DefaultConfigMemoryData then
             DefaultConfigMemoryData = Window:GetConfigSaveData()
@@ -3161,7 +3416,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 6)
+        Corner.CornerRadius = UDim.new(0, 8)
         Corner.Parent = BtnFrame
 
         AddUIShadow(BtnFrame, 20, 0.5)
@@ -3344,7 +3599,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BadgeContainer.Parent = parent
 
         local BadgeCorner = Instance.new("UICorner")
-        BadgeCorner.CornerRadius = UDim.new(0, 6)
+        BadgeCorner.CornerRadius = UDim.new(0, 8)
         BadgeCorner.Parent = BadgeContainer
 
         local BadgeStroke = Instance.new("UIStroke")
@@ -3873,6 +4128,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TrackConn(Trigger.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 isDragging = true
+                TweenService:Create(HandleFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(0, knobSize + 4, 0, knobSize + 4)
+                }):Play()
                 UpdateSlider(input.Position.X, true)
             end
         end))
@@ -3887,6 +4145,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 if isDragging then
                     isDragging = false
+                    TweenService:Create(HandleFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        Size = UDim2.new(0, knobSize, 0, knobSize)
+                    }):Play()
                     FireRelease()
                 end
             end
@@ -4917,7 +5178,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnFrame.Parent = resolvedParent
 
         local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = UDim.new(0, 6)
+        Corner.CornerRadius = UDim.new(0, 8)
         Corner.Parent = BtnFrame
 
         AddUIShadow(BtnFrame, isSmall and 8 or 20, 0.45)
@@ -5230,6 +5491,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TrackConn(ClickBtn.MouseButton1Click:Connect(function()
             PlayClickSFX()
             PerformToggle(not isToggled, true)
+        end))
+
+        TrackConn(CardFrame.MouseEnter:Connect(function()
+            local isST = inSection and Window.SectionsTransparent
+            if not isST then
+                TweenService:Create(CardFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = math.max(0, (Window.ElementsTransparency or 0.33) - 0.12)
+                }):Play()
+            end
+        end))
+
+        TrackConn(CardFrame.MouseLeave:Connect(function()
+            local isST = inSection and Window.SectionsTransparent
+            if not isST then
+                TweenService:Create(CardFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
+                }):Play()
+            end
         end))
 
         local saveKey = (type(keybindConfig) == "table" and (keybindConfig.SaveKey or keybindConfig.saveKey or keybindConfig.Identifier or keybindConfig.identifier or keybindConfig.Id or keybindConfig.id)) or (text and text ~= "" and text) or ("ToggleHalf_" .. (#Window.RegisteredMDToggles + 1))
@@ -6112,33 +6391,50 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- Global floating tooltip engine
     local TooltipFrame = Instance.new("Frame")
     TooltipFrame.Name = GenerateSafeName("Tooltip")
-    TooltipFrame.Size = UDim2.new(0, 100, 0, 24)
+    TooltipFrame.Size = UDim2.new(0, 100, 0, 26)
+    TooltipFrame.BackgroundColor3 = (Window.CurrentTheme and Window.CurrentTheme.CardBG) or Color3.fromRGB(24, 26, 34)
     TooltipFrame.BackgroundTransparency = 1
     TooltipFrame.BorderSizePixel = 0
     TooltipFrame.ZIndex = 10000
     TooltipFrame.Visible = false
     TooltipFrame.Parent = ScriptUi
 
+    local TooltipCorner = Instance.new("UICorner")
+    TooltipCorner.CornerRadius = UDim.new(0, 8)
+    TooltipCorner.Parent = TooltipFrame
+
+    local TooltipStroke = Instance.new("UIStroke")
+    TooltipStroke.Thickness = 1
+    TooltipStroke.Color = (Window.CurrentTheme and Window.CurrentTheme.Divider) or Color3.fromRGB(65, 70, 88)
+    TooltipStroke.Transparency = 1
+    TooltipStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    TooltipStroke.Parent = TooltipFrame
+
+    AddUIShadow(TooltipFrame, 12, 0.45)
+
     local TooltipPadding = Instance.new("UIPadding")
-    TooltipPadding.PaddingLeft = UDim.new(0, 8)
-    TooltipPadding.PaddingRight = UDim.new(0, 8)
-    TooltipPadding.PaddingTop = UDim.new(0, 4)
-    TooltipPadding.PaddingBottom = UDim.new(0, 4)
+    TooltipPadding.PaddingLeft = UDim.new(0, 10)
+    TooltipPadding.PaddingRight = UDim.new(0, 10)
+    TooltipPadding.PaddingTop = UDim.new(0, 5)
+    TooltipPadding.PaddingBottom = UDim.new(0, 5)
     TooltipPadding.Parent = TooltipFrame
 
     local TooltipText = Instance.new("TextLabel")
     TooltipText.Name = "TooltipText"
     TooltipText.Size = UDim2.new(1, 0, 1, 0)
     TooltipText.BackgroundTransparency = 1
-    TooltipText.FontFace = FontFingerPaintRegular
+    TooltipText.FontFace = FontRegular
     TooltipText.Text = ""
-    TooltipText.TextColor3 = Color3.fromRGB(235, 240, 255)
-    TooltipText.TextSize = 15
+    TooltipText.TextColor3 = Color3.fromRGB(240, 240, 245)
+    TooltipText.TextSize = 12
     TooltipText.TextXAlignment = Enum.TextXAlignment.Center
     TooltipText.TextYAlignment = Enum.TextYAlignment.Center
     TooltipText.TextTransparency = 1
     TooltipText.ZIndex = 10001
     TooltipText.Parent = TooltipFrame
+
+    Window.TooltipFrame = TooltipFrame
+    Window.TooltipStroke = TooltipStroke
 
     local activeTooltipTarget = nil
     local tooltipTween = nil
@@ -6154,18 +6450,22 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TooltipText.Text = tostring(tooltipContentMap[guiObject])
 
             local TextService = game:GetService("TextService")
-            local bounds = TextService:GetTextSize(TooltipText.Text, 15, Enum.Font.Michroma or Enum.Font.SourceSansBold, Vector2.new(320, 120))
-            local tw = math.clamp(bounds.X + 20, 50, 340)
-            local th = math.clamp(bounds.Y + 10, 22, 120)
+            local bounds = TextService:GetTextSize(TooltipText.Text, 12, Enum.Font.Montserrat or Enum.Font.SourceSans, Vector2.new(300, 100))
+            local tw = math.clamp(bounds.X + 20, 48, 320)
+            local th = math.clamp(bounds.Y + 12, 24, 80)
             TooltipFrame.Size = UDim2.new(0, tw, 0, th)
 
             local mousePos = UserInputService:GetMouseLocation()
             local inset = game:GetService("GuiService"):GetGuiInset()
             TooltipFrame.Position = UDim2.new(0, mousePos.X + 12, 0, mousePos.Y - inset.Y + 12)
-            TooltipText.TextColor3 = (Window.CurrentTheme and Window.CurrentTheme.Text) or Color3.fromRGB(235, 240, 255)
+            TooltipText.TextColor3 = (Window.CurrentTheme and Window.CurrentTheme.Text) or Color3.fromRGB(240, 240, 245)
+            TooltipFrame.BackgroundColor3 = (Window.CurrentTheme and Window.CurrentTheme.CardBG) or Color3.fromRGB(24, 26, 34)
+            TooltipStroke.Color = (Window.CurrentTheme and Window.CurrentTheme.Divider) or Color3.fromRGB(65, 70, 88)
             TooltipFrame.Visible = true
 
             if tooltipTween then tooltipTween:Cancel() end
+            TweenService:Create(TooltipFrame, TweenInfo.new(0.15), {BackgroundTransparency = 0.05}):Play()
+            TweenService:Create(TooltipStroke, TweenInfo.new(0.15), {Transparency = 0.2}):Play()
             TweenService:Create(TooltipText, TweenInfo.new(0.15), {TextTransparency = 0}):Play()
         end))
 
@@ -6181,6 +6481,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if activeTooltipTarget == guiObject then
                 activeTooltipTarget = nil
                 if tooltipTween then tooltipTween:Cancel() end
+                TweenService:Create(TooltipFrame, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play()
+                TweenService:Create(TooltipStroke, TweenInfo.new(0.15), {Transparency = 1}):Play()
                 TweenService:Create(TooltipText, TweenInfo.new(0.15), {TextTransparency = 1}):Play()
                 task.delay(0.16, function()
                     if activeTooltipTarget == nil then
@@ -7196,8 +7498,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local MDicon = Instance.new("ImageLabel")
     MDicon.Name = "Icon"
-    MDicon.Size = UDim2.new(0, 35, 0, 35)
-    MDicon.Position = UDim2.new(0.0142, 0, 0.16, 0)
+    MDicon.Size = UDim2.new(0, 34, 0, 34)
+    MDicon.AnchorPoint = Vector2.new(0, 0.5)
+    MDicon.Position = UDim2.new(0, 12, 0.5, 0)
     MDicon.BackgroundTransparency = 1
     MDicon.Image = iconAsset
     MDicon.ImageColor3 = Window.CurrentTheme.Text
@@ -7207,19 +7510,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Window._MDicon = MDicon
 
     local MDiconCorner = Instance.new("UICorner")
-    MDiconCorner.CornerRadius = UDim.new(0, 10)
+    MDiconCorner.CornerRadius = UDim.new(0, 8)
     MDiconCorner.Parent = MDicon
 
     AddUIShadow(MDicon, 20, 0.5)
 
     local MadebyText = Instance.new("TextLabel")
-    MadebyText.Size = UDim2.new(0, 200, 0, 24)
-    MadebyText.Position = UDim2.new(0.0803, 0, 0.12, 0)
+    MadebyText.Name = "MadebyText"
+    MadebyText.Size = UDim2.new(0, 220, 0, 22)
+    MadebyText.AnchorPoint = Vector2.new(0, 0)
+    MadebyText.Position = UDim2.new(0, 54, 0, 7)
     MadebyText.BackgroundTransparency = 1
     MadebyText.FontFace = FontTitle
     MadebyText.Text = (scriptName and scriptName ~= "" and scriptName) or (hubTitle and hubTitle ~= "" and hubTitle) or (Window.ScriptName and Window.ScriptName ~= "" and Window.ScriptName) or "script name"
     MadebyText.TextColor3 = Window.CurrentTheme.Text
-    MadebyText.TextSize = 15
+    MadebyText.TextSize = 14
     MadebyText.TextXAlignment = Enum.TextXAlignment.Left
     MadebyText.ZIndex = 6
     MadebyText.Parent = BottomFrame
@@ -7228,8 +7533,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local DiscordBtn = Instance.new("TextButton")
     DiscordBtn.Name = "DiscordServerLink"
-    DiscordBtn.Size = UDim2.new(0, 210, 0, 20)
-    DiscordBtn.Position = UDim2.new(0.0803, 0, 0.52, 0)
+    DiscordBtn.Size = UDim2.new(0, 220, 0, 18)
+    DiscordBtn.AnchorPoint = Vector2.new(0, 0)
+    DiscordBtn.Position = UDim2.new(0, 54, 0, 28)
     DiscordBtn.BackgroundTransparency = 1
     DiscordBtn.FontFace = FontRegular
     DiscordBtn.Text = discordDisplay
@@ -7262,14 +7568,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end))
 
     local LocalTime = Instance.new("TextLabel")
-    LocalTime.Size = UDim2.new(0, 210, 1, 0)
-    LocalTime.Position = UDim2.new(0.75, 0, 0, 0)
+    LocalTime.Name = "LocalTime"
+    LocalTime.Size = UDim2.new(0, 240, 1, 0)
+    LocalTime.AnchorPoint = Vector2.new(1, 0.5)
+    LocalTime.Position = UDim2.new(1, -26, 0.5, 0)
     LocalTime.BackgroundTransparency = 1
     LocalTime.FontFace = FontFingerPaintRegular
-    LocalTime.Text = "Local time: 5:33 AM"
+    LocalTime.Text = os.date("%b %d, %Y • %I:%M %p")
     LocalTime.TextColor3 = Window.CurrentTheme.Text
-    LocalTime.TextSize = 12
-    LocalTime.TextXAlignment = Enum.TextXAlignment.Left
+    LocalTime.TextSize = 11
+    LocalTime.TextXAlignment = Enum.TextXAlignment.Right
     LocalTime.TextYAlignment = Enum.TextYAlignment.Center
     LocalTime.ZIndex = 6
     LocalTime.Parent = BottomFrame
@@ -7449,10 +7757,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     AttachUniversalDrag(MinimizedImage, MinimizedFrame)
 
     -- Notification Engine (Placed at Y = 1, -105)
-    function Window:Notify(titleText, contentText, duration)
+    function Window:Notify(titleText, contentText, duration, notifType)
         if not Window.NotificationsEnabled then return end
         PlayNotifSFX()
+        if type(titleText) == "table" then
+            notifType = titleText.Type or titleText.notifType or notifType
+            duration = titleText.Duration or titleText.duration or duration
+            contentText = titleText.Content or titleText.Text or titleText.Body or contentText
+            titleText = titleText.Title or titleText.title or "MD Notification"
+        end
         duration = duration or 3.5
+
+        local typeColors = {
+            success = Color3.fromRGB(46, 204, 113),
+            warning = Color3.fromRGB(241, 196, 15),
+            error   = Color3.fromRGB(231, 76, 60),
+            info    = Window.CurrentTheme.ButtonBG,
+        }
+        local accentCol = typeColors[string.lower(tostring(notifType or ""))] or Window.CurrentTheme.ButtonBG
 
         local NotifContainer = Instance.new("Frame")
         NotifContainer.Name = "NotifContainer"
@@ -7461,6 +7783,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NotifContainer.BackgroundTransparency = 1
         NotifContainer.ZIndex = 30
         NotifContainer.Parent = NotificationUI
+
+        -- Colored Accent Bar on the left
+        local AccentBar = Instance.new("Frame")
+        AccentBar.Name = "AccentBar"
+        AccentBar.Size = UDim2.new(0, 4, 1, 0)
+        AccentBar.Position = UDim2.new(0, 0, 0, 0)
+        AccentBar.BackgroundColor3 = accentCol
+        AccentBar.BorderSizePixel = 0
+        AccentBar.ZIndex = 35
+        AccentBar.Parent = NotifContainer
+
+        local AccentCorner = Instance.new("UICorner")
+        ApplyCornerRadii(AccentCorner, 8, 0, 0, 8)
+        AccentCorner.Parent = AccentBar
 
         local NotifTop = Instance.new("Frame")
         NotifTop.Name = "TopFrame"
@@ -7484,14 +7820,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local NotifTitle = Instance.new("TextLabel")
         NotifTitle.Name = "NotificationName"
-        NotifTitle.Size = UDim2.new(0, 153, 0, 45)
-        NotifTitle.Position = UDim2.new(0.019, 0, -0.31, 0)
+        NotifTitle.Size = UDim2.new(1, -20, 1, 0)
+        NotifTitle.Position = UDim2.new(0, 12, 0, 0)
         NotifTitle.BackgroundTransparency = 1
         NotifTitle.FontFace = FontTitle
         NotifTitle.Text = titleText or "MD Notification"
         NotifTitle.TextColor3 = Window.CurrentTheme.Text
-        NotifTitle.TextSize = 15
+        NotifTitle.TextSize = 14
         NotifTitle.TextXAlignment = Enum.TextXAlignment.Left
+        NotifTitle.TextYAlignment = Enum.TextYAlignment.Center
         NotifTitle.ZIndex = 32
         NotifTitle.Parent = NotifTextFolder
 
@@ -7505,12 +7842,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NotifMain.ZIndex = 31
         NotifMain.Parent = NotifContainer
 
+        local NotifMainCorner = Instance.new("UICorner")
+        ApplyCornerRadii(NotifMainCorner, 0, 0, 8, 8)
+        NotifMainCorner.Parent = NotifMain
+
         AddUIShadow(NotifMain, 20, 0.5)
 
         local NotifIcon = Instance.new("ImageLabel")
         NotifIcon.Name = "Icon"
-        NotifIcon.Size = UDim2.new(0, 52, 0, 52)
-        NotifIcon.Position = UDim2.new(0.0217, 0, 0.1317, 0)
+        NotifIcon.Size = UDim2.new(0, 48, 0, 48)
+        NotifIcon.Position = UDim2.new(0, 12, 0.5, -24)
         NotifIcon.BackgroundTransparency = 1
         NotifIcon.Image = Window.IconAsset or iconAsset or "rbxassetid://71647461889740"
         NotifIcon.ImageColor3 = Window.CurrentTheme.Text
@@ -7519,17 +7860,43 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local NotifBody = Instance.new("TextLabel")
         NotifBody.Name = "NOTIFICATIONTXT"
-        NotifBody.Size = UDim2.new(0, 210, 0, 54)
-        NotifBody.Position = UDim2.new(0.2413, 0, 0.1317, 0)
+        NotifBody.Size = UDim2.new(1, -72, 1, -12)
+        NotifBody.Position = UDim2.new(0, 64, 0, 4)
         NotifBody.BackgroundTransparency = 1
         NotifBody.FontFace = FontRegular
         NotifBody.Text = contentText or ""
         NotifBody.TextColor3 = Window.CurrentTheme.Text
-        NotifBody.TextSize = 17
+        NotifBody.TextSize = 12
         NotifBody.TextWrapped = true
         NotifBody.TextXAlignment = Enum.TextXAlignment.Left
+        NotifBody.TextYAlignment = Enum.TextYAlignment.Center
         NotifBody.ZIndex = 32
         NotifBody.Parent = NotifMain
+
+        -- Bottom Progress Bar showing remaining time
+        local ProgressBarBG = Instance.new("Frame")
+        ProgressBarBG.Name = "ProgressBarBG"
+        ProgressBarBG.Size = UDim2.new(1, 0, 0, 2)
+        ProgressBarBG.Position = UDim2.new(0, 0, 1, -2)
+        ProgressBarBG.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        ProgressBarBG.BackgroundTransparency = 0.6
+        ProgressBarBG.BorderSizePixel = 0
+        ProgressBarBG.ZIndex = 34
+        ProgressBarBG.Parent = NotifMain
+
+        local ProgressBar = Instance.new("Frame")
+        ProgressBar.Name = "ProgressBar"
+        ProgressBar.Size = UDim2.new(1, 0, 1, 0)
+        ProgressBar.Position = UDim2.new(0, 0, 0, 0)
+        ProgressBar.BackgroundColor3 = accentCol
+        ProgressBar.BorderSizePixel = 0
+        ProgressBar.ZIndex = 35
+        ProgressBar.Parent = ProgressBarBG
+
+        local progressTween = TweenService:Create(ProgressBar, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
+            Size = UDim2.new(0, 0, 1, 0)
+        })
+        progressTween:Play()
 
         table.insert(Window.ActiveNotifications, 1, NotifContainer)
 
@@ -7832,15 +8199,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end
                 else
                     tab.Button.Visible = true
-                    tab.Button.Size = UDim2.new(1, 0, 1, 0)
-                    tab.Button.Position = UDim2.new(0, 0, 0, 0)
-                    tab.Button.Text = fullTabName
-                    tab.Button.TextXAlignment = Enum.TextXAlignment.Center
-                    tab.Button.TextSize = (Window.ActiveTab == name or Window.ActiveTab == tab.Name) and 18 or 16
-                    tab.Button.ZIndex = 4
                     if tab.Icon then
-                        tab.Icon.Visible = false
+                        tab.Icon.Visible = true
+                        TweenService:Create(tab.Icon, ease, {Position = UDim2.new(0, 12, 0.5, -9)}):Play()
+                        tab.Button.Position = UDim2.new(0, 36, 0, 0)
+                        tab.Button.Size = UDim2.new(1, -44, 1, 0)
+                        tab.Button.TextXAlignment = Enum.TextXAlignment.Left
+                    else
+                        tab.Button.Position = UDim2.new(0, 14, 0, 0)
+                        tab.Button.Size = UDim2.new(1, -20, 1, 0)
+                        tab.Button.TextXAlignment = Enum.TextXAlignment.Left
                     end
+                    tab.Button.Text = fullTabName
+                    tab.Button.TextSize = (Window.ActiveTab == name or Window.ActiveTab == tab.Name) and 17 or 15
+                    tab.Button.ZIndex = 4
                 end
             end
         end
@@ -7936,12 +8308,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TabIcon = Instance.new("ImageLabel")
             TabIcon.Name = "TabIcon"
             TabIcon.Size = UDim2.new(0, 18, 0, 18)
-            TabIcon.Position = Window.SidebarCollapsed and UDim2.new(0.5, -9, 0.5, -9) or UDim2.new(0, 10, 0.5, -9)
+            TabIcon.Position = Window.SidebarCollapsed and UDim2.new(0.5, -9, 0.5, -9) or UDim2.new(0, 12, 0.5, -9)
             TabIcon.BackgroundTransparency = 1
             TabIcon.Image = tabIcon
             TabIcon.ImageColor3 = Window.CurrentTheme.SubText
-            TabIcon.Visible = (Window.SidebarCollapsed == true)
-            TabIcon.ZIndex = 2
+            TabIcon.Visible = true
+            TabIcon.ZIndex = 5
             TabIcon.Parent = TabContainer
 
             TrackConn(TabIcon.InputBegan:Connect(function(input)
@@ -7954,14 +8326,27 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local TabButton = Instance.new("TextButton")
         TabButton.Name = "TextButton"
-        TabButton.Size = UDim2.new(1, 0, 1, 0)
-        TabButton.Position = UDim2.new(0, 0, 0, 0)
-        TabButton.TextXAlignment = Enum.TextXAlignment.Center
+        if Window.SidebarCollapsed then
+            TabButton.Size = UDim2.new(1, 0, 1, 0)
+            TabButton.Position = UDim2.new(0, 0, 0, 0)
+            TabButton.TextXAlignment = Enum.TextXAlignment.Center
+            TabButton.Text = TabIcon and "" or ((string.len(tabName) > 4) and (string.sub(tabName, 1, 4) .. ".") or tabName)
+        else
+            if TabIcon then
+                TabButton.Size = UDim2.new(1, -44, 1, 0)
+                TabButton.Position = UDim2.new(0, 36, 0, 0)
+                TabButton.TextXAlignment = Enum.TextXAlignment.Left
+            else
+                TabButton.Size = UDim2.new(1, -20, 1, 0)
+                TabButton.Position = UDim2.new(0, 14, 0, 0)
+                TabButton.TextXAlignment = Enum.TextXAlignment.Left
+            end
+            TabButton.Text = tabName
+        end
         TabButton.BackgroundTransparency = 1
         TabButton.FontFace = FontTabBtn
-        TabButton.Text = tabName
         TabButton.TextColor3 = Window.CurrentTheme.SubText
-        TabButton.TextSize = 23
+        TabButton.TextSize = 16
         TabButton.TextYAlignment = Enum.TextYAlignment.Center
         TabButton.ZIndex = 4
         TabButton.Parent = TabContainer
@@ -10954,6 +11339,22 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end
                 end
 
+                TrackConn(SliderCard.MouseEnter:Connect(function()
+                    if not (isInSection and Window.SectionsTransparent) then
+                        TweenService:Create(SliderCard, TweenInfo.new(0.2), {
+                            BackgroundTransparency = math.max(0, (Window.ElementsTransparency or 0.33) - 0.12)
+                        }):Play()
+                    end
+                end))
+
+                TrackConn(SliderCard.MouseLeave:Connect(function()
+                    if not (isInSection and Window.SectionsTransparent) then
+                        TweenService:Create(SliderCard, TweenInfo.new(0.2), {
+                            BackgroundTransparency = (isInSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
+                        }):Play()
+                    end
+                end))
+
                 local displayTitle = (type(sliderOptions) == "table" and (sliderOptions.Title or sliderOptions.Text or sliderOptions.Name))
                     or (type(arg1) == "string" and (type(arg2) ~= "table" or not (arg2.Title or arg2.Text or arg2.Name)) and arg1)
                     or (type(arg1) == "table" and (arg1.Title or arg1.Text or arg1.Name))
@@ -11365,15 +11766,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         })
         Window.RegisteredSliders["ShadowIntensity"] = shadowIntensitySlider
 
-        local customThemeCP = SettingsTab:AddColorPicker(
-            "Custom theme",
-            Window.CustomThemeColor or Window.CurrentTheme.ButtonBG,
-            function(newCol)
-                Window:ApplyCustomTheme(newCol)
-            end
-        )
-        Window.RegisteredColorPickers["CustomTheme"] = customThemeCP
-
         local clickSection = SettingsTab:AddSection("Click Effects & Particles")
         local clickToggle = SettingsTab:AddToggle({
             Title = "Enable click effects",
@@ -11408,72 +11800,272 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         })
 
-        -- Reset current section container so ThemeCard and ConfigSection sit cleanly on ContentFrame
+        local themesSection = SettingsTab:AddSection("Themes", true)
+
+        local SwatchContainer = Instance.new("Frame")
+        SwatchContainer.Name = "SwatchContainer"
+        SwatchContainer.Size = UDim2.new(1, -4, 0, 0)
+        SwatchContainer.AutomaticSize = Enum.AutomaticSize.Y
+        SwatchContainer.BackgroundTransparency = 1
+        SwatchContainer.BorderSizePixel = 0
+        SwatchContainer.ZIndex = 7
+        SwatchContainer.Parent = themesSection.Container
+
+        local SwatchGrid = Instance.new("UIGridLayout")
+        SwatchGrid.Name = "SwatchGrid"
+        SwatchGrid.CellSize = UDim2.new(0.315, 0, 0, 48)
+        SwatchGrid.CellPadding = UDim2.new(0.027, 0, 0, 8)
+        SwatchGrid.SortOrder = Enum.SortOrder.LayoutOrder
+        SwatchGrid.Parent = SwatchContainer
+
+        local ThemeSwatchMap = {}
+        local orderedThemes = {
+            "Dark", "VeryDark", "Midnight", "Nord", "AMOLED",
+            "White", "Coffee",
+            "Dracula", "Rose", "Mint", "Amethyst", "Blue", "Nature",
+            "Custom"
+        }
+
+        local function BuildSwatchCard(themeKey, themeData, orderIndex)
+            local card = Instance.new("Frame")
+            card.Name = "Swatch_" .. themeKey
+            card.Size = UDim2.new(1, 0, 1, 0)
+            card.BackgroundColor3 = themeData.MainBG or Window.CurrentTheme.MainBG
+            card.BackgroundTransparency = 0
+            card.BorderSizePixel = 0
+            card.ClipsDescendants = true
+            card.LayoutOrder = orderIndex or 99
+            card.ZIndex = 8
+            card.Parent = SwatchContainer
+
+            local cardCorner = Instance.new("UICorner")
+            cardCorner.CornerRadius = UDim.new(0, 8)
+            cardCorner.Parent = card
+
+            local isSelected = (Window.CurrentThemeKey == themeKey) or (themeKey == "Custom" and Window.IsCustomTheme)
+
+            local stroke = Instance.new("UIStroke")
+            stroke.Thickness = isSelected and 2 or 1
+            stroke.Color = isSelected and Window.CurrentTheme.ButtonBG or (themeData.Divider or Window.CurrentTheme.Divider)
+            stroke.Transparency = isSelected and 0 or 0.7
+            stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            stroke.Parent = card
+
+            -- Dots preview: Dot1 (accent), Dot2 (button/accent), Dot3 (text)
+            local dot1Color = (themeData.MinGradient and themeData.MinGradient[1]) or themeData.TopBG or themeData.ButtonBG
+            local dot2Color = themeData.ButtonBG or Window.CurrentTheme.ButtonBG
+            local dot3Color = themeData.Text or Window.CurrentTheme.Text
+
+            local dotsRow = Instance.new("Frame")
+            dotsRow.Name = "DotsRow"
+            dotsRow.Size = UDim2.new(0, 32, 0, 7)
+            dotsRow.Position = UDim2.new(0, 8, 0, 8)
+            dotsRow.BackgroundTransparency = 1
+            dotsRow.ZIndex = 9
+            dotsRow.Parent = card
+
+            local dot1 = Instance.new("Frame")
+            dot1.Name = "Dot1"
+            dot1.Size = UDim2.new(0, 7, 0, 7)
+            dot1.Position = UDim2.new(0, 0, 0, 0)
+            dot1.BackgroundColor3 = dot1Color
+            dot1.BorderSizePixel = 0
+            dot1.ZIndex = 9
+            local d1Corner = Instance.new("UICorner")
+            d1Corner.CornerRadius = UDim.new(1, 0)
+            d1Corner.Parent = dot1
+            dot1.Parent = dotsRow
+
+            local dot2 = Instance.new("Frame")
+            dot2.Name = "Dot2"
+            dot2.Size = UDim2.new(0, 7, 0, 7)
+            dot2.Position = UDim2.new(0, 11, 0, 0)
+            dot2.BackgroundColor3 = dot2Color
+            dot2.BorderSizePixel = 0
+            dot2.ZIndex = 9
+            local d2Corner = Instance.new("UICorner")
+            d2Corner.CornerRadius = UDim.new(1, 0)
+            d2Corner.Parent = dot2
+            dot2.Parent = dotsRow
+
+            local dot3 = Instance.new("Frame")
+            dot3.Name = "Dot3"
+            dot3.Size = UDim2.new(0, 7, 0, 7)
+            dot3.Position = UDim2.new(0, 22, 0, 0)
+            dot3.BackgroundColor3 = dot3Color
+            dot3.BorderSizePixel = 0
+            dot3.ZIndex = 9
+            local d3Corner = Instance.new("UICorner")
+            d3Corner.CornerRadius = UDim.new(1, 0)
+            d3Corner.Parent = dot3
+            dot3.Parent = dotsRow
+
+            local checkIcon = Instance.new("ImageLabel")
+            checkIcon.Name = "CheckIcon"
+            checkIcon.Size = UDim2.new(0, 14, 0, 14)
+            checkIcon.AnchorPoint = Vector2.new(1, 0)
+            checkIcon.Position = UDim2.new(1, -7, 0, 5)
+            checkIcon.BackgroundTransparency = 1
+            checkIcon.Image = "rbxassetid://86817768619372"
+            checkIcon.ImageColor3 = Window.CurrentTheme.ButtonBG
+            checkIcon.Visible = isSelected
+            checkIcon.ZIndex = 10
+            checkIcon.Parent = card
+
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Name = "ThemeName"
+            nameLabel.Size = UDim2.new(1, -16, 0, 18)
+            nameLabel.Position = UDim2.new(0, 8, 0, 23)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.FontFace = FontFingerPaintBold
+            nameLabel.Text = themeData.Name or themeKey
+            nameLabel.TextColor3 = themeData.Text or Window.CurrentTheme.Text
+            nameLabel.TextSize = 12
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+            nameLabel.ZIndex = 9
+            nameLabel.Parent = card
+
+            local clickBtn = Instance.new("TextButton")
+            clickBtn.Name = "Trigger"
+            clickBtn.Size = UDim2.new(1, 0, 1, 0)
+            clickBtn.BackgroundTransparency = 1
+            clickBtn.Text = ""
+            clickBtn.ZIndex = 11
+            clickBtn.Parent = card
+
+            TrackConn(clickBtn.MouseEnter:Connect(function()
+                PlayHoverSFX()
+                local isCur = (Window.CurrentThemeKey == themeKey) or (themeKey == "Custom" and Window.IsCustomTheme)
+                if not isCur then
+                    TweenService:Create(stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        Transparency = 0.2,
+                        Color = Window.CurrentTheme.ButtonBG
+                    }):Play()
+                    TweenService:Create(card, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        Position = UDim2.new(0, 0, 0, -2)
+                    }):Play()
+                end
+            end))
+
+            TrackConn(clickBtn.MouseLeave:Connect(function()
+                local isCur = (Window.CurrentThemeKey == themeKey) or (themeKey == "Custom" and Window.IsCustomTheme)
+                if not isCur then
+                    local divColor = themeData.Divider or Window.CurrentTheme.Divider
+                    TweenService:Create(stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        Transparency = 0.7,
+                        Color = divColor
+                    }):Play()
+                    TweenService:Create(card, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                        Position = UDim2.new(0, 0, 0, 0)
+                    }):Play()
+                end
+            end))
+
+            TrackConn(clickBtn.MouseButton1Click:Connect(function()
+                PlayClickSFX()
+                if themeKey == "Custom" then
+                    Window:ApplyCustomTheme(Window.CustomThemeColor or Window.CurrentTheme.ButtonBG)
+                else
+                    Window:ApplyTheme(themeKey)
+                end
+            end))
+
+            local swatchData = {
+                Card = card,
+                Stroke = stroke,
+                CheckIcon = checkIcon,
+                NameLabel = nameLabel,
+                Dot1 = dot1,
+                Dot2 = dot2,
+                Dot3 = dot3,
+                ThemeData = themeData
+            }
+            ThemeSwatchMap[themeKey] = swatchData
+            return swatchData
+        end
+
+        for idx, key in ipairs(orderedThemes) do
+            local tData = Library.ThemePresets[key]
+            if not tData and key == "Custom" then
+                tData = {
+                    Name = "Custom",
+                    MainBG = Color3.fromRGB(25, 27, 34),
+                    TopBG = Color3.fromRGB(38, 41, 52),
+                    CardBG = Color3.fromRGB(25, 27, 34),
+                    ButtonBG = Window.CustomThemeColor or Window.CurrentTheme.ButtonBG,
+                    Divider = Color3.fromRGB(65, 70, 88),
+                    Text = Color3.fromRGB(240, 240, 245),
+                    SubText = Color3.fromRGB(180, 185, 200),
+                }
+            end
+            if tData then
+                BuildSwatchCard(key, tData, idx)
+            end
+        end
+
+        -- Support dynamically registered themes
+        Window.CreateThemeSwatch = function(self, themeKey, themeData)
+            if not ThemeSwatchMap[themeKey] then
+                local swatch = BuildSwatchCard(themeKey, themeData, #orderedThemes + 1)
+                Window:UpdateThemeSwatches()
+                if SettingsTab and SettingsTab.ContentFrame and SettingsTab.Layout then
+                    SettingsTab.ContentFrame.CanvasSize = UDim2.new(0, 0, 0, SettingsTab.Layout.AbsoluteContentSize.Y + 20)
+                end
+                return swatch
+            end
+        end
+
+        Window.ThemeSwatchMap = ThemeSwatchMap
+        Window.ThemePresetBtnMap = ThemeSwatchMap
+        Window.ThemeContainer = SwatchContainer
+
+        function Window:UpdateThemeSwatches()
+            local curKey = Window.CurrentThemeKey or "Dark"
+            for k, swatch in pairs(ThemeSwatchMap) do
+                if swatch and swatch.Card and swatch.Stroke then
+                    local isSelected = (curKey == k) or (k == "Custom" and Window.IsCustomTheme)
+                    if isSelected then
+                        swatch.Stroke.Thickness = 2
+                        swatch.Stroke.Color = Window.CurrentTheme.ButtonBG
+                        swatch.Stroke.Transparency = 0
+                        if swatch.CheckIcon then
+                            swatch.CheckIcon.Visible = true
+                            swatch.CheckIcon.ImageColor3 = Window.CurrentTheme.ButtonBG
+                        end
+                        TweenService:Create(swatch.Card, TweenInfo.new(0.2), {Position = UDim2.new(0, 0, 0, 0)}):Play()
+                    else
+                        swatch.Stroke.Thickness = 1
+                        swatch.Stroke.Color = (swatch.ThemeData and swatch.ThemeData.Divider) or Window.CurrentTheme.Divider
+                        swatch.Stroke.Transparency = 0.7
+                        if swatch.CheckIcon then
+                            swatch.CheckIcon.Visible = false
+                        end
+                    end
+
+                    if k == "Custom" then
+                        local customCol = Window.CustomThemeColor or Window.CurrentTheme.ButtonBG
+                        if swatch.Dot2 then swatch.Dot2.BackgroundColor3 = customCol end
+                        if swatch.NameLabel then swatch.NameLabel.TextColor3 = Window.CurrentTheme.Text end
+                    end
+                end
+            end
+        end
+
+        -- Custom color picker right under the swatch grid inside themesSection
+        local customThemeCP = SettingsTab:AddColorPicker(
+            "Custom theme color",
+            Window.CustomThemeColor or Window.CurrentTheme.ButtonBG,
+            function(newCol)
+                Window:ApplyCustomTheme(newCol)
+            end
+        )
+        Window.RegisteredColorPickers["CustomTheme"] = customThemeCP
+
+        -- Reset current section container so ConfigSection sits cleanly on ContentFrame
         SettingsTab.CurrentSectionContainer = nil
 
         SettingsTab:CreateConfigSection()
-
-        local ThemeCard = Instance.new("Frame")
-        ThemeCard.Name = "ThemeCard"
-        ThemeCard.Size = UDim2.new(1, -10, 0, 0)
-        ThemeCard.AutomaticSize = Enum.AutomaticSize.Y
-        ThemeCard.BackgroundColor3 = Window.CurrentTheme.CardBG
-        ThemeCard.BackgroundTransparency = Window.CurrentTheme.AccentTrans or 0.3
-        ThemeCard.ZIndex = 3
-        ThemeCard.ClipsDescendants = false
-        ThemeCard.Parent = SettingsTab.ContentFrame
-
-        local ThemeCardCorner = Instance.new("UICorner")
-        ThemeCardCorner.CornerRadius = UDim.new(0, 12)
-        ThemeCardCorner.Parent = ThemeCard
-        AddUIShadow(ThemeCard, 12, 0.45)
-
-        local ThemeCardPadding = Instance.new("UIPadding")
-        ThemeCardPadding.PaddingTop = UDim.new(0, 8)
-        ThemeCardPadding.PaddingBottom = UDim.new(0, 12)
-        ThemeCardPadding.PaddingLeft = UDim.new(0, 12)
-        ThemeCardPadding.PaddingRight = UDim.new(0, 12)
-        ThemeCardPadding.Parent = ThemeCard
-
-        local ThemeTitle = Instance.new("TextLabel")
-        ThemeTitle.Name = "ThemeTitle"
-        ThemeTitle.Size = UDim2.new(1, 0, 0, 22)
-        ThemeTitle.Position = UDim2.new(0, 0, 0, 0)
-        ThemeTitle.BackgroundTransparency = 1
-        ThemeTitle.FontFace = FontFingerPaintBold
-        ThemeTitle.Text = "Theme presets"
-        ThemeTitle.TextColor3 = Window.CurrentTheme.Text
-        ThemeTitle.TextSize = 16
-        ThemeTitle.TextXAlignment = Enum.TextXAlignment.Left
-        ThemeTitle.ZIndex = 4
-        ThemeTitle.Parent = ThemeCard
-
-        local ThemeContainer = Instance.new("Frame")
-        ThemeContainer.Name = "ThemeContainer"
-        ThemeContainer.Size = UDim2.new(1, 0, 0, 0)
-        ThemeContainer.AutomaticSize = Enum.AutomaticSize.Y
-        ThemeContainer.Position = UDim2.new(0, 0, 0, 28)
-        ThemeContainer.BackgroundTransparency = 1
-        ThemeContainer.Parent = ThemeCard
-
-        local ThemeGridLayout = Instance.new("UIGridLayout")
-        ThemeGridLayout.CellSize = UDim2.new(0.31, 0, 0, 36)
-        ThemeGridLayout.CellPadding = UDim2.new(0.03, 0, 0, 8)
-        ThemeGridLayout.Parent = ThemeContainer
-
-        local ThemePresetBtnMap = {}
-        for themeKey, themeData in pairs(Library.ThemePresets) do
-            local btnData = Window:CreateMDButtonLong(ThemeContainer, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, 0), themeData.Name or themeKey, function()
-                Window:ApplyTheme(themeKey)
-            end)
-            ThemePresetBtnMap[themeKey] = btnData
-        end
-        Window.ThemeCard = ThemeCard
-        Window.ThemeContainer = ThemeContainer
-        Window.ThemePresetBtnMap = ThemePresetBtnMap
-        if ThemePresetBtnMap[Window.CurrentThemeKey or "Dark"] and ThemePresetBtnMap[Window.CurrentThemeKey or "Dark"].Stroke then
-            ThemePresetBtnMap[Window.CurrentThemeKey or "Dark"].Stroke.Thickness = 2.2
-        end
 
         SettingsTab.ContentFrame.CanvasSize = UDim2.new(0, 0, 0, SettingsTab.Layout.AbsoluteContentSize.Y + 20)
         Window.SettingsTab = SettingsTab
@@ -11637,7 +12229,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TrackConn(CloseBtn.MouseButton1Click:Connect(function()
         PlayClickSFX()
         Window:Notify("Unloading", "Script hub closed.", 1.5)
-        task.wait(0.5)
+        if UIScaleConstraint then
+            local curScale = UIScaleConstraint.Scale
+            local closeTween = TweenService:Create(UIScaleConstraint, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                Scale = curScale * 0.90
+            })
+            closeTween:Play()
+            task.wait(0.25)
+        else
+            task.wait(0.2)
+        end
         for _, conn in ipairs(ActiveParticleConns) do
             if conn and conn.Connected then conn:Disconnect() end
         end
@@ -11657,7 +12258,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     TrackConn(RunService.Heartbeat:Connect(function()
         if ScriptUi and ScriptUi.Enabled then
-            LocalTime.Text = "Local time: " .. os.date("%I:%M:%S %p")
+            LocalTime.Text = os.date("%b %d, %Y • %I:%M %p")
         end
     end))
 
@@ -12554,7 +13155,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        if Window.ThemePresetBtnMap then
+        if Window.UpdateThemeSwatches then
+            pcall(function() Window:UpdateThemeSwatches() end)
+        elseif Window.ThemePresetBtnMap then
             for k, btnData in pairs(Window.ThemePresetBtnMap) do
                 if btnData then
                     if btnData.Stroke then
