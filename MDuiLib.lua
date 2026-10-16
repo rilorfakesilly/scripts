@@ -1,5 +1,5 @@
 local Library = {}
-
+Library.Version = "2.38.1"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -3896,6 +3896,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local dragStartPos = nil
         local frameStartPos = nil
 
+        local function GetContainerScale()
+            if targetContainer == MainContainer or (UIScaleConstraint and targetContainer:IsDescendantOf(MainContainer)) then
+                local s = (UIScaleConstraint and UIScaleConstraint.Scale) or 1
+                return (s > 0) and s or 1
+            end
+            local sObj = targetContainer:FindFirstChildOfClass("UIScale")
+            if sObj and sObj.Scale > 0 then
+                return sObj.Scale
+            end
+            return 1
+        end
+
         TrackConn(dragHandleFrame.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 isDragging = true
@@ -3906,15 +3918,53 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         TrackConn(UserInputService.InputChanged:Connect(function(input)
             if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                local delta = input.Position - dragStartPos
+                local scale = GetContainerScale()
+                local deltaX = (input.Position.X - dragStartPos.X) / scale
+                local deltaY = (input.Position.Y - dragStartPos.Y) / scale
+
+                local vp = (Camera and Camera.ViewportSize) or (ScriptUi and ScriptUi.AbsoluteSize) or Vector2.new(1920, 1080)
+                local vpW = vp.X
+                local vpH = vp.Y
+                local inset = GuiService:GetGuiInset()
+                local topInset = (ScriptUi and ScriptUi.IgnoreGuiInset) and 0 or inset.Y
+
+                local winW = targetContainer.AbsoluteSize.X
+                local winH = targetContainer.AbsoluteSize.Y
+                if winW <= 0 then winW = targetContainer.Size.X.Offset * scale end
+                if winH <= 0 then winH = targetContainer.Size.Y.Offset * scale end
+
+                local anchor = targetContainer.AnchorPoint
+                local unconstrainedOffsetX = frameStartPos.X.Offset + deltaX
+                local unconstrainedOffsetY = frameStartPos.Y.Offset + deltaY
+
+                local screenLeft = (vpW * frameStartPos.X.Scale) + (unconstrainedOffsetX * scale) - (anchor.X * winW)
+                local screenTop = (vpH * frameStartPos.Y.Scale) + (unconstrainedOffsetY * scale) - (anchor.Y * winH)
+
+                local minL = math.min(0, vpW - winW)
+                local maxL = math.max(0, vpW - winW)
+                local minT = math.min(topInset, vpH - winH)
+                local maxT = math.max(topInset, vpH - winH)
+
+                local clampedScreenLeft = math.clamp(screenLeft, minL, maxL)
+                local clampedScreenTop = math.clamp(screenTop, minT, maxT)
+
+                local finalOffsetX = (clampedScreenLeft + (anchor.X * winW) - (vpW * frameStartPos.X.Scale)) / scale
+                local finalOffsetY = (clampedScreenTop + (anchor.Y * winH) - (vpH * frameStartPos.Y.Scale)) / scale
+
                 targetContainer.Position = UDim2.new(
-                    frameStartPos.X.Scale, frameStartPos.X.Offset + delta.X,
-                    frameStartPos.Y.Scale, frameStartPos.Y.Offset + delta.Y
+                    frameStartPos.X.Scale, finalOffsetX,
+                    frameStartPos.Y.Scale, finalOffsetY
                 )
             end
         end))
 
         TrackConn(UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                isDragging = false
+            end
+        end))
+
+        TrackConn(UserInputService.InputCancelled:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 isDragging = false
             end
@@ -4374,11 +4424,23 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SetState = function(state, triggerCallback)
                 PerformToggle(state, triggerCallback)
             end,
-            RefreshTheme = function(theme)
+            RefreshTheme = function(theme, animated)
                 local isTog = isToggled
-                ToggleFrame.BackgroundColor3 = isTog and theme.ButtonBG or ((theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
-                BaseCircle.ImageColor3 = isTog and Color3.fromRGB(255, 255, 255) or theme.ButtonBG
-                OverlayCircle.ImageColor3 = isTog and theme.ButtonBG or Color3.fromRGB(255, 255, 255)
+                local targetBG = isTog and theme.ButtonBG or ((theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(200, 205, 215) or Color3.fromRGB(35, 38, 48))
+                local targetBaseColor = isTog and GetOnAccent(theme.ButtonBG) or theme.ButtonBG
+                local targetOverlayColor = isTog and theme.ButtonBG or Color3.fromRGB(255, 255, 255)
+
+                if animated then
+                    local tw = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    TweenService:Create(ToggleFrame, tw, {BackgroundColor3 = targetBG}):Play()
+                    TweenService:Create(BaseCircle, tw, {ImageColor3 = targetBaseColor}):Play()
+                    TweenService:Create(OverlayCircle, tw, {ImageColor3 = targetOverlayColor}):Play()
+                else
+                    ToggleFrame.BackgroundColor3 = targetBG
+                    BaseCircle.ImageColor3 = targetBaseColor
+                    OverlayCircle.ImageColor3 = targetOverlayColor
+                end
+
                 if toggleData.Keybind and toggleData.Keybind.Container then
                     toggleData.Keybind.Container.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(24, 26, 34)
                     if toggleData.Keybind.Label then toggleData.Keybind.Label.TextColor3 = theme.Text end
@@ -4568,7 +4630,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local Trigger = Instance.new("TextButton")
         Trigger.Name = "SliderTrigger"
-        Trigger.Size = UDim2.new(1, 0, 1, 0)
+        Trigger.Size = UDim2.new(1, 24, 1, 28)
+        Trigger.Position = UDim2.new(0, -12, 0, -14)
         Trigger.BackgroundTransparency = 1
         Trigger.Text = ""
         Trigger.ZIndex = 14
@@ -4650,9 +4713,43 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
+        local disabledScrollFrames = {}
+
+        local function LockParentScroll()
+            disabledScrollFrames = {}
+            local cur = TrackFrame and TrackFrame.Parent
+            while cur and cur ~= game and cur ~= ParentGui do
+                if cur:IsA("ScrollingFrame") and cur.ScrollingEnabled then
+                    cur.ScrollingEnabled = false
+                    table.insert(disabledScrollFrames, cur)
+                end
+                cur = cur.Parent
+            end
+        end
+
+        local function UnlockParentScroll()
+            for _, sf in ipairs(disabledScrollFrames) do
+                if sf and sf.Parent then
+                    sf.ScrollingEnabled = true
+                end
+            end
+            disabledScrollFrames = {}
+        end
+
+        local function StopDragging()
+            if not isDragging then return end
+            isDragging = false
+            UnlockParentScroll()
+            TweenService:Create(HandleFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, knobSize, 0, knobSize)
+            }):Play()
+            FireRelease()
+        end
+
         TrackConn(Trigger.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 isDragging = true
+                LockParentScroll()
                 TweenService:Create(HandleFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                     Size = UDim2.new(0, knobSize + 4, 0, knobSize + 4)
                 }):Play()
@@ -4668,13 +4765,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         TrackConn(UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                if isDragging then
-                    isDragging = false
-                    TweenService:Create(HandleFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                        Size = UDim2.new(0, knobSize, 0, knobSize)
-                    }):Play()
-                    FireRelease()
-                end
+                StopDragging()
+            end
+        end))
+
+        TrackConn(UserInputService.InputCancelled:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                StopDragging()
+            end
+        end))
+
+        TrackConn(TrackFrame.AncestryChanged:Connect(function(_, newParent)
+            if not newParent and isDragging then
+                StopDragging()
             end
         end))
 
@@ -6063,17 +6166,29 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 bgImageOff = offImg or onImg
                 UpdateCardBgImage()
             end,
-            RefreshTheme = function(theme)
+            RefreshTheme = function(theme, animated)
                 local inSec = IsInsideSection(CardFrame)
                 CardFrame.BackgroundColor3 = theme.CardBG
                 CardFrame.BackgroundTransparency = (inSec and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
                 TitleText.TextColor3 = theme.Text
                 local isTog = isToggled
-                ToggleFrame.BackgroundColor3 = isTog and theme.ButtonBG or GetThemedDarkColor(theme)
-                BaseCircle.ImageColor3 = isTog and Color3.fromRGB(255, 255, 255) or theme.ButtonBG
-                OverlayCircle.ImageColor3 = isTog and theme.ButtonBG or Color3.fromRGB(255, 255, 255)
+                local targetBG = isTog and theme.ButtonBG or GetThemedDarkColor(theme)
+                local targetBaseColor = isTog and GetOnAccent(theme.ButtonBG) or theme.ButtonBG
+                local targetOverlayColor = isTog and theme.ButtonBG or Color3.fromRGB(255, 255, 255)
+
+                if animated then
+                    local tw = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    TweenService:Create(ToggleFrame, tw, {BackgroundColor3 = targetBG}):Play()
+                    TweenService:Create(BaseCircle, tw, {ImageColor3 = targetBaseColor}):Play()
+                    TweenService:Create(OverlayCircle, tw, {ImageColor3 = targetOverlayColor}):Play()
+                else
+                    ToggleFrame.BackgroundColor3 = targetBG
+                    BaseCircle.ImageColor3 = targetBaseColor
+                    OverlayCircle.ImageColor3 = targetOverlayColor
+                end
+
                 if toggleData.ConnectedSlider and toggleData.ConnectedSlider.RefreshTheme then
-                    toggleData.ConnectedSlider.RefreshTheme(theme)
+                    toggleData.ConnectedSlider.RefreshTheme(theme, animated)
                 end
                 if toggleData.ValueLabel then
                     toggleData.ValueLabel.TextColor3 = theme.Text
@@ -6677,16 +6792,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
                 if not ButtonObj.IsDraggable or Window.MobileButtonsLocked or ButtonObj.IsLocked then return end
                 if dragging and dragStart and startPos then
-                    local delta = input.Position - dragStart
-                    if math.abs(delta.X) > 8 or math.abs(delta.Y) > 8 then
+                    local scale = (UIScaleConstraint and UIScaleConstraint.Scale > 0) and UIScaleConstraint.Scale or 1
+                    local deltaX = (input.Position.X - dragStart.X) / scale
+                    local deltaY = (input.Position.Y - dragStart.Y) / scale
+                    if math.abs(input.Position.X - dragStart.X) > 8 or math.abs(input.Position.Y - dragStart.Y) > 8 then
                         hasMoved = true
                     end
                     if hasMoved then
                         BtnFrame.Position = UDim2.new(
                             startPos.X.Scale,
-                            startPos.X.Offset + delta.X,
+                            startPos.X.Offset + deltaX,
                             startPos.Y.Scale,
-                            startPos.Y.Offset + delta.Y
+                            startPos.Y.Offset + deltaY
                         )
                     end
                 end
@@ -11327,8 +11444,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 SaveKey    = saveKey,
                 Identifier = identifier,
                 Frame      = CardFrame,
+                BoxOuter   = BoxOuter,
+                CheckIcon  = CheckIcon,
                 Value      = isChecked,
-                RefreshTheme = function(theme)
+                RefreshTheme = function(theme, animated)
                     if not theme or type(theme) ~= "table" then return end
                     local inSec = IsInsideSection(CardFrame)
                     CardFrame.BackgroundColor3 = theme.CardBG
@@ -11336,12 +11455,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     LabelText.TextColor3 = theme.Text
                     offBG     = GetThemedDarkColor(theme)
                     offStroke = theme.Divider or Color3.fromRGB(80,85,100)
-                    if isChecked then
-                        BoxOuter.BackgroundColor3 = theme.ButtonBG
-                        BoxStroke.Color = theme.ButtonBG
+                    local targetBG = isChecked and theme.ButtonBG or offBG
+                    local targetStroke = isChecked and theme.ButtonBG or offStroke
+                    local targetCheckColor = GetOnAccent(theme.ButtonBG)
+
+                    if animated then
+                        local tw = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                        TweenService:Create(BoxOuter, tw, {BackgroundColor3 = targetBG}):Play()
+                        TweenService:Create(BoxStroke, tw, {Color = targetStroke}):Play()
+                        TweenService:Create(CheckIcon, tw, {ImageColor3 = targetCheckColor}):Play()
                     else
-                        BoxOuter.BackgroundColor3 = offBG
-                        BoxStroke.Color = offStroke
+                        BoxOuter.BackgroundColor3 = targetBG
+                        BoxStroke.Color = targetStroke
+                        CheckIcon.ImageColor3 = targetCheckColor
                     end
                 end,
             }
@@ -12587,10 +12713,45 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end))
 
     local minClick = 0
-    TrackConn(MinimizedImage.MouseButton1Click:Connect(function()
-        if (os.clock() - minClick) > 0.25 then
-            minClick = os.clock()
-            RestoreWindowAnimation()
+    local miniDragStart = nil
+    local miniHasMoved = false
+
+    TrackConn(MinimizedImage.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            miniDragStart = input.Position
+            miniHasMoved = false
+        end
+    end))
+
+    TrackConn(UserInputService.InputChanged:Connect(function(input)
+        if miniDragStart and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local dist = (Vector2.new(input.Position.X, input.Position.Y) - Vector2.new(miniDragStart.X, miniDragStart.Y)).Magnitude
+            if dist > 8 then
+                miniHasMoved = true
+            end
+        end
+    end))
+
+    TrackConn(UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            if miniDragStart and not miniHasMoved then
+                local dist = (Vector2.new(input.Position.X, input.Position.Y) - Vector2.new(miniDragStart.X, miniDragStart.Y)).Magnitude
+                if dist <= 8 then
+                    if (os.clock() - minClick) > 0.25 then
+                        minClick = os.clock()
+                        RestoreWindowAnimation()
+                    end
+                end
+            end
+            miniDragStart = nil
+            miniHasMoved = false
+        end
+    end))
+
+    TrackConn(UserInputService.InputCancelled:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            miniDragStart = nil
+            miniHasMoved = false
         end
     end))
 
@@ -13338,23 +13499,87 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        for _, toggle in ipairs(Window.RegisteredMDToggles) do
+        local refreshedToggles = {}
+        for _, toggle in ipairs(Window.RegisteredMDToggles or {}) do
+            refreshedToggles[toggle] = true
             if toggle and toggle.RefreshTheme then
-                pcall(function() toggle.RefreshTheme(newTheme) end)
+                pcall(function() toggle.RefreshTheme(newTheme, animated) end)
             elseif toggle and toggle.Frame and toggle.Frame.Parent then
-                if toggle.Overlay then
-                    if animated then
-                        TweenService:Create(toggle.Overlay, tweenInfo, {ImageColor3 = newTheme.ButtonBG}):Play()
-                    else
-                        toggle.Overlay.ImageColor3 = newTheme.ButtonBG
-                    end
-                end
                 local isToggled = (toggle.GetState and toggle.GetState())
                 local targetColor = isToggled and newTheme.ButtonBG or GetThemedDarkColor(newTheme)
+                local targetBaseColor = isToggled and GetOnAccent(newTheme.ButtonBG) or newTheme.ButtonBG
+                local targetOverlayColor = isToggled and newTheme.ButtonBG or Color3.fromRGB(255, 255, 255)
+
+                if toggle.Overlay then
+                    if animated then
+                        TweenService:Create(toggle.Overlay, tweenInfo, {ImageColor3 = targetOverlayColor}):Play()
+                    else
+                        toggle.Overlay.ImageColor3 = targetOverlayColor
+                    end
+                end
+                if toggle.BaseCircle then
+                    if animated then
+                        TweenService:Create(toggle.BaseCircle, tweenInfo, {ImageColor3 = targetBaseColor}):Play()
+                    else
+                        toggle.BaseCircle.ImageColor3 = targetBaseColor
+                    end
+                end
+                if toggle.CheckIcon then
+                    local targetCheckColor = GetOnAccent(newTheme.ButtonBG)
+                    if animated then
+                        TweenService:Create(toggle.CheckIcon, tweenInfo, {ImageColor3 = targetCheckColor}):Play()
+                    else
+                        toggle.CheckIcon.ImageColor3 = targetCheckColor
+                    end
+                end
                 if animated then
                     TweenService:Create(toggle.Frame, tweenInfo, {BackgroundColor3 = targetColor}):Play()
                 else
                     toggle.Frame.BackgroundColor3 = targetColor
+                end
+            end
+        end
+
+        if Window.RegisteredToggles then
+            for _, toggle in pairs(Window.RegisteredToggles) do
+                if toggle and not refreshedToggles[toggle] then
+                    refreshedToggles[toggle] = true
+                    if toggle.RefreshTheme then
+                        pcall(function() toggle.RefreshTheme(newTheme, animated) end)
+                    elseif toggle.Frame and toggle.Frame.Parent then
+                        local isToggled = (toggle.GetState and toggle.GetState())
+                        local targetColor = isToggled and newTheme.ButtonBG or GetThemedDarkColor(newTheme)
+                        local targetBaseColor = isToggled and GetOnAccent(newTheme.ButtonBG) or newTheme.ButtonBG
+                        local targetOverlayColor = isToggled and newTheme.ButtonBG or Color3.fromRGB(255, 255, 255)
+
+                        if toggle.Overlay then
+                            if animated then
+                                TweenService:Create(toggle.Overlay, tweenInfo, {ImageColor3 = targetOverlayColor}):Play()
+                            else
+                                toggle.Overlay.ImageColor3 = targetOverlayColor
+                            end
+                        end
+                        if toggle.BaseCircle then
+                            if animated then
+                                TweenService:Create(toggle.BaseCircle, tweenInfo, {ImageColor3 = targetBaseColor}):Play()
+                            else
+                                toggle.BaseCircle.ImageColor3 = targetBaseColor
+                            end
+                        end
+                        if toggle.CheckIcon then
+                            local targetCheckColor = GetOnAccent(newTheme.ButtonBG)
+                            if animated then
+                                TweenService:Create(toggle.CheckIcon, tweenInfo, {ImageColor3 = targetCheckColor}):Play()
+                            else
+                                toggle.CheckIcon.ImageColor3 = targetCheckColor
+                            end
+                        end
+                        if animated then
+                            TweenService:Create(toggle.Frame, tweenInfo, {BackgroundColor3 = targetColor}):Play()
+                        else
+                            toggle.Frame.BackgroundColor3 = targetColor
+                        end
+                    end
                 end
             end
         end
