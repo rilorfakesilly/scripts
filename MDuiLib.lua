@@ -8113,7 +8113,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     function Window:AddSidebarBigDivider(layoutOrder)
         local DivideFrame = Instance.new("ImageLabel")
         DivideFrame.Name = "DIVIDEFRAME"
-        DivideFrame.Size = UDim2.new(0, 130, 0, 4)
+        DivideFrame.Size = UDim2.new(0, 140, 0, 5)
         DivideFrame.BackgroundTransparency = 1
         DivideFrame.Image = "rbxassetid://133887791984569"
         DivideFrame.ImageColor3 = Window.CurrentTheme.Divider
@@ -8129,7 +8129,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     function Window:AddSidebarSmallDivider(layoutOrder)
         local DivideFrameSmall = Instance.new("ImageLabel")
         DivideFrameSmall.Name = "DIVIDEFRAMESMALL"
-        DivideFrameSmall.Size = UDim2.new(0, 105, 0, 3)
+        DivideFrameSmall.Size = UDim2.new(0, 140, 0, 3)
         DivideFrameSmall.BackgroundTransparency = 1
         DivideFrameSmall.Image = "rbxassetid://133887791984569"
         DivideFrameSmall.ImageColor3 = Window.CurrentTheme.Divider
@@ -8219,7 +8219,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         for _, div in ipairs(Window.SidebarDividers) do
             if div and div.Parent then
-                local divW = Window.SidebarCollapsed and (targetW - 14) or (div.Name == "DIVIDEFRAME" and 140 or 115)
+                local divW = Window.SidebarCollapsed and (targetW - 14) or 140
                 TweenService:Create(div, ease, {Size = UDim2.new(0, divW, 0, div.Size.Y.Offset)}):Play()
             end
         end
@@ -8790,7 +8790,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local Line = Instance.new("ImageLabel")
             Line.Name = "Line"
-            local lineH = math.max(divThickness, 4)
+            local lineH = math.max(divThickness, 5)
             Line.Size = UDim2.new(1, -16, 0, lineH)
             Line.Position = UDim2.new(0, 8, 0.5, 0)
             Line.AnchorPoint = Vector2.new(0, 0.5)
@@ -10409,7 +10409,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local HeaderLine = Instance.new("ImageLabel")
             HeaderLine.Name = "Divider"
-            HeaderLine.Size = UDim2.new(1, 0, 0, 4)
+            HeaderLine.Size = UDim2.new(1, 0, 0, 5)
             HeaderLine.BackgroundTransparency = 1
             HeaderLine.Image = "rbxassetid://133887791984569"
             HeaderLine.ImageColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(65, 70, 88)
