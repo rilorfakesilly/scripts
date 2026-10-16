@@ -1147,6 +1147,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ClickEffectsEnabled = true,
         ClickParticleType = "Theme default",
         CustomParticleAsset = "",
+        NoiseEnabled = false,
+        NoiseType = "Texture",
+        NoiseSize = 128,
+        NoiseTransparency = 0.88,
         Connections = {},
         ActiveNotifications = {},
         SidebarDividers = {},
@@ -1481,7 +1485,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 SectionBGTransparent = Window.SectionsTransparent,
                 ClickEffects = Window.ClickEffectsEnabled,
                 ClickParticle = Window.ClickParticleType or "Theme default",
-                CustomParticle = Window.CustomParticleAsset or ""
+                CustomParticle = Window.CustomParticleAsset or "",
+                NoiseEnabled = Window.NoiseEnabled == true,
+                NoiseType = Window.NoiseType or "Texture",
+                NoiseSize = Window.NoiseSize or 128
             },
             Toggles = {},
             ToggleBinds = {},
@@ -1714,6 +1721,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
             if data.Settings.CustomParticle ~= nil then
                 Window.CustomParticleAsset = data.Settings.CustomParticle
+            end
+            if data.Settings.NoiseEnabled ~= nil and Window.SetNoiseEnabled then
+                pcall(function() Window:SetNoiseEnabled(data.Settings.NoiseEnabled) end)
+            end
+            if data.Settings.NoiseType ~= nil and Window.SetNoiseType then
+                pcall(function() Window:SetNoiseType(data.Settings.NoiseType) end)
+            end
+            if data.Settings.NoiseSize ~= nil and Window.SetNoiseSize then
+                pcall(function() Window:SetNoiseSize(data.Settings.NoiseSize) end)
             end
         end
 
@@ -6832,6 +6848,72 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end))
     end
 
+    local function MakeNoiseContent(size)
+        local ok, content = pcall(function()
+            local AssetService = game:GetService("AssetService")
+            local img = AssetService:CreateEditableImage({ Size = Vector2.new(size, size) })
+            local buf = buffer.create(size * size * 4)
+            for i = 0, size * size - 1 do
+                local v = math.random(120, 255)
+                buffer.writeu8(buf, i * 4, v)
+                buffer.writeu8(buf, i * 4 + 1, v)
+                buffer.writeu8(buf, i * 4 + 2, v)
+                buffer.writeu8(buf, i * 4 + 3, math.random(0, 28)) -- low alpha = faint grain
+            end
+            img:WritePixelsBuffer(Vector2.zero, Vector2.new(size, size), buf)
+            return Content.fromObject(img)
+        end)
+        return ok and content or nil
+    end
+
+    local function AddNoise(targetFrame, options)
+        options = options or {}
+        local size = options.Size or Window.NoiseSize or 128
+        local nType = options.Type or Window.NoiseType or "Texture"
+        local enabled = (options.Enabled ~= nil) and options.Enabled or (Window.NoiseEnabled == true)
+
+        local noise = Instance.new("ImageLabel")
+        noise.Name = "NoiseOverlay"
+        noise.Size = UDim2.new(1, 0, 1, 0)
+        noise.Position = UDim2.new(0, 0, 0, 0)
+        noise.BackgroundTransparency = 1
+        noise.BorderSizePixel = 0
+        noise.ScaleType = Enum.ScaleType.Tile
+        noise.TileSize = UDim2.new(0, size, 0, size)
+        noise.ImageTransparency = options.Transparency or Window.NoiseTransparency or 0.88
+        noise.Visible = enabled
+        noise.ZIndex = 2
+        noise.Parent = targetFrame
+
+        local function ApplyNoiseStyle()
+            local curSize = Window.NoiseSize or size
+            noise.TileSize = UDim2.new(0, curSize, 0, curSize)
+            local curType = tostring(Window.NoiseType or nType):lower()
+            if curType == "generated" then
+                local content = MakeNoiseContent(curSize)
+                if content then
+                    noise.Image = ""
+                    pcall(function() noise.ImageContent = content end)
+                else
+                    pcall(function() noise.ImageContent = nil end)
+                    noise.Image = "http://www.roblox.com/asset/?id=15628729082"
+                end
+            else
+                pcall(function() noise.ImageContent = nil end)
+                noise.Image = "http://www.roblox.com/asset/?id=15628729082"
+            end
+            noise.Visible = (Window.NoiseEnabled == true)
+        end
+
+        ApplyNoiseStyle()
+        Window._NoiseUpdateFunc = ApplyNoiseStyle
+        Window.NoiseOverlay = noise
+        return noise
+    end
+    Window.AddNoise = AddNoise
+    Library.AddNoise = AddNoise
+    Window.MakeNoiseContent = MakeNoiseContent
+    Library.MakeNoiseContent = MakeNoiseContent
 
     GetTargetViewportScale = function()
         if not Camera then return 0.85 end
@@ -7339,6 +7421,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MainFrame.ZIndex = 1
     MainFrame.Parent = MainContainer
 
+    -- Optional Noise Overlay on MainFrame only (default off)
+    local MainFrameNoise = AddNoise(MainFrame)
+
     -- Init Spiderweb Background at ZIndex 2 (Above LeftFrame & MainFrame panel backgrounds, below UI contents)
     InitSpiderwebBackground(MainContainer, ScriptUi)
 
@@ -7367,7 +7452,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     ActiveTabGlow.Name = "ActiveTabGlow"
     ActiveTabGlow.Size = UDim2.new(0, 155, 0, 30)
     ActiveTabGlow.Position = UDim2.new(0, 10, 0, 0)
-    ActiveTabGlow.BackgroundColor3 = (Window.CurrentTheme and Window.CurrentTheme.ButtonBG) or Color3.fromRGB(80, 110, 220)
+    ActiveTabGlow.BackgroundColor3 = Color3.fromRGB(220, 225, 235)
     ActiveTabGlow.BackgroundTransparency = 1
     ActiveTabGlow.BorderSizePixel = 0
     ActiveTabGlow.ZIndex = 3
@@ -7402,18 +7487,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ActiveTabGlow.Position = targetPos
             ActiveTabGlow.Size = targetSize
             ActiveTabGlow.Visible = true
-            if instant and ActiveTabGlow.BackgroundTransparency > 0.85 then
+            if instant and ActiveTabGlow.BackgroundTransparency > 0.88 then
                 TweenService:Create(ActiveTabGlow, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                    BackgroundTransparency = 0.85
+                    BackgroundTransparency = 0.88
                 }):Play()
             else
-                ActiveTabGlow.BackgroundTransparency = 0.85
+                ActiveTabGlow.BackgroundTransparency = 0.88
             end
         else
             TweenService:Create(ActiveTabGlow, TweenInfo.new(0.30, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                 Position = targetPos,
                 Size = targetSize,
-                BackgroundTransparency = 0.85
+                BackgroundTransparency = 0.88
             }):Play()
         end
     end
@@ -7800,20 +7885,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NotifContainer.BackgroundTransparency = 1
         NotifContainer.ZIndex = 30
         NotifContainer.Parent = NotificationUI
-
-        -- Colored Accent Bar on the left
-        local AccentBar = Instance.new("Frame")
-        AccentBar.Name = "AccentBar"
-        AccentBar.Size = UDim2.new(0, 4, 1, 0)
-        AccentBar.Position = UDim2.new(0, 0, 0, 0)
-        AccentBar.BackgroundColor3 = accentCol
-        AccentBar.BorderSizePixel = 0
-        AccentBar.ZIndex = 34
-        AccentBar.Parent = NotifContainer
-
-        local AccentCorner = Instance.new("UICorner")
-        ApplyCornerRadii(AccentCorner, 8, 0, 0, 8)
-        AccentCorner.Parent = AccentBar
 
         local NotifTop = Instance.new("Frame")
         NotifTop.Name = "TopFrame"
@@ -8904,9 +8975,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 SetColor = function(self, col)
                     Line.ImageColor3 = col
                 end,
-                RefreshTheme = function(theme)
-                    if not divColor then
-                        Line.ImageColor3 = theme.Divider or theme.CardBG
+                RefreshTheme = function(theme, anim)
+                    if not divColor and Line and Line.Parent then
+                        local targetCol = theme.Divider or theme.CardBG
+                        if anim then
+                            game:GetService("TweenService"):Create(Line, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                                ImageColor3 = targetCol
+                            }):Play()
+                        else
+                            Line.ImageColor3 = targetCol
+                        end
                     end
                 end
             }
@@ -10856,6 +10934,29 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     SectionStroke.Transparency = isST and 1 or 0.5
                     _strokeBase = newBase  -- gradient animation picks this up automatically
                 end
+                local newDivCol = theme.Divider or Color3.fromRGB(65, 70, 88)
+                if HeaderLine and HeaderLine.Parent then
+                    if anim then
+                        RealTweenService:Create(HeaderLine, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                            ImageColor3 = newDivCol
+                        }):Play()
+                    else
+                        HeaderLine.ImageColor3 = newDivCol
+                    end
+                end
+                if SectionCard and SectionCard.Parent then
+                    for _, desc in ipairs(SectionCard:GetDescendants()) do
+                        if desc:IsA("ImageLabel") and (desc.Name == "Divider" or desc.Name == "Line" or desc.Name == "MDContentDivider") then
+                            if anim then
+                                RealTweenService:Create(desc, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                                    ImageColor3 = newDivCol
+                                }):Play()
+                            else
+                                desc.ImageColor3 = newDivCol
+                            end
+                        end
+                    end
+                end
                 if ItemContainer and ItemContainer.Parent then
                     for _, desc in ipairs(ItemContainer:GetDescendants()) do
                         if desc:IsA("Frame") and desc.Parent then
@@ -11804,12 +11905,44 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     Window:SetSectionBGTransparent(not state)
                     Window:Notify("Settings", "Section backgrounds " .. (state and "shown" or "hidden"), 2)
                 end
+            },
+            {
+                Title = "Background noise",
+                Default = Window.NoiseEnabled,
+                Callback = function(state)
+                    Window:SetNoiseEnabled(state)
+                    Window:Notify("Settings", "Background noise " .. (state and "enabled" or "disabled"), 2)
+                end
             }
         })
         Window.RegisteredToggles["SpiderwebBG"]           = bgToggles[1]
         Window.RegisteredToggles["BackgroundBlur"]        = bgToggles[2]
         Window.RegisteredToggles["Shadows"]               = bgToggles[3]
         Window.RegisteredToggles["SectionBGTransparent"]  = bgToggles[4]
+        Window.RegisteredToggles["BackgroundNoise"]       = bgToggles[5]
+
+        local noiseTypeDropdown = SettingsTab:AddDropdown({
+            Title = "Noise style",
+            Options = {"Texture", "Generated"},
+            Default = Window.NoiseType or "Texture",
+            Callback = function(selected)
+                Window:SetNoiseType(selected)
+                Window:Notify("Settings", "Noise style: " .. selected, 2)
+            end
+        })
+        Window.RegisteredDropdowns["NoiseType"] = noiseTypeDropdown
+
+        local noiseSizeSlider = SettingsTab:AddSlider({
+            Title = "Noise tile size",
+            Min = 32,
+            Max = 512,
+            Default = Window.NoiseSize or 128,
+            Suffix = "px",
+            Callback = function(val)
+                Window:SetNoiseSize(val)
+            end
+        })
+        Window.RegisteredSliders["NoiseSize"] = noiseSizeSlider
 
         local transSlider = SettingsTab:AddSlider({
             Title = "Background transparency",
@@ -13020,10 +13153,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         if Window.ActiveTabGlow and Window.ActiveTabGlow.Parent then
+            local bg = newTheme.MainBG or Color3.fromRGB(25, 27, 34)
+            local isBright = (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) > 0.6
+            local glowColor = isBright and Color3.fromRGB(30, 32, 40) or Color3.fromRGB(220, 225, 235)
+            local glowTrans = isBright and 0.90 or 0.88
             if animated then
-                TweenService:Create(Window.ActiveTabGlow, tweenInfo, {BackgroundColor3 = newTheme.ButtonBG}):Play()
+                TweenService:Create(Window.ActiveTabGlow, tweenInfo, {BackgroundColor3 = glowColor, BackgroundTransparency = glowTrans}):Play()
             else
-                Window.ActiveTabGlow.BackgroundColor3 = newTheme.ButtonBG
+                Window.ActiveTabGlow.BackgroundColor3 = glowColor
+                Window.ActiveTabGlow.BackgroundTransparency = glowTrans
             end
         end
 
@@ -13192,7 +13330,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if Window.RegisteredDividers then
             for _, div in ipairs(Window.RegisteredDividers) do
                 if div and div.RefreshTheme then
-                    pcall(function() div:RefreshTheme(newTheme) end)
+                    pcall(function() div:RefreshTheme(newTheme, animated) end)
                 end
             end
         end
@@ -13730,6 +13868,52 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     function Window:SetSpiderwebBackground(enabled)
         Window.SpiderwebBGEnabled = enabled
+    end
+
+    function Window:SetNoiseEnabled(enabled)
+        Window.NoiseEnabled = (enabled == true)
+        if Window._NoiseUpdateFunc then
+            Window._NoiseUpdateFunc()
+        end
+        if Window.RegisteredToggles and Window.RegisteredToggles["BackgroundNoise"] then
+            local tog = Window.RegisteredToggles["BackgroundNoise"]
+            if tog and tog.SetState and tog.GetState and tog:GetState() ~= (enabled == true) then
+                pcall(function() tog:SetState(enabled == true, false) end)
+            end
+        end
+    end
+
+    function Window:SetNoiseType(noiseType)
+        Window.NoiseType = noiseType or "Texture"
+        if Window._NoiseUpdateFunc then
+            Window._NoiseUpdateFunc()
+        end
+        if Window.RegisteredDropdowns and Window.RegisteredDropdowns["NoiseType"] then
+            local dd = Window.RegisteredDropdowns["NoiseType"]
+            if dd and dd.SelectOption then
+                pcall(function() dd:SelectOption(Window.NoiseType, false) end)
+            end
+        end
+    end
+
+    function Window:SetNoiseSize(size)
+        Window.NoiseSize = tonumber(size) or 128
+        if Window._NoiseUpdateFunc then
+            Window._NoiseUpdateFunc()
+        end
+        if Window.RegisteredSliders and Window.RegisteredSliders["NoiseSize"] then
+            local sld = Window.RegisteredSliders["NoiseSize"]
+            if sld and sld.SetValue and sld.GetValue and sld:GetValue() ~= Window.NoiseSize then
+                pcall(function() sld:SetValue(Window.NoiseSize, false) end)
+            end
+        end
+    end
+
+    function Window:SetNoiseTransparency(transparency)
+        Window.NoiseTransparency = tonumber(transparency) or 0.88
+        if Window.NoiseOverlay then
+            Window.NoiseOverlay.ImageTransparency = Window.NoiseTransparency
+        end
     end
 
     function Window:SetContentBackgroundImage(configOrImage, size, position, zIndex, color, transparency)
