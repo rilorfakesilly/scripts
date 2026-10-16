@@ -7274,103 +7274,66 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LocalTime.ZIndex = 6
     LocalTime.Parent = BottomFrame
 
-    -- Corner Resize Handle (rounded frame poking outside bottom-right corner)
-    local ResizeHandle = Instance.new("Frame")
-    ResizeHandle.Name = "ResizeHandle"
-    ResizeHandle.Size = UDim2.new(0, 22, 0, 22)
-    ResizeHandle.AnchorPoint = Vector2.new(0.5, 0.5)
-    ResizeHandle.Position = UDim2.new(1, 0, 1, 0)
-    ResizeHandle.BackgroundColor3 = Window.CurrentTheme.CardBG
-    ResizeHandle.BackgroundTransparency = 0.05
-    ResizeHandle.BorderSizePixel = 0
-    ResizeHandle.ZIndex = 30
-    ResizeHandle.Parent = MainContainer
+    -- Concentric Rounded Corner Resize Arc
+    local THICK, GAP = 4, 4
+    local RADIUS = 8 + GAP -- window corner radius + gap, so the arc is concentric
 
-    local HandleCorner = Instance.new("UICorner")
-    HandleCorner.CornerRadius = UDim.new(0, 8)
-    HandleCorner.Parent = ResizeHandle
+    local ArcHolder = Instance.new("Frame")
+    ArcHolder.Name = "ResizeArc"
+    ArcHolder.AnchorPoint = Vector2.new(1, 1)
+    ArcHolder.Size = UDim2.new(0, 34, 0, 34)
+    ArcHolder.Position = UDim2.new(1, GAP + THICK, 1, GAP + THICK)
+    ArcHolder.BackgroundTransparency = 1
+    ArcHolder.ClipsDescendants = true
+    ArcHolder.BorderSizePixel = 0
+    ArcHolder.ZIndex = 30
+    ArcHolder.Parent = MainContainer
 
-    local HandleStroke = Instance.new("UIStroke")
-    HandleStroke.Thickness = 1.2
-    HandleStroke.Color = Window.CurrentTheme.Divider
-    HandleStroke.Transparency = 0.3
-    HandleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    HandleStroke.Parent = ResizeHandle
+    local Ring = Instance.new("Frame")
+    Ring.Name = "Ring"
+    Ring.AnchorPoint = Vector2.new(1, 1)
+    Ring.Size = UDim2.new(0, 80, 0, 80) -- much bigger than the holder, so only one corner shows
+    Ring.Position = UDim2.new(1, -THICK, 1, -THICK)
+    Ring.BackgroundTransparency = 1
+    Ring.BorderSizePixel = 0
+    Ring.ZIndex = 30
+    Ring.Parent = ArcHolder
 
-    AddUIShadow(ResizeHandle, 10, 0.45, Color3.fromRGB(0, 0, 0))
+    local RingCorner = Instance.new("UICorner")
+    RingCorner.CornerRadius = UDim.new(0, RADIUS)
+    RingCorner.Parent = Ring
 
-    -- 3 diagonal grip lines (-45 deg)
-    local gripLines = {}
-    local lineSpecs = {
-        { size = UDim2.new(0, 6, 0, 2), pos = UDim2.new(0.5, -4, 0.5, -4) },
-        { size = UDim2.new(0, 10, 0, 2), pos = UDim2.new(0.5, 0, 0.5, 0) },
-        { size = UDim2.new(0, 6, 0, 2), pos = UDim2.new(0.5, 4, 0.5, 4) },
-    }
-    for _, spec in ipairs(lineSpecs) do
-        local gLine = Instance.new("Frame")
-        gLine.Name = "GripLine"
-        gLine.Size = spec.size
-        gLine.Position = spec.pos
-        gLine.AnchorPoint = Vector2.new(0.5, 0.5)
-        gLine.Rotation = -45
-        gLine.BackgroundColor3 = Window.CurrentTheme.Text
-        gLine.BackgroundTransparency = 0.35
-        gLine.BorderSizePixel = 0
-        gLine.ZIndex = 32
-        gLine.Parent = ResizeHandle
-
-        local gCorner = Instance.new("UICorner")
-        gCorner.CornerRadius = UDim.new(1, 0)
-        gCorner.Parent = gLine
-
-        table.insert(gripLines, gLine)
-    end
+    local ArcStroke = Instance.new("UIStroke")
+    ArcStroke.Thickness = THICK
+    ArcStroke.Color = Window.CurrentTheme.Text
+    ArcStroke.Transparency = 0.35
+    ArcStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    ArcStroke.Parent = Ring
 
     local ResizeBtn = Instance.new("TextButton")
     ResizeBtn.Name = "ResizeHit"
-    ResizeBtn.Size = UDim2.new(1, 10, 1, 10)
-    ResizeBtn.Position = UDim2.new(0.5, 0, 0.5, 0)
     ResizeBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+    ResizeBtn.Size = UDim2.new(0, 28, 0, 28)
+    ResizeBtn.Position = UDim2.new(1, 4, 1, 4)
     ResizeBtn.BackgroundTransparency = 1
     ResizeBtn.Text = ""
     ResizeBtn.Active = true
     ResizeBtn.ZIndex = 35
-    ResizeBtn.Parent = ResizeHandle
+    ResizeBtn.Parent = MainContainer
 
-    local normalHandleSize = UDim2.new(0, 22, 0, 22)
-    local hoverHandleSize = UDim2.new(0, 25, 0, 25)
-    local handleTweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    local strokeTweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
     TrackConn(ResizeBtn.MouseEnter:Connect(function()
         PlayHoverSFX()
-        TweenService:Create(ResizeHandle, handleTweenInfo, {
-            Size = hoverHandleSize,
-            BackgroundColor3 = Window.CurrentTheme.ButtonBG or Window.CurrentTheme.CardBG
-        }):Play()
-        if HandleStroke then
-            TweenService:Create(HandleStroke, handleTweenInfo, {Transparency = 0}):Play()
-        end
-        for _, gl in ipairs(gripLines) do
-            TweenService:Create(gl, handleTweenInfo, {BackgroundTransparency = 0.1}):Play()
-        end
+        TweenService:Create(ArcStroke, strokeTweenInfo, {Transparency = 0}):Play()
     end))
 
     TrackConn(ResizeBtn.MouseLeave:Connect(function()
-        TweenService:Create(ResizeHandle, handleTweenInfo, {
-            Size = normalHandleSize,
-            BackgroundColor3 = Window.CurrentTheme.CardBG
-        }):Play()
-        if HandleStroke then
-            TweenService:Create(HandleStroke, handleTweenInfo, {Transparency = 0.3}):Play()
-        end
-        for _, gl in ipairs(gripLines) do
-            TweenService:Create(gl, handleTweenInfo, {BackgroundTransparency = 0.35}):Play()
-        end
+        TweenService:Create(ArcStroke, strokeTweenInfo, {Transparency = 0.35}):Play()
     end))
 
-    Window.ResizeHandle = ResizeHandle
-    Window.ResizeHandleStroke = HandleStroke
-    Window.ResizeGripLines = gripLines
+    Window.ResizeArcHolder = ArcHolder
+    Window.ResizeArcStroke = ArcStroke
 
     AttachUniversalDrag(TopFrame, MainContainer)
     AttachUniversalDrag(LeftFrame, MainContainer)
@@ -12342,31 +12305,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
 
-        if Window.ResizeHandle and Window.ResizeHandle.Parent then
+        if Window.ResizeArcStroke and Window.ResizeArcStroke.Parent then
             if animated then
-                TweenService:Create(Window.ResizeHandle, tweenInfo, {BackgroundColor3 = newTheme.CardBG}):Play()
-                if Window.ResizeHandleStroke then
-                    TweenService:Create(Window.ResizeHandleStroke, tweenInfo, {Color = newTheme.Divider}):Play()
-                end
-                if Window.ResizeGripLines then
-                    for _, gl in ipairs(Window.ResizeGripLines) do
-                        if gl and gl.Parent then
-                            TweenService:Create(gl, tweenInfo, {BackgroundColor3 = newTheme.Text}):Play()
-                        end
-                    end
-                end
+                TweenService:Create(Window.ResizeArcStroke, tweenInfo, {Color = newTheme.Text}):Play()
             else
-                Window.ResizeHandle.BackgroundColor3 = newTheme.CardBG
-                if Window.ResizeHandleStroke then
-                    Window.ResizeHandleStroke.Color = newTheme.Divider
-                end
-                if Window.ResizeGripLines then
-                    for _, gl in ipairs(Window.ResizeGripLines) do
-                        if gl and gl.Parent then
-                            gl.BackgroundColor3 = newTheme.Text
-                        end
-                    end
-                end
+                Window.ResizeArcStroke.Color = newTheme.Text
             end
         end
 
