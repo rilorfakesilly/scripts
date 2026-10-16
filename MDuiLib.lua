@@ -7703,11 +7703,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
     function Window:AddSidebarBigDivider(layoutOrder)
-        local DivideFrame = Instance.new("Frame")
+        local DivideFrame = Instance.new("ImageLabel")
         DivideFrame.Name = "DIVIDEFRAME"
-        DivideFrame.Size = UDim2.new(0, 130, 0, 2)
-        DivideFrame.BackgroundColor3 = Window.CurrentTheme.Divider
-        DivideFrame.BackgroundTransparency = 0.4
+        DivideFrame.Size = UDim2.new(0, 130, 0, 4)
+        DivideFrame.BackgroundTransparency = 1
+        DivideFrame.Image = "rbxassetid://133887791984569"
+        DivideFrame.ImageColor3 = Window.CurrentTheme.Divider
+        DivideFrame.ScaleType = Enum.ScaleType.Stretch
         DivideFrame.BorderSizePixel = 0
         DivideFrame.LayoutOrder = layoutOrder or 2
         DivideFrame.Parent = SidebarScroll
@@ -7717,11 +7719,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
 
     function Window:AddSidebarSmallDivider(layoutOrder)
-        local DivideFrameSmall = Instance.new("Frame")
+        local DivideFrameSmall = Instance.new("ImageLabel")
         DivideFrameSmall.Name = "DIVIDEFRAMESMALL"
-        DivideFrameSmall.Size = UDim2.new(0, 105, 0, 1)
-        DivideFrameSmall.BackgroundColor3 = Window.CurrentTheme.Divider
-        DivideFrameSmall.BackgroundTransparency = 0.5
+        DivideFrameSmall.Size = UDim2.new(0, 105, 0, 3)
+        DivideFrameSmall.BackgroundTransparency = 1
+        DivideFrameSmall.Image = "rbxassetid://133887791984569"
+        DivideFrameSmall.ImageColor3 = Window.CurrentTheme.Divider
+        DivideFrameSmall.ScaleType = Enum.ScaleType.Stretch
         DivideFrameSmall.BorderSizePixel = 0
         DivideFrameSmall.LayoutOrder = layoutOrder or 4
         DivideFrameSmall.Parent = SidebarScroll
@@ -8358,13 +8362,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             DividerContainer.ZIndex = 3
             DividerContainer.Parent = targetParent
 
-            local Line = Instance.new("Frame")
+            local Line = Instance.new("ImageLabel")
             Line.Name = "Line"
-            Line.Size = UDim2.new(1, -16, 0, divThickness)
-            Line.Position = UDim2.new(0, 8, 0.5, -(divThickness / 2))
+            local lineH = math.max(divThickness, 4)
+            Line.Size = UDim2.new(1, -16, 0, lineH)
+            Line.Position = UDim2.new(0, 8, 0.5, 0)
             Line.AnchorPoint = Vector2.new(0, 0.5)
-            Line.BackgroundColor3 = divColor or Window.CurrentTheme.Divider or Window.CurrentTheme.CardBG
-            Line.BackgroundTransparency = 0.4
+            Line.BackgroundTransparency = 1
+            Line.Image = "rbxassetid://133887791984569"
+            Line.ImageColor3 = divColor or Window.CurrentTheme.Divider or Window.CurrentTheme.CardBG
+            Line.ScaleType = Enum.ScaleType.Stretch
             Line.BorderSizePixel = 0
             Line.ZIndex = 4
             Line.Parent = DividerContainer
@@ -8376,11 +8383,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     DividerContainer.Visible = (vis ~= false)
                 end,
                 SetColor = function(self, col)
-                    Line.BackgroundColor3 = col
+                    Line.ImageColor3 = col
                 end,
                 RefreshTheme = function(theme)
                     if not divColor then
-                        Line.BackgroundColor3 = theme.Divider or theme.CardBG
+                        Line.ImageColor3 = theme.Divider or theme.CardBG
                     end
                 end
             }
@@ -9974,11 +9981,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             HeaderTrigger.ZIndex = 8
             HeaderTrigger.Parent = HeaderFrame
 
-            local HeaderLine = Instance.new("Frame")
+            local HeaderLine = Instance.new("ImageLabel")
             HeaderLine.Name = "Divider"
-            HeaderLine.Size = UDim2.new(1, 0, 0, 1)
-            HeaderLine.BackgroundColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(65, 70, 88)
-            HeaderLine.BackgroundTransparency = 0.65
+            HeaderLine.Size = UDim2.new(1, 0, 0, 4)
+            HeaderLine.BackgroundTransparency = 1
+            HeaderLine.Image = "rbxassetid://133887791984569"
+            HeaderLine.ImageColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(65, 70, 88)
+            HeaderLine.ScaleType = Enum.ScaleType.Stretch
             HeaderLine.BorderSizePixel = 0
             HeaderLine.LayoutOrder = 1
             HeaderLine.ZIndex = 6
@@ -10026,7 +10035,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                 if isCollapsed then
                     TweenService:Create(ArrowIcon, tweenInfo025, {Rotation = 0, ImageColor3 = Window.CurrentTheme.SubText}):Play()
-                    TweenService:Create(HeaderLine, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play()
+                    TweenService:Create(HeaderLine, TweenInfo.new(0.15), {ImageTransparency = 1}):Play()
                     local tw = TweenService:Create(SectionCard, tweenInfo025, {
                         Size = UDim2.new(SectionCard.Size.X.Scale, SectionCard.Size.X.Offset, 0, collapsedH)
                     })
@@ -10043,9 +10052,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     -- Expand section to target height
                     ItemContainer.Visible = true
                     HeaderLine.Visible = true
-                    HeaderLine.BackgroundTransparency = 1
+                    HeaderLine.ImageTransparency = 1
                     TweenService:Create(ArrowIcon, tweenInfo025, {Rotation = 180, ImageColor3 = Window.CurrentTheme.Text}):Play()
-                    TweenService:Create(HeaderLine, TweenInfo.new(0.15), {BackgroundTransparency = 0.65}):Play()
+                    TweenService:Create(HeaderLine, TweenInfo.new(0.15), {ImageTransparency = 0}):Play()
 
                     SectionCard.AutomaticSize = Enum.AutomaticSize.Y
                     task.defer(function()
@@ -10117,7 +10126,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                             TweenService:Create(SectionStroke, twInfo, {Color = divColor, Transparency = isST and 1 or 0.5}):Play()
                         end
                         if HeaderLine then
-                            TweenService:Create(HeaderLine, twInfo, {BackgroundColor3 = divColor}):Play()
+                            TweenService:Create(HeaderLine, twInfo, {ImageColor3 = divColor, BackgroundTransparency = 1}):Play()
                         end
                         if TitleLabel then
                             TweenService:Create(TitleLabel, twInfo, {TextColor3 = theme.Text}):Play()
@@ -10129,7 +10138,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         SectionCard.BackgroundColor3 = theme.CardBG
                         SectionCard.BackgroundTransparency = isST and 1 or (Window.ElementsTransparency or 0.33)
                         if SectionStroke then SectionStroke.Color = divColor ; SectionStroke.Transparency = isST and 1 or 0.5 end
-                        if HeaderLine then HeaderLine.BackgroundColor3 = divColor end
+                        if HeaderLine then HeaderLine.ImageColor3 = divColor; HeaderLine.BackgroundTransparency = 1 end
                         if TitleLabel then TitleLabel.TextColor3 = theme.Text end
                         if ArrowIcon then ArrowIcon.ImageColor3 = isCollapsed and theme.SubText or theme.Text end
                     end
@@ -12217,11 +12226,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if Window.SidebarDividers then
             for _, div in ipairs(Window.SidebarDividers) do
                 if div and div.Parent then
-                    if animated then
-                        TweenService:Create(div, tweenInfo, {BackgroundColor3 = newTheme.Divider, BackgroundTransparency = 0}):Play()
+                    local targetImg = div:IsA("ImageLabel") and div or div:FindFirstChildOfClass("ImageLabel")
+                    if targetImg then
+                        if animated then
+                            TweenService:Create(targetImg, tweenInfo, {ImageColor3 = newTheme.Divider, BackgroundTransparency = 1}):Play()
+                        else
+                            targetImg.ImageColor3 = newTheme.Divider
+                            targetImg.BackgroundTransparency = 1
+                        end
                     else
-                        div.BackgroundColor3 = newTheme.Divider
-                        div.BackgroundTransparency = 0
+                        if animated then
+                            TweenService:Create(div, tweenInfo, {BackgroundColor3 = newTheme.Divider, BackgroundTransparency = 1}):Play()
+                        else
+                            div.BackgroundColor3 = newTheme.Divider
+                            div.BackgroundTransparency = 1
+                        end
                     end
                 end
             end
@@ -13198,7 +13217,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             "rbxassetid://5054663650",
             "rbxassetid://5054663737",
             "rbxassetid://6031094678",
-            "rbxassetid://98226027552943"
+            "rbxassetid://98226027552943",
+            "rbxassetid://133887791984569"
         }
 
         if lp and lp.UserId then
