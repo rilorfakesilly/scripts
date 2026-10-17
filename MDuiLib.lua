@@ -1,5 +1,6 @@
 local Library = {}
 
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -3365,10 +3366,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleLabel = TitleText,
             ArrowIcon = ArrowIcon,
             Close = CloseDropdown,
-            Open = OpenDropdown,
             SetTitle = function(selfOrTitle, maybeTitle)
-                local newT = (selfOrTitle == dropObj) and maybeTitle or selfOrTitle
-                title = tostring(newT or "")
+                local newT = (maybeTitle ~= nil) and maybeTitle or selfOrTitle
+                if type(newT) == "table" then
+                    newT = newT[Window.CurrentLanguage or "English"] or newT["English"] or newT.Title or newT.Name or newT.Text or newT[1] or ""
+                end
+                if type(newT) ~= "string" and type(newT) ~= "number" then
+                    newT = ""
+                end
+                title = tostring(newT)
                 UpdateTitleDisplay()
                 return dropObj
             end,
@@ -4099,20 +4105,125 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- Localization / Multi-Language System
     -- ==========================================
 
+    local BuiltinLibraryTranslations = {
+        Russian = {
+            ["Settings"] = "Настройки",
+            ["Language"] = "Язык",
+            ["Interface language"] = "Язык интерфейса",
+            ["Audio & Notifications"] = "Звуки и уведомления",
+            ["Enable notifications"] = "Включить уведомления",
+            ["Notifications enabled"] = "Уведомления включены",
+            ["Enable UI sounds"] = "Включить звуки интерфейса",
+            ["UI sounds enabled"] = "Звуки UI включены",
+            ["UI sound volume"] = "Громкость звуков UI",
+            ["Hover sound ID"] = "ID звука наведения",
+            ["Click sound ID"] = "ID звука клика",
+            ["Notification sound ID"] = "ID звука уведомления",
+            ["Appearance & Visuals"] = "Внешний вид и визуалы",
+            ["Spiderweb background"] = "Фоновая паутинка",
+            ["Background blur"] = "Размытие фона",
+            ["UI shadows"] = "Тени интерфейса",
+            ["Section backgrounds"] = "Фон секций",
+            ["Background noise"] = "Шумовой фон",
+            ["Noise tile size"] = "Размер зерна шума",
+            ["Background transparency"] = "Прозрачность фона",
+            ["UI elements transparency"] = "Прозрачность элементов",
+            ["Top, left & bottom frames transparency"] = "Прозрачность панелей",
+            ["Blur intensity"] = "Интенсивность размытия",
+            ["Shadow intensity"] = "Интенсивность теней",
+            ["Click Effects & Particles"] = "Эффекты и частицы клика",
+            ["Enable click effects"] = "Включить эффекты клика",
+            ["Particle style"] = "Стиль частиц",
+            ["Theme default"] = "По умолчанию темы",
+            ["Custom image"] = "Своё изображение",
+            ["Custom image ID"] = "ID своего изображения",
+            ["Themes"] = "Темы",
+            ["Custom theme color"] = "Кастомный цвет темы",
+            ["Configurations"] = "Конфигурации",
+            ["Config name"] = "Название конфига",
+            ["Create config"] = "Создать конфиг",
+            ["Delete config"] = "Удалить конфиг",
+            ["Save config"] = "Сохранить конфиг",
+            ["Load config"] = "Загрузить конфиг",
+            ["Export config"] = "Экспорт конфига",
+            ["Import config"] = "Импорт конфига",
+            ["Autoload config"] = "Автозагрузка конфига",
+            ["Autoload config: None"] = "Автозагрузка: Нет",
+            ["Delete Config"] = "Удалить конфигурацию",
+            ["Credits"] = "Создатели",
+            ["Creator and developer"] = "Создатель и разработчик",
+            ["Discord server if you have any questions"] = "Сервер Discord, если у вас есть вопросы",
+            ["Copy link"] = "Копировать ссылку",
+            ["Link copied!"] = "Ссылка скопирована!"
+        }
+    }
+
+    -- Merge built-in translations into Window.Translations
+    Window.Translations = Window.Translations or {}
+    for bLang, bDict in pairs(BuiltinLibraryTranslations) do
+        Window.Translations[bLang] = Window.Translations[bLang] or {}
+        for bKey, bVal in pairs(bDict) do
+            if Window.Translations[bLang][bKey] == nil then
+                Window.Translations[bLang][bKey] = bVal
+            end
+        end
+    end
+
     function Window:Translate(input, targetLang)
         if input == nil then return "" end
         targetLang = targetLang or Window.CurrentLanguage or "English"
 
+        -- If input is a table (multi-language map or element config)
         if type(input) == "table" then
-            return input[targetLang] or input["English"] or input[1] or tostring(input)
+            -- 1. Direct language key match (e.g. { Russian = "Текст", English = "Text" })
+            if input[targetLang] ~= nil and type(input[targetLang]) == "string" and input[targetLang] ~= "" then
+                return input[targetLang]
+            end
+
+            -- 2. Extract fallback string (English / en / Title / Name / Text / Label / 1)
+            local fallback = input["English"] or input["en"] or input.Title or input.Name or input.Text or input.Label or input[1]
+            if type(fallback) == "table" then
+                fallback = fallback[targetLang] or fallback["English"] or fallback[1] or ""
+            end
+            local fallbackStr = (fallback ~= nil and type(fallback) ~= "table") and tostring(fallback) or ""
+
+            -- 3. If target language is not English, check dictionary for fallback string
+            if targetLang ~= "English" and fallbackStr ~= "" then
+                local langDict = Window.Translations and Window.Translations[targetLang]
+                if langDict and langDict[fallbackStr] ~= nil then
+                    local val = langDict[fallbackStr]
+                    if type(val) == "string" and val ~= "" then
+                        return val
+                    end
+                end
+            end
+
+            -- Never return tostring(table); always return clean English/fallback string
+            return fallbackStr
         end
 
         local str = tostring(input)
-        local langDict = Window.Translations and Window.Translations[targetLang]
-        if langDict and langDict[str] ~= nil then
-            return tostring(langDict[str])
+        if targetLang == "English" then
+            local engDict = Window.Translations and Window.Translations["English"]
+            if engDict and engDict[str] ~= nil and type(engDict[str]) == "string" and engDict[str] ~= "" then
+                return engDict[str]
+            end
+            return str
         end
 
+        local langDict = Window.Translations and Window.Translations[targetLang]
+        if langDict and langDict[str] ~= nil then
+            local val = langDict[str]
+            if type(val) == "table" then
+                val = val[targetLang] or val["English"] or val[1]
+            end
+            if type(val) == "string" and val ~= "" then
+                return val
+            end
+        end
+
+        -- If there is NO translation for that language:
+        -- Keep the original English language text!
         return str
     end
     Window.T = Window.Translate
@@ -4200,6 +4311,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     function Window:RegisterLocalizedElement(elemData, originalText, updateFn, originalDesc, descUpdateFn)
         if not (originalText or originalDesc) then return end
+
+        -- If originalText is a table representing an element, unwrap its title
+        if type(originalText) == "table" and (originalText.Frame or originalText.Instance or originalText.CardFrame or originalText.SetTitle) then
+            originalText = originalText.Title or originalText.Name or originalText.Text or ""
+        end
+        if type(originalDesc) == "table" and (originalDesc.Frame or originalDesc.Instance) then
+            originalDesc = originalDesc.Desc or originalDesc.Description or ""
+        end
+
         Window.RegisteredLocalizedElements = Window.RegisteredLocalizedElements or {}
         local entry = {
             Element = elemData,
@@ -4215,13 +4335,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             pcall(function()
                 if updateFn and originalText then
                     local translated = Window:Translate(originalText, curLang)
-                    if translated ~= originalText then
+                    if type(translated) == "string" and translated ~= "" and translated ~= originalText then
                         updateFn(translated, curLang)
                     end
                 end
                 if descUpdateFn and originalDesc then
                     local translatedDesc = Window:Translate(originalDesc, curLang)
-                    if translatedDesc ~= originalDesc then
+                    if type(translatedDesc) == "string" and translatedDesc ~= "" and translatedDesc ~= originalDesc then
                         descUpdateFn(translatedDesc, curLang)
                     end
                 end
@@ -6708,10 +6828,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             GetState = function() return isToggled end,
             SetState = function(state, triggerCallback)
                 PerformToggle(state, triggerCallback)
-            end,
             SetTitle = function(selfOrTitle, maybeTitle)
-                local newT = (selfOrTitle == toggleData) and maybeTitle or selfOrTitle
-                TitleText.Text = tostring(newT or "")
+                local newT = (maybeTitle ~= nil) and maybeTitle or selfOrTitle
+                if type(newT) == "table" then
+                    newT = newT[Window.CurrentLanguage or "English"] or newT["English"] or newT.Title or newT.Name or newT.Text or newT[1] or ""
+                end
+                if type(newT) ~= "string" and type(newT) ~= "number" then
+                    newT = ""
+                end
+                TitleText.Text = tostring(newT)
                 return toggleData
             end,
             SetText = function(selfOrTitle, maybeTitle)
@@ -9855,13 +9980,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TitleLabel = TitleLabel,
                 DescLabel = DescLabel,
                 Button = ActionBtn,
-                Execute = ExecuteAction,
-                SetText = function(self, newTitle)
-                    btnTitle = tostring(newTitle or "")
+                SetText = function(selfOrTitle, maybeTitle)
+                    local newT = (maybeTitle ~= nil) and maybeTitle or selfOrTitle
+                    if type(newT) == "table" then
+                        newT = newT[Window.CurrentLanguage or "English"] or newT["English"] or newT.Title or newT.Name or newT.Text or newT[1] or ""
+                    end
+                    btnTitle = tostring(newT or "")
                     TitleLabel.Text = btnTitle
                 end,
-                SetDescription = function(self, newDesc)
-                    btnDesc = tostring(newDesc or "")
+                SetDescription = function(selfOrDesc, maybeDesc)
+                    local newD = (maybeDesc ~= nil) and maybeDesc or selfOrDesc
+                    if type(newD) == "table" then
+                        newD = newD[Window.CurrentLanguage or "English"] or newD["English"] or newD.Desc or newD.Description or newD[1] or ""
+                    end
+                    btnDesc = tostring(newD or "")
                     local hd = btnDesc ~= ""
                     DescLabel.Text = btnDesc
                     DescLabel.Visible = hd
@@ -10026,12 +10158,23 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local cardObj = {
                 Frame = CardFrame,
                 Instance = CardFrame,
-                Container = CardFrame,
-                SetTitle = function(self, t) TitleLabel.Text = tostring(t) end,
-                SetText = function(self, t) TitleLabel.Text = tostring(t) end,
-                SetDesc = function(self, d)
+                SetTitle = function(selfOrTitle, maybeTitle)
+                    local newT = (maybeTitle ~= nil) and maybeTitle or selfOrTitle
+                    if type(newT) == "table" then
+                        newT = newT[Window.CurrentLanguage or "English"] or newT["English"] or newT.Title or newT.Name or newT.Text or newT[1] or ""
+                    end
+                    TitleLabel.Text = tostring(newT or "")
+                end,
+                SetText = function(selfOrTitle, maybeTitle)
+                    return cardObj.SetTitle(selfOrTitle, maybeTitle)
+                end,
+                SetDesc = function(selfOrDesc, maybeDesc)
+                    local newD = (maybeDesc ~= nil) and maybeDesc or selfOrDesc
+                    if type(newD) == "table" then
+                        newD = newD[Window.CurrentLanguage or "English"] or newD["English"] or newD.Desc or newD.Description or newD[1] or ""
+                    end
                     if DescLabel then
-                        DescLabel.Text = tostring(d)
+                        DescLabel.Text = tostring(newD or "")
                     end
                 end,
             }
@@ -10118,13 +10261,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local labelObj = {
                 Frame = LabelFrame,
                 TitleLabel = TitleLabel,
-                DescLabel = DescLabel,
-                SetText = function(self, newText)
-                    TitleLabel.Text = tostring(newText or "")
+                SetText = function(selfOrText, maybeText)
+                    local newT = (maybeText ~= nil) and maybeText or selfOrText
+                    if type(newT) == "table" then
+                        newT = newT[Window.CurrentLanguage or "English"] or newT["English"] or newT.Text or newT.Title or newT.Name or newT[1] or ""
+                    end
+                    TitleLabel.Text = tostring(newT or "")
                 end,
-                SetDescription = function(self, newDesc)
+                SetDescription = function(selfOrDesc, maybeDesc)
+                    local newD = (maybeDesc ~= nil) and maybeDesc or selfOrDesc
+                    if type(newD) == "table" then
+                        newD = newD[Window.CurrentLanguage or "English"] or newD["English"] or newD.Desc or newD.Description or newD[1] or ""
+                    end
                     if DescLabel then
-                        DescLabel.Text = tostring(newDesc or "")
+                        DescLabel.Text = tostring(newD or "")
                     end
                 end,
                 SetColor = function(self, newCol)
@@ -11604,14 +11754,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 IsCollapsed = function(self)
                     return isCollapsed
                 end,
-                SetTitle = function(self, newTitle)
-                    local t = tostring(newTitle or "")
+                SetTitle = function(selfOrTitle, maybeTitle)
+                    local newT = (maybeTitle ~= nil) and maybeTitle or selfOrTitle
+                    if type(newT) == "table" then
+                        newT = newT[Window.CurrentLanguage or "English"] or newT["English"] or newT.Title or newT.Name or newT.Text or newT[1] or ""
+                    end
+                    local t = tostring(newT or "")
                     SectionObj.Title = t
                     TitleLabel.Text = t:upper()
                     return SectionObj
                 end,
-                SetText = function(self, newTitle)
-                    return SectionObj:SetTitle(newTitle)
+                SetText = function(selfOrTitle, maybeTitle)
+                    return SectionObj.SetTitle(selfOrTitle, maybeTitle)
                 end,
                 RefreshTheme = function(self, theme, animated)
                     local twInfo = TweenInfo.new(animated and 0.35 or 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -11946,7 +12100,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     if toggleData.SetTitle then
                         toggleData:SetTitle(newText)
                     elseif toggleData.TitleText then
-                        toggleData.TitleText.Text = tostring(newText)
+                        if type(newText) == "table" then
+                            newText = newText[Window.CurrentLanguage or "English"] or newText["English"] or newText.Title or newText[1] or ""
+                        end
+                        toggleData.TitleText.Text = tostring(newText or "")
                     end
                 end)
             end
@@ -12143,7 +12300,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             checkboxObj.GetValue = function() return isChecked end
             checkboxObj.Toggle   = function() ApplyCheckboxState(not isChecked, true) end
             checkboxObj.SetTitle = function(selfOrTitle, maybeTitle)
-                local newT = (selfOrTitle == checkboxObj) and maybeTitle or selfOrTitle
+                local newT = (maybeTitle ~= nil) and maybeTitle or selfOrTitle
+                if type(newT) == "table" then
+                    newT = newT[Window.CurrentLanguage or "English"] or newT["English"] or newT.Title or newT.Name or newT.Text or newT[1] or ""
+                end
                 LabelText.Text = tostring(newT or "")
                 return checkboxObj
             end
@@ -12639,7 +12799,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 sliderData.CardFrame = SliderCard
                 sliderData.Frame = SliderCard
                 sliderData.SetTitle = function(selfOrTitle, maybeTitle)
-                    local newT = (selfOrTitle == sliderData) and maybeTitle or selfOrTitle
+                    local newT = (maybeTitle ~= nil) and maybeTitle or selfOrTitle
+                    if type(newT) == "table" then
+                        newT = newT[Window.CurrentLanguage or "English"] or newT["English"] or newT.Title or newT.Name or newT.Text or newT[1] or ""
+                    end
                     TitleLabel.Text = tostring(newT or "")
                     return sliderData
                 end
@@ -12769,11 +12932,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         if Window.RegisterLocalizedElement then
             Window:RegisterLocalizedElement(TabObj, tabName, function(newText)
-                TabObj.DisplayName = newText
+                if type(newText) == "table" then
+                    newText = newText[Window.CurrentLanguage or "English"] or newText["English"] or newText[1] or ""
+                end
+                local sText = tostring(newText or "")
+                TabObj.DisplayName = sText
                 if not Window.SidebarCollapsed then
-                    TabButton.Text = newText
+                    TabButton.Text = sText
                 elseif not TabIcon then
-                    TabButton.Text = (string.len(newText) > 4) and (string.sub(newText, 1, 4) .. ".") or newText
+                    TabButton.Text = (string.len(sText) > 4) and (string.sub(sText, 1, 4) .. ".") or sText
                 end
             end)
         end
