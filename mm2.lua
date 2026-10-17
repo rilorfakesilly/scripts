@@ -125,6 +125,7 @@ state = {
     autoAimWallbang = false,
     antiFlingEnabled = false,
     chinaHatEnabled = false,
+    chinaHatFollowHead = false,
     spinbotEnabled = false,
     spinbotSpeed = 30,
     
@@ -258,17 +259,6 @@ local killAuraParticlePresets = {
     ["Telemon's fire circle"] = { texture = "58889937", isAnimated = false },
     ["Dashed circle"]         = { texture = "10131954007", isAnimated = false },
     ["Magic circle"]          = { texture = "7452563698", isAnimated = false },
-    ["Smoke (animated)"]      = { texture = "8733226116", isAnimated = true, flipbookLayout = "Grid4x4" },
-    ["Pixel sparkle (animated)"] = { texture = "13448020277", isAnimated = true, flipbookLayout = "Grid4x4" },
-    ["Spinning robux (animated)"] = { texture = "12859930047", isAnimated = true, flipbookLayout = "Grid4x4" },
-    ["Bat (animated)"]        = { texture = "117267873734624", isAnimated = true, flipbookLayout = "Grid4x4" },
-    ["Potion particle (animated)"] = { texture = "8733731095", isAnimated = true, flipbookLayout = "Grid4x4" },
-    ["Wingdings (animated)"]  = { texture = "92668765537961", isAnimated = true, flipbookLayout = "Grid8x8" },
-    ["YouAreAnIdiot (animated)"] = { texture = "119483013767759", isAnimated = true, flipbookLayout = "Grid2x2" },
-    ["Eye (animated)"]        = { texture = "136598435215978", isAnimated = true, flipbookLayout = "Grid8x8" },
-    ["Dollar (animated)"]     = { texture = "17451596749", isAnimated = true, flipbookLayout = "Grid4x4" },
-    ["maxwell (animated)"]    = { texture = "12890944256", isAnimated = true, flipbookLayout = "Grid4x4" },
-    ["Triangle shard (animated)"] = { texture = "79466620842369", isAnimated = true, flipbookLayout = "Grid8x8" },
     ["Custom"]                = { texture = "", isAnimated = false },
 }
 
@@ -8557,6 +8547,7 @@ local function _buildScriptUI()
     -- construct decorative china hat geometry 
     local chinaHatConfig = {
         enabled = false,
+        followHead = false,
         colorMode = "Normal",
         color1 = Color3.fromRGB(255, 0, 100),
         color2 = Color3.fromRGB(0, 200, 255),
@@ -8573,6 +8564,7 @@ local function _buildScriptUI()
     local chinaHatConnections = {}
     local chinaHatPlayerAddedConn = nil
     local chinaHatPlayerRemovingConn = nil
+    local HAT_ROT_CF = CFrame.Angles(math.rad(90), 0, 0)
 
     local function getHatColor()
         local color = getColor(chinaHatConfig.colorMode, chinaHatConfig.color1, chinaHatConfig.color2)
@@ -8580,6 +8572,18 @@ local function _buildScriptUI()
             return Color3.fromRGB(1, 1, 1)
         end
         return color
+    end
+
+    local function getHatCFrame(char, hrp)
+        if chinaHatConfig.followHead and char and hrp then
+            local head = char:FindFirstChild("Head")
+            if head then
+                local targetWorldPos = Vector3.new(head.Position.X, hrp.Position.Y + chinaHatConfig.heightOffset, head.Position.Z)
+                local localPos = hrp.CFrame:PointToObjectSpace(targetWorldPos)
+                return CFrame.new(localPos) * HAT_ROT_CF
+            end
+        end
+        return CFrame.new(0, chinaHatConfig.heightOffset, 0) * HAT_ROT_CF
     end
 
     local function removeHat(player, char)
@@ -8610,7 +8614,7 @@ local function _buildScriptUI()
         adornment.Transparency = chinaHatConfig.transparency
         adornment.AlwaysOnTop = chinaHatConfig.alwaysOnTop
         adornment.Adornee = hrp
-        adornment.CFrame = CFrame.new(0, chinaHatConfig.heightOffset, 0) * CFrame.Angles(math.rad(90), 0, 0)
+        adornment.CFrame = getHatCFrame(char, hrp)
         adornment.Parent = hrp
         adornment.Color3 = getHatColor()
 
@@ -8678,7 +8682,7 @@ local function _buildScriptUI()
                 adornment.AlwaysOnTop = chinaHatConfig.alwaysOnTop
                 adornment.Height = chinaHatConfig.height
                 adornment.Radius = chinaHatConfig.radius
-                adornment.CFrame = CFrame.new(0, chinaHatConfig.heightOffset, 0) * CFrame.Angles(math.rad(90), 0, 0)
+                adornment.CFrame = getHatCFrame(char, hrp)
             end
         end
     
@@ -8690,6 +8694,21 @@ local function _buildScriptUI()
                 else
                     removeHat(p, p.Character)
                 end
+            end
+        end
+    end
+
+    local function updateHatPositions()
+        if not (chinaHatConfig.enabled and chinaHatConfig.followHead) then return end
+        for plr, adornment in pairs(chinaHatAdornments) do
+            if adornment and adornment.Parent then
+                local char = plr.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    adornment.CFrame = getHatCFrame(char, hrp)
+                end
+            else
+                chinaHatAdornments[plr] = nil
             end
         end
     end
@@ -11070,10 +11089,11 @@ local function _buildScriptUI()
     Tabs.Murderer:AddDropdown("KillAuraParticlePreset", {
         Title = "Circle texture",
         Values = {
-            "Fade circle", "Telemon's fire circle", "Dashed circle", "Magic circle",
-            "Smoke (animated)", "Pixel sparkle (animated)", "Spinning robux (animated)", "Bat (animated)",
-            "Potion particle (animated)", "Wingdings (animated)", "YouAreAnIdiot (animated)", "Eye (animated)",
-            "Dollar (animated)", "maxwell (animated)", "Triangle shard (animated)", "Custom"
+            "Fade circle",
+            "Telemon's fire circle",
+            "Dashed circle",
+            "Magic circle",
+            "Custom"
         },
         Default = "Fade circle",
         Callback = function(v)
@@ -13200,6 +13220,7 @@ local function _buildScriptUI()
 
             if chinaHatConfig.enabled then
                 if updateHatColors then updateHatColors() end
+                if chinaHatConfig.followHead and updateHatPositions then updateHatPositions() end
             end
             if wingsConfig.enabled then
                 if updateWings then updateWings() end
@@ -14593,6 +14614,16 @@ end))
                 end
             end
         }
+    })
+
+    Tabs.Visuals:AddCheckbox("ChinaHatFollowHead", {
+        Title = "Follow user head (X/Z only)",
+        Default = false,
+        Callback = function(v)
+            chinaHatConfig.followHead = v
+            if state then state.chinaHatFollowHead = v end
+            updateHatProps()
+        end
     })
 
     Tabs.Visuals:AddSlider("ChinaHatHeight", {
