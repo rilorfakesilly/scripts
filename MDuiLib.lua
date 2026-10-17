@@ -2591,8 +2591,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
         options = options or {}
 
+        local isPriority = (isMulti == "priority") or (dropConfig and (dropConfig.Priority == true or dropConfig.isPriority == true))
+        if isPriority then
+            isMulti = true
+        end
+        local maxSelected = dropConfig and (dropConfig.MaxSelected or dropConfig.maxSelected or dropConfig.Max or dropConfig.max)
         local selectedOption = nil
         local selectedMap = {}
+        local selectedOrder = {}
 
         if isMulti then
             local defSels = defaultVal
@@ -2602,13 +2608,23 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             if type(defSels) == "table" then
                 for k, v in pairs(defSels) do
                     if type(k) == "number" then
-                        selectedMap[tostring(v)] = true
+                        local vStr = tostring(v)
+                        if not selectedMap[vStr] then
+                            selectedMap[vStr] = true
+                            table.insert(selectedOrder, vStr)
+                        end
                     elseif v == true then
-                        selectedMap[tostring(k)] = true
+                        local kStr = tostring(k)
+                        if not selectedMap[kStr] then
+                            selectedMap[kStr] = true
+                            table.insert(selectedOrder, kStr)
+                        end
                     end
                 end
             elseif type(defSels) == "string" then
-                selectedMap[tostring(defSels)] = true
+                local sStr = tostring(defSels)
+                selectedMap[sStr] = true
+                table.insert(selectedOrder, sStr)
             end
         else
             selectedOption = defaultVal
@@ -2618,9 +2634,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         local function GetSelectedList()
+            if isPriority then
+                local list = {}
+                for _, opt in ipairs(selectedOrder) do
+                    table.insert(list, opt)
+                end
+                return list
+            end
             local list = {}
             for _, opt in ipairs(options) do
-                local optStr = tostring(opt)
+                local optStr = (type(opt) == "table") and tostring(opt.Name or opt.Text or opt[1]) or tostring(opt)
                 if selectedMap[optStr] then
                     table.insert(list, opt)
                 end
@@ -2695,18 +2718,35 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleText.Parent = DropdownFrame
 
         local function UpdateTitleDisplay()
-            if isMulti then
+            if isPriority then
+                local count = #selectedOrder
+                if count == 0 then
+                    TitleText.Text = (title and title ~= "") and (title .. ": None") or "None"
+                elseif count == 1 then
+                    TitleText.Text = (title and title ~= "") and (title .. ": " .. tostring(selectedOrder[1])) or tostring(selectedOrder[1])
+                else
+                    local orderSummary = table.concat(selectedOrder, " > ")
+                    if #orderSummary > 28 then
+                        TitleText.Text = (title and title ~= "") and (title .. ": " .. orderSummary:sub(1, 24) .. "... (" .. tostring(count) .. ")") or (orderSummary:sub(1, 24) .. "... (" .. tostring(count) .. ")")
+                    else
+                        TitleText.Text = (title and title ~= "") and (title .. ": " .. orderSummary) or orderSummary
+                    end
+                end
+            elseif isMulti then
                 local sels = GetSelectedList()
                 local count = #sels
                 if count == 0 then
                     TitleText.Text = (title and title ~= "") and (title .. ": None") or "None"
                 elseif count == 1 then
-                    TitleText.Text = (title and title ~= "") and (title .. ": " .. tostring(sels[1])) or tostring(sels[1])
+                    local s1 = sels[1]
+                    local s1Str = (type(s1) == "table") and tostring(s1.Name or s1.Text or s1[1]) or tostring(s1)
+                    TitleText.Text = (title and title ~= "") and (title .. ": " .. s1Str) or s1Str
                 else
                     TitleText.Text = (title and title ~= "") and (title .. ": (" .. tostring(count) .. " Selected)") or ("(" .. tostring(count) .. " Selected)")
                 end
             else
-                TitleText.Text = (title and title ~= "") and (title .. ": " .. tostring(selectedOption or "")) or tostring(selectedOption or "")
+                local optStr = (type(selectedOption) == "table") and tostring(selectedOption.Name or selectedOption.Text or selectedOption[1]) or tostring(selectedOption or "")
+                TitleText.Text = (title and title ~= "") and (title .. ": " .. optStr) or optStr
             end
         end
         UpdateTitleDisplay()
@@ -2984,6 +3024,288 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 currentFilter = tostring(filterText):lower()
             end
 
+            if isPriority then
+                for _, child in ipairs(InnerScroll:GetChildren()) do
+                    if child:IsA("TextButton") or child:IsA("Frame") or (child:IsA("TextLabel") and child ~= NoResultsLabel) then
+                        child:Destroy()
+                    end
+                end
+                itemRows = {}
+                visibleItems = {}
+                highlightIndex = nil
+
+                local currentOrder = 1
+
+                -- Section 1: Active
+                local activeHeader = Instance.new("TextLabel")
+                activeHeader.Name = "ActiveHeader"
+                activeHeader.Size = UDim2.new(1, 0, 0, 20)
+                activeHeader.BackgroundTransparency = 1
+                activeHeader.FontFace = FontFingerPaintRegular
+                activeHeader.Text = "ACTIVE (" .. tostring(#selectedOrder) .. (maxSelected and ("/" .. tostring(maxSelected)) or "") .. ")"
+                activeHeader.TextColor3 = Window.CurrentTheme.SubText
+                activeHeader.TextSize = 11
+                activeHeader.TextXAlignment = Enum.TextXAlignment.Left
+                activeHeader.LayoutOrder = currentOrder
+                currentOrder = currentOrder + 1
+                activeHeader.ZIndex = 503
+                activeHeader.Parent = InnerScroll
+
+                if #selectedOrder == 0 then
+                    local emptyLbl = Instance.new("TextLabel")
+                    emptyLbl.Name = "EmptyActive"
+                    emptyLbl.Size = UDim2.new(1, 0, 0, 22)
+                    emptyLbl.BackgroundTransparency = 1
+                    emptyLbl.FontFace = FontFingerPaintRegular
+                    emptyLbl.Text = "None selected (click below to add)"
+                    emptyLbl.TextColor3 = Window.CurrentTheme.SubText
+                    emptyLbl.TextTransparency = 0.4
+                    emptyLbl.TextSize = 11
+                    emptyLbl.TextXAlignment = Enum.TextXAlignment.Center
+                    emptyLbl.LayoutOrder = currentOrder
+                    currentOrder = currentOrder + 1
+                    emptyLbl.ZIndex = 503
+                    emptyLbl.Parent = InnerScroll
+                else
+                    for pIdx, optStr in ipairs(selectedOrder) do
+                        local ItemBtn = Instance.new("Frame")
+                        ItemBtn.Name = "Active_" .. optStr
+                        ItemBtn.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
+                        ItemBtn.BackgroundColor3 = Window.CurrentTheme.AccentBG
+                        ItemBtn.BackgroundTransparency = 0.5
+                        ItemBtn.BorderSizePixel = 0
+                        ItemBtn.LayoutOrder = currentOrder
+                        currentOrder = currentOrder + 1
+                        ItemBtn.ZIndex = 503
+                        ItemBtn.Parent = InnerScroll
+
+                        local itemCorner = Instance.new("UICorner")
+                        itemCorner.CornerRadius = UDim.new(0, 6)
+                        itemCorner.Parent = ItemBtn
+
+                        -- Badge 1, 2, 3
+                        local Badge = Instance.new("TextLabel")
+                        Badge.Name = "Badge"
+                        Badge.Size = UDim2.new(0, 18, 0, 18)
+                        Badge.Position = UDim2.new(0, 5, 0.5, -9)
+                        Badge.BackgroundColor3 = Window.CurrentTheme.ButtonBG
+                        Badge.BorderSizePixel = 0
+                        Badge.FontFace = FontFingerPaintRegular
+                        Badge.Text = tostring(pIdx)
+                        Badge.TextColor3 = GetOnAccent(Window.CurrentTheme.ButtonBG)
+                        Badge.TextSize = 11
+                        Badge.ZIndex = 504
+                        Badge.Parent = ItemBtn
+
+                        local bCorner = Instance.new("UICorner")
+                        bCorner.CornerRadius = UDim.new(0, 4)
+                        bCorner.Parent = Badge
+
+                        -- Label
+                        local ItemLabel = Instance.new("TextLabel")
+                        ItemLabel.Name = "Label"
+                        ItemLabel.Size = UDim2.new(1, -95, 1, 0)
+                        ItemLabel.Position = UDim2.new(0, 28, 0, 0)
+                        ItemLabel.BackgroundTransparency = 1
+                        ItemLabel.FontFace = FontFingerPaintRegular
+                        ItemLabel.Text = optStr
+                        ItemLabel.TextColor3 = Window.CurrentTheme.Text
+                        ItemLabel.TextSize = 12
+                        ItemLabel.TextXAlignment = Enum.TextXAlignment.Left
+                        ItemLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                        ItemLabel.ZIndex = 504
+                        ItemLabel.Parent = ItemBtn
+
+                        -- Move Up Button
+                        if pIdx > 1 then
+                            local UpBtn = Instance.new("TextButton")
+                            UpBtn.Name = "UpBtn"
+                            UpBtn.Size = UDim2.new(0, 20, 0, 20)
+                            UpBtn.Position = UDim2.new(1, -66, 0.5, -10)
+                            UpBtn.BackgroundTransparency = 1
+                            UpBtn.FontFace = FontFingerPaintRegular
+                            UpBtn.Text = "▲"
+                            UpBtn.TextColor3 = Window.CurrentTheme.SubText
+                            UpBtn.TextSize = 11
+                            UpBtn.ZIndex = 505
+                            UpBtn.Parent = ItemBtn
+
+                            UpBtn.MouseButton1Click:Connect(function()
+                                PlayClickSFX()
+                                local temp = selectedOrder[pIdx]
+                                selectedOrder[pIdx] = selectedOrder[pIdx - 1]
+                                selectedOrder[pIdx - 1] = temp
+                                UpdateTitleDisplay()
+                                RebuildItemRows(currentFilter)
+                                if onSelect then pcall(onSelect, GetSelectedList()) end
+                            end)
+                        end
+
+                        -- Move Down Button
+                        if pIdx < #selectedOrder then
+                            local DownBtn = Instance.new("TextButton")
+                            DownBtn.Name = "DownBtn"
+                            DownBtn.Size = UDim2.new(0, 20, 0, 20)
+                            DownBtn.Position = UDim2.new(1, -44, 0.5, -10)
+                            DownBtn.BackgroundTransparency = 1
+                            DownBtn.FontFace = FontFingerPaintRegular
+                            DownBtn.Text = "▼"
+                            DownBtn.TextColor3 = Window.CurrentTheme.SubText
+                            DownBtn.TextSize = 11
+                            DownBtn.ZIndex = 505
+                            DownBtn.Parent = ItemBtn
+
+                            DownBtn.MouseButton1Click:Connect(function()
+                                PlayClickSFX()
+                                local temp = selectedOrder[pIdx]
+                                selectedOrder[pIdx] = selectedOrder[pIdx + 1]
+                                selectedOrder[pIdx + 1] = temp
+                                UpdateTitleDisplay()
+                                RebuildItemRows(currentFilter)
+                                if onSelect then pcall(onSelect, GetSelectedList()) end
+                            end)
+                        end
+
+                        -- Remove Button (X)
+                        local RemBtn = Instance.new("TextButton")
+                        RemBtn.Name = "RemBtn"
+                        RemBtn.Size = UDim2.new(0, 20, 0, 20)
+                        RemBtn.Position = UDim2.new(1, -22, 0.5, -10)
+                        RemBtn.BackgroundTransparency = 1
+                        RemBtn.FontFace = FontFingerPaintRegular
+                        RemBtn.Text = "✕"
+                        RemBtn.TextColor3 = Color3.fromRGB(255, 90, 90)
+                        RemBtn.TextSize = 12
+                        RemBtn.ZIndex = 505
+                        RemBtn.Parent = ItemBtn
+
+                        RemBtn.MouseButton1Click:Connect(function()
+                            PlayClickSFX()
+                            table.remove(selectedOrder, pIdx)
+                            selectedMap[optStr] = nil
+                            UpdateTitleDisplay()
+                            RebuildItemRows(currentFilter)
+                            if onSelect then pcall(onSelect, GetSelectedList()) end
+                        end)
+                    end
+                end
+
+                -- Section 2: Available
+                local availHeader = Instance.new("TextLabel")
+                availHeader.Name = "AvailHeader"
+                availHeader.Size = UDim2.new(1, 0, 0, 20)
+                availHeader.BackgroundTransparency = 1
+                availHeader.FontFace = FontFingerPaintRegular
+                availHeader.Text = "AVAILABLE"
+                availHeader.TextColor3 = Window.CurrentTheme.SubText
+                availHeader.TextSize = 11
+                availHeader.TextXAlignment = Enum.TextXAlignment.Left
+                availHeader.LayoutOrder = currentOrder
+                currentOrder = currentOrder + 1
+                availHeader.ZIndex = 503
+                availHeader.Parent = InnerScroll
+
+                local availCount = 0
+                for _, opt in ipairs(options) do
+                    local optStr = (type(opt) == "table") and tostring(opt.Name or opt.Text or opt[1]) or tostring(opt)
+                    local optIcon = (type(opt) == "table") and (opt.Icon or opt.Image) or (dropConfig.OptionIcons and dropConfig.OptionIcons[optStr])
+                    if not selectedMap[optStr] then
+                        local matches = (currentFilter == "" or optStr:lower():find(currentFilter, 1, true))
+                        if matches then
+                            availCount = availCount + 1
+                            local ItemBtn = Instance.new("TextButton")
+                            ItemBtn.Name = "Avail_" .. optStr
+                            ItemBtn.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
+                            ItemBtn.BackgroundColor3 = Window.CurrentTheme.AccentBG
+                            ItemBtn.BackgroundTransparency = 0.8
+                            ItemBtn.BorderSizePixel = 0
+                            ItemBtn.LayoutOrder = currentOrder
+                            currentOrder = currentOrder + 1
+                            ItemBtn.ZIndex = 503
+                            ItemBtn.Parent = InnerScroll
+
+                            local itemCorner = Instance.new("UICorner")
+                            itemCorner.CornerRadius = UDim.new(0, 6)
+                            itemCorner.Parent = ItemBtn
+
+                            local xOff = 8
+                            if optIcon then
+                                local IconImg = Instance.new("ImageLabel")
+                                IconImg.Size = UDim2.new(0, 16, 0, 16)
+                                IconImg.Position = UDim2.new(0, xOff, 0.5, -8)
+                                IconImg.BackgroundTransparency = 1
+                                IconImg.Image = tostring(optIcon):find("://") and tostring(optIcon) or ("rbxassetid://" .. tostring(optIcon))
+                                IconImg.ScaleType = Enum.ScaleType.Fit
+                                IconImg.ZIndex = 504
+                                IconImg.Parent = ItemBtn
+                                xOff = xOff + 22
+                            end
+
+                            local ItemLabel = Instance.new("TextLabel")
+                            ItemLabel.Name = "Label"
+                            ItemLabel.Size = UDim2.new(1, -(xOff + 26), 1, 0)
+                            ItemLabel.Position = UDim2.new(0, xOff, 0, 0)
+                            ItemLabel.BackgroundTransparency = 1
+                            ItemLabel.FontFace = FontFingerPaintRegular
+                            ItemLabel.Text = optStr
+                            ItemLabel.TextColor3 = Window.CurrentTheme.Text
+                            ItemLabel.TextSize = 12
+                            ItemLabel.TextXAlignment = Enum.TextXAlignment.Left
+                            ItemLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                            ItemLabel.ZIndex = 504
+                            ItemLabel.Parent = ItemBtn
+
+                            local AddIcon = Instance.new("TextLabel")
+                            AddIcon.Name = "Add"
+                            AddIcon.Size = UDim2.new(0, 20, 1, 0)
+                            AddIcon.Position = UDim2.new(1, -22, 0, 0)
+                            AddIcon.BackgroundTransparency = 1
+                            AddIcon.FontFace = FontFingerPaintRegular
+                            AddIcon.Text = "+"
+                            AddIcon.TextColor3 = Window.CurrentTheme.SubText
+                            AddIcon.TextSize = 14
+                            AddIcon.ZIndex = 504
+                            AddIcon.Parent = ItemBtn
+
+                            ItemBtn.MouseButton1Click:Connect(function()
+                                PlayClickSFX()
+                                if maxSelected and #selectedOrder >= maxSelected then
+                                    return
+                                end
+                                selectedMap[optStr] = true
+                                table.insert(selectedOrder, optStr)
+                                UpdateTitleDisplay()
+                                RebuildItemRows(currentFilter)
+                                if onSelect then pcall(onSelect, GetSelectedList()) end
+                            end)
+                        end
+                    end
+                end
+
+                if availCount == 0 then
+                    local noAvail = Instance.new("TextLabel")
+                    noAvail.Name = "NoAvail"
+                    noAvail.Size = UDim2.new(1, 0, 0, 22)
+                    noAvail.BackgroundTransparency = 1
+                    noAvail.FontFace = FontFingerPaintRegular
+                    noAvail.Text = "All items active"
+                    noAvail.TextColor3 = Window.CurrentTheme.SubText
+                    noAvail.TextTransparency = 0.5
+                    noAvail.TextSize = 11
+                    noAvail.TextXAlignment = Enum.TextXAlignment.Center
+                    noAvail.LayoutOrder = currentOrder
+                    currentOrder = currentOrder + 1
+                    noAvail.ZIndex = 503
+                    noAvail.Parent = InnerScroll
+                end
+
+                NoResultsLabel.Visible = false
+                local totalItems = #selectedOrder + availCount + 3
+                local totalContentY = (totalItems * ROW_HEIGHT)
+                InnerScroll.CanvasSize = UDim2.new(0, 0, 0, totalContentY)
+                return totalItems
+            end
+
             for _, child in ipairs(InnerScroll:GetChildren()) do
                 if child:IsA("TextButton") then child:Destroy() end
             end
@@ -2995,7 +3317,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local iconAsset = tostring(_checkIconId):find("://") and tostring(_checkIconId) or ("rbxassetid://" .. tostring(_checkIconId))
 
             for idx, opt in ipairs(options) do
-                local optStr = tostring(opt)
+                local optStr = (type(opt) == "table") and tostring(opt.Name or opt.Text or opt[1]) or tostring(opt)
+                local optIcon = (type(opt) == "table") and (opt.Icon or opt.Image) or (dropConfig.OptionIcons and dropConfig.OptionIcons[optStr])
                 local matches = (currentFilter == "" or optStr:lower():find(currentFilter, 1, true))
 
                 if matches then
@@ -3058,10 +3381,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         CheckIcon.ZIndex = 505
                         CheckIcon.Parent = BoxOuter
 
+                        local labelX = 28
+                        if optIcon then
+                            local IconImg = Instance.new("ImageLabel")
+                            IconImg.Name = "Icon"
+                            IconImg.Size = UDim2.new(0, 16, 0, 16)
+                            IconImg.Position = UDim2.new(0, 26, 0.5, -8)
+                            IconImg.BackgroundTransparency = 1
+                            IconImg.Image = tostring(optIcon):find("://") and tostring(optIcon) or ("rbxassetid://" .. tostring(optIcon))
+                            IconImg.ScaleType = Enum.ScaleType.Fit
+                            IconImg.ZIndex = 505
+                            IconImg.Parent = ItemBtn
+                            labelX = 46
+                        end
+
                         local ItemLabel = Instance.new("TextLabel")
                         ItemLabel.Name = "Label"
-                        ItemLabel.Size = UDim2.new(1, -34, 1, 0)
-                        ItemLabel.Position = UDim2.new(0, 28, 0, 0)
+                        ItemLabel.Size = UDim2.new(1, -(labelX + 6), 1, 0)
+                        ItemLabel.Position = UDim2.new(0, labelX, 0, 0)
                         ItemLabel.BackgroundTransparency = 1
                         ItemLabel.FontFace = FontFingerPaintRegular
                         ItemLabel.Text = optStr
@@ -3092,7 +3429,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         ItemBtn.TextTruncate = Enum.TextTruncate.AtEnd
 
                         local pad = Instance.new("UIPadding")
-                        pad.PaddingLeft = UDim.new(0, 8)
+                        local padLeft = 8
+                        if optIcon then
+                            local IconImg = Instance.new("ImageLabel")
+                            IconImg.Name = "Icon"
+                            IconImg.Size = UDim2.new(0, 16, 0, 16)
+                            IconImg.Position = UDim2.new(0, 6, 0.5, -8)
+                            IconImg.BackgroundTransparency = 1
+                            IconImg.Image = tostring(optIcon):find("://") and tostring(optIcon) or ("rbxassetid://" .. tostring(optIcon))
+                            IconImg.ScaleType = Enum.ScaleType.Fit
+                            IconImg.ZIndex = 505
+                            IconImg.Parent = ItemBtn
+                            padLeft = 26
+                        end
+                        pad.PaddingLeft = UDim.new(0, padLeft)
                         pad.Parent = ItemBtn
 
                         ItemBtn.MouseButton1Click:Connect(function()
@@ -3407,20 +3757,52 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if selfOrSels == dropObj then sels = maybeSels trigger = maybeTrigger
                 else sels = selfOrSels trigger = maybeSels end
                 selectedMap = {}
+                selectedOrder = {}
                 if type(sels) == "table" then
                     for k, v in pairs(sels) do
-                        if type(k) == "number" then selectedMap[tostring(v)] = true
-                        elseif v == true then selectedMap[tostring(k)] = true end
+                        if type(k) == "number" then
+                            local vStr = tostring(v)
+                            if not selectedMap[vStr] then
+                                selectedMap[vStr] = true
+                                table.insert(selectedOrder, vStr)
+                            end
+                        elseif v == true then
+                            local kStr = tostring(k)
+                            if not selectedMap[kStr] then
+                                selectedMap[kStr] = true
+                                table.insert(selectedOrder, kStr)
+                            end
+                        end
                     end
                 elseif type(sels) == "string" then
-                    selectedMap[tostring(sels)] = true
+                    local sStr = tostring(sels)
+                    selectedMap[sStr] = true
+                    table.insert(selectedOrder, sStr)
                 end
                 UpdateTitleDisplay()
                 for k in pairs(itemRows) do
                     UpdateRowVisuals(k, true)
                 end
+                if isPriority then
+                    RebuildItemRows(currentFilter)
+                end
                 if trigger and onSelect then
                     pcall(onSelect, GetSelectedList(), nil, nil)
+                end
+            end,
+            Clear = function(selfOrTrigger, maybeTrigger)
+                local trigger = (selfOrTrigger == dropObj) and maybeTrigger or selfOrTrigger
+                selectedMap = {}
+                selectedOrder = {}
+                UpdateTitleDisplay()
+                for k in pairs(itemRows) do
+                    UpdateRowVisuals(k, true)
+                end
+                if isPriority then
+                    RebuildItemRows(currentFilter)
+                end
+                if trigger and onSelect then
+                    pcall(onSelect, GetSelectedList())
                 end
             end,
             Select = function(selfOrOpt, maybeOpt, maybeTrigger)
@@ -3615,7 +3997,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             dropObj:WithTooltip(dropConfig.Tooltip or dropConfig.tooltip)
         end
 
-        dropObj.DefaultOption = defaultOption
+        dropObj.DefaultOption = defaultVal
         dropObj.InitialOptions = (type(options) == "table") and table.clone(options) or {}
 
         RebuildItemRows("")
@@ -3630,9 +4012,927 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return BuildGenericDropdown(true, parent, position, size, title, options, defaultSelections, onSelect, multiConfig)
     end
 
+    function Window:CreateMDPriorityDropdown(parent, position, size, title, options, defaultOrder, onSelect, dropConfig)
+        dropConfig = (type(dropConfig) == "table") and table.clone(dropConfig) or {}
+        dropConfig.Priority = true
+        return BuildGenericDropdown("priority", parent, position, size, title, options, defaultOrder, onSelect, dropConfig)
+    end
+
+    function Window:CreateMDImageDropdown(parent, position, size, title, options, defaultOption, onSelect, dropConfig)
+        dropConfig = (type(dropConfig) == "table") and table.clone(dropConfig) or {}
+        dropConfig.HasIcons = true
+        return BuildGenericDropdown(false, parent, position, size, title, options, defaultOption, onSelect, dropConfig)
+    end
+
     function Window:CreateMDDropdownHalf(parent, position, size, title, options, defaultOption, onSelect)
         size = size or UDim2.new(0, 309, 0, 62)
         return Window:CreateMDDropdown(parent, position, size, title, options, defaultOption, onSelect)
+    end
+
+    function Window:CreateMDStatGrid(parent, position, size, config)
+        parent = ResolveParent(parent)
+        config = (type(config) == "table") and config or {}
+        local inSection = IsInsideSection(parent)
+        local columns = math.clamp(tonumber(config.Columns or config.columns) or 2, 1, 6)
+        local stats = config.Stats or config.stats or {}
+        local title = config.Title or config.title or ""
+
+        local CardFrame = Instance.new("Frame")
+        CardFrame.Name = GenerateSafeName("StatGrid")
+        CardFrame:SetAttribute("MDCard", true)
+        CardFrame.Size = size or UDim2.new(1, -10, 0, 0)
+        CardFrame.AutomaticSize = Enum.AutomaticSize.Y
+        CardFrame.Position = position or UDim2.new(0, 0, 0, 0)
+        CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
+        CardFrame.BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
+        CardFrame.BorderSizePixel = 0
+        CardFrame.ZIndex = 10
+        CardFrame.Parent = parent
+
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 12)
+        Corner.Parent = CardFrame
+
+        local pad = Instance.new("UIPadding")
+        pad.PaddingTop = UDim.new(0, 10)
+        pad.PaddingBottom = UDim.new(0, 10)
+        pad.PaddingLeft = UDim.new(0, 10)
+        pad.PaddingRight = UDim.new(0, 10)
+        pad.Parent = CardFrame
+
+        local listLayout = Instance.new("UIListLayout")
+        listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        listLayout.Padding = UDim.new(0, 8)
+        listLayout.Parent = CardFrame
+
+        local TitleLabel = nil
+        if title and title ~= "" then
+            TitleLabel = Instance.new("TextLabel")
+            TitleLabel.Name = "StatGridTitle"
+            TitleLabel.Size = UDim2.new(1, 0, 0, 18)
+            TitleLabel.BackgroundTransparency = 1
+            TitleLabel.FontFace = FontFingerPaintRegular
+            TitleLabel.Text = title
+            TitleLabel.TextColor3 = Window.CurrentTheme.Text
+            TitleLabel.TextSize = 13
+            TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+            TitleLabel.ZIndex = 11
+            TitleLabel.LayoutOrder = 1
+            TitleLabel.Parent = CardFrame
+        end
+
+        local GridContainer = Instance.new("Frame")
+        GridContainer.Name = "GridContainer"
+        GridContainer.Size = UDim2.new(1, 0, 0, 0)
+        GridContainer.AutomaticSize = Enum.AutomaticSize.Y
+        GridContainer.BackgroundTransparency = 1
+        GridContainer.BorderSizePixel = 0
+        GridContainer.ZIndex = 11
+        GridContainer.LayoutOrder = 2
+        GridContainer.Parent = CardFrame
+
+        local gridLayout = Instance.new("UIGridLayout")
+        gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        gridLayout.CellPadding = UDim2.new(0, 6, 0, 6)
+        gridLayout.CellSize = UDim2.new(1 / columns, -math.floor(6 * (columns - 1) / columns), 0, 52)
+        gridLayout.Parent = GridContainer
+
+        local statTiles = {}
+        local statValues = {}
+
+        local function CreateTile(statDef, idx)
+            local sName = (type(statDef) == "table") and (statDef.Name or statDef.Title or statDef[1]) or tostring(statDef)
+            local sVal = (type(statDef) == "table") and (statDef.Value or statDef.val or statDef[2]) or "0"
+
+            local Tile = Instance.new("Frame")
+            Tile.Name = "Tile_" .. sName
+            Tile.BackgroundColor3 = GetThemedDarkColor(Window.CurrentTheme)
+            Tile.BackgroundTransparency = 0.4
+            Tile.BorderSizePixel = 0
+            Tile.ZIndex = 12
+            Tile.LayoutOrder = idx or (#GridContainer:GetChildren() + 1)
+            Tile.Parent = GridContainer
+
+            local tCorner = Instance.new("UICorner")
+            tCorner.CornerRadius = UDim.new(0, 8)
+            tCorner.Parent = Tile
+
+            local tStroke = Instance.new("UIStroke")
+            tStroke.Thickness = 1
+            tStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80)
+            tStroke.Transparency = 0.7
+            tStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            tStroke.Parent = Tile
+
+            local tPad = Instance.new("UIPadding")
+            tPad.PaddingLeft = UDim.new(0, 8)
+            tPad.PaddingRight = UDim.new(0, 8)
+            tPad.PaddingTop = UDim.new(0, 6)
+            tPad.PaddingBottom = UDim.new(0, 6)
+            tPad.Parent = Tile
+
+            local NameText = Instance.new("TextLabel")
+            NameText.Name = "Label"
+            NameText.Size = UDim2.new(1, 0, 0, 14)
+            NameText.Position = UDim2.new(0, 0, 0, 0)
+            NameText.BackgroundTransparency = 1
+            NameText.FontFace = FontFingerPaintRegular
+            NameText.Text = sName
+            NameText.TextColor3 = Window.CurrentTheme.SubText
+            NameText.TextSize = 11
+            NameText.TextTruncate = Enum.TextTruncate.AtEnd
+            NameText.TextXAlignment = Enum.TextXAlignment.Left
+            NameText.ZIndex = 13
+            NameText.Parent = Tile
+
+            local ValText = Instance.new("TextLabel")
+            ValText.Name = "Value"
+            ValText.Size = UDim2.new(1, 0, 0, 22)
+            ValText.Position = UDim2.new(0, 0, 1, -22)
+            ValText.BackgroundTransparency = 1
+            ValText.FontFace = FontFingerPaintRegular
+            ValText.Text = tostring(sVal)
+            ValText.TextColor3 = Window.CurrentTheme.Text
+            ValText.TextSize = 15
+            ValText.TextTruncate = Enum.TextTruncate.AtEnd
+            ValText.TextXAlignment = Enum.TextXAlignment.Left
+            ValText.ZIndex = 13
+            ValText.Parent = Tile
+
+            statTiles[sName] = {
+                Tile = Tile,
+                Stroke = tStroke,
+                NameText = NameText,
+                ValText = ValText
+            }
+            statValues[sName] = sVal
+        end
+
+        for i, s in ipairs(stats) do
+            CreateTile(s, i)
+        end
+
+        local gridObj
+        gridObj = {
+            Card = CardFrame,
+            Set = function(selfOrName, maybeNameOrVal, maybeVal)
+                local sName, sVal
+                if type(selfOrName) == "string" then
+                    sName = selfOrName
+                    sVal = maybeNameOrVal
+                else
+                    sName = maybeNameOrVal
+                    sVal = maybeVal
+                end
+                statValues[sName] = sVal
+                local t = statTiles[sName]
+                if t then
+                    t.ValText.Text = tostring(sVal)
+                else
+                    CreateTile({ Name = sName, Value = sVal }, #GridContainer:GetChildren() + 1)
+                end
+                return CardFrame
+            end,
+            Update = function(selfOrTbl, maybeTbl)
+                local tbl = (type(selfOrTbl) == "table" and selfOrTbl ~= gridObj) and selfOrTbl or maybeTbl
+                if type(tbl) == "table" then
+                    for k, v in pairs(tbl) do
+                        gridObj.Set(k, v)
+                    end
+                end
+                return CardFrame
+            end,
+            Get = function(selfOrName, maybeName)
+                local sName = (type(selfOrName) == "string") and selfOrName or maybeName
+                return statValues[sName]
+            end,
+            RefreshTheme = function(theme)
+                CardFrame.BackgroundColor3 = theme.CardBG
+                if TitleLabel then TitleLabel.TextColor3 = theme.Text end
+                for _, t in pairs(statTiles) do
+                    t.Tile.BackgroundColor3 = GetThemedDarkColor(theme)
+                    t.Stroke.Color = theme.Divider or Color3.fromRGB(60, 65, 80)
+                    t.NameText.TextColor3 = theme.SubText
+                    t.ValText.TextColor3 = theme.Text
+                end
+            end
+        }
+        return gridObj
+    end
+
+    function Window:CreateMDImageGrid(parent, position, size, config)
+        parent = ResolveParent(parent)
+        config = (type(config) == "table") and config or {}
+        local inSection = IsInsideSection(parent)
+        local title = config.Title or config.title or "Gallery"
+        local items = config.Items or config.items or {}
+        local columns = math.clamp(tonumber(config.Columns or config.columns) or 3, 1, 6)
+        local isMulti = (config.Multi == true or config.multi == true)
+        local callback = config.Callback or config.callback
+
+        local CardFrame = Instance.new("Frame")
+        CardFrame.Name = GenerateSafeName("ImageGrid")
+        CardFrame:SetAttribute("MDCard", true)
+        CardFrame.Size = size or UDim2.new(1, -10, 0, 0)
+        CardFrame.AutomaticSize = Enum.AutomaticSize.Y
+        CardFrame.Position = position or UDim2.new(0, 0, 0, 0)
+        CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
+        CardFrame.BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
+        CardFrame.BorderSizePixel = 0
+        CardFrame.ZIndex = 10
+        CardFrame.Parent = parent
+
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 12)
+        Corner.Parent = CardFrame
+
+        local pad = Instance.new("UIPadding")
+        pad.PaddingTop = UDim.new(0, 10)
+        pad.PaddingBottom = UDim.new(0, 10)
+        pad.PaddingLeft = UDim.new(0, 10)
+        pad.PaddingRight = UDim.new(0, 10)
+        pad.Parent = CardFrame
+
+        local listLayout = Instance.new("UIListLayout")
+        listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        listLayout.Padding = UDim.new(0, 8)
+        listLayout.Parent = CardFrame
+
+        local HeaderFrame = Instance.new("Frame")
+        HeaderFrame.Name = "Header"
+        HeaderFrame.Size = UDim2.new(1, 0, 0, 20)
+        HeaderFrame.BackgroundTransparency = 1
+        HeaderFrame.ZIndex = 11
+        HeaderFrame.LayoutOrder = 1
+        HeaderFrame.Parent = CardFrame
+
+        local TitleLabel = Instance.new("TextLabel")
+        TitleLabel.Name = "Title"
+        TitleLabel.Size = UDim2.new(0.6, 0, 1, 0)
+        TitleLabel.BackgroundTransparency = 1
+        TitleLabel.FontFace = FontFingerPaintRegular
+        TitleLabel.Text = title
+        TitleLabel.TextColor3 = Window.CurrentTheme.Text
+        TitleLabel.TextSize = 13
+        TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TitleLabel.ZIndex = 12
+        TitleLabel.Parent = HeaderFrame
+
+        local StatusLabel = Instance.new("TextLabel")
+        StatusLabel.Name = "Status"
+        StatusLabel.Size = UDim2.new(0.4, 0, 1, 0)
+        StatusLabel.Position = UDim2.new(0.6, 0, 0, 0)
+        StatusLabel.BackgroundTransparency = 1
+        StatusLabel.FontFace = FontFingerPaintRegular
+        StatusLabel.Text = ""
+        StatusLabel.TextColor3 = Window.CurrentTheme.SubText
+        StatusLabel.TextSize = 11
+        StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
+        StatusLabel.ZIndex = 12
+        StatusLabel.Parent = HeaderFrame
+
+        local GridContainer = Instance.new("Frame")
+        GridContainer.Name = "Grid"
+        GridContainer.Size = UDim2.new(1, 0, 0, 0)
+        GridContainer.AutomaticSize = Enum.AutomaticSize.Y
+        GridContainer.BackgroundTransparency = 1
+        GridContainer.BorderSizePixel = 0
+        GridContainer.ZIndex = 11
+        GridContainer.LayoutOrder = 2
+        GridContainer.Parent = CardFrame
+
+        local gridLayout = Instance.new("UIGridLayout")
+        gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        gridLayout.CellPadding = UDim2.new(0, 6, 0, 6)
+        gridLayout.CellSize = UDim2.new(1 / columns, -math.floor(6 * (columns - 1) / columns), 0, 82)
+        gridLayout.Parent = GridContainer
+
+        local selectedMap = {}
+        local selectedOrder = {}
+        local itemTiles = {}
+
+        local def = config.Default or config.default
+        if def then
+            if type(def) == "table" then
+                for _, v in pairs(def) do
+                    local vStr = tostring(v)
+                    selectedMap[vStr] = true
+                    table.insert(selectedOrder, vStr)
+                end
+            else
+                local vStr = tostring(def)
+                selectedMap[vStr] = true
+                table.insert(selectedOrder, vStr)
+            end
+        end
+
+        local function UpdateVisuals()
+            for name, tile in pairs(itemTiles) do
+                local isSel = selectedMap[name] == true
+                tile.Stroke.Color = isSel and Window.CurrentTheme.ButtonBG or (Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80))
+                tile.Stroke.Transparency = isSel and 0.1 or 0.7
+                tile.Stroke.Thickness = isSel and 2 or 1
+                tile.Tile.BackgroundColor3 = isSel and Window.CurrentTheme.AccentBG or GetThemedDarkColor(Window.CurrentTheme)
+                tile.Tile.BackgroundTransparency = isSel and 0.4 or 0.6
+                tile.NameLabel.TextColor3 = isSel and Window.CurrentTheme.Text or Window.CurrentTheme.SubText
+            end
+            if isMulti then
+                local count = #selectedOrder
+                StatusLabel.Text = (count > 0) and ("(" .. count .. " selected)") or "None"
+            else
+                StatusLabel.Text = selectedOrder[1] or "None"
+            end
+        end
+
+        local function BuildTiles()
+            for _, child in ipairs(GridContainer:GetChildren()) do
+                if child:IsA("TextButton") then child:Destroy() end
+            end
+            itemTiles = {}
+            for i, it in ipairs(items) do
+                local itName = (type(it) == "table") and (it.Name or it.Title or it.Text or it[1]) or tostring(it)
+                local itImg = (type(it) == "table") and (it.Image or it.Icon or it[2]) or ""
+                local imgAsset = tostring(itImg):find("://") and tostring(itImg) or ("rbxassetid://" .. tostring(itImg))
+
+                local Tile = Instance.new("TextButton")
+                Tile.Name = "Tile_" .. itName
+                Tile.Text = ""
+                Tile.BackgroundColor3 = GetThemedDarkColor(Window.CurrentTheme)
+                Tile.BackgroundTransparency = 0.6
+                Tile.BorderSizePixel = 0
+                Tile.ZIndex = 12
+                Tile.LayoutOrder = i
+                Tile.Parent = GridContainer
+
+                local tCorner = Instance.new("UICorner")
+                tCorner.CornerRadius = UDim.new(0, 8)
+                tCorner.Parent = Tile
+
+                local tStroke = Instance.new("UIStroke")
+                tStroke.Thickness = 1
+                tStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80)
+                tStroke.Transparency = 0.7
+                tStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                tStroke.Parent = Tile
+
+                local Img = Instance.new("ImageLabel")
+                Img.Name = "Thumb"
+                Img.Size = UDim2.new(1, -12, 0, 48)
+                Img.Position = UDim2.new(0, 6, 0, 6)
+                Img.BackgroundTransparency = 1
+                Img.Image = imgAsset
+                Img.ScaleType = Enum.ScaleType.Fit
+                Img.ZIndex = 13
+                Img.Parent = Tile
+
+                local NameLbl = Instance.new("TextLabel")
+                NameLbl.Name = "Name"
+                NameLbl.Size = UDim2.new(1, -8, 0, 18)
+                NameLbl.Position = UDim2.new(0, 4, 1, -22)
+                NameLbl.BackgroundTransparency = 1
+                NameLbl.FontFace = FontFingerPaintRegular
+                NameLbl.Text = itName
+                NameLbl.TextColor3 = Window.CurrentTheme.SubText
+                NameLbl.TextSize = 11
+                NameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+                NameLbl.TextXAlignment = Enum.TextXAlignment.Center
+                NameLbl.ZIndex = 13
+                NameLbl.Parent = Tile
+
+                itemTiles[itName] = {
+                    Tile = Tile,
+                    Stroke = tStroke,
+                    Img = Img,
+                    NameLabel = NameLbl,
+                    Item = it
+                }
+
+                Tile.MouseButton1Click:Connect(function()
+                    PlayClickSFX()
+                    if isMulti then
+                        if selectedMap[itName] then
+                            selectedMap[itName] = nil
+                            for idx, v in ipairs(selectedOrder) do
+                                if v == itName then table.remove(selectedOrder, idx) break end
+                            end
+                        else
+                            selectedMap[itName] = true
+                            table.insert(selectedOrder, itName)
+                        end
+                    else
+                        selectedMap = { [itName] = true }
+                        selectedOrder = { itName }
+                    end
+                    UpdateVisuals()
+                    if callback then
+                        if isMulti then
+                            local selItems = {}
+                            for _, v in ipairs(selectedOrder) do
+                                table.insert(selItems, itemTiles[v] and itemTiles[v].Item or v)
+                            end
+                            pcall(callback, selItems, it)
+                        else
+                            pcall(callback, it)
+                        end
+                    end
+                end)
+            end
+            UpdateVisuals()
+        end
+
+        BuildTiles()
+
+        local galleryObj
+        galleryObj = {
+            Card = CardFrame,
+            GetSelected = function()
+                if isMulti then
+                    local res = {}
+                    for _, v in ipairs(selectedOrder) do
+                        table.insert(res, itemTiles[v] and itemTiles[v].Item or v)
+                    end
+                    return res
+                else
+                    local s = selectedOrder[1]
+                    return s and (itemTiles[s] and itemTiles[s].Item or s) or nil
+                end
+            end,
+            SetSelected = function(selfOrSel, maybeSel, trigger)
+                local sel, trig
+                if type(selfOrSel) == "table" and (selfOrSel.GetSelected or selfOrSel.Card) then
+                    sel = maybeSel
+                    trig = trigger
+                else
+                    sel = selfOrSel
+                    trig = maybeSel
+                end
+                selectedMap = {}
+                selectedOrder = {}
+                if isMulti and type(sel) == "table" then
+                    for _, v in pairs(sel) do
+                        local s = (type(v) == "table") and (v.Name or v.Title or v[1]) or tostring(v)
+                        selectedMap[s] = true
+                        table.insert(selectedOrder, s)
+                    end
+                elseif sel then
+                    local s = (type(sel) == "table") and (sel.Name or sel.Title or sel[1]) or tostring(sel)
+                    selectedMap[s] = true
+                    table.insert(selectedOrder, s)
+                end
+                UpdateVisuals()
+                if trig and callback then
+                    pcall(callback, galleryObj.GetSelected())
+                end
+            end,
+            SetItems = function(selfOrItems, maybeItems)
+                local newItems = (type(selfOrItems) == "table" and (selfOrItems.GetSelected or selfOrItems.Card)) and maybeItems or selfOrItems
+                items = newItems or {}
+                BuildTiles()
+            end,
+            RefreshTheme = function(theme)
+                CardFrame.BackgroundColor3 = theme.CardBG
+                TitleLabel.TextColor3 = theme.Text
+                UpdateVisuals()
+            end
+        }
+        return galleryObj
+    end
+
+    function Window:CreateMDPreview(parent, position, size, config)
+        parent = ResolveParent(parent)
+        config = (type(config) == "table") and config or {}
+        local inSection = IsInsideSection(parent)
+        local title = config.Title or config.title or "Preview"
+        local previewHeight = tonumber(config.Height or config.height) or 160
+
+        local CardFrame = Instance.new("Frame")
+        CardFrame.Name = GenerateSafeName("PreviewCard")
+        CardFrame:SetAttribute("MDCard", true)
+        CardFrame.Size = size or UDim2.new(1, -10, 0, previewHeight + 40)
+        CardFrame.Position = position or UDim2.new(0, 0, 0, 0)
+        CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
+        CardFrame.BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
+        CardFrame.BorderSizePixel = 0
+        CardFrame.ZIndex = 10
+        CardFrame.Parent = parent
+
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 12)
+        Corner.Parent = CardFrame
+
+        local pad = Instance.new("UIPadding")
+        pad.PaddingTop = UDim.new(0, 10)
+        pad.PaddingBottom = UDim.new(0, 10)
+        pad.PaddingLeft = UDim.new(0, 10)
+        pad.PaddingRight = UDim.new(0, 10)
+        pad.Parent = CardFrame
+
+        local TitleLabel = Instance.new("TextLabel")
+        TitleLabel.Name = "PreviewTitle"
+        TitleLabel.Size = UDim2.new(1, 0, 0, 18)
+        TitleLabel.BackgroundTransparency = 1
+        TitleLabel.FontFace = FontFingerPaintRegular
+        TitleLabel.Text = title
+        TitleLabel.TextColor3 = Window.CurrentTheme.Text
+        TitleLabel.TextSize = 13
+        TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TitleLabel.ZIndex = 11
+        TitleLabel.Parent = CardFrame
+
+        local CanvasFrame = Instance.new("Frame")
+        CanvasFrame.Name = "Canvas"
+        CanvasFrame.Size = UDim2.new(1, 0, 1, -24)
+        CanvasFrame.Position = UDim2.new(0, 0, 0, 24)
+        CanvasFrame.BackgroundColor3 = Color3.fromRGB(15, 17, 22)
+        CanvasFrame.BorderSizePixel = 0
+        CanvasFrame.ClipsDescendants = true
+        CanvasFrame.ZIndex = 11
+        CanvasFrame.Parent = CardFrame
+
+        local cCorner = Instance.new("UICorner")
+        cCorner.CornerRadius = UDim.new(0, 8)
+        cCorner.Parent = CanvasFrame
+
+        local cStroke = Instance.new("UIStroke")
+        cStroke.Thickness = 1
+        cStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(50, 55, 70)
+        cStroke.Transparency = 0.5
+        cStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        cStroke.Parent = CanvasFrame
+
+        local CenterCrossH = Instance.new("Frame")
+        CenterCrossH.Name = "GuideH"
+        CenterCrossH.Size = UDim2.new(0, 14, 0, 1)
+        CenterCrossH.Position = UDim2.new(0.5, -7, 0.5, 0)
+        CenterCrossH.BackgroundColor3 = Color3.fromRGB(80, 85, 100)
+        CenterCrossH.BackgroundTransparency = 0.6
+        CenterCrossH.BorderSizePixel = 0
+        CenterCrossH.ZIndex = 12
+        CenterCrossH.Parent = CanvasFrame
+
+        local CenterCrossV = Instance.new("Frame")
+        CenterCrossV.Name = "GuideV"
+        CenterCrossV.Size = UDim2.new(0, 1, 0, 14)
+        CenterCrossV.Position = UDim2.new(0.5, 0, 0.5, -7)
+        CenterCrossV.BackgroundColor3 = Color3.fromRGB(80, 85, 100)
+        CenterCrossV.BackgroundTransparency = 0.6
+        CenterCrossV.BorderSizePixel = 0
+        CenterCrossV.ZIndex = 12
+        CenterCrossV.Parent = CanvasFrame
+
+        local updateFn = config.Update or config.update
+        local previewObj = {
+            Card = CardFrame,
+            Canvas = CanvasFrame,
+            GetCanvas = function() return CanvasFrame end,
+            SetUpdate = function(selfOrFn, maybeFn)
+                local fn = (type(selfOrFn) == "function") and selfOrFn or maybeFn
+                updateFn = fn
+            end,
+            Update = function(selfOrData, ...)
+                if updateFn then
+                    pcall(updateFn, CanvasFrame, selfOrData, ...)
+                end
+            end,
+            Clear = function()
+                for _, child in ipairs(CanvasFrame:GetChildren()) do
+                    if child ~= CenterCrossH and child ~= CenterCrossV and child ~= cCorner and child ~= cStroke then
+                        child:Destroy()
+                    end
+                end
+            end,
+            CreateMockPlayer = function(self, opts)
+                opts = (type(opts) == "table") and opts or {}
+                local dummy = Instance.new("Frame")
+                dummy.Name = "MockPlayer"
+                dummy.Size = UDim2.new(0, 48, 0, 96)
+                dummy.Position = opts.Position or UDim2.new(0.5, -24, 0.5, -48)
+                dummy.BackgroundTransparency = 1
+                dummy.ZIndex = 13
+                dummy.Parent = CanvasFrame
+
+                local torso = Instance.new("Frame")
+                torso.Name = "Torso"
+                torso.Size = UDim2.new(0, 24, 0, 36)
+                torso.Position = UDim2.new(0.5, -12, 0, 20)
+                torso.BackgroundColor3 = opts.ChamsColor or Color3.fromRGB(90, 100, 120)
+                torso.BorderSizePixel = 0
+                torso.ZIndex = 14
+                torso.Parent = dummy
+
+                local head = Instance.new("Frame")
+                head.Name = "Head"
+                head.Size = UDim2.new(0, 16, 0, 16)
+                head.Position = UDim2.new(0.5, -8, 0, 2)
+                head.BackgroundColor3 = opts.ChamsColor or Color3.fromRGB(110, 120, 140)
+                head.BorderSizePixel = 0
+                head.ZIndex = 14
+                head.Parent = dummy
+                local hCorner = Instance.new("UICorner")
+                hCorner.CornerRadius = UDim.new(0.5, 0)
+                hCorner.Parent = head
+
+                local leftArm = Instance.new("Frame")
+                leftArm.Name = "LeftArm"
+                leftArm.Size = UDim2.new(0, 8, 0, 34)
+                leftArm.Position = UDim2.new(0.5, -22, 0, 20)
+                leftArm.BackgroundColor3 = opts.ChamsColor or Color3.fromRGB(80, 90, 110)
+                leftArm.BorderSizePixel = 0
+                leftArm.ZIndex = 14
+                leftArm.Parent = dummy
+
+                local rightArm = Instance.new("Frame")
+                rightArm.Name = "RightArm"
+                rightArm.Size = UDim2.new(0, 8, 0, 34)
+                rightArm.Position = UDim2.new(0.5, 14, 0, 20)
+                rightArm.BackgroundColor3 = opts.ChamsColor or Color3.fromRGB(80, 90, 110)
+                rightArm.BorderSizePixel = 0
+                rightArm.ZIndex = 14
+                rightArm.Parent = dummy
+
+                local leftLeg = Instance.new("Frame")
+                leftLeg.Name = "LeftLeg"
+                leftLeg.Size = UDim2.new(0, 10, 0, 38)
+                leftLeg.Position = UDim2.new(0.5, -11, 0, 58)
+                leftLeg.BackgroundColor3 = opts.ChamsColor or Color3.fromRGB(70, 80, 100)
+                leftLeg.BorderSizePixel = 0
+                leftLeg.ZIndex = 14
+                leftLeg.Parent = dummy
+
+                local rightLeg = Instance.new("Frame")
+                rightLeg.Name = "RightLeg"
+                rightLeg.Size = UDim2.new(0, 10, 0, 38)
+                rightLeg.Position = UDim2.new(0.5, 1, 0, 58)
+                rightLeg.BackgroundColor3 = opts.ChamsColor or Color3.fromRGB(70, 80, 100)
+                rightLeg.BorderSizePixel = 0
+                rightLeg.ZIndex = 14
+                rightLeg.Parent = dummy
+
+                local boxOutline = Instance.new("Frame")
+                boxOutline.Name = "ESPBox"
+                boxOutline.Size = UDim2.new(1, 12, 1, 10)
+                boxOutline.Position = UDim2.new(0, -6, 0, -5)
+                boxOutline.BackgroundTransparency = 1
+                boxOutline.ZIndex = 16
+                boxOutline.Parent = dummy
+
+                local boxStroke = Instance.new("UIStroke")
+                boxStroke.Thickness = 1.5
+                boxStroke.Color = opts.BoxColor or Color3.fromRGB(255, 60, 60)
+                boxStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                boxStroke.Parent = boxOutline
+
+                local nameLbl = Instance.new("TextLabel")
+                nameLbl.Name = "ESPName"
+                nameLbl.Size = UDim2.new(1, 40, 0, 14)
+                nameLbl.Position = UDim2.new(0.5, -20, 0, -22)
+                nameLbl.AnchorPoint = Vector2.new(0.5, 0)
+                nameLbl.BackgroundTransparency = 1
+                nameLbl.FontFace = FontFingerPaintRegular
+                nameLbl.Text = opts.Name or "TargetPlayer [100m]"
+                nameLbl.TextColor3 = opts.NameColor or Color3.fromRGB(255, 255, 255)
+                nameLbl.TextSize = 11
+                nameLbl.ZIndex = 16
+                nameLbl.Parent = dummy
+
+                local hbBg = Instance.new("Frame")
+                hbBg.Name = "HealthbarBg"
+                hbBg.Size = UDim2.new(0, 3, 1, 10)
+                hbBg.Position = UDim2.new(0, -12, 0, -5)
+                hbBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+                hbBg.BorderSizePixel = 0
+                hbBg.ZIndex = 16
+                hbBg.Parent = dummy
+
+                local hbFill = Instance.new("Frame")
+                hbFill.Name = "HealthbarFill"
+                hbFill.Size = UDim2.new(1, 0, opts.Health and (opts.Health / 100) or 1, 0)
+                hbFill.Position = UDim2.new(0, 0, 1 - (opts.Health and (opts.Health / 100) or 1), 0)
+                hbFill.BackgroundColor3 = opts.HealthColor or Color3.fromRGB(50, 230, 110)
+                hbFill.BorderSizePixel = 0
+                hbFill.ZIndex = 17
+                hbFill.Parent = hbBg
+
+                return {
+                    Dummy = dummy,
+                    Torso = torso,
+                    Head = head,
+                    LeftArm = leftArm,
+                    RightArm = rightArm,
+                    LeftLeg = leftLeg,
+                    RightLeg = rightLeg,
+                    Box = boxOutline,
+                    BoxStroke = boxStroke,
+                    Name = nameLbl,
+                    HealthbarBg = hbBg,
+                    HealthbarFill = hbFill
+                }
+            end,
+            RefreshTheme = function(theme)
+                CardFrame.BackgroundColor3 = theme.CardBG
+                TitleLabel.TextColor3 = theme.Text
+            end
+        }
+        if updateFn then
+            pcall(updateFn, CanvasFrame)
+        end
+        return previewObj
+    end
+
+    function Window:CreateMDSubTabs(parentTab, tabNamesOrConfig, defaultSubTab)
+        local tabsList = {}
+        local defaultTabName = nil
+        local iconsMap = {}
+        if type(tabNamesOrConfig) == "table" then
+            if tabNamesOrConfig.Tabs or tabNamesOrConfig.tabs then
+                tabsList = tabNamesOrConfig.Tabs or tabNamesOrConfig.tabs or {}
+                defaultTabName = tabNamesOrConfig.Default or tabNamesOrConfig.default or tabsList[1]
+                iconsMap = tabNamesOrConfig.Icons or tabNamesOrConfig.icons or {}
+            else
+                tabsList = tabNamesOrConfig
+                defaultTabName = defaultSubTab or tabsList[1]
+            end
+        end
+
+        local ContentFrame = parentTab.Content or parentTab.ContentFrame or parentTab.Container or parentTab.ItemContainer or parentTab
+        
+        local SubTabsContainer = Instance.new("Frame")
+        SubTabsContainer.Name = GenerateSafeName("SubTabsContainer")
+        SubTabsContainer.Size = UDim2.new(1, -10, 0, 0)
+        SubTabsContainer.AutomaticSize = Enum.AutomaticSize.Y
+        SubTabsContainer.BackgroundTransparency = 1
+        SubTabsContainer.BorderSizePixel = 0
+        SubTabsContainer.ZIndex = 10
+        SubTabsContainer.Parent = ContentFrame
+
+        local mainList = Instance.new("UIListLayout")
+        mainList.SortOrder = Enum.SortOrder.LayoutOrder
+        mainList.Padding = UDim.new(0, 10)
+        mainList.Parent = SubTabsContainer
+
+        local PillBar = Instance.new("Frame")
+        PillBar.Name = "PillBar"
+        PillBar.Size = UDim2.new(1, 0, 0, 32)
+        PillBar.BackgroundColor3 = GetThemedDarkColor(Window.CurrentTheme)
+        PillBar.BackgroundTransparency = 0.5
+        PillBar.BorderSizePixel = 0
+        PillBar.ZIndex = 11
+        PillBar.LayoutOrder = 1
+        PillBar.Parent = SubTabsContainer
+
+        local pCorner = Instance.new("UICorner")
+        pCorner.CornerRadius = UDim.new(0, 8)
+        pCorner.Parent = PillBar
+
+        local pStroke = Instance.new("UIStroke")
+        pStroke.Thickness = 1
+        pStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80)
+        pStroke.Transparency = 0.8
+        pStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        pStroke.Parent = PillBar
+
+        local pPad = Instance.new("UIPadding")
+        pPad.PaddingTop = UDim.new(0, 3)
+        pPad.PaddingBottom = UDim.new(0, 3)
+        pPad.PaddingLeft = UDim.new(0, 4)
+        pPad.PaddingRight = UDim.new(0, 4)
+        pPad.Parent = PillBar
+
+        local pillList = Instance.new("UIListLayout")
+        pillList.FillDirection = Enum.FillDirection.Horizontal
+        pillList.SortOrder = Enum.SortOrder.LayoutOrder
+        pillList.Padding = UDim.new(0, 4)
+        pillList.Parent = PillBar
+
+        local activeTab = defaultTabName or (tabsList[1] and tostring(tabsList[1])) or "Tab"
+        local pillButtons = {}
+        local subContainers = {}
+        local subObjects = {}
+
+        local function SwitchSubTab(targetTab)
+            activeTab = targetTab
+            for tName, btn in pairs(pillButtons) do
+                local isActive = (tName == activeTab)
+                local targetBg = isActive and Window.CurrentTheme.ButtonBG or Color3.fromRGB(255, 255, 255)
+                local targetTrans = isActive and 0 or 1
+                local textCol = isActive and GetOnAccent(Window.CurrentTheme.ButtonBG) or Window.CurrentTheme.SubText
+                TweenService:Create(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    BackgroundColor3 = targetBg,
+                    BackgroundTransparency = targetTrans,
+                    TextColor3 = textCol
+                }):Play()
+            end
+            for tName, cFrame in pairs(subContainers) do
+                cFrame.Visible = (tName == activeTab)
+            end
+        end
+
+        local function CreateSubTabContainer(tName, order)
+            local SubFrame = Instance.new("Frame")
+            SubFrame.Name = "SubTab_" .. tName
+            SubFrame.Size = UDim2.new(1, 0, 0, 0)
+            SubFrame.AutomaticSize = Enum.AutomaticSize.Y
+            SubFrame.BackgroundTransparency = 1
+            SubFrame.BorderSizePixel = 0
+            SubFrame.ZIndex = 11
+            SubFrame.LayoutOrder = 2
+            SubFrame.Visible = (tName == activeTab)
+            SubFrame.Parent = SubTabsContainer
+
+            local subLayout = Instance.new("UIListLayout")
+            subLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            subLayout.Padding = UDim.new(0, 6)
+            subLayout.Parent = SubFrame
+
+            local subObj = {
+                Name = tName,
+                Container = SubFrame,
+                ItemContainer = SubFrame,
+                CurrentSectionContainer = SubFrame,
+                AddSection = function(self, titleOrConfig, isFullWidth)
+                    local cfg = (type(titleOrConfig) == "table" and not titleOrConfig.IsA) and table.clone(titleOrConfig) or { Title = titleOrConfig, FullWidth = isFullWidth }
+                    cfg.Parent = SubFrame
+                    return parentTab:AddSection(cfg, isFullWidth)
+                end
+            }
+
+            setmetatable(subObj, {
+                __index = function(tbl, key)
+                    if type(parentTab[key]) == "function" and key:sub(1, 3) == "Add" then
+                        return function(self, arg1, ...)
+                            if type(arg1) == "table" and not arg1.IsA then
+                                local cfg = table.clone(arg1)
+                                cfg.Parent = cfg.Parent or SubFrame
+                                return parentTab[key](parentTab, cfg, ...)
+                            else
+                                return parentTab[key](parentTab, arg1, ..., SubFrame)
+                            end
+                        end
+                    end
+                    return parentTab[key]
+                end
+            })
+
+            subContainers[tName] = SubFrame
+            subObjects[tName] = subObj
+            return subObj
+        end
+
+        local pillCount = #tabsList
+        for i, tNameRaw in ipairs(tabsList) do
+            local tName = tostring(tNameRaw)
+            local PillBtn = Instance.new("TextButton")
+            PillBtn.Name = "Pill_" .. tName
+            PillBtn.Size = UDim2.new(1 / pillCount, -math.floor(4 * (pillCount - 1) / pillCount), 1, 0)
+            PillBtn.BackgroundColor3 = (tName == activeTab) and Window.CurrentTheme.ButtonBG or Color3.fromRGB(255, 255, 255)
+            PillBtn.BackgroundTransparency = (tName == activeTab) and 0 or 1
+            PillBtn.BorderSizePixel = 0
+            PillBtn.FontFace = FontFingerPaintRegular
+            PillBtn.Text = tName
+            PillBtn.TextColor3 = (tName == activeTab) and GetOnAccent(Window.CurrentTheme.ButtonBG) or Window.CurrentTheme.SubText
+            PillBtn.TextSize = 12
+            PillBtn.ZIndex = 12
+            PillBtn.LayoutOrder = i
+            PillBtn.Parent = PillBar
+
+            local pillCorner = Instance.new("UICorner")
+            pillCorner.CornerRadius = UDim.new(0, 6)
+            pillCorner.Parent = PillBtn
+
+            pillButtons[tName] = PillBtn
+            CreateSubTabContainer(tName, i)
+
+            PillBtn.MouseButton1Click:Connect(function()
+                PlayClickSFX()
+                SwitchSubTab(tName)
+            end)
+        end
+
+        local stObj = {
+            Container = SubTabsContainer,
+            PillBar = PillBar,
+            Get = function(selfOrName, maybeName)
+                local name = (type(selfOrName) == "string") and selfOrName or maybeName
+                return subObjects[name]
+            end,
+            GetSubTab = function(selfOrName, maybeName)
+                local name = (type(selfOrName) == "string") and selfOrName or maybeName
+                return subObjects[name]
+            end,
+            Select = function(selfOrName, maybeName)
+                local name = (type(selfOrName) == "string") and selfOrName or maybeName
+                SwitchSubTab(name)
+            end,
+            GetCurrent = function()
+                return activeTab
+            end,
+            RefreshTheme = function(theme)
+                PillBar.BackgroundColor3 = GetThemedDarkColor(theme)
+                pStroke.Color = theme.Divider or Color3.fromRGB(60, 65, 80)
+                SwitchSubTab(activeTab)
+            end
+        }
+        return stObj
     end
 
     function Window:CreateConfigSection(parentTab)
@@ -10725,6 +12025,119 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return multiDropData
         end
 
+        function TabObj:AddPriorityDropdown(titleOrConfig, options, defaultOrder, onSelect, parentRow, position, sizeFraction)
+            local title, dropOpts, defOrder, cb, dropConfig
+            if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                title = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Target Priority"
+                dropOpts = titleOrConfig.Options or titleOrConfig.options or titleOrConfig.Values or titleOrConfig.values or titleOrConfig.List or titleOrConfig[2] or {}
+                defOrder = titleOrConfig.Default or titleOrConfig.default or titleOrConfig.Order or titleOrConfig[3] or {}
+                cb = titleOrConfig.Callback or titleOrConfig.OnSelect or titleOrConfig.callback or titleOrConfig[4]
+                dropConfig = titleOrConfig
+                parentRow = titleOrConfig.Parent or titleOrConfig.Row or parentRow
+                position = titleOrConfig.Position or position
+                sizeFraction = titleOrConfig.Size or titleOrConfig.Fraction or sizeFraction
+            else
+                title = tostring(titleOrConfig or "Target Priority")
+                dropOpts = options or {}
+                defOrder = defaultOrder or {}
+                cb = onSelect
+                dropConfig = {}
+            end
+
+            parentRow = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
+            local targetParent = parentRow or ContentFrame
+            local isGroup = parentRow and (parentRow.Name == "ToggleGroup" or parentRow.Name == "VerticalGroup" or parentRow.Name == "HorizontalGroup")
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isGroup) and 0.5 or 1.0)
+            local defaultH = isGroup and 38 or (parentRow and 42) or 44
+            local cardSize = explicitUDim or (isGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
+            local pos = position or UDim2.new(0, 0, 0, 0)
+
+            local dropData = Window:CreateMDPriorityDropdown(targetParent, pos, cardSize, title, dropOpts, defOrder, cb, dropConfig)
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            table.insert(Window.SearchableItems, {
+                Type = "PriorityDropdown",
+                Name = title or "PriorityDropdown",
+                Desc = "",
+                TabName = tabName,
+                Instance = dropData.Frame
+            })
+            return dropData
+        end
+
+        function TabObj:AddImageDropdown(titleOrConfig, options, defaultOption, onSelect, parentRow, position, sizeFraction)
+            local title, dropOpts, defOpt, cb, dropConfig
+            if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                title = titleOrConfig.Title or titleOrConfig.Name or titleOrConfig.Text or titleOrConfig[1] or "Select Option"
+                dropOpts = titleOrConfig.Options or titleOrConfig.options or titleOrConfig.Values or titleOrConfig.values or titleOrConfig.List or titleOrConfig[2] or {}
+                defOpt = titleOrConfig.Default or titleOrConfig.default or titleOrConfig[3]
+                cb = titleOrConfig.Callback or titleOrConfig.OnSelect or titleOrConfig.callback or titleOrConfig[4]
+                dropConfig = titleOrConfig
+                parentRow = titleOrConfig.Parent or titleOrConfig.Row or parentRow
+                position = titleOrConfig.Position or position
+                sizeFraction = titleOrConfig.Size or titleOrConfig.Fraction or sizeFraction
+            else
+                title = tostring(titleOrConfig or "Select Option")
+                dropOpts = options or {}
+                defOpt = defaultOption
+                cb = onSelect
+                dropConfig = {}
+            end
+
+            parentRow = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
+            local targetParent = parentRow or ContentFrame
+            local isGroup = parentRow and (parentRow.Name == "ToggleGroup" or parentRow.Name == "VerticalGroup" or parentRow.Name == "HorizontalGroup")
+            local fraction, explicitUDim = ResolveSizeFraction(sizeFraction, (parentRow and not isGroup) and 0.5 or 1.0)
+            local defaultH = isGroup and 38 or (parentRow and 42) or 44
+            local cardSize = explicitUDim or (isGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
+            local pos = position or UDim2.new(0, 0, 0, 0)
+
+            local dropData = Window:CreateMDImageDropdown(targetParent, pos, cardSize, title, dropOpts, defOpt, cb, dropConfig)
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            table.insert(Window.SearchableItems, {
+                Type = "ImageDropdown",
+                Name = title or "ImageDropdown",
+                Desc = "",
+                TabName = tabName,
+                Instance = dropData.Frame
+            })
+            return dropData
+        end
+
+        function TabObj:AddStatGrid(configOrStats, parentContainer)
+            local cfg = (type(configOrStats) == "table" and not configOrStats.IsA) and configOrStats or { Stats = configOrStats }
+            local targetParent = ResolveParent(parentContainer) or cfg.Parent or TabObj.CurrentSectionContainer or ContentFrame
+            local statGrid = Window:CreateMDStatGrid(targetParent, nil, nil, cfg)
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            return statGrid
+        end
+        TabObj.AddStatCard = function(self, config, parentContainer)
+            local cfg = (type(config) == "table" and not config.IsA) and config or { Title = config }
+            cfg.Columns = 1
+            cfg.Stats = { cfg }
+            return self:AddStatGrid(cfg, parentContainer)
+        end
+
+        function TabObj:AddImageGrid(config, parentContainer)
+            local cfg = (type(config) == "table" and not config.IsA) and config or {}
+            local targetParent = ResolveParent(parentContainer) or cfg.Parent or TabObj.CurrentSectionContainer or ContentFrame
+            local imgGrid = Window:CreateMDImageGrid(targetParent, nil, nil, cfg)
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            return imgGrid
+        end
+        TabObj.AddGallery = TabObj.AddImageGrid
+
+        function TabObj:AddPreview(config, parentContainer)
+            local cfg = (type(config) == "table" and not config.IsA) and config or {}
+            local targetParent = ResolveParent(parentContainer) or cfg.Parent or TabObj.CurrentSectionContainer or ContentFrame
+            local preview = Window:CreateMDPreview(targetParent, nil, nil, cfg)
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            return preview
+        end
+
+        function TabObj:AddSubTabs(tabNamesOrConfig, defaultSubTab)
+            return Window:CreateMDSubTabs(TabObj, tabNamesOrConfig, defaultSubTab)
+        end
+
         function TabObj:AddProgressBar(titleOrConfig, options, parentContainer)
             local title, initialPct, statusText, cardOpts
             if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
@@ -11045,6 +12458,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     return TabObj:AddMultiDropdown(titleOrConfig, nil, nil, nil, RowFrame, nil, sizeFraction or 0.5)
                 end
                 return TabObj:AddMultiDropdown(titleOrConfig, options, defaultSelections, onSelect, RowFrame, nil, sizeFraction or 0.5)
+            end
+            function RowObj:AddPriorityDropdown(titleOrConfig, options, defaultOrder, onSelect, sizeFraction)
+                if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                    return TabObj:AddPriorityDropdown(titleOrConfig, nil, nil, nil, RowFrame, nil, sizeFraction or 0.5)
+                end
+                return TabObj:AddPriorityDropdown(titleOrConfig, options, defaultOrder, onSelect, RowFrame, nil, sizeFraction or 0.5)
+            end
+            function RowObj:AddImageDropdown(titleOrConfig, options, defaultOption, onSelect, sizeFraction)
+                if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
+                    return TabObj:AddImageDropdown(titleOrConfig, nil, nil, nil, RowFrame, nil, sizeFraction or 0.5)
+                end
+                return TabObj:AddImageDropdown(titleOrConfig, options, defaultOption, onSelect, RowFrame, nil, sizeFraction or 0.5)
             end
             function RowObj:AddNumberInput(titleOrConfig, options, callback, sizeFraction)
                 if type(titleOrConfig) == "table" and not titleOrConfig.IsA then
@@ -11859,6 +13284,48 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     return TabObj:AddDropdown(cfg, arg2, arg3, arg4, ItemContainer, arg5, arg6, arg7)
                 end
                 return TabObj:AddDropdown(arg1, arg2, arg3, arg4, ItemContainer, arg5, arg6, arg7 or arg8)
+            end
+            function SectionObj:AddMultiDropdown(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+                if type(arg1) == "table" and not arg1.IsA then
+                    local cfg = table.clone(arg1)
+                    cfg.Parent = cfg.Parent or cfg.Row or ItemContainer
+                    return TabObj:AddMultiDropdown(cfg, arg2, arg3, arg4, ItemContainer, arg5, arg6 or arg7)
+                end
+                return TabObj:AddMultiDropdown(arg1, arg2, arg3, arg4, ItemContainer, arg5, arg6 or arg7)
+            end
+            function SectionObj:AddPriorityDropdown(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+                if type(arg1) == "table" and not arg1.IsA then
+                    local cfg = table.clone(arg1)
+                    cfg.Parent = cfg.Parent or cfg.Row or ItemContainer
+                    return TabObj:AddPriorityDropdown(cfg, arg2, arg3, arg4, ItemContainer, arg5, arg6 or arg7)
+                end
+                return TabObj:AddPriorityDropdown(arg1, arg2, arg3, arg4, ItemContainer, arg5, arg6 or arg7)
+            end
+            function SectionObj:AddImageDropdown(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+                if type(arg1) == "table" and not arg1.IsA then
+                    local cfg = table.clone(arg1)
+                    cfg.Parent = cfg.Parent or cfg.Row or ItemContainer
+                    return TabObj:AddImageDropdown(cfg, arg2, arg3, arg4, ItemContainer, arg5, arg6 or arg7)
+                end
+                return TabObj:AddImageDropdown(arg1, arg2, arg3, arg4, ItemContainer, arg5, arg6 or arg7)
+            end
+            function SectionObj:AddStatGrid(configOrStats)
+                return TabObj:AddStatGrid(configOrStats, ItemContainer)
+            end
+            SectionObj.AddStatCard = function(self, config)
+                return TabObj:AddStatCard(config, ItemContainer)
+            end
+            function SectionObj:AddImageGrid(config)
+                return TabObj:AddImageGrid(config, ItemContainer)
+            end
+            SectionObj.AddGallery = SectionObj.AddImageGrid
+            function SectionObj:AddPreview(config)
+                return TabObj:AddPreview(config, ItemContainer)
+            end
+            function SectionObj:AddSubTabs(tabNamesOrConfig, defaultSubTab)
+                local cfg = (type(tabNamesOrConfig) == "table") and table.clone(tabNamesOrConfig) or { Tabs = tabNamesOrConfig, Default = defaultSubTab }
+                cfg.Parent = ItemContainer
+                return Window:CreateMDSubTabs(SectionObj, cfg, defaultSubTab)
             end
             function SectionObj:AddButton(arg1, arg2, arg3, arg4)
                 if type(arg1) == "table" and not arg1.IsA then
