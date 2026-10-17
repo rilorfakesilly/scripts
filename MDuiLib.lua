@@ -2789,10 +2789,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleText.ZIndex = 11
         TitleText.Parent = DropdownFrame
 
-        -- Icon shown in closed header when HasIcons + single selection
+        -- Icon shown in closed header when HasIcons (single selection or 1 item selected in multi)
         local HeaderIcon = nil
         local hasIconsMode = dropConfig and (dropConfig.HasIcons or dropConfig.hasIcons)
-        if hasIconsMode and not isMulti then
+        if hasIconsMode then
             HeaderIcon = Instance.new("ImageLabel")
             HeaderIcon.Name = "HeaderIcon"
             HeaderIcon.Size = UDim2.new(0, 20, 0, 20)
@@ -2816,10 +2816,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local oStr = (type(opt) == "table") and tostring(opt.Name or opt.Text or opt[1]) or tostring(opt)
                 if oStr == optStr then
                     local ic = (type(opt) == "table") and (opt.Icon or opt.Image) or nil
-                    return ic and (tostring(ic):find("://") and tostring(ic) or ("rbxassetid://" .. tostring(ic))) or nil
+                    if ic then
+                        local s = tostring(ic)
+                        return s:find("://") and s or ("rbxassetid://" .. s)
+                    end
                 end
             end
-            return dropConfig.OptionIcons and dropConfig.OptionIcons[optStr] or nil
+            local di = dropConfig.OptionIcons and dropConfig.OptionIcons[optStr]
+            if di then
+                local s = tostring(di)
+                return s:find("://") and s or ("rbxassetid://" .. s)
+            end
+            return nil
         end
 
         local function UpdateTitleDisplay()
@@ -2837,6 +2845,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         TitleText.Text = (title and title ~= "") and (title .. ": " .. orderSummary) or orderSummary
                     end
                 end
+                if HeaderIcon then
+                    local firstSel = selectedOrder[1]
+                    local ic = firstSel and GetOptionIcon(firstSel)
+                    if ic then
+                        HeaderIcon.Image = ic
+                        HeaderIcon.Visible = true
+                    else
+                        HeaderIcon.Visible = false
+                    end
+                end
             elseif isMulti then
                 local sels = GetSelectedList()
                 local count = #sels
@@ -2848,6 +2866,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     TitleText.Text = (title and title ~= "") and (title .. ": " .. s1Str) or s1Str
                 else
                     TitleText.Text = (title and title ~= "") and (title .. ": (" .. tostring(count) .. " Selected)") or ("(" .. tostring(count) .. " Selected)")
+                end
+                if HeaderIcon then
+                    local s1 = sels[1]
+                    local s1Str = s1 and ((type(s1) == "table") and tostring(s1.Name or s1.Text or s1[1]) or tostring(s1))
+                    local ic = (count == 1 and s1Str) and GetOptionIcon(s1Str) or nil
+                    if ic then
+                        HeaderIcon.Image = ic
+                        HeaderIcon.Visible = true
+                    else
+                        HeaderIcon.Visible = false
+                    end
                 end
             else
                 local optStr = (type(selectedOption) == "table") and tostring(selectedOption.Name or selectedOption.Text or selectedOption[1]) or tostring(selectedOption or "")
@@ -2964,7 +2993,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local SelectAllBtn = nil
         local ClearBtn = nil
 
-        if isMulti and not isPriority then
+        if isMulti then
             ActionsBar = Instance.new("Frame")
             ActionsBar.Name = "ActionsBar"
             ActionsBar.Size = UDim2.new(1, -10, 0, 20)
@@ -3088,11 +3117,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local textCol = isSel and GetOnAccent(Window.CurrentTheme.ButtonBG) or Window.CurrentTheme.Text
 
                 if animate then
-                    TweenService:Create(row.Button, twInfo, { BackgroundColor3 = targetBg, BackgroundTransparency = targetTrans, TextColor3 = textCol }):Play()
+                    TweenService:Create(row.Button, twInfo, { BackgroundColor3 = targetBg, BackgroundTransparency = targetTrans }):Play()
+                    if row.Label then
+                        TweenService:Create(row.Label, twInfo, { TextColor3 = textCol }):Play()
+                    else
+                        TweenService:Create(row.Button, twInfo, { TextColor3 = textCol }):Play()
+                    end
                 else
                     row.Button.BackgroundColor3 = targetBg
                     row.Button.BackgroundTransparency = targetTrans
-                    row.Button.TextColor3 = textCol
+                    if row.Label then
+                        row.Label.TextColor3 = textCol
+                    else
+                        row.Button.TextColor3 = textCol
+                    end
                 end
             end
         end
@@ -3528,16 +3566,22 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                         local labelX = 28
                         if optIcon then
+                            local iconSz = ROW_HEIGHT == 34 and 22 or 16
+                            local iconOff = (ROW_HEIGHT - iconSz) / 2
                             local IconImg = Instance.new("ImageLabel")
                             IconImg.Name = "Icon"
-                            IconImg.Size = UDim2.new(0, 16, 0, 16)
-                            IconImg.Position = UDim2.new(0, 26, 0.5, -8)
+                            IconImg.Size = UDim2.new(0, iconSz, 0, iconSz)
+                            IconImg.Position = UDim2.new(0, 26, 0, iconOff)
                             IconImg.BackgroundTransparency = 1
-                            IconImg.Image = tostring(optIcon):find("://") and tostring(optIcon) or ("rbxassetid://" .. tostring(optIcon))
-                            IconImg.ScaleType = Enum.ScaleType.Fit
+                            local s = tostring(optIcon)
+                            IconImg.Image = s:find("://") and s or ("rbxassetid://" .. s)
+                            IconImg.ScaleType = Enum.ScaleType.Crop
+                            local icCorner = Instance.new("UICorner")
+                            icCorner.CornerRadius = UDim.new(0, 4)
+                            icCorner.Parent = IconImg
                             IconImg.ZIndex = 505
                             IconImg.Parent = ItemBtn
-                            labelX = 46
+                            labelX = 26 + iconSz + 6
                         end
 
                         local ItemLabel = Instance.new("TextLabel")
@@ -3568,33 +3612,42 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                             end
                         end)
                     else
-                        ItemBtn.FontFace = FontFingerPaintRegular
-                        ItemBtn.Text = optStr
-                        ItemBtn.TextSize = 12
-                        ItemBtn.TextXAlignment = Enum.TextXAlignment.Left
-                        ItemBtn.TextTruncate = Enum.TextTruncate.AtEnd
+                        ItemBtn.Text = ""
 
-                        local pad = Instance.new("UIPadding")
-                        local padLeft = 8
+                        local labelX = 8
                         if optIcon then
                             local iconSz = ROW_HEIGHT == 34 and 22 or 16
                             local iconOff = (ROW_HEIGHT - iconSz) / 2
                             local IconImg = Instance.new("ImageLabel")
                             IconImg.Name = "Icon"
                             IconImg.Size = UDim2.new(0, iconSz, 0, iconSz)
-                            IconImg.Position = UDim2.new(0, 6, 0, iconOff)
+                            IconImg.Position = UDim2.new(0, 8, 0, iconOff)
                             IconImg.BackgroundTransparency = 1
-                            IconImg.Image = tostring(optIcon):find("://") and tostring(optIcon) or ("rbxassetid://" .. tostring(optIcon))
+                            local s = tostring(optIcon)
+                            IconImg.Image = s:find("://") and s or ("rbxassetid://" .. s)
                             IconImg.ScaleType = Enum.ScaleType.Crop
                             local icCorner = Instance.new("UICorner")
                             icCorner.CornerRadius = UDim.new(0, 4)
                             icCorner.Parent = IconImg
                             IconImg.ZIndex = 505
                             IconImg.Parent = ItemBtn
-                            padLeft = 6 + iconSz + 4
+                            labelX = 8 + iconSz + 8
                         end
-                        pad.PaddingLeft = UDim.new(0, padLeft)
-                        pad.Parent = ItemBtn
+
+                        local ItemLabel = Instance.new("TextLabel")
+                        ItemLabel.Name = "Label"
+                        ItemLabel.Size = UDim2.new(1, -(labelX + 8), 1, 0)
+                        ItemLabel.Position = UDim2.new(0, labelX, 0, 0)
+                        ItemLabel.BackgroundTransparency = 1
+                        ItemLabel.FontFace = FontFingerPaintRegular
+                        ItemLabel.Text = optStr
+                        ItemLabel.TextSize = 12
+                        ItemLabel.TextXAlignment = Enum.TextXAlignment.Left
+                        ItemLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                        ItemLabel.ZIndex = 504
+                        ItemLabel.Parent = ItemBtn
+
+                        rowData.Label = ItemLabel
 
                         ItemBtn.MouseButton1Click:Connect(function()
                             PlayClickSFX()
@@ -3677,6 +3730,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     UpdateRowVisuals(k, true)
                 end
                 UpdateTitleDisplay()
+                if isPriority then
+                    RebuildItemRows(currentFilter)
+                    UpdateDropdownHeight()
+                end
                 if onSelect then
                     pcall(onSelect, GetSelectedList(), nil, true)
                 end
@@ -3692,6 +3749,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     UpdateRowVisuals(k, true)
                 end
                 UpdateTitleDisplay()
+                if isPriority then
+                    RebuildItemRows(currentFilter)
+                    UpdateDropdownHeight()
+                end
                 if onSelect then
                     pcall(onSelect, GetSelectedList(), nil, false)
                 end
@@ -4552,7 +4613,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             for i, it in ipairs(items) do
                 local itName = (type(it) == "table") and (it.Name or it.Title or it.Text or it[1]) or tostring(it)
                 local itImg = (type(it) == "table") and (it.Image or it.Icon or it[2]) or ""
-                local imgAsset = tostring(itImg):find("://") and tostring(itImg) or ("rbxassetid://" .. tostring(itImg))
+                local itImgStr = tostring(itImg)
+                local imgAsset = (itImgStr ~= "" and not itImgStr:find("://")) and ("rbxassetid://" .. itImgStr) or itImgStr
 
                 local Tile = Instance.new("TextButton")
                 Tile.Name = "Tile_" .. itName
@@ -4561,7 +4623,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Tile.BackgroundTransparency = 0.4
                 Tile.BorderSizePixel = 0
                 Tile.ZIndex = 12
-                Tile.ClipsDescendants = true
+                Tile.ClipsDescendants = false
                 Tile.LayoutOrder = i
                 Tile.Parent = GridContainer
 
@@ -4576,7 +4638,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 tStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
                 tStroke.Parent = Tile
 
-                -- Full-bleed image
+                -- Full-bleed image with matching UICorner
                 local Img = Instance.new("ImageLabel")
                 Img.Name = "Thumb"
                 Img.Size = UDim2.new(1, 0, 1, 0)
@@ -4586,6 +4648,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Img.ScaleType = Enum.ScaleType.Crop
                 Img.ZIndex = 13
                 Img.Parent = Tile
+
+                local imgCorner = Instance.new("UICorner")
+                imgCorner.CornerRadius = UDim.new(0, 8)
+                imgCorner.Parent = Img
 
                 -- Bottom gradient fade for name readability
                 local Grad = Instance.new("UIGradient")
