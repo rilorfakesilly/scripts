@@ -2789,6 +2789,39 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TitleText.ZIndex = 11
         TitleText.Parent = DropdownFrame
 
+        -- Icon shown in closed header when HasIcons + single selection
+        local HeaderIcon = nil
+        local hasIconsMode = dropConfig and (dropConfig.HasIcons or dropConfig.hasIcons)
+        if hasIconsMode and not isMulti then
+            HeaderIcon = Instance.new("ImageLabel")
+            HeaderIcon.Name = "HeaderIcon"
+            HeaderIcon.Size = UDim2.new(0, 20, 0, 20)
+            HeaderIcon.Position = UDim2.new(0, 10, 0.5, -10)
+            HeaderIcon.BackgroundTransparency = 1
+            HeaderIcon.ScaleType = Enum.ScaleType.Crop
+            HeaderIcon.ZIndex = 12
+            HeaderIcon.Visible = false
+            local hicCorner = Instance.new("UICorner")
+            hicCorner.CornerRadius = UDim.new(0, 4)
+            hicCorner.Parent = HeaderIcon
+            HeaderIcon.Parent = DropdownFrame
+            -- Shift TitleText right to make room
+            TitleText.Position = UDim2.new(0, 36, 0, 0)
+            TitleText.Size = UDim2.new(1, -72, 1, 0)
+        end
+
+        local function GetOptionIcon(optStr)
+            if not hasIconsMode then return nil end
+            for _, opt in ipairs(options) do
+                local oStr = (type(opt) == "table") and tostring(opt.Name or opt.Text or opt[1]) or tostring(opt)
+                if oStr == optStr then
+                    local ic = (type(opt) == "table") and (opt.Icon or opt.Image) or nil
+                    return ic and (tostring(ic):find("://") and tostring(ic) or ("rbxassetid://" .. tostring(ic))) or nil
+                end
+            end
+            return dropConfig.OptionIcons and dropConfig.OptionIcons[optStr] or nil
+        end
+
         local function UpdateTitleDisplay()
             if isPriority then
                 local count = #selectedOrder
@@ -2819,6 +2852,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             else
                 local optStr = (type(selectedOption) == "table") and tostring(selectedOption.Name or selectedOption.Text or selectedOption[1]) or tostring(selectedOption or "")
                 TitleText.Text = (title and title ~= "") and (title .. ": " .. optStr) or optStr
+                -- Update header icon for single dropdown with HasIcons
+                if HeaderIcon then
+                    local ic = GetOptionIcon(optStr)
+                    if ic then
+                        HeaderIcon.Image = ic
+                        HeaderIcon.Visible = true
+                    else
+                        HeaderIcon.Visible = false
+                    end
+                end
             end
         end
         UpdateTitleDisplay()
@@ -3002,7 +3045,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NoResultsLabel.ZIndex = 503
         NoResultsLabel.Parent = InnerScroll
 
-        local ROW_HEIGHT = 28
+        local ROW_HEIGHT = (dropConfig and (dropConfig.HasIcons or dropConfig.hasIcons)) and 34 or 28
         local itemRows = {}
         local visibleItems = {}
         local highlightIndex = nil
@@ -3155,11 +3198,22 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         itemCorner.CornerRadius = UDim.new(0, 6)
                         itemCorner.Parent = ItemBtn
 
-                        -- Badge 1, 2, 3
+                        -- Grip icon (left, 40% opacity)
+                        local GripIcon = Instance.new("ImageLabel")
+                        GripIcon.Name = "Grip"
+                        GripIcon.Size = UDim2.new(0, 12, 0, 18)
+                        GripIcon.Position = UDim2.new(0, 3, 0.5, -9)
+                        GripIcon.BackgroundTransparency = 1
+                        GripIcon.Image = "rbxassetid://136050395759142"
+                        GripIcon.ImageTransparency = 0.6
+                        GripIcon.ZIndex = 504
+                        GripIcon.Parent = ItemBtn
+
+                        -- Badge (rank number, rank 1 = full opacity, others = 0.35 opacity)
                         local Badge = Instance.new("TextLabel")
                         Badge.Name = "Badge"
                         Badge.Size = UDim2.new(0, 18, 0, 18)
-                        Badge.Position = UDim2.new(0, 5, 0.5, -9)
+                        Badge.Position = UDim2.new(0, 17, 0.5, -9)
                         Badge.BackgroundColor3 = Window.CurrentTheme.ButtonBG
                         Badge.BorderSizePixel = 0
                         Badge.FontFace = FontFingerPaintRegular
@@ -3167,17 +3221,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         Badge.TextColor3 = GetOnAccent(Window.CurrentTheme.ButtonBG)
                         Badge.TextSize = 11
                         Badge.ZIndex = 504
+                        Badge.BackgroundTransparency = (pIdx == 1) and 0 or 0.65
+                        Badge.TextTransparency = (pIdx == 1) and 0 or 0.35
                         Badge.Parent = ItemBtn
 
                         local bCorner = Instance.new("UICorner")
                         bCorner.CornerRadius = UDim.new(0, 4)
                         bCorner.Parent = Badge
 
-                        -- Label
+                        -- Label (shifted right to make room for grip + badge)
                         local ItemLabel = Instance.new("TextLabel")
                         ItemLabel.Name = "Label"
-                        ItemLabel.Size = UDim2.new(1, -95, 1, 0)
-                        ItemLabel.Position = UDim2.new(0, 28, 0, 0)
+                        ItemLabel.Size = UDim2.new(1, -105, 1, 0)
+                        ItemLabel.Position = UDim2.new(0, 38, 0, 0)
                         ItemLabel.BackgroundTransparency = 1
                         ItemLabel.FontFace = FontFingerPaintRegular
                         ItemLabel.Text = optStr
@@ -3188,17 +3244,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         ItemLabel.ZIndex = 504
                         ItemLabel.Parent = ItemBtn
 
-                        -- Move Up Button
+                        local function FlashRow(frame)
+                            task.spawn(function()
+                                for _ = 1, 2 do
+                                    TweenService:Create(frame, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.1}):Play()
+                                    task.wait(0.09)
+                                    TweenService:Create(frame, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.5}):Play()
+                                    task.wait(0.11)
+                                end
+                            end)
+                        end
+
+                        -- Move Up Button (chevron-up Lucide icon)
                         if pIdx > 1 then
-                            local UpBtn = Instance.new("TextButton")
+                            local UpBtn = Instance.new("ImageButton")
                             UpBtn.Name = "UpBtn"
-                            UpBtn.Size = UDim2.new(0, 20, 0, 20)
-                            UpBtn.Position = UDim2.new(1, -66, 0.5, -10)
+                            UpBtn.Size = UDim2.new(0, 18, 0, 18)
+                            UpBtn.Position = UDim2.new(1, -66, 0.5, -9)
                             UpBtn.BackgroundTransparency = 1
-                            UpBtn.FontFace = FontFingerPaintRegular
-                            UpBtn.Text = "▲"
-                            UpBtn.TextColor3 = Window.CurrentTheme.SubText
-                            UpBtn.TextSize = 11
+                            UpBtn.Image = "rbxassetid://98648581502859"
+                            UpBtn.ImageColor3 = Window.CurrentTheme.SubText
                             UpBtn.ZIndex = 505
                             UpBtn.Parent = ItemBtn
 
@@ -3214,17 +3279,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                             end)
                         end
 
-                        -- Move Down Button
+                        -- Move Down Button (chevron-down Lucide icon)
                         if pIdx < #selectedOrder then
-                            local DownBtn = Instance.new("TextButton")
+                            local DownBtn = Instance.new("ImageButton")
                             DownBtn.Name = "DownBtn"
-                            DownBtn.Size = UDim2.new(0, 20, 0, 20)
-                            DownBtn.Position = UDim2.new(1, -44, 0.5, -10)
+                            DownBtn.Size = UDim2.new(0, 18, 0, 18)
+                            DownBtn.Position = UDim2.new(1, -44, 0.5, -9)
                             DownBtn.BackgroundTransparency = 1
-                            DownBtn.FontFace = FontFingerPaintRegular
-                            DownBtn.Text = "▼"
-                            DownBtn.TextColor3 = Window.CurrentTheme.SubText
-                            DownBtn.TextSize = 11
+                            DownBtn.Image = "rbxassetid://71457658246709"
+                            DownBtn.ImageColor3 = Window.CurrentTheme.SubText
                             DownBtn.ZIndex = 505
                             DownBtn.Parent = ItemBtn
 
@@ -3240,16 +3303,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                             end)
                         end
 
-                        -- Remove Button (X)
-                        local RemBtn = Instance.new("TextButton")
+                        -- Remove Button (x Lucide icon via GetIcon)
+                        local RemBtn = Instance.new("ImageButton")
                         RemBtn.Name = "RemBtn"
-                        RemBtn.Size = UDim2.new(0, 20, 0, 20)
-                        RemBtn.Position = UDim2.new(1, -22, 0.5, -10)
+                        RemBtn.Size = UDim2.new(0, 16, 0, 16)
+                        RemBtn.Position = UDim2.new(1, -22, 0.5, -8)
                         RemBtn.BackgroundTransparency = 1
-                        RemBtn.FontFace = FontFingerPaintRegular
-                        RemBtn.Text = "✕"
-                        RemBtn.TextColor3 = Color3.fromRGB(255, 90, 90)
-                        RemBtn.TextSize = 12
+                        local xIconId = Library:GetIcon("x") or "11502849"
+                        RemBtn.Image = tostring(xIconId):find("://") and tostring(xIconId) or ("rbxassetid://" .. tostring(xIconId))
+                        RemBtn.ImageColor3 = Color3.fromRGB(255, 90, 90)
                         RemBtn.ZIndex = 505
                         RemBtn.Parent = ItemBtn
 
@@ -3261,6 +3323,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                             UpdateDropdownHeight()
                             if onSelect then pcall(onSelect, GetSelectedList()) end
                         end)
+
+                        -- Flash on first render when newly moved (tracked by attribute)
+                        if ItemBtn:GetAttribute("JustMoved") then
+                            ItemBtn:SetAttribute("JustMoved", nil)
+                            FlashRow(ItemBtn)
+                        end
                     end
                 end
 
@@ -3509,16 +3577,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         local pad = Instance.new("UIPadding")
                         local padLeft = 8
                         if optIcon then
+                            local iconSz = ROW_HEIGHT == 34 and 22 or 16
+                            local iconOff = (ROW_HEIGHT - iconSz) / 2
                             local IconImg = Instance.new("ImageLabel")
                             IconImg.Name = "Icon"
-                            IconImg.Size = UDim2.new(0, 16, 0, 16)
-                            IconImg.Position = UDim2.new(0, 6, 0.5, -8)
+                            IconImg.Size = UDim2.new(0, iconSz, 0, iconSz)
+                            IconImg.Position = UDim2.new(0, 6, 0, iconOff)
                             IconImg.BackgroundTransparency = 1
                             IconImg.Image = tostring(optIcon):find("://") and tostring(optIcon) or ("rbxassetid://" .. tostring(optIcon))
-                            IconImg.ScaleType = Enum.ScaleType.Fit
+                            IconImg.ScaleType = Enum.ScaleType.Crop
+                            local icCorner = Instance.new("UICorner")
+                            icCorner.CornerRadius = UDim.new(0, 4)
+                            icCorner.Parent = IconImg
                             IconImg.ZIndex = 505
                             IconImg.Parent = ItemBtn
-                            padLeft = 26
+                            padLeft = 6 + iconSz + 4
                         end
                         pad.PaddingLeft = UDim.new(0, padLeft)
                         pad.Parent = ItemBtn
@@ -4132,7 +4205,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local CardFrame = Instance.new("Frame")
         CardFrame.Name = GenerateSafeName("StatGrid")
         CardFrame:SetAttribute("MDCard", true)
-        CardFrame.Size = size or UDim2.new(1, -10, 0, 0)
+        CardFrame.Size = size or UDim2.new(1, inSection and 0 or -10, 0, 0)
         CardFrame.AutomaticSize = Enum.AutomaticSize.Y
         CardFrame.Position = position or UDim2.new(0, 0, 0, 0)
         CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
@@ -4186,7 +4259,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local gridLayout = Instance.new("UIGridLayout")
         gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
         gridLayout.CellPadding = UDim2.new(0, 6, 0, 6)
-        gridLayout.CellSize = UDim2.new(1 / columns, -math.floor(6 * (columns - 1) / columns), 0, 52)
+        gridLayout.CellSize = UDim2.new(1 / columns, -math.floor(6 * (columns - 1) / columns), 0, 56)
         gridLayout.Parent = GridContainer
 
         local statTiles = {}
@@ -4195,6 +4268,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local function CreateTile(statDef, idx)
             local sName = (type(statDef) == "table") and (statDef.Name or statDef.Title or statDef[1]) or tostring(statDef)
             local sVal = (type(statDef) == "table") and (statDef.Value or statDef.val or statDef[2]) or "0"
+            local accentColor = (type(statDef) == "table") and (statDef.Color or statDef.color) or Window.CurrentTheme.ButtonBG
 
             local Tile = Instance.new("Frame")
             Tile.Name = "Tile_" .. sName
@@ -4203,6 +4277,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Tile.BorderSizePixel = 0
             Tile.ZIndex = 12
             Tile.LayoutOrder = idx or (#GridContainer:GetChildren() + 1)
+            Tile.ClipsDescendants = true
             Tile.Parent = GridContainer
 
             local tCorner = Instance.new("UICorner")
@@ -4216,8 +4291,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             tStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             tStroke.Parent = Tile
 
+            -- 3px accent bar on left
+            local AccentBar = Instance.new("Frame")
+            AccentBar.Name = "Accent"
+            AccentBar.Size = UDim2.new(0, 3, 1, 0)
+            AccentBar.Position = UDim2.new(0, 0, 0, 0)
+            AccentBar.BackgroundColor3 = accentColor
+            AccentBar.BackgroundTransparency = 0.2
+            AccentBar.BorderSizePixel = 0
+            AccentBar.ZIndex = 13
+            AccentBar.Parent = Tile
+
             local tPad = Instance.new("UIPadding")
-            tPad.PaddingLeft = UDim.new(0, 8)
+            tPad.PaddingLeft = UDim.new(0, 11)
             tPad.PaddingRight = UDim.new(0, 8)
             tPad.PaddingTop = UDim.new(0, 6)
             tPad.PaddingBottom = UDim.new(0, 6)
@@ -4240,12 +4326,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local ValText = Instance.new("TextLabel")
             ValText.Name = "Value"
             ValText.Size = UDim2.new(1, 0, 0, 22)
-            ValText.Position = UDim2.new(0, 0, 1, -22)
+            ValText.Position = UDim2.new(0, 0, 1, -26)
             ValText.BackgroundTransparency = 1
-            ValText.FontFace = FontFingerPaintRegular
+            ValText.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
             ValText.Text = tostring(sVal)
             ValText.TextColor3 = Window.CurrentTheme.Text
-            ValText.TextSize = 15
+            ValText.TextSize = 17
             ValText.TextTruncate = Enum.TextTruncate.AtEnd
             ValText.TextXAlignment = Enum.TextXAlignment.Left
             ValText.ZIndex = 13
@@ -4254,8 +4340,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             statTiles[sName] = {
                 Tile = Tile,
                 Stroke = tStroke,
+                AccentBar = AccentBar,
                 NameText = NameText,
-                ValText = ValText
+                ValText = ValText,
+                AccentColor = accentColor
             }
             statValues[sName] = sVal
         end
@@ -4279,7 +4367,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 statValues[sName] = sVal
                 local t = statTiles[sName]
                 if t then
-                    t.ValText.Text = tostring(sVal)
+                    -- Numeric count-up tween
+                    local newStr = tostring(sVal)
+                    local numNew = tonumber(newStr:match("^(%d+%.?%d*)"))
+                    local numOld = tonumber(t.ValText.Text:match("^(%d+%.?%d*)"))
+                    if numNew and numOld and math.abs(numNew - numOld) > 0 and math.abs(numNew - numOld) < 50000 then
+                        local suffix = newStr:match("^%d+%.?%d*(.*)") or ""
+                        local steps = math.min(12, math.max(4, math.floor(math.abs(numNew - numOld) / 2)))
+                        local inc = (numNew - numOld) / steps
+                        local cur = numOld
+                        task.spawn(function()
+                            for _ = 1, steps do
+                                cur = cur + inc
+                                t.ValText.Text = (math.floor(cur + 0.5)) .. suffix
+                                task.wait(0.016)
+                            end
+                            t.ValText.Text = newStr
+                        end)
+                    else
+                        t.ValText.Text = newStr
+                    end
                 else
                     CreateTile({ Name = sName, Value = sVal }, #GridContainer:GetChildren() + 1)
                 end
@@ -4309,6 +4416,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             end
         }
+        table.insert(Window.RegisteredCustom, gridObj)
         return gridObj
     end
 
@@ -4325,7 +4433,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local CardFrame = Instance.new("Frame")
         CardFrame.Name = GenerateSafeName("ImageGrid")
         CardFrame:SetAttribute("MDCard", true)
-        CardFrame.Size = size or UDim2.new(1, -10, 0, 0)
+        CardFrame.Size = size or UDim2.new(1, inSection and 0 or -10, 0, 0)
         CardFrame.AutomaticSize = Enum.AutomaticSize.Y
         CardFrame.Position = position or UDim2.new(0, 0, 0, 0)
         CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
@@ -4396,7 +4504,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local gridLayout = Instance.new("UIGridLayout")
         gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
         gridLayout.CellPadding = UDim2.new(0, 6, 0, 6)
-        gridLayout.CellSize = UDim2.new(1 / columns, -math.floor(6 * (columns - 1) / columns), 0, 82)
+        gridLayout.CellSize = UDim2.new(1 / columns, -math.floor(6 * (columns - 1) / columns), 0, 92)
         gridLayout.Parent = GridContainer
 
         local selectedMap = {}
@@ -4424,9 +4532,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 tile.Stroke.Color = isSel and Window.CurrentTheme.ButtonBG or (Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80))
                 tile.Stroke.Transparency = isSel and 0.1 or 0.7
                 tile.Stroke.Thickness = isSel and 2 or 1
-                tile.Tile.BackgroundColor3 = isSel and Window.CurrentTheme.AccentBG or GetThemedDarkColor(Window.CurrentTheme)
-                tile.Tile.BackgroundTransparency = isSel and 0.4 or 0.6
-                tile.NameLabel.TextColor3 = isSel and Window.CurrentTheme.Text or Window.CurrentTheme.SubText
+                tile.CheckBadge.Visible = isSel
+                tile.NameLabel.TextColor3 = isSel and Color3.fromRGB(255, 255, 255) or Window.CurrentTheme.SubText
+                tile.NameLabel.FontFace = isSel and Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal) or FontFingerPaintRegular
             end
             if isMulti then
                 local count = #selectedOrder
@@ -4450,9 +4558,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Tile.Name = "Tile_" .. itName
                 Tile.Text = ""
                 Tile.BackgroundColor3 = GetThemedDarkColor(Window.CurrentTheme)
-                Tile.BackgroundTransparency = 0.6
+                Tile.BackgroundTransparency = 0.4
                 Tile.BorderSizePixel = 0
                 Tile.ZIndex = 12
+                Tile.ClipsDescendants = true
                 Tile.LayoutOrder = i
                 Tile.Parent = GridContainer
 
@@ -4467,16 +4576,32 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 tStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
                 tStroke.Parent = Tile
 
+                -- Full-bleed image
                 local Img = Instance.new("ImageLabel")
                 Img.Name = "Thumb"
-                Img.Size = UDim2.new(1, -12, 0, 48)
-                Img.Position = UDim2.new(0, 6, 0, 6)
+                Img.Size = UDim2.new(1, 0, 1, 0)
+                Img.Position = UDim2.new(0, 0, 0, 0)
                 Img.BackgroundTransparency = 1
                 Img.Image = imgAsset
-                Img.ScaleType = Enum.ScaleType.Fit
+                Img.ScaleType = Enum.ScaleType.Crop
                 Img.ZIndex = 13
                 Img.Parent = Tile
 
+                -- Bottom gradient fade for name readability
+                local Grad = Instance.new("UIGradient")
+                Grad.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+                })
+                Grad.Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 1),
+                    NumberSequenceKeypoint.new(0.45, 1),
+                    NumberSequenceKeypoint.new(1, 0.1)
+                })
+                Grad.Rotation = 90
+                Grad.Parent = Img
+
+                -- Name label over gradient
                 local NameLbl = Instance.new("TextLabel")
                 NameLbl.Name = "Name"
                 NameLbl.Size = UDim2.new(1, -8, 0, 18)
@@ -4488,14 +4613,49 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 NameLbl.TextSize = 11
                 NameLbl.TextTruncate = Enum.TextTruncate.AtEnd
                 NameLbl.TextXAlignment = Enum.TextXAlignment.Center
-                NameLbl.ZIndex = 13
+                NameLbl.ZIndex = 15
                 NameLbl.Parent = Tile
+
+                -- Selection check badge (top-right circle)
+                local CheckBadge = Instance.new("Frame")
+                CheckBadge.Name = "CheckBadge"
+                CheckBadge.Size = UDim2.new(0, 16, 0, 16)
+                CheckBadge.Position = UDim2.new(1, -20, 0, 4)
+                CheckBadge.BackgroundColor3 = Window.CurrentTheme.ButtonBG
+                CheckBadge.BorderSizePixel = 0
+                CheckBadge.ZIndex = 16
+                CheckBadge.Visible = false
+                CheckBadge.Parent = Tile
+                local cbCorner = Instance.new("UICorner")
+                cbCorner.CornerRadius = UDim.new(0.5, 0)
+                cbCorner.Parent = CheckBadge
+                local checkIconId = Library:GetIcon("check") or "86817768619372"
+                local checkIcon = Instance.new("ImageLabel")
+                checkIcon.Size = UDim2.new(0, 10, 0, 10)
+                checkIcon.Position = UDim2.new(0.5, -5, 0.5, -5)
+                checkIcon.BackgroundTransparency = 1
+                checkIcon.Image = tostring(checkIconId):find("://") and tostring(checkIconId) or ("rbxassetid://" .. tostring(checkIconId))
+                checkIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+                checkIcon.ZIndex = 17
+                checkIcon.Parent = CheckBadge
+
+                -- Hover scale effect
+                local scaleObj = Instance.new("UIScale")
+                scaleObj.Scale = 1
+                scaleObj.Parent = Tile
+                Tile.MouseEnter:Connect(function()
+                    TweenService:Create(scaleObj, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1.03}):Play()
+                end)
+                Tile.MouseLeave:Connect(function()
+                    TweenService:Create(scaleObj, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
+                end)
 
                 itemTiles[itName] = {
                     Tile = Tile,
                     Stroke = tStroke,
                     Img = Img,
                     NameLabel = NameLbl,
+                    CheckBadge = CheckBadge,
                     Item = it
                 }
 
@@ -4552,11 +4712,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SetSelected = function(selfOrSel, maybeSel, trigger)
                 local sel, trig
                 if type(selfOrSel) == "table" and (selfOrSel.GetSelected or selfOrSel.Card) then
-                    sel = maybeSel
-                    trig = trigger
+                    sel = maybeSel trig = trigger
                 else
-                    sel = selfOrSel
-                    trig = maybeSel
+                    sel = selfOrSel trig = maybeSel
                 end
                 selectedMap = {}
                 selectedOrder = {}
@@ -4572,9 +4730,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     table.insert(selectedOrder, s)
                 end
                 UpdateVisuals()
-                if trig and callback then
-                    pcall(callback, galleryObj.GetSelected())
-                end
+                if trig and callback then pcall(callback, galleryObj.GetSelected()) end
             end,
             SetItems = function(selfOrItems, maybeItems)
                 local newItems = (type(selfOrItems) == "table" and (selfOrItems.GetSelected or selfOrItems.Card)) and maybeItems or selfOrItems
@@ -4587,8 +4743,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 UpdateVisuals()
             end
         }
+        table.insert(Window.RegisteredCustom, galleryObj)
         return galleryObj
     end
+
+
 
     function Window:CreateMDPreview(parent, position, size, config)
         parent = ResolveParent(parent)
@@ -4600,7 +4759,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local CardFrame = Instance.new("Frame")
         CardFrame.Name = GenerateSafeName("PreviewCard")
         CardFrame:SetAttribute("MDCard", true)
-        CardFrame.Size = size or UDim2.new(1, -10, 0, previewHeight + 40)
+        CardFrame.Size = size or UDim2.new(1, inSection and 0 or -10, 0, previewHeight + 40)
         CardFrame.Position = position or UDim2.new(0, 0, 0, 0)
         CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
         CardFrame.BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
@@ -4651,6 +4810,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         cStroke.Transparency = 0.5
         cStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         cStroke.Parent = CanvasFrame
+
+        -- Subtle vignette gradient on canvas
+        local cGrad = Instance.new("UIGradient")
+        cGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 28, 38)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 12, 18))
+        })
+        cGrad.Rotation = 135
+        cGrad.Parent = CanvasFrame
 
         local CenterCrossH = Instance.new("Frame")
         CenterCrossH.Name = "GuideH"
@@ -4776,8 +4944,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                 local nameLbl = Instance.new("TextLabel")
                 nameLbl.Name = "ESPName"
-                nameLbl.Size = UDim2.new(1, 40, 0, 14)
-                nameLbl.Position = UDim2.new(0.5, -20, 0, -22)
+                nameLbl.Size = UDim2.new(0, 140, 0, 14)
+                nameLbl.Position = UDim2.new(0.5, 0, 0, -22)
                 nameLbl.AnchorPoint = Vector2.new(0.5, 0)
                 nameLbl.BackgroundTransparency = 1
                 nameLbl.FontFace = FontFingerPaintRegular
@@ -4828,6 +4996,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if updateFn then
             pcall(updateFn, CanvasFrame)
         end
+        table.insert(Window.RegisteredCustom, previewObj)
         return previewObj
     end
 
