@@ -1819,7 +1819,29 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             for name, opts in pairs(data.DropdownOptions) do
                 local drop = Window.RegisteredDropdowns[name]
                 if drop and drop.SetOptions then
-                    pcall(function() drop.SetOptions(opts) end)
+                    pcall(function()
+                        local currentOpts = (drop.InitialOptions and #drop.InitialOptions > 0 and drop.InitialOptions)
+                            or (drop.GetOptions and drop.GetOptions())
+                        if currentOpts and type(currentOpts) == "table" and #currentOpts > 0 then
+                            local merged = {}
+                            local seen = {}
+                            for _, opt in ipairs(currentOpts) do
+                                table.insert(merged, opt)
+                                seen[tostring(opt)] = true
+                            end
+                            if type(opts) == "table" then
+                                for _, opt in ipairs(opts) do
+                                    if not seen[tostring(opt)] then
+                                        table.insert(merged, opt)
+                                        seen[tostring(opt)] = true
+                                    end
+                                end
+                            end
+                            drop.SetOptions(merged)
+                        else
+                            drop.SetOptions(opts)
+                        end
+                    end)
                 elseif drop and drop.RefreshOptions then
                     pcall(function() drop.RefreshOptions(opts) end)
                 end
@@ -1830,7 +1852,28 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             for name, selected in pairs(data.Dropdowns) do
                 local drop = Window.RegisteredDropdowns[name]
                 if drop and drop.SetSelected then
-                    pcall(function() drop.SetSelected(selected, true) end)
+                    pcall(function()
+                        local validOpts = (drop.GetOptions and drop.GetOptions()) or (drop.GetValues and drop.GetValues())
+                        local isValid = false
+                        if validOpts and type(validOpts) == "table" and #validOpts > 0 then
+                            for _, v in ipairs(validOpts) do
+                                if tostring(v) == tostring(selected) then
+                                    isValid = true
+                                    break
+                                end
+                            end
+                        else
+                            isValid = true
+                        end
+                        if isValid then
+                            drop.SetSelected(selected, true)
+                        else
+                            local fallback = drop.DefaultOption or (validOpts and validOpts[1])
+                            if fallback then
+                                drop.SetSelected(fallback, true)
+                            end
+                        end
+                    end)
                 end
             end
         end
@@ -1839,7 +1882,27 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             for name, selected in pairs(data.MultiDropdowns) do
                 local mdrop = Window.RegisteredMultiDropdowns[name]
                 if mdrop and mdrop.SetSelections then
-                    pcall(function() mdrop.SetSelections(selected, true) end)
+                    pcall(function()
+                        local validOpts = (mdrop.GetOptions and mdrop.GetOptions()) or (mdrop.GetValues and mdrop.GetValues())
+                        if validOpts and type(validOpts) == "table" and #validOpts > 0 and type(selected) == "table" then
+                            local validSet = {}
+                            for _, v in ipairs(validOpts) do validSet[tostring(v)] = true end
+                            local filtered = {}
+                            for k, v in pairs(selected) do
+                                local optStr = (type(k) == "number") and tostring(v) or tostring(k)
+                                if validSet[optStr] then
+                                    if type(k) == "number" then
+                                        table.insert(filtered, optStr)
+                                    else
+                                        filtered[optStr] = v
+                                    end
+                                end
+                            end
+                            mdrop.SetSelections(filtered, true)
+                        else
+                            mdrop.SetSelections(selected, true)
+                        end
+                    end)
                 end
             end
         end
@@ -3477,6 +3540,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if dropConfig and type(dropConfig) == "table" and (dropConfig.Tooltip or dropConfig.tooltip) then
             dropObj:WithTooltip(dropConfig.Tooltip or dropConfig.tooltip)
         end
+
+        dropObj.DefaultOption = defaultOption
+        dropObj.InitialOptions = (type(options) == "table") and table.clone(options) or {}
 
         RebuildItemRows("")
         return dropObj
