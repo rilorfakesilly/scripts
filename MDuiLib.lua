@@ -1346,6 +1346,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local MainContentFrame = nil
     local UIScaleConstraint = nil
     local GetTargetViewportScale = nil
+    local AttachUniversalDrag = nil
 
     local function TrackConn(conn)
         if conn then
@@ -4329,7 +4330,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local function CreateTile(statDef, idx)
             local sName = (type(statDef) == "table") and (statDef.Name or statDef.Title or statDef[1]) or tostring(statDef)
             local sVal = (type(statDef) == "table") and (statDef.Value or statDef.val or statDef[2]) or "0"
-            local accentColor = (type(statDef) == "table") and (statDef.Color or statDef.color) or Window.CurrentTheme.ButtonBG
+            local hasCustomColor = (type(statDef) == "table") and (statDef.Color ~= nil or statDef.color ~= nil)
+            local accentColor = hasCustomColor and (statDef.Color or statDef.color) or Window.CurrentTheme.ButtonBG
 
             local Tile = Instance.new("Frame")
             Tile.Name = "Tile_" .. sName
@@ -4404,7 +4406,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 AccentBar = AccentBar,
                 NameText = NameText,
                 ValText = ValText,
-                AccentColor = accentColor
+                AccentColor = accentColor,
+                HasCustomColor = hasCustomColor
             }
             statValues[sName] = sVal
         end
@@ -4474,6 +4477,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     t.Stroke.Color = theme.Divider or Color3.fromRGB(60, 65, 80)
                     t.NameText.TextColor3 = theme.SubText
                     t.ValText.TextColor3 = theme.Text
+                    if t.AccentBar then
+                        t.AccentBar.BackgroundColor3 = t.HasCustomColor and t.AccentColor or theme.ButtonBG
+                    end
                 end
             end
         }
@@ -4644,6 +4650,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Img.Size = UDim2.new(1, 0, 1, 0)
                 Img.Position = UDim2.new(0, 0, 0, 0)
                 Img.BackgroundTransparency = 1
+                Img.ImageTransparency = 0
                 Img.Image = imgAsset
                 Img.ScaleType = Enum.ScaleType.Crop
                 Img.ZIndex = 13
@@ -4653,7 +4660,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 imgCorner.CornerRadius = UDim.new(0, 8)
                 imgCorner.Parent = Img
 
-                -- Bottom gradient fade for name readability
+                -- Separate overlay frame for bottom gradient fade
+                local GradOverlay = Instance.new("Frame")
+                GradOverlay.Name = "GradientOverlay"
+                GradOverlay.Size = UDim2.new(1, 0, 0, 36)
+                GradOverlay.Position = UDim2.new(0, 0, 1, -36)
+                GradOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                GradOverlay.BackgroundTransparency = 0
+                GradOverlay.BorderSizePixel = 0
+                GradOverlay.ZIndex = 14
+                GradOverlay.Parent = Tile
+
+                local oCorner = Instance.new("UICorner")
+                oCorner.CornerRadius = UDim.new(0, 8)
+                oCorner.Parent = GradOverlay
+
                 local Grad = Instance.new("UIGradient")
                 Grad.Color = ColorSequence.new({
                     ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
@@ -4661,11 +4682,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 })
                 Grad.Transparency = NumberSequence.new({
                     NumberSequenceKeypoint.new(0, 1),
-                    NumberSequenceKeypoint.new(0.45, 1),
-                    NumberSequenceKeypoint.new(1, 0.1)
+                    NumberSequenceKeypoint.new(0.3, 0.7),
+                    NumberSequenceKeypoint.new(1, 0.2)
                 })
                 Grad.Rotation = 90
-                Grad.Parent = Img
+                Grad.Parent = GradOverlay
 
                 -- Name label over gradient
                 local NameLbl = Instance.new("TextLabel")
@@ -4816,101 +4837,240 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
 
     function Window:CreateMDPreview(parent, position, size, config)
-        parent = ResolveParent(parent)
         config = (type(config) == "table") and config or {}
-        local inSection = IsInsideSection(parent)
         local title = config.Title or config.title or "Preview"
-        local previewHeight = tonumber(config.Height or config.height) or 160
+        local modalWidth = tonumber(config.Width or config.width) or 260
+        local modalHeight = tonumber(config.Height or config.height)
 
-        local CardFrame = Instance.new("Frame")
-        CardFrame.Name = GenerateSafeName("PreviewCard")
-        CardFrame:SetAttribute("MDCard", true)
-        CardFrame.Size = size or UDim2.new(1, inSection and 0 or -10, 0, previewHeight + 40)
-        CardFrame.Position = position or UDim2.new(0, 0, 0, 0)
-        CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
-        CardFrame.BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
-        CardFrame.BorderSizePixel = 0
-        CardFrame.ZIndex = 10
-        CardFrame.Parent = parent
+        local modalParent = Window.MainContainer or MainContainer or ResolveParent(parent) or ScriptUi
+        local targetPos = position or UDim2.new(1, 10, 0, 0)
+        local targetSize = size or (modalHeight and UDim2.new(0, modalWidth, 0, modalHeight) or UDim2.new(0, modalWidth, 1, 0))
+
+        local ModalFrame = Instance.new("Frame")
+        ModalFrame.Name = GenerateSafeName("MDPreviewModal")
+        ModalFrame:SetAttribute("MDCard", true)
+        ModalFrame.Size = targetSize
+        ModalFrame.Position = targetPos
+        ModalFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
+        ModalFrame.BackgroundTransparency = Window.ElementsTransparency or 0.08
+        ModalFrame.BorderSizePixel = 0
+        ModalFrame.ClipsDescendants = false
+        ModalFrame.ZIndex = 50
+        ModalFrame.Visible = (config.DefaultOpen == true or config.Open == true or config.Visible == true)
+        ModalFrame.Parent = modalParent
 
         local Corner = Instance.new("UICorner")
         Corner.CornerRadius = UDim.new(0, 12)
-        Corner.Parent = CardFrame
+        Corner.Parent = ModalFrame
 
-        local pad = Instance.new("UIPadding")
-        pad.PaddingTop = UDim.new(0, 10)
-        pad.PaddingBottom = UDim.new(0, 10)
-        pad.PaddingLeft = UDim.new(0, 10)
-        pad.PaddingRight = UDim.new(0, 10)
-        pad.Parent = CardFrame
+        local ModalStroke = Instance.new("UIStroke")
+        ModalStroke.Thickness = 1
+        ModalStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(50, 55, 70)
+        ModalStroke.Transparency = 0.5
+        ModalStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        ModalStroke.Parent = ModalFrame
+
+        AddUIShadow(ModalFrame, 22, 0.5)
+
+        -- Header Bar
+        local HeaderBar = Instance.new("Frame")
+        HeaderBar.Name = "HeaderBar"
+        HeaderBar.Size = UDim2.new(1, 0, 0, 36)
+        HeaderBar.Position = UDim2.new(0, 0, 0, 0)
+        HeaderBar.BackgroundTransparency = 1
+        HeaderBar.BorderSizePixel = 0
+        HeaderBar.ZIndex = 51
+        HeaderBar.Parent = ModalFrame
+
+        local HeaderEye = Instance.new("ImageLabel")
+        HeaderEye.Name = "HeaderEye"
+        HeaderEye.Size = UDim2.new(0, 16, 0, 16)
+        HeaderEye.Position = UDim2.new(0, 12, 0.5, -8)
+        HeaderEye.BackgroundTransparency = 1
+        HeaderEye.Image = Library:GetIcon("eye") or "rbxassetid://127234874352422"
+        HeaderEye.ImageColor3 = Window.CurrentTheme.ButtonBG
+        HeaderEye.ZIndex = 52
+        HeaderEye.Parent = HeaderBar
 
         local TitleLabel = Instance.new("TextLabel")
         TitleLabel.Name = "PreviewTitle"
-        TitleLabel.Size = UDim2.new(1, 0, 0, 18)
+        TitleLabel.Size = UDim2.new(1, -68, 1, 0)
+        TitleLabel.Position = UDim2.new(0, 34, 0, 0)
         TitleLabel.BackgroundTransparency = 1
         TitleLabel.FontFace = FontFingerPaintRegular
         TitleLabel.Text = title
         TitleLabel.TextColor3 = Window.CurrentTheme.Text
         TitleLabel.TextSize = 13
         TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-        TitleLabel.ZIndex = 11
-        TitleLabel.Parent = CardFrame
+        TitleLabel.ZIndex = 52
+        TitleLabel.Parent = HeaderBar
 
+        local CloseBtn = Instance.new("ImageButton")
+        CloseBtn.Name = "CloseBtn"
+        CloseBtn.Size = UDim2.new(0, 22, 0, 22)
+        CloseBtn.Position = UDim2.new(1, -30, 0.5, -11)
+        CloseBtn.BackgroundColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(45, 50, 65)
+        CloseBtn.BackgroundTransparency = 0.7
+        CloseBtn.AutoButtonColor = false
+        CloseBtn.ZIndex = 52
+        CloseBtn.Parent = HeaderBar
+
+        local cbCorner = Instance.new("UICorner")
+        cbCorner.CornerRadius = UDim.new(0, 6)
+        cbCorner.Parent = CloseBtn
+
+        local CloseIcon = Instance.new("ImageLabel")
+        CloseIcon.Name = "CloseIcon"
+        CloseIcon.Size = UDim2.new(0, 12, 0, 12)
+        CloseIcon.Position = UDim2.new(0.5, -6, 0.5, -6)
+        CloseIcon.BackgroundTransparency = 1
+        CloseIcon.Image = Library:GetIcon("x") or "rbxassetid://116396312853810"
+        CloseIcon.ImageColor3 = Window.CurrentTheme.TextSecondary or Color3.fromRGB(160, 165, 180)
+        CloseIcon.ZIndex = 53
+        CloseIcon.Parent = CloseBtn
+
+        local CloseStroke = Instance.new("UIStroke")
+        CloseStroke.Thickness = 1
+        CloseStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80)
+        CloseStroke.Transparency = 0.7
+        CloseStroke.Parent = CloseBtn
+
+        local Sep = Instance.new("Frame")
+        Sep.Name = "HeaderDivider"
+        Sep.Size = UDim2.new(1, 0, 0, 1)
+        Sep.Position = UDim2.new(0, 0, 0, 36)
+        Sep.BackgroundColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(45, 50, 65)
+        Sep.BackgroundTransparency = 0.6
+        Sep.BorderSizePixel = 0
+        Sep.ZIndex = 51
+        Sep.Parent = ModalFrame
+
+        if AttachUniversalDrag and modalParent == (Window.MainContainer or MainContainer) then
+            AttachUniversalDrag(HeaderBar, modalParent)
+        end
+
+        -- Content Canvas (100% EMPTY by default for the script maker)
         local CanvasFrame = Instance.new("Frame")
         CanvasFrame.Name = "Canvas"
-        CanvasFrame.Size = UDim2.new(1, 0, 1, -24)
-        CanvasFrame.Position = UDim2.new(0, 0, 0, 24)
+        CanvasFrame.Size = UDim2.new(1, -16, 1, -46)
+        CanvasFrame.Position = UDim2.new(0, 8, 0, 40)
         CanvasFrame.BackgroundColor3 = Color3.fromRGB(15, 17, 22)
+        CanvasFrame.BackgroundTransparency = 0.25
         CanvasFrame.BorderSizePixel = 0
         CanvasFrame.ClipsDescendants = true
-        CanvasFrame.ZIndex = 11
-        CanvasFrame.Parent = CardFrame
+        CanvasFrame.ZIndex = 51
+        CanvasFrame.Parent = ModalFrame
 
         local cCorner = Instance.new("UICorner")
         cCorner.CornerRadius = UDim.new(0, 8)
         cCorner.Parent = CanvasFrame
 
-        local cStroke = Instance.new("UIStroke")
-        cStroke.Thickness = 1
-        cStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(50, 55, 70)
-        cStroke.Transparency = 0.5
-        cStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        cStroke.Parent = CanvasFrame
+        local CanvasStroke = Instance.new("UIStroke")
+        CanvasStroke.Thickness = 1
+        CanvasStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(50, 55, 70)
+        CanvasStroke.Transparency = 0.7
+        CanvasStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        CanvasStroke.Parent = CanvasFrame
 
-        -- Subtle vignette gradient on canvas
-        local cGrad = Instance.new("UIGradient")
-        cGrad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 28, 38)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 12, 18))
-        })
-        cGrad.Rotation = 135
-        cGrad.Parent = CanvasFrame
-
-        local CenterCrossH = Instance.new("Frame")
-        CenterCrossH.Name = "GuideH"
-        CenterCrossH.Size = UDim2.new(0, 14, 0, 1)
-        CenterCrossH.Position = UDim2.new(0.5, -7, 0.5, 0)
-        CenterCrossH.BackgroundColor3 = Color3.fromRGB(80, 85, 100)
-        CenterCrossH.BackgroundTransparency = 0.6
-        CenterCrossH.BorderSizePixel = 0
-        CenterCrossH.ZIndex = 12
-        CenterCrossH.Parent = CanvasFrame
-
-        local CenterCrossV = Instance.new("Frame")
-        CenterCrossV.Name = "GuideV"
-        CenterCrossV.Size = UDim2.new(0, 1, 0, 14)
-        CenterCrossV.Position = UDim2.new(0.5, 0, 0.5, -7)
-        CenterCrossV.BackgroundColor3 = Color3.fromRGB(80, 85, 100)
-        CenterCrossV.BackgroundTransparency = 0.6
-        CenterCrossV.BorderSizePixel = 0
-        CenterCrossV.ZIndex = 12
-        CenterCrossV.Parent = CanvasFrame
-
+        local isOpen = ModalFrame.Visible
+        local isAnimating = false
+        local triggerCallbacks = {}
         local updateFn = config.Update or config.update
+
+        local function NotifyTriggers(state)
+            for _, fn in ipairs(triggerCallbacks) do
+                pcall(fn, state)
+            end
+        end
+
         local previewObj = {
-            Card = CardFrame,
+            Modal = ModalFrame,
+            Card = ModalFrame,
+            Frame = ModalFrame,
             Canvas = CanvasFrame,
+            Content = CanvasFrame,
+            Container = CanvasFrame,
+            IsOpen = function() return isOpen end,
             GetCanvas = function() return CanvasFrame end,
+            GetContainer = function() return CanvasFrame end,
+            GetContent = function() return CanvasFrame end,
+            AttachTrigger = function(selfOrFn, maybeFn)
+                local fn = (type(selfOrFn) == "function") and selfOrFn or maybeFn
+                if type(fn) == "function" then
+                    table.insert(triggerCallbacks, fn)
+                    pcall(fn, isOpen)
+                end
+            end,
+            Show = function(self)
+                if isAnimating then return end
+                if Window.ActivePreviewModal and Window.ActivePreviewModal ~= previewObj then
+                    pcall(function() Window.ActivePreviewModal:Hide() end)
+                end
+                Window.ActivePreviewModal = previewObj
+                isOpen = true
+                ModalFrame.Visible = true
+                isAnimating = true
+                local closedPos = UDim2.new(1, 0, targetPos.Y.Scale, targetPos.Y.Offset)
+                ModalFrame.Position = closedPos
+                local showTween = TweenService:Create(ModalFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Position = targetPos
+                })
+                showTween.Completed:Connect(function()
+                    isAnimating = false
+                end)
+                showTween:Play()
+                NotifyTriggers(true)
+                if config.OnOpen then pcall(config.OnOpen, CanvasFrame) end
+            end,
+            Hide = function(self)
+                if isAnimating then return end
+                if Window.ActivePreviewModal == previewObj then
+                    Window.ActivePreviewModal = nil
+                end
+                isOpen = false
+                isAnimating = true
+                local closedPos = UDim2.new(1, 0, targetPos.Y.Scale, targetPos.Y.Offset)
+                local hideTween = TweenService:Create(ModalFrame, TweenInfo.new(0.16, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                    Position = closedPos
+                })
+                hideTween.Completed:Connect(function()
+                    if not isOpen then
+                        ModalFrame.Visible = false
+                    end
+                    isAnimating = false
+                end)
+                hideTween:Play()
+                NotifyTriggers(false)
+                if config.OnClose then pcall(config.OnClose, CanvasFrame) end
+            end,
+            Toggle = function(self)
+                if isOpen then
+                    self:Hide()
+                else
+                    self:Show()
+                end
+            end,
+            SetTitle = function(selfOrTitle, maybeTitle)
+                local newT = (type(selfOrTitle) == "string") and selfOrTitle or maybeTitle
+                if newT then TitleLabel.Text = tostring(newT) end
+            end,
+            SetSize = function(selfOrW, maybeW, maybeH)
+                local w = (type(selfOrW) == "number") and selfOrW or maybeW
+                local h = (type(selfOrW) == "number") and maybeW or maybeH
+                if w and h then
+                    targetSize = UDim2.new(0, w, 0, h)
+                elseif w then
+                    targetSize = UDim2.new(0, w, 1, 0)
+                end
+                ModalFrame.Size = targetSize
+            end,
+            Clear = function(self)
+                for _, child in ipairs(CanvasFrame:GetChildren()) do
+                    if child ~= cCorner and child ~= CanvasStroke then
+                        child:Destroy()
+                    end
+                end
+            end,
             SetUpdate = function(selfOrFn, maybeFn)
                 local fn = (type(selfOrFn) == "function") and selfOrFn or maybeFn
                 updateFn = fn
@@ -4920,13 +5080,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     pcall(updateFn, CanvasFrame, selfOrData, ...)
                 end
             end,
-            Clear = function()
-                for _, child in ipairs(CanvasFrame:GetChildren()) do
-                    if child ~= CenterCrossH and child ~= CenterCrossV and child ~= cCorner and child ~= cStroke then
-                        child:Destroy()
-                    end
-                end
-            end,
             CreateMockPlayer = function(self, opts)
                 opts = (type(opts) == "table") and opts or {}
                 local dummy = Instance.new("Frame")
@@ -4934,7 +5087,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 dummy.Size = UDim2.new(0, 48, 0, 96)
                 dummy.Position = opts.Position or UDim2.new(0.5, -24, 0.5, -48)
                 dummy.BackgroundTransparency = 1
-                dummy.ZIndex = 13
+                dummy.ZIndex = 53
                 dummy.Parent = CanvasFrame
 
                 local torso = Instance.new("Frame")
@@ -4943,7 +5096,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 torso.Position = UDim2.new(0.5, -12, 0, 20)
                 torso.BackgroundColor3 = opts.ChamsColor or Color3.fromRGB(90, 100, 120)
                 torso.BorderSizePixel = 0
-                torso.ZIndex = 14
+                torso.ZIndex = 54
                 torso.Parent = dummy
 
                 local head = Instance.new("Frame")
@@ -4952,7 +5105,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 head.Position = UDim2.new(0.5, -8, 0, 2)
                 head.BackgroundColor3 = opts.ChamsColor or Color3.fromRGB(110, 120, 140)
                 head.BorderSizePixel = 0
-                head.ZIndex = 14
+                head.ZIndex = 54
                 head.Parent = dummy
                 local hCorner = Instance.new("UICorner")
                 hCorner.CornerRadius = UDim.new(0.5, 0)
@@ -4964,7 +5117,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 leftArm.Position = UDim2.new(0.5, -22, 0, 20)
                 leftArm.BackgroundColor3 = opts.ChamsColor or Color3.fromRGB(80, 90, 110)
                 leftArm.BorderSizePixel = 0
-                leftArm.ZIndex = 14
+                leftArm.ZIndex = 54
                 leftArm.Parent = dummy
 
                 local rightArm = Instance.new("Frame")
@@ -4973,7 +5126,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 rightArm.Position = UDim2.new(0.5, 14, 0, 20)
                 rightArm.BackgroundColor3 = opts.ChamsColor or Color3.fromRGB(80, 90, 110)
                 rightArm.BorderSizePixel = 0
-                rightArm.ZIndex = 14
+                rightArm.ZIndex = 54
                 rightArm.Parent = dummy
 
                 local leftLeg = Instance.new("Frame")
@@ -4982,7 +5135,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 leftLeg.Position = UDim2.new(0.5, -11, 0, 58)
                 leftLeg.BackgroundColor3 = opts.ChamsColor or Color3.fromRGB(70, 80, 100)
                 leftLeg.BorderSizePixel = 0
-                leftLeg.ZIndex = 14
+                leftLeg.ZIndex = 54
                 leftLeg.Parent = dummy
 
                 local rightLeg = Instance.new("Frame")
@@ -4991,7 +5144,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 rightLeg.Position = UDim2.new(0.5, 1, 0, 58)
                 rightLeg.BackgroundColor3 = opts.ChamsColor or Color3.fromRGB(70, 80, 100)
                 rightLeg.BorderSizePixel = 0
-                rightLeg.ZIndex = 14
+                rightLeg.ZIndex = 54
                 rightLeg.Parent = dummy
 
                 local boxOutline = Instance.new("Frame")
@@ -4999,7 +5152,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 boxOutline.Size = UDim2.new(1, 12, 1, 10)
                 boxOutline.Position = UDim2.new(0, -6, 0, -5)
                 boxOutline.BackgroundTransparency = 1
-                boxOutline.ZIndex = 16
+                boxOutline.ZIndex = 55
                 boxOutline.Parent = dummy
 
                 local boxStroke = Instance.new("UIStroke")
@@ -5018,7 +5171,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 nameLbl.Text = opts.Name or "TargetPlayer [100m]"
                 nameLbl.TextColor3 = opts.NameColor or Color3.fromRGB(255, 255, 255)
                 nameLbl.TextSize = 11
-                nameLbl.ZIndex = 16
+                nameLbl.ZIndex = 55
                 nameLbl.Parent = dummy
 
                 local hbBg = Instance.new("Frame")
@@ -5027,7 +5180,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 hbBg.Position = UDim2.new(0, -12, 0, -5)
                 hbBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
                 hbBg.BorderSizePixel = 0
-                hbBg.ZIndex = 16
+                hbBg.ZIndex = 55
                 hbBg.Parent = dummy
 
                 local hbFill = Instance.new("Frame")
@@ -5036,7 +5189,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 hbFill.Position = UDim2.new(0, 0, 1 - (opts.Health and (opts.Health / 100) or 1), 0)
                 hbFill.BackgroundColor3 = opts.HealthColor or Color3.fromRGB(50, 230, 110)
                 hbFill.BorderSizePixel = 0
-                hbFill.ZIndex = 17
+                hbFill.ZIndex = 56
                 hbFill.Parent = hbBg
 
                 return {
@@ -5055,15 +5208,158 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 }
             end,
             RefreshTheme = function(theme)
-                CardFrame.BackgroundColor3 = theme.CardBG
+                ModalFrame.BackgroundColor3 = theme.CardBG
                 TitleLabel.TextColor3 = theme.Text
+                HeaderEye.ImageColor3 = theme.ButtonBG
+                ModalStroke.Color = theme.Divider or Color3.fromRGB(50, 55, 70)
+                CanvasStroke.Color = theme.Divider or Color3.fromRGB(50, 55, 70)
+                CloseStroke.Color = theme.Divider or Color3.fromRGB(60, 65, 80)
+                Sep.BackgroundColor3 = theme.Divider or Color3.fromRGB(45, 50, 65)
             end
         }
+
+        CloseBtn.MouseEnter:Connect(function()
+            TweenService:Create(CloseIcon, TweenInfo.new(0.12), { ImageColor3 = Window.CurrentTheme.Text }):Play()
+            CloseBtn.BackgroundTransparency = 0.4
+        end)
+        CloseBtn.MouseLeave:Connect(function()
+            TweenService:Create(CloseIcon, TweenInfo.new(0.12), { ImageColor3 = Window.CurrentTheme.TextSecondary or Color3.fromRGB(160, 165, 180) }):Play()
+            CloseBtn.BackgroundTransparency = 0.7
+        end)
+        CloseBtn.MouseButton1Click:Connect(function()
+            PlayClickSFX()
+            previewObj:Hide()
+        end)
+
         if updateFn then
             pcall(updateFn, CanvasFrame)
         end
         table.insert(Window.RegisteredCustom, previewObj)
         return previewObj
+    end
+
+    function Window:CreateMDPreviewButton(parent, position, size, previewObjOrConfig, buttonTitle)
+        parent = ResolveParent(parent)
+        local inSection = IsInsideSection(parent)
+        local title = buttonTitle or (type(previewObjOrConfig) == "table" and previewObjOrConfig.Title) or "Live Preview"
+        local preview = nil
+        if type(previewObjOrConfig) == "table" and (previewObjOrConfig.Toggle or previewObjOrConfig.Show) then
+            preview = previewObjOrConfig
+        else
+            preview = Window:CreateMDPreview(nil, nil, nil, (type(previewObjOrConfig) == "table") and previewObjOrConfig or { Title = title })
+        end
+
+        local CardFrame = Instance.new("Frame")
+        CardFrame.Name = GenerateSafeName("PreviewTriggerCard")
+        CardFrame:SetAttribute("MDCard", true)
+        CardFrame.Size = size or UDim2.new(1, inSection and 0 or -10, 0, 44)
+        CardFrame.Position = position or UDim2.new(0, 0, 0, 0)
+        CardFrame.BackgroundColor3 = Window.CurrentTheme.CardBG
+        CardFrame.BackgroundTransparency = (inSection and Window.SectionsTransparent) and 1 or (Window.ElementsTransparency or 0.33)
+        CardFrame.BorderSizePixel = 0
+        CardFrame.ZIndex = 10
+        CardFrame.Parent = parent
+
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 12)
+        Corner.Parent = CardFrame
+
+        if not inSection or not Window.SectionsTransparent then
+            AddUIShadow(CardFrame, 20, 0.5)
+        end
+
+        local EyeIcon = Instance.new("ImageLabel")
+        EyeIcon.Name = "TriggerEye"
+        EyeIcon.Size = UDim2.new(0, 18, 0, 18)
+        EyeIcon.Position = UDim2.new(0, 12, 0.5, -9)
+        EyeIcon.BackgroundTransparency = 1
+        EyeIcon.Image = Library:GetIcon("eye") or "rbxassetid://127234874352422"
+        EyeIcon.ImageColor3 = Window.CurrentTheme.ButtonBG
+        EyeIcon.ZIndex = 11
+        EyeIcon.Parent = CardFrame
+
+        local TitleLabel = Instance.new("TextLabel")
+        TitleLabel.Name = "Title"
+        TitleLabel.Size = UDim2.new(1, -110, 1, 0)
+        TitleLabel.Position = UDim2.new(0, 36, 0, 0)
+        TitleLabel.BackgroundTransparency = 1
+        TitleLabel.FontFace = FontFingerPaintRegular
+        TitleLabel.Text = title
+        TitleLabel.TextColor3 = Window.CurrentTheme.Text
+        TitleLabel.TextSize = 13
+        TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TitleLabel.ZIndex = 11
+        TitleLabel.Parent = CardFrame
+
+        local TriggerPill = Instance.new("TextButton")
+        TriggerPill.Name = "OpenPreviewPill"
+        TriggerPill.Size = UDim2.new(0, 60, 0, 24)
+        TriggerPill.Position = UDim2.new(1, -70, 0.5, -12)
+        TriggerPill.BackgroundColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(45, 50, 65)
+        TriggerPill.BackgroundTransparency = 0.4
+        TriggerPill.FontFace = FontFingerPaintRegular
+        TriggerPill.Text = "View"
+        TriggerPill.TextColor3 = Window.CurrentTheme.TextSecondary or Color3.fromRGB(200, 205, 220)
+        TriggerPill.TextSize = 12
+        TriggerPill.ZIndex = 12
+        TriggerPill.Parent = CardFrame
+
+        local pillCorner = Instance.new("UICorner")
+        pillCorner.CornerRadius = UDim.new(0, 8)
+        pillCorner.Parent = TriggerPill
+
+        local function UpdateVisuals(isOpen)
+            if isOpen then
+                TriggerPill.BackgroundColor3 = Window.CurrentTheme.ButtonBG
+                TriggerPill.BackgroundTransparency = 0.1
+                TriggerPill.TextColor3 = GetOnAccent(Window.CurrentTheme.ButtonBG)
+                TriggerPill.Text = "Close"
+                EyeIcon.ImageColor3 = Window.CurrentTheme.ButtonBG
+            else
+                TriggerPill.BackgroundColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(45, 50, 65)
+                TriggerPill.BackgroundTransparency = 0.4
+                TriggerPill.TextColor3 = Window.CurrentTheme.TextSecondary or Color3.fromRGB(200, 205, 220)
+                TriggerPill.Text = "View"
+                EyeIcon.ImageColor3 = Window.CurrentTheme.ButtonBG
+            end
+        end
+
+        TriggerPill.MouseButton1Click:Connect(function()
+            PlayClickSFX()
+            preview:Toggle()
+        end)
+
+        local ClickDetector = Instance.new("TextButton")
+        ClickDetector.Name = "CardClick"
+        ClickDetector.Size = UDim2.new(1, -75, 1, 0)
+        ClickDetector.Position = UDim2.new(0, 0, 0, 0)
+        ClickDetector.BackgroundTransparency = 1
+        ClickDetector.Text = ""
+        ClickDetector.ZIndex = 11
+        ClickDetector.Parent = CardFrame
+        ClickDetector.MouseButton1Click:Connect(function()
+            PlayClickSFX()
+            preview:Toggle()
+        end)
+
+        if preview.AttachTrigger then
+            preview:AttachTrigger(function(isOpen)
+                UpdateVisuals(isOpen)
+            end)
+        end
+
+        local triggerObj = {
+            Card = CardFrame,
+            Preview = preview,
+            RefreshTheme = function(theme)
+                CardFrame.BackgroundColor3 = theme.CardBG
+                TitleLabel.TextColor3 = theme.Text
+                EyeIcon.ImageColor3 = theme.ButtonBG
+                UpdateVisuals(preview:IsOpen())
+            end
+        }
+        table.insert(Window.RegisteredCustom, triggerObj)
+        return triggerObj, preview
     end
 
     function Window:CreateMDSubTabs(parentTab, tabNamesOrConfig, defaultSubTab)
@@ -6194,7 +6490,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
 
 
-    local function AttachUniversalDrag(dragHandleFrame, targetContainer)
+    AttachUniversalDrag = function(dragHandleFrame, targetContainer)
         local isDragging = false
         local dragStartPos = nil
         local frameStartPos = nil
@@ -8313,6 +8609,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             keybindProp = keybindConfig
         end
 
+        local previewProp = nil
+        if type(keybindConfig) == "table" then
+            previewProp = keybindConfig.Preview or keybindConfig.preview
+        end
+
         local hasKeybind = (keybindProp ~= nil and keybindProp ~= false and keybindProp ~= "")
 
         local TitleText = Instance.new("TextLabel")
@@ -8513,6 +8814,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     if toggleData.Keybind.Label then toggleData.Keybind.Label.TextColor3 = theme.Text end
                     if toggleData.Keybind.DeleteBtn then toggleData.Keybind.DeleteBtn.ImageColor3 = theme.Text end
                 end
+                if toggleData.PreviewButton then
+                    toggleData.PreviewButton.BackgroundColor3 = (theme.CardBG == Color3.fromRGB(255, 255, 255)) and Color3.fromRGB(225, 230, 240) or Color3.fromRGB(45, 50, 65)
+                    if toggleData._EyeStroke then
+                        toggleData._EyeStroke.Color = theme.Divider or Color3.fromRGB(60, 65, 80)
+                    end
+                    if toggleData._SyncEyeVisuals then
+                        toggleData._SyncEyeVisuals()
+                    end
+                end
             end
         }
 
@@ -8658,6 +8968,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return sliderTrack
         end
 
+        local function UpdateLayoutBadges()
+            local isConnectedSlider = (toggleData.ConnectedSlider ~= nil or CardFrame.Size.Y.Offset > 50)
+            local rightPadding = 65
+            if toggleData.Keybind then
+                local kbPos = isConnectedSlider and UDim2.new(1, -96, 0, 11) or UDim2.new(1, -96, 0.5, -11)
+                if toggleData.Keybind.Badge then
+                    toggleData.Keybind.Badge.Position = kbPos
+                end
+                rightPadding = rightPadding + 39
+            end
+            if toggleData.PreviewButton then
+                local eyePos = (toggleData.Keybind)
+                    and (isConnectedSlider and UDim2.new(1, -124, 0, 11) or UDim2.new(1, -124, 0.5, -11))
+                    or (isConnectedSlider and UDim2.new(1, -82, 0, 11) or UDim2.new(1, -82, 0.5, -11))
+                toggleData.PreviewButton.Position = eyePos
+                rightPadding = rightPadding + 28
+            end
+            TitleText.Size = UDim2.new(1, -rightPadding, 1, 0)
+        end
+
         toggleData.WithKeybind = function(self, keyOrConfig, cb)
             if not self.Keybind then
                 local kbProp = nil
@@ -8675,15 +9005,113 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     self.SetState(not isToggled, true)
                     if cb then pcall(cb, isToggled) end
                 end, toggleName)
+                UpdateLayoutBadges()
             end
             return self
         end
+        toggleData.WithPreview = function(self, previewObjOrConfig)
+            if not self.PreviewButton then
+                local pObj = nil
+                if type(previewObjOrConfig) == "table" and previewObjOrConfig.Canvas and (previewObjOrConfig.Toggle or previewObjOrConfig.Show) then
+                    pObj = previewObjOrConfig
+                elseif type(previewObjOrConfig) == "table" then
+                    local cfg = table.clone(previewObjOrConfig)
+                    cfg.Title = cfg.Title or cfg.title or (text .. " Preview")
+                    pObj = Window:CreateMDPreview(nil, nil, nil, cfg)
+                else
+                    pObj = Window:CreateMDPreview(nil, nil, nil, { Title = text .. " Preview" })
+                end
+
+                local EyeBtn = Instance.new("ImageButton")
+                EyeBtn.Name = "PreviewEyeBtn"
+                EyeBtn.Size = UDim2.new(0, 22, 0, 22)
+                EyeBtn.BackgroundColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(45, 50, 65)
+                EyeBtn.BackgroundTransparency = 0.5
+                EyeBtn.AutoButtonColor = false
+                EyeBtn.ZIndex = 12
+                EyeBtn.Parent = CardFrame
+
+                local ebCorner = Instance.new("UICorner")
+                ebCorner.CornerRadius = UDim.new(0, 6)
+                ebCorner.Parent = EyeBtn
+
+                local ebStroke = Instance.new("UIStroke")
+                ebStroke.Thickness = 1
+                ebStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80)
+                ebStroke.Transparency = 0.6
+                ebStroke.Parent = EyeBtn
+
+                local EyeIcon = Instance.new("ImageLabel")
+                EyeIcon.Name = "EyeIcon"
+                EyeIcon.Size = UDim2.new(0, 14, 0, 14)
+                EyeIcon.Position = UDim2.new(0.5, -7, 0.5, -7)
+                EyeIcon.BackgroundTransparency = 1
+                EyeIcon.Image = Library:GetIcon("eye") or "rbxassetid://127234874352422"
+                EyeIcon.ImageColor3 = Window.CurrentTheme.TextSecondary or Color3.fromRGB(160, 165, 180)
+                EyeIcon.ZIndex = 13
+                EyeIcon.Parent = EyeBtn
+
+                if Window.AttachTooltip then
+                    Window:AttachTooltip(EyeBtn, "Toggle Preview")
+                end
+
+                local function SyncEyeVisuals(isOpen)
+                    if isOpen == nil then
+                        isOpen = pObj and pObj:IsOpen()
+                    end
+                    if isOpen then
+                        EyeIcon.ImageColor3 = Window.CurrentTheme.ButtonBG
+                        EyeBtn.BackgroundColor3 = Window.CurrentTheme.ButtonBG
+                        EyeBtn.BackgroundTransparency = 0.8
+                        ebStroke.Color = Window.CurrentTheme.ButtonBG
+                    else
+                        EyeIcon.ImageColor3 = Window.CurrentTheme.TextSecondary or Color3.fromRGB(160, 165, 180)
+                        EyeBtn.BackgroundColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(45, 50, 65)
+                        EyeBtn.BackgroundTransparency = 0.5
+                        ebStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80)
+                    end
+                end
+
+                EyeBtn.MouseEnter:Connect(function()
+                    if not (pObj and pObj:IsOpen()) then
+                        TweenService:Create(EyeIcon, TweenInfo.new(0.12), { ImageColor3 = Window.CurrentTheme.Text }):Play()
+                    end
+                end)
+                EyeBtn.MouseLeave:Connect(function()
+                    SyncEyeVisuals()
+                end)
+                EyeBtn.MouseButton1Click:Connect(function()
+                    PlayClickSFX()
+                    if pObj then
+                        pObj:Toggle()
+                    end
+                    SyncEyeVisuals()
+                end)
+
+                if pObj and pObj.AttachTrigger then
+                    pObj:AttachTrigger(function(isOpen)
+                        SyncEyeVisuals(isOpen)
+                    end)
+                end
+
+                self.Preview = pObj
+                self.PreviewButton = EyeBtn
+                self._EyeIcon = EyeIcon
+                self._EyeStroke = ebStroke
+                self._SyncEyeVisuals = SyncEyeVisuals
+
+                UpdateLayoutBadges()
+            end
+            return self
+        end
+        toggleData.AddPreviewButton = toggleData.WithPreview
         toggleData.WithSlider = function(self, sliderConfig, cb)
             if type(sliderConfig) == "table" then
                 if cb and not sliderConfig.Callback then
                     sliderConfig.Callback = cb
                 end
                 self:AddSlider(sliderConfig)
+                UpdateLayoutBadges()
             end
             return self
         end
@@ -8718,6 +9146,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             toggleData.Keybind = Window:CreateKeybindBadge(CardFrame, keyPos, UDim2.new(0, 36, 0, 22), defaultKey, function()
                 toggleData.SetState(not isToggled, true)
             end, toggleName)
+        end
+
+        if previewProp then
+            toggleData:WithPreview(previewProp)
+        else
+            UpdateLayoutBadges()
         end
 
         Window.RegisteredToggles[toggleName] = toggleData
@@ -9329,6 +9763,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MainContainer.BackgroundTransparency = 1
     MainContainer.ClipsDescendants = false
     MainContainer.Parent = ScriptUi
+    Window.MainContainer = MainContainer
 
     UIScaleConstraint = Instance.new("UIScale")
     UIScaleConstraint.Name = "MainUIScale"
@@ -12458,9 +12893,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         function TabObj:AddPreview(config, parentContainer)
             local cfg = (type(config) == "table" and not config.IsA) and config or {}
             local targetParent = ResolveParent(parentContainer) or cfg.Parent or TabObj.CurrentSectionContainer or ContentFrame
-            local preview = Window:CreateMDPreview(targetParent, nil, nil, cfg)
+            local preview = Window:CreateMDPreview(nil, nil, nil, cfg)
+            if cfg.Inline ~= false and cfg.NoCard ~= true and cfg.Standalone ~= true then
+                local triggerCard = Window:CreateMDPreviewButton(targetParent, nil, nil, preview, cfg.Title or cfg.title or "Preview")
+                preview.TriggerCard = triggerCard
+            end
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
             return preview
+        end
+
+        function TabObj:AddPreviewButton(previewOrConfig, titleOrConfig, parentContainer)
+            local targetParent = ResolveParent(parentContainer) or TabObj.CurrentSectionContainer or ContentFrame
+            local previewObj = (type(previewOrConfig) == "table" and (previewOrConfig.Toggle or previewOrConfig.Show)) and previewOrConfig or nil
+            local title = type(titleOrConfig) == "string" and titleOrConfig or (type(previewOrConfig) == "string" and previewOrConfig) or (type(previewOrConfig) == "table" and (previewOrConfig.Title or previewOrConfig.title)) or "Preview"
+            if not previewObj then
+                local cfg = (type(previewOrConfig) == "table") and previewOrConfig or { Title = title }
+                previewObj = Window:CreateMDPreview(nil, nil, nil, cfg)
+            end
+            local triggerCard = Window:CreateMDPreviewButton(targetParent, nil, nil, previewObj, title)
+            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            return triggerCard, previewObj
         end
 
         function TabObj:AddSubTabs(tabNamesOrConfig, defaultSubTab)
@@ -13653,6 +14105,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SectionObj.AddGallery = SectionObj.AddImageGrid
             function SectionObj:AddPreview(config)
                 return TabObj:AddPreview(config, ItemContainer)
+            end
+            function SectionObj:AddPreviewButton(previewOrConfig, titleOrConfig)
+                return TabObj:AddPreviewButton(previewOrConfig, titleOrConfig, ItemContainer)
             end
             function SectionObj:AddButton(arg1, arg2, arg3, arg4)
                 if type(arg1) == "table" and not arg1.IsA then
