@@ -1025,6 +1025,63 @@ end
 
 Library.GetOnAccent = GetOnAccent
 
+local function ResolveImage(v)
+    if not v or v == "" then return nil end
+    local s = tostring(v)
+    if s:find("://") then return s end
+    return Library:GetIcon(s)
+end
+Library.ResolveImage = ResolveImage
+
+local function CreateMDImage(parent, p, theme)
+    p = p or {}
+    local curTheme = theme or Library.CurrentTheme or (Library.ThemePresets and Library.ThemePresets.Dark)
+    local holder = Instance.new("Frame")
+    holder.Size = p.Size or UDim2.new(1, 0, 1, 0)
+    holder.Position = p.Position or UDim2.new()
+    holder.BackgroundColor3 = GetThemedDarkColor(curTheme)
+    holder.BackgroundTransparency = p.BackgroundTransparency or 0.35
+    holder.BorderSizePixel = 0
+    holder.ClipsDescendants = true
+    holder.ZIndex = p.ZIndex or 12
+    holder.Parent = parent
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, p.CornerRadius or 8)
+    c.Parent = holder
+
+    local img = Instance.new("ImageLabel")
+    img.Size = UDim2.new(1, 0, 1, 0)
+    img.BackgroundTransparency = 1
+    img.ScaleType = p.ScaleType or Enum.ScaleType.Crop
+    img.ImageTransparency = 1
+    img.ZIndex = holder.ZIndex + 1
+    img.Parent = holder
+
+    local src = ResolveImage(p.Image)
+    if src then
+        img.Image = src
+        task.spawn(function()
+            local t0 = os.clock()
+            while img.Parent and not img.IsLoaded and os.clock() - t0 < 5 do
+                task.wait(0.05)
+            end
+            if img.Parent then
+                TweenService:Create(img, TweenInfo.new(0.25), {ImageTransparency = 0}):Play()
+            end
+        end)
+    else
+        img.Image = Library:GetIcon("image") or ""
+        img.ScaleType = Enum.ScaleType.Fit
+        img.Size = UDim2.new(0.5, 0, 0.5, 0)
+        img.Position = UDim2.new(0.25, 0, 0.25, 0)
+        img.ImageTransparency = 0.5
+        img.ImageColor3 = (curTheme and curTheme.SubText) or Color3.fromRGB(150, 150, 165)
+    end
+    return holder, img
+end
+Library.CreateMDImage = CreateMDImage
+
 function Library:RegisterTheme(name, data)
     if type(name) ~= "string" or type(data) ~= "table" then return end
     local defaultTheme = Library.ThemePresets.Dark
@@ -1248,6 +1305,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         RegisteredColorPickers = {},
         RegisteredColorPickersList = {},
         RegisteredKeybindBadges = {},
+        RegisteredCustom = {},
         ConfigLoadedCallbacks = {},
         ConfigSavedCallbacks = {},
         SidebarCollapsed = false,
@@ -2599,6 +2657,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local selectedOption = nil
         local selectedMap = {}
         local selectedOrder = {}
+        local lastContentH = 28
+
+        local function SetOptionSelected(optStr, state)
+            if state and not selectedMap[optStr] then
+                if maxSelected and #selectedOrder >= maxSelected then return false end
+                selectedMap[optStr] = true
+                table.insert(selectedOrder, optStr)
+            elseif not state and selectedMap[optStr] then
+                selectedMap[optStr] = nil
+                local i = table.find(selectedOrder, optStr)
+                if i then table.remove(selectedOrder, i) end
+            end
+            return true
+        end
 
         if isMulti then
             local defSels = defaultVal
@@ -2849,7 +2921,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local SelectAllBtn = nil
         local ClearBtn = nil
 
-        if isMulti then
+        if isMulti and not isPriority then
             ActionsBar = Instance.new("Frame")
             ActionsBar.Name = "ActionsBar"
             ActionsBar.Size = UDim2.new(1, -10, 0, 20)
@@ -3137,6 +3209,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                                 selectedOrder[pIdx - 1] = temp
                                 UpdateTitleDisplay()
                                 RebuildItemRows(currentFilter)
+                                UpdateDropdownHeight()
                                 if onSelect then pcall(onSelect, GetSelectedList()) end
                             end)
                         end
@@ -3162,6 +3235,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                                 selectedOrder[pIdx + 1] = temp
                                 UpdateTitleDisplay()
                                 RebuildItemRows(currentFilter)
+                                UpdateDropdownHeight()
                                 if onSelect then pcall(onSelect, GetSelectedList()) end
                             end)
                         end
@@ -3181,10 +3255,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                         RemBtn.MouseButton1Click:Connect(function()
                             PlayClickSFX()
-                            table.remove(selectedOrder, pIdx)
-                            selectedMap[optStr] = nil
+                            SetOptionSelected(optStr, false)
                             UpdateTitleDisplay()
                             RebuildItemRows(currentFilter)
+                            UpdateDropdownHeight()
                             if onSelect then pcall(onSelect, GetSelectedList()) end
                         end)
                     end
@@ -3269,14 +3343,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                             ItemBtn.MouseButton1Click:Connect(function()
                                 PlayClickSFX()
-                                if maxSelected and #selectedOrder >= maxSelected then
-                                    return
+                                if SetOptionSelected(optStr, true) then
+                                    UpdateTitleDisplay()
+                                    RebuildItemRows(currentFilter)
+                                    UpdateDropdownHeight()
+                                    if onSelect then pcall(onSelect, GetSelectedList()) end
                                 end
-                                selectedMap[optStr] = true
-                                table.insert(selectedOrder, optStr)
-                                UpdateTitleDisplay()
-                                RebuildItemRows(currentFilter)
-                                if onSelect then pcall(onSelect, GetSelectedList()) end
                             end)
                         end
                     end
@@ -3300,10 +3372,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
 
                 NoResultsLabel.Visible = false
-                local totalItems = #selectedOrder + availCount + 3
-                local totalContentY = (totalItems * ROW_HEIGHT)
+                -- Compute accurate height: 2 headers (20px each) + rows + empty-state labels + spacing
+                local rowCount = #selectedOrder + availCount
+                local emptyActiveH = (#selectedOrder == 0) and (22 + 3) or 0
+                local emptyAvailH = (availCount == 0) and (22 + 3) or 0
+                local totalContentY = 20 + 3 + emptyActiveH + (#selectedOrder * (ROW_HEIGHT + 3)) + 20 + 3 + emptyAvailH + (availCount * (ROW_HEIGHT + 3))
+                totalContentY = math.max(totalContentY - 3, 28)
+                lastContentH = totalContentY
                 InnerScroll.CanvasSize = UDim2.new(0, 0, 0, totalContentY)
-                return totalItems
+                return rowCount
             end
 
             for _, child in ipairs(InnerScroll:GetChildren()) do
@@ -3414,7 +3491,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                         ItemBtn.MouseButton1Click:Connect(function()
                             PlayClickSFX()
-                            selectedMap[optStr] = not selectedMap[optStr]
+                            local newState = not selectedMap[optStr]
+                            SetOptionSelected(optStr, newState)
                             UpdateRowVisuals(optStr, true)
                             UpdateTitleDisplay()
                             if onSelect then
@@ -3447,12 +3525,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                         ItemBtn.MouseButton1Click:Connect(function()
                             PlayClickSFX()
-                            selectedOption = opt
+                            selectedOption = optStr
                             UpdateTitleDisplay()
                             UpdateRowVisuals(optStr, true)
                             CloseDropdown()
                             if onSelect then
-                                pcall(onSelect, selectedOption)
+                                pcall(onSelect, opt)
                             end
                         end)
                     end
@@ -3488,10 +3566,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return width
         end
 
+        local function GetContentHeight()
+            if isPriority then return lastContentH end
+            local n = #visibleItems
+            return n > 0 and (n * ROW_HEIGHT + (n - 1) * 3) or 28
+        end
+
         local function UpdateDropdownHeight()
             if not isExpanded then return end
-            local visibleCount = #visibleItems
-            local contentH = (visibleCount > 0) and ((visibleCount * ROW_HEIGHT) + ((visibleCount - 1) * 3)) or 28
+            local contentH = GetContentHeight()
             local neededH = topOffset + contentH + 5
             local maxH = 220
             local targetHeight = math.clamp(neededH, topOffset + 32, maxH)
@@ -3514,7 +3597,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TrackConn(SelectAllBtn.MouseButton1Click:Connect(function()
                 PlayClickSFX()
                 for _, opt in ipairs(options) do
-                    selectedMap[tostring(opt)] = true
+                    local s = (type(opt) == "table") and tostring(opt.Name or opt.Text or opt[1]) or tostring(opt)
+                    SetOptionSelected(s, true)
                 end
                 for k in pairs(itemRows) do
                     UpdateRowVisuals(k, true)
@@ -3530,6 +3614,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TrackConn(ClearBtn.MouseButton1Click:Connect(function()
                 PlayClickSFX()
                 selectedMap = {}
+                selectedOrder = {}
                 for k in pairs(itemRows) do
                     UpdateRowVisuals(k, true)
                 end
@@ -3612,11 +3697,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             DropdownContent.BackgroundColor3 = DropdownFrame.BackgroundColor3
             DropdownContent.BackgroundTransparency = (inSection and Window.SectionsTransparent) and (Window.ElementsTransparency or 0.33) or DropdownFrame.BackgroundTransparency
 
-            local visibleCount = RebuildItemRows("")
+            RebuildItemRows("")
             local scale = (UIScaleConstraint and UIScaleConstraint.Scale > 0) and UIScaleConstraint.Scale or 1
             local width = UpdateDropdownPos() or (DropdownFrame.AbsoluteSize.X / scale)
 
-            local contentH = (visibleCount > 0) and ((visibleCount * ROW_HEIGHT) + ((visibleCount - 1) * 3)) or 28
+            local contentH = GetContentHeight()
             local neededH = topOffset + contentH + 5
             local targetHeight = math.clamp(neededH, topOffset + 32, 220)
 
@@ -3810,9 +3895,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if selfOrOpt == dropObj then opt = maybeOpt trigger = maybeTrigger
                 else opt = selfOrOpt trigger = maybeOpt end
                 if opt then
-                    selectedMap[tostring(opt)] = true
+                    local s = (type(opt) == "table") and tostring(opt.Name or opt.Text or opt[1]) or tostring(opt)
+                    SetOptionSelected(s, true)
                     UpdateTitleDisplay()
-                    UpdateRowVisuals(tostring(opt), true)
+                    UpdateRowVisuals(s, true)
+                    if isPriority then RebuildItemRows(currentFilter) UpdateDropdownHeight() end
                     if trigger and onSelect then pcall(onSelect, GetSelectedList(), opt, true) end
                 end
             end,
@@ -3821,9 +3908,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if selfOrOpt == dropObj then opt = maybeOpt trigger = maybeTrigger
                 else opt = selfOrOpt trigger = maybeOpt end
                 if opt then
-                    selectedMap[tostring(opt)] = nil
+                    local s = (type(opt) == "table") and tostring(opt.Name or opt.Text or opt[1]) or tostring(opt)
+                    SetOptionSelected(s, false)
                     UpdateTitleDisplay()
-                    UpdateRowVisuals(tostring(opt), true)
+                    UpdateRowVisuals(s, true)
+                    if isPriority then RebuildItemRows(currentFilter) UpdateDropdownHeight() end
                     if trigger and onSelect then pcall(onSelect, GetSelectedList(), opt, false) end
                 end
             end,
@@ -3832,10 +3921,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if selfOrOpt == dropObj then opt = maybeOpt trigger = maybeTrigger
                 else opt = selfOrOpt trigger = maybeOpt end
                 if opt then
-                    local cur = selectedMap[tostring(opt)] == true
-                    selectedMap[tostring(opt)] = not cur
+                    local s = (type(opt) == "table") and tostring(opt.Name or opt.Text or opt[1]) or tostring(opt)
+                    local cur = selectedMap[s] == true
+                    SetOptionSelected(s, not cur)
                     UpdateTitleDisplay()
-                    UpdateRowVisuals(tostring(opt), true)
+                    UpdateRowVisuals(s, true)
+                    if isPriority then RebuildItemRows(currentFilter) UpdateDropdownHeight() end
                     if trigger and onSelect then pcall(onSelect, GetSelectedList(), opt, not cur) end
                 end
             end,
@@ -3887,6 +3978,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 options = {}
                 selectedOption = ""
                 selectedMap = {}
+                selectedOrder = {}
                 UpdateTitleDisplay()
                 RebuildItemRows(currentFilter)
                 UpdateDropdownHeight()
@@ -4849,27 +4941,29 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Container = SubFrame,
                 ItemContainer = SubFrame,
                 CurrentSectionContainer = SubFrame,
-                AddSection = function(self, titleOrConfig, isFullWidth)
-                    local cfg = (type(titleOrConfig) == "table" and not titleOrConfig.IsA) and table.clone(titleOrConfig) or { Title = titleOrConfig, FullWidth = isFullWidth }
-                    cfg.Parent = SubFrame
-                    return parentTab:AddSection(cfg, isFullWidth)
-                end
             }
 
+            local current = SubFrame
             setmetatable(subObj, {
                 __index = function(tbl, key)
-                    if type(parentTab[key]) == "function" and key:sub(1, 3) == "Add" then
-                        return function(self, arg1, ...)
-                            if type(arg1) == "table" and not arg1.IsA then
-                                local cfg = table.clone(arg1)
-                                cfg.Parent = cfg.Parent or SubFrame
-                                return parentTab[key](parentTab, cfg, ...)
-                            else
-                                return parentTab[key](parentTab, arg1, ..., SubFrame)
+                    local member = parentTab[key]
+                    if type(member) == "function" and key:sub(1, 3) == "Add" then
+                        return function(self, ...)
+                            local prevC = parentTab.CurrentSectionContainer
+                            local prevH = parentTab._sectionHost
+                            parentTab.CurrentSectionContainer = current
+                            parentTab._sectionHost = SubFrame
+                            local ok, r1, r2, r3 = pcall(member, parentTab, ...)
+                            if key == "AddSection" and ok then
+                                current = parentTab.CurrentSectionContainer
                             end
+                            parentTab.CurrentSectionContainer = prevC
+                            parentTab._sectionHost = prevH
+                            if not ok then error(r1, 2) end
+                            return r1, r2, r3
                         end
                     end
-                    return parentTab[key]
+                    return member
                 end
             })
 
@@ -12861,6 +12955,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 fullWidth = isFullWidth
             end
 
+            local host = TabObj._sectionHost
+            if host then fullWidth = true end
+
             -- Lazily create the dual-column wrapper on first non-fullWidth section
             if not fullWidth and not TabObj._columnWrapper then
                 local ColumnWrapper = Instance.new("Frame")
@@ -12919,7 +13016,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local targetColumn
             if fullWidth then
-                targetColumn = ContentFrame
+                targetColumn = host or ContentFrame
             else
                 if TabObj._nextColumn == "left" then
                     targetColumn = TabObj._leftColumn
@@ -13321,11 +13418,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SectionObj.AddGallery = SectionObj.AddImageGrid
             function SectionObj:AddPreview(config)
                 return TabObj:AddPreview(config, ItemContainer)
-            end
-            function SectionObj:AddSubTabs(tabNamesOrConfig, defaultSubTab)
-                local cfg = (type(tabNamesOrConfig) == "table") and table.clone(tabNamesOrConfig) or { Tabs = tabNamesOrConfig, Default = defaultSubTab }
-                cfg.Parent = ItemContainer
-                return Window:CreateMDSubTabs(SectionObj, cfg, defaultSubTab)
             end
             function SectionObj:AddButton(arg1, arg2, arg3, arg4)
                 if type(arg1) == "table" and not arg1.IsA then
@@ -16255,6 +16347,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                             desc.Color = newTheme.Divider or Color3.fromRGB(65, 70, 88)
                         end
                     end
+                end
+            end
+        end
+
+        if Window.RegisteredCustom then
+            for _, o in ipairs(Window.RegisteredCustom) do
+                if o and o.RefreshTheme then
+                    pcall(o.RefreshTheme, newTheme)
                 end
             end
         end
