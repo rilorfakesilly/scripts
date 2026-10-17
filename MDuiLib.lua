@@ -1138,6 +1138,31 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
     end
 
+    local languagesList = nil
+    local currentLang = "English"
+    local languageSelectorEnabled = false
+    local translationsDict = {}
+
+    if type(arg1) == "table" then
+        if arg1.Languages and type(arg1.Languages) == "table" then
+            languagesList = arg1.Languages
+            languageSelectorEnabled = (arg1.LanguageSelector ~= false)
+        elseif arg1.LanguageSelector == true or arg1.LanguageToggle == true then
+            languageSelectorEnabled = true
+            languagesList = { "English", "Russian" }
+        end
+
+        if arg1.Language or arg1.DefaultLanguage or arg1.CurrentLanguage then
+            currentLang = tostring(arg1.Language or arg1.DefaultLanguage or arg1.CurrentLanguage)
+        elseif languagesList and #languagesList > 0 then
+            currentLang = languagesList[1]
+        end
+
+        if arg1.Translations and type(arg1.Translations) == "table" then
+            translationsDict = arg1.Translations
+        end
+    end
+
     if Library.ActiveGuis then
         for _, gui in ipairs(Library.ActiveGuis) do
             pcall(function()
@@ -1155,6 +1180,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         FontRegular = FontRegular,
         FontLight = FontLight,
         CreditsConfig = creditsConfig,
+        Languages = languagesList,
+        CurrentLanguage = currentLang,
+        LanguageSelectorEnabled = languageSelectorEnabled,
+        Translations = translationsDict,
+        RegisteredLocalizedElements = {},
+        LanguageChangedCallbacks = {},
         ElementsTransparency = 0.33,
         TopBottomTransparency = 0.30,
         GetIcon = Library.GetIcon,
@@ -3335,6 +3366,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ArrowIcon = ArrowIcon,
             Close = CloseDropdown,
             Open = OpenDropdown,
+            SetTitle = function(selfOrTitle, maybeTitle)
+                local newT = (selfOrTitle == dropObj) and maybeTitle or selfOrTitle
+                title = tostring(newT or "")
+                UpdateTitleDisplay()
+                return dropObj
+            end,
+            SetText = function(selfOrTitle, maybeTitle)
+                return dropObj.SetTitle(selfOrTitle, maybeTitle)
+            end,
 
             -- Single dropdown methods
             GetSelected = function() return selectedOption end,
@@ -4053,6 +4093,189 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     function Window:GetCredits()
         return Window.CreditsConfig
+    end
+
+    -- ==========================================
+    -- Localization / Multi-Language System
+    -- ==========================================
+
+    function Window:Translate(input, targetLang)
+        if input == nil then return "" end
+        targetLang = targetLang or Window.CurrentLanguage or "English"
+
+        if type(input) == "table" then
+            return input[targetLang] or input["English"] or input[1] or tostring(input)
+        end
+
+        local str = tostring(input)
+        local langDict = Window.Translations and Window.Translations[targetLang]
+        if langDict and langDict[str] ~= nil then
+            return tostring(langDict[str])
+        end
+
+        return str
+    end
+    Window.T = Window.Translate
+
+    function Window:RegisterTranslations(lang, dict)
+        if not lang or type(dict) ~= "table" then return end
+        Window.Translations = Window.Translations or {}
+        Window.Translations[lang] = Window.Translations[lang] or {}
+        for k, v in pairs(dict) do
+            Window.Translations[lang][k] = v
+        end
+        if Window.CurrentLanguage == lang then
+            Window:SetLanguage(lang)
+        end
+    end
+
+    function Window:SetLanguage(newLang)
+        if not newLang or newLang == "" then return end
+        local oldLang = Window.CurrentLanguage or "English"
+        Window.CurrentLanguage = newLang
+
+        if Window.RegisteredLocalizedElements then
+            for _, item in ipairs(Window.RegisteredLocalizedElements) do
+                pcall(function()
+                    if item.Update and item.OriginalText then
+                        local translated = Window:Translate(item.OriginalText, newLang)
+                        item.Update(translated, newLang)
+                    end
+                    if item.UpdateDesc and item.OriginalDesc then
+                        local translatedDesc = Window:Translate(item.OriginalDesc, newLang)
+                        item.UpdateDesc(translatedDesc, newLang)
+                    end
+                end)
+            end
+        end
+
+        if Window.LanguageDropdowns then
+            for _, drop in ipairs(Window.LanguageDropdowns) do
+                pcall(function()
+                    if drop and drop.SetSelected then
+                        drop.SetSelected(newLang, false)
+                    end
+                end)
+            end
+        elseif Window.LanguageDropdown and Window.LanguageDropdown.SetSelected then
+            pcall(function()
+                Window.LanguageDropdown.SetSelected(newLang, false)
+            end)
+        end
+
+        if Window.LanguageChangedCallbacks then
+            for _, cb in ipairs(Window.LanguageChangedCallbacks) do
+                pcall(cb, newLang, oldLang)
+            end
+        end
+    end
+
+    function Window:GetLanguage()
+        return Window.CurrentLanguage or "English"
+    end
+
+    function Window:GetLanguages()
+        return Window.Languages or { "English" }
+    end
+
+    function Window:SetLanguages(list)
+        if type(list) ~= "table" then return end
+        Window.Languages = list
+        if Window.LanguageDropdowns then
+            for _, drop in ipairs(Window.LanguageDropdowns) do
+                if drop and drop.RefreshOptions then
+                    drop.RefreshOptions(list)
+                end
+            end
+        elseif Window.LanguageDropdown and Window.LanguageDropdown.RefreshOptions then
+            Window.LanguageDropdown.RefreshOptions(list)
+        end
+    end
+
+    function Window:OnLanguageChanged(cb)
+        if type(cb) ~= "function" then return end
+        Window.LanguageChangedCallbacks = Window.LanguageChangedCallbacks or {}
+        table.insert(Window.LanguageChangedCallbacks, cb)
+    end
+
+    function Window:RegisterLocalizedElement(elemData, originalText, updateFn, originalDesc, descUpdateFn)
+        if not (originalText or originalDesc) then return end
+        Window.RegisteredLocalizedElements = Window.RegisteredLocalizedElements or {}
+        local entry = {
+            Element = elemData,
+            OriginalText = originalText,
+            OriginalDesc = originalDesc,
+            Update = updateFn,
+            UpdateDesc = descUpdateFn
+        }
+        table.insert(Window.RegisteredLocalizedElements, entry)
+
+        local curLang = Window.CurrentLanguage or "English"
+        if curLang ~= "English" or (Window.Translations and Window.Translations[curLang]) or type(originalText) == "table" or type(originalDesc) == "table" then
+            pcall(function()
+                if updateFn and originalText then
+                    local translated = Window:Translate(originalText, curLang)
+                    if translated ~= originalText then
+                        updateFn(translated, curLang)
+                    end
+                end
+                if descUpdateFn and originalDesc then
+                    local translatedDesc = Window:Translate(originalDesc, curLang)
+                    if translatedDesc ~= originalDesc then
+                        descUpdateFn(translatedDesc, curLang)
+                    end
+                end
+            end)
+        end
+    end
+
+    function Window:EnableLanguageSelector(config)
+        config = config or {}
+        Window.LanguageSelectorEnabled = true
+        if config.Languages and type(config.Languages) == "table" then
+            Window.Languages = config.Languages
+        elseif not Window.Languages then
+            Window.Languages = { "English", "Russian" }
+        end
+        if config.Default or config.Language then
+            Window.CurrentLanguage = tostring(config.Default or config.Language)
+        end
+        if config.Translations and type(config.Translations) == "table" then
+            for lang, dict in pairs(config.Translations) do
+                Window:RegisterTranslations(lang, dict)
+            end
+        end
+
+        if Window.SettingsTab and not Window.LanguageDropdown then
+            local SettingsTab = Window.SettingsTab
+            local langSection = SettingsTab:AddSection("Language", true)
+            local langDrop = SettingsTab:AddDropdown({
+                Title = "Interface language",
+                Options = Window.Languages,
+                Default = Window.CurrentLanguage or Window.Languages[1] or "English",
+                Callback = function(selectedLang)
+                    Window:SetLanguage(selectedLang)
+                end
+            })
+            Window.LanguageDropdown = langDrop
+            Window.LanguageDropdowns = Window.LanguageDropdowns or {}
+            table.insert(Window.LanguageDropdowns, langDrop)
+            if SettingsTab.ContentFrame and SettingsTab.Layout then
+                SettingsTab.ContentFrame.CanvasSize = UDim2.new(0, 0, 0, SettingsTab.Layout.AbsoluteContentSize.Y + 20)
+            end
+        elseif Window.LanguageDropdown and Window.LanguageDropdown.RefreshOptions then
+            Window.LanguageDropdown.RefreshOptions(Window.Languages)
+            if Window.CurrentLanguage then
+                Window.LanguageDropdown.SetSelected(Window.CurrentLanguage, false)
+            end
+        end
+    end
+
+    function Window:AddLanguageDropdown(targetTab, config)
+        local target = targetTab or Window.SettingsTab
+        if target and target.AddLanguageDropdown then
+            return target:AddLanguageDropdown(config)
+        end
     end
 
 
@@ -6485,6 +6708,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             GetState = function() return isToggled end,
             SetState = function(state, triggerCallback)
                 PerformToggle(state, triggerCallback)
+            end,
+            SetTitle = function(selfOrTitle, maybeTitle)
+                local newT = (selfOrTitle == toggleData) and maybeTitle or selfOrTitle
+                TitleText.Text = tostring(newT or "")
+                return toggleData
+            end,
+            SetText = function(selfOrTitle, maybeTitle)
+                return toggleData.SetTitle(selfOrTitle, maybeTitle)
             end,
             SetBackgroundImage = function(self, onImg, offImg)
                 bgImageOn = onImg
@@ -9697,6 +9928,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             table.insert(Window.RegisteredMDButtons, buttonData)
 
+            if Window.RegisterLocalizedElement then
+                Window:RegisterLocalizedElement(buttonData, btnTitle, function(newText)
+                    buttonData:SetText(newText)
+                end, (btnDesc and btnDesc ~= "") and btnDesc or nil, function(newDesc)
+                    buttonData:SetDescription(newDesc)
+                end)
+            end
+
             return buttonData
         end
 
@@ -9796,6 +10035,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end
                 end,
             }
+
+            if Window.RegisterLocalizedElement then
+                Window:RegisterLocalizedElement(cardObj, cardTitle, function(newText)
+                    cardObj:SetTitle(newText)
+                end, (hasDesc and cardDesc) or nil, function(newDesc)
+                    cardObj:SetDesc(newDesc)
+                end)
+            end
+
             return cardObj
         end
 
@@ -9915,6 +10163,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             Window.RegisteredLabels = Window.RegisteredLabels or {}
             table.insert(Window.RegisteredLabels, labelObj)
+
+            if Window.RegisterLocalizedElement then
+                Window:RegisterLocalizedElement(labelObj, labelText, function(newText)
+                    labelObj:SetText(newText)
+                end, (hasDesc and descText) or nil, function(newDesc)
+                    labelObj:SetDescription(newDesc)
+                end)
+            end
 
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
             return labelObj
@@ -10853,6 +11109,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Instance = dropObj.Frame
             })
 
+            if Window.RegisterLocalizedElement then
+                Window:RegisterLocalizedElement(dropObj, title, function(newText)
+                    if dropObj.SetTitle then
+                        dropObj:SetTitle(newText)
+                    end
+                end)
+            end
+
             return dropObj
         end
 
@@ -10945,6 +11209,28 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         function TabObj:CreateCreditsSection()
             return Window:CreateCreditsSection(TabObj)
+        end
+
+        function TabObj:AddLanguageDropdown(titleOrConfig)
+            local cfg = (type(titleOrConfig) == "table") and titleOrConfig or { Title = titleOrConfig }
+            local title = cfg.Title or "Interface language"
+            local options = cfg.Options or Window.Languages or { "English", "Russian" }
+            local default = cfg.Default or Window.CurrentLanguage or options[1] or "English"
+            local cb = cfg.Callback
+
+            local langDrop = TabObj:AddDropdown({
+                Title = title,
+                Options = options,
+                Default = default,
+                Callback = function(selectedLang)
+                    Window:SetLanguage(selectedLang)
+                    if cb then pcall(cb, selectedLang) end
+                end
+            })
+            Window.LanguageDropdown = langDrop
+            Window.LanguageDropdowns = Window.LanguageDropdowns or {}
+            table.insert(Window.LanguageDropdowns, langDrop)
+            return langDrop
         end
 
         function TabObj:SetBackgroundImage(configOrImage, size, position, zIndex, color, transparency)
@@ -11318,6 +11604,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 IsCollapsed = function(self)
                     return isCollapsed
                 end,
+                SetTitle = function(self, newTitle)
+                    local t = tostring(newTitle or "")
+                    SectionObj.Title = t
+                    TitleLabel.Text = t:upper()
+                    return SectionObj
+                end,
+                SetText = function(self, newTitle)
+                    return SectionObj:SetTitle(newTitle)
+                end,
                 RefreshTheme = function(self, theme, animated)
                     local twInfo = TweenInfo.new(animated and 0.35 or 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                     local divColor = theme.Divider or Color3.fromRGB(65, 70, 88)
@@ -11498,6 +11793,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return TabObj:AddProgressBar(arg1, arg2, ItemContainer)
             end
             SectionObj.AddStatusCard = SectionObj.AddProgressBar
+            SectionObj.AddLanguageDropdown = function(self, titleOrConfig)
+                local cfg = (type(titleOrConfig) == "table") and table.clone(titleOrConfig) or { Title = titleOrConfig }
+                cfg.Parent = cfg.Parent or cfg.Row or ItemContainer
+                return TabObj:AddLanguageDropdown(cfg)
+            end
 
             SectionObj.RefreshTheme = function(self, theme, anim)
                 local RealTweenService = game:GetService("TweenService")
@@ -11587,6 +11887,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Window.RegisteredSections = Window.RegisteredSections or {}
             table.insert(Window.RegisteredSections, SectionObj)
 
+            if Window.RegisterLocalizedElement then
+                Window:RegisterLocalizedElement(SectionObj, title, function(newText)
+                    SectionObj:SetTitle(newText)
+                end)
+            end
+
             return SectionObj
         end
 
@@ -11634,6 +11940,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TabName = tabName,
                 Instance = toggleData.Frame
             })
+
+            if Window.RegisterLocalizedElement then
+                Window:RegisterLocalizedElement(toggleData, text, function(newText)
+                    if toggleData.SetTitle then
+                        toggleData:SetTitle(newText)
+                    elseif toggleData.TitleText then
+                        toggleData.TitleText.Text = tostring(newText)
+                    end
+                end)
+            end
 
             return toggleData
         end
@@ -11826,6 +12142,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             checkboxObj.GetState = function() return isChecked end
             checkboxObj.GetValue = function() return isChecked end
             checkboxObj.Toggle   = function() ApplyCheckboxState(not isChecked, true) end
+            checkboxObj.SetTitle = function(selfOrTitle, maybeTitle)
+                local newT = (selfOrTitle == checkboxObj) and maybeTitle or selfOrTitle
+                LabelText.Text = tostring(newT or "")
+                return checkboxObj
+            end
+            checkboxObj.SetText  = checkboxObj.SetTitle
 
             Window.RegisteredToggles = Window.RegisteredToggles or {}
             Window.RegisteredMDToggles = Window.RegisteredMDToggles or {}
@@ -11847,6 +12169,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TabName = tabName,
                 Instance = CardFrame
             })
+
+            if Window.RegisterLocalizedElement then
+                Window:RegisterLocalizedElement(checkboxObj, text, function(newText)
+                    checkboxObj:SetTitle(newText)
+                end)
+            end
 
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
             return checkboxObj
@@ -12310,6 +12638,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 })
                 sliderData.CardFrame = SliderCard
                 sliderData.Frame = SliderCard
+                sliderData.SetTitle = function(selfOrTitle, maybeTitle)
+                    local newT = (selfOrTitle == sliderData) and maybeTitle or selfOrTitle
+                    TitleLabel.Text = tostring(newT or "")
+                    return sliderData
+                end
+                sliderData.SetText = sliderData.SetTitle
+
+                if Window.RegisterLocalizedElement then
+                    Window:RegisterLocalizedElement(sliderData, displayTitle, function(newText)
+                        sliderData:SetTitle(newText)
+                    end)
+                end
+
                 return sliderData
             else
                 local size = (targetParent and targetParent.Name == "RowFrame") and UDim2.new(0.485, -4, 0, 14) or UDim2.new(1, -10, 0, 14)
@@ -12331,6 +12672,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     TabName = tabName,
                     Instance = sliderData.Track
                 })
+
+                if Window.RegisterLocalizedElement and (sliderData.TitleLabel or sliderData.TitleText or sliderData.SetTitle) then
+                    Window:RegisterLocalizedElement(sliderData, nonCardTitle, function(newText)
+                        if sliderData.SetTitle then
+                            sliderData:SetTitle(newText)
+                        elseif sliderData.TitleLabel then
+                            sliderData.TitleLabel.Text = tostring(newText)
+                        end
+                    end)
+                end
+
                 return sliderData
             end
         end
@@ -12415,12 +12767,38 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             HoverGlow.BackgroundTransparency = 1
         end
 
+        if Window.RegisterLocalizedElement then
+            Window:RegisterLocalizedElement(TabObj, tabName, function(newText)
+                TabObj.DisplayName = newText
+                if not Window.SidebarCollapsed then
+                    TabButton.Text = newText
+                elseif not TabIcon then
+                    TabButton.Text = (string.len(newText) > 4) and (string.sub(newText, 1, 4) .. ".") or newText
+                end
+            end)
+        end
+
         return TabObj
     end
 
     -- Default built-in settings tab builder
     local function CreateDefaultSettingsTab()
         local SettingsTab = Window:CreateTab("Settings", 999, "settings")
+
+        if Window.LanguageSelectorEnabled and Window.Languages and #Window.Languages > 1 then
+            local langSection = SettingsTab:AddSection("Language", true)
+            local langDrop = SettingsTab:AddDropdown({
+                Title = "Interface language",
+                Options = Window.Languages,
+                Default = Window.CurrentLanguage or Window.Languages[1] or "English",
+                Callback = function(selectedLang)
+                    Window:SetLanguage(selectedLang)
+                end
+            })
+            Window.LanguageDropdown = langDrop
+            Window.LanguageDropdowns = Window.LanguageDropdowns or {}
+            table.insert(Window.LanguageDropdowns, langDrop)
+        end
 
         local audioSection = SettingsTab:AddSection("Audio & Notifications")
         local audioToggles = SettingsTab:AddToggleGroup({
