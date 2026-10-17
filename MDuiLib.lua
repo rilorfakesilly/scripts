@@ -4913,31 +4913,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CloseBtn.Name = "CloseBtn"
         CloseBtn.Size = UDim2.new(0, 22, 0, 22)
         CloseBtn.Position = UDim2.new(1, -30, 0.5, -11)
-        CloseBtn.BackgroundColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(45, 50, 65)
-        CloseBtn.BackgroundTransparency = 0.7
-        CloseBtn.AutoButtonColor = false
+        CloseBtn.BackgroundTransparency = 1
+        CloseBtn.Image = "rbxassetid://132261474823036"
+        CloseBtn.ImageColor3 = Window.CurrentTheme.TextSecondary or Color3.fromRGB(160, 165, 180)
         CloseBtn.ZIndex = 52
         CloseBtn.Parent = HeaderBar
-
-        local cbCorner = Instance.new("UICorner")
-        cbCorner.CornerRadius = UDim.new(0, 6)
-        cbCorner.Parent = CloseBtn
-
-        local CloseIcon = Instance.new("ImageLabel")
-        CloseIcon.Name = "CloseIcon"
-        CloseIcon.Size = UDim2.new(0, 12, 0, 12)
-        CloseIcon.Position = UDim2.new(0.5, -6, 0.5, -6)
-        CloseIcon.BackgroundTransparency = 1
-        CloseIcon.Image = Library:GetIcon("x") or "rbxassetid://116396312853810"
-        CloseIcon.ImageColor3 = Window.CurrentTheme.TextSecondary or Color3.fromRGB(160, 165, 180)
-        CloseIcon.ZIndex = 53
-        CloseIcon.Parent = CloseBtn
-
-        local CloseStroke = Instance.new("UIStroke")
-        CloseStroke.Thickness = 1
-        CloseStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80)
-        CloseStroke.Transparency = 0.7
-        CloseStroke.Parent = CloseBtn
 
         local Sep = Instance.new("Frame")
         Sep.Name = "HeaderDivider"
@@ -5217,18 +5197,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 HeaderEye.ImageColor3 = theme.ButtonBG
                 ModalStroke.Color = theme.Divider or Color3.fromRGB(50, 55, 70)
                 CanvasStroke.Color = theme.Divider or Color3.fromRGB(50, 55, 70)
-                CloseStroke.Color = theme.Divider or Color3.fromRGB(60, 65, 80)
+                CloseBtn.ImageColor3 = theme.TextSecondary or Color3.fromRGB(160, 165, 180)
                 Sep.BackgroundColor3 = theme.Divider or Color3.fromRGB(45, 50, 65)
             end
         }
 
         CloseBtn.MouseEnter:Connect(function()
-            TweenService:Create(CloseIcon, TweenInfo.new(0.12), { ImageColor3 = Window.CurrentTheme.Text }):Play()
-            CloseBtn.BackgroundTransparency = 0.4
+            PlayHoverSFX()
+            TweenService:Create(CloseBtn, TweenInfo.new(0.12), { ImageColor3 = Window.CurrentTheme.Text }):Play()
         end)
         CloseBtn.MouseLeave:Connect(function()
-            TweenService:Create(CloseIcon, TweenInfo.new(0.12), { ImageColor3 = Window.CurrentTheme.TextSecondary or Color3.fromRGB(160, 165, 180) }):Play()
-            CloseBtn.BackgroundTransparency = 0.7
+            TweenService:Create(CloseBtn, TweenInfo.new(0.12), { ImageColor3 = Window.CurrentTheme.TextSecondary or Color3.fromRGB(160, 165, 180) }):Play()
         end)
         CloseBtn.MouseButton1Click:Connect(function()
             PlayClickSFX()
@@ -5383,13 +5362,16 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local ContentFrame = parentTab.Content or parentTab.ContentFrame or parentTab.Container or parentTab.ItemContainer or parentTab
         
+        local hasSubTabs = (tabsList and #tabsList > 0)
+
         local SubTabsContainer = Instance.new("Frame")
         SubTabsContainer.Name = GenerateSafeName("SubTabsContainer")
-        SubTabsContainer.Size = UDim2.new(1, -10, 0, 0)
+        SubTabsContainer.Size = UDim2.new(1, 0, 0, 0)
         SubTabsContainer.AutomaticSize = Enum.AutomaticSize.Y
         SubTabsContainer.BackgroundTransparency = 1
         SubTabsContainer.BorderSizePixel = 0
         SubTabsContainer.ZIndex = 10
+        SubTabsContainer.Visible = hasSubTabs
         SubTabsContainer.Parent = ContentFrame
 
         local mainList = Instance.new("UIListLayout")
@@ -5398,60 +5380,135 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         mainList.Parent = SubTabsContainer
 
         local PillBar = Instance.new("Frame")
-        PillBar.Name = "PillBar"
-        PillBar.Size = UDim2.new(1, 0, 0, 32)
-        PillBar.BackgroundColor3 = GetThemedDarkColor(Window.CurrentTheme)
-        PillBar.BackgroundTransparency = 0.5
+        PillBar.Name = "SubTabBar"
+        PillBar.Size = UDim2.new(1, 0, 0, 36)
+        PillBar.BackgroundColor3 = Window.CurrentTheme.CardBG or GetThemedDarkColor(Window.CurrentTheme)
+        PillBar.BackgroundTransparency = Window.SectionsTransparent and 1 or (Window.ElementsTransparency or 0.33)
         PillBar.BorderSizePixel = 0
         PillBar.ZIndex = 11
         PillBar.LayoutOrder = 1
+        PillBar.ClipsDescendants = false
+        PillBar.Visible = hasSubTabs
         PillBar.Parent = SubTabsContainer
 
-        local pCorner = Instance.new("UICorner")
-        pCorner.CornerRadius = UDim.new(0, 8)
-        pCorner.Parent = PillBar
-
-        local pStroke = Instance.new("UIStroke")
-        pStroke.Thickness = 1
-        pStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80)
-        pStroke.Transparency = 0.8
-        pStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        pStroke.Parent = PillBar
+        local BottomDivider = Instance.new("Frame")
+        BottomDivider.Name = "BottomDivider"
+        BottomDivider.Size = UDim2.new(1, 0, 0, 1)
+        BottomDivider.Position = UDim2.new(0, 0, 1, -1)
+        BottomDivider.BackgroundColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80)
+        BottomDivider.BorderSizePixel = 0
+        BottomDivider.ZIndex = 12
+        BottomDivider.Parent = PillBar
 
         local pPad = Instance.new("UIPadding")
         pPad.PaddingTop = UDim.new(0, 3)
-        pPad.PaddingBottom = UDim.new(0, 3)
+        pPad.PaddingBottom = UDim.new(0, 4)
         pPad.PaddingLeft = UDim.new(0, 4)
         pPad.PaddingRight = UDim.new(0, 4)
         pPad.Parent = PillBar
+
+        -- Moving indicator that glides behind the active subtab
+        local ActiveIndicator = Instance.new("Frame")
+        ActiveIndicator.Name = "ActiveIndicator"
+        ActiveIndicator.BackgroundColor3 = Window.CurrentTheme.ButtonBG
+        ActiveIndicator.BackgroundTransparency = 0
+        ActiveIndicator.BorderSizePixel = 0
+        ActiveIndicator.ZIndex = 12
+        ActiveIndicator.Parent = PillBar
+
+        local aiCorner = Instance.new("UICorner")
+        aiCorner.CornerRadius = UDim.new(0, 4)
+        aiCorner.Parent = ActiveIndicator
+
+        -- Isolated container for buttons to avoid UIListLayout interfering with indicator
+        local ButtonsContainer = Instance.new("Frame")
+        ButtonsContainer.Name = "ButtonsContainer"
+        ButtonsContainer.Size = UDim2.new(1, 0, 1, 0)
+        ButtonsContainer.Position = UDim2.new(0, 0, 0, 0)
+        ButtonsContainer.BackgroundTransparency = 1
+        ButtonsContainer.BorderSizePixel = 0
+        ButtonsContainer.ZIndex = 13
+        ButtonsContainer.Parent = PillBar
 
         local pillList = Instance.new("UIListLayout")
         pillList.FillDirection = Enum.FillDirection.Horizontal
         pillList.SortOrder = Enum.SortOrder.LayoutOrder
         pillList.Padding = UDim.new(0, 4)
-        pillList.Parent = PillBar
+        pillList.Parent = ButtonsContainer
 
         local activeTab = defaultTabName or (tabsList[1] and tostring(tabsList[1])) or "Tab"
         local pillButtons = {}
+        local tabOrder = {}
         local subContainers = {}
         local subObjects = {}
+        local pillCount = #tabsList
 
-        local function SwitchSubTab(targetTab)
+        local function UpdateIndicator(animated)
+            local btn = pillButtons[activeTab]
+            if not btn then return end
+
+            local barX = PillBar.AbsolutePosition.X
+            local barY = PillBar.AbsolutePosition.Y
+            local btnX = btn.AbsolutePosition.X
+            local btnY = btn.AbsolutePosition.Y
+            local btnW = btn.AbsoluteSize.X
+            local btnH = btn.AbsoluteSize.Y
+
+            local targetPos
+            local targetSize
+
+            if PillBar.AbsoluteSize.X > 0 and btnW > 0 then
+                targetPos = UDim2.new(0, btnX - barX, 0, btnY - barY)
+                targetSize = UDim2.new(0, btnW, 0, btnH)
+            else
+                local idx = tabOrder[activeTab] or 1
+                local wScale = 1 / pillCount
+                local wOffset = -math.floor(4 * (pillCount - 1) / pillCount)
+                targetPos = UDim2.new((idx - 1) * wScale, math.floor(4 * (idx - 1) / pillCount), 0, 0)
+                targetSize = UDim2.new(wScale, wOffset, 1, 0)
+            end
+
+            local curTheme = Window.CurrentTheme or Library.CurrentTheme
+            local targetBg = curTheme.ButtonBG
+
+            if animated then
+                TweenService:Create(ActiveIndicator, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Position = targetPos,
+                    Size = targetSize,
+                    BackgroundColor3 = targetBg
+                }):Play()
+            else
+                ActiveIndicator.Position = targetPos
+                ActiveIndicator.Size = targetSize
+                ActiveIndicator.BackgroundColor3 = targetBg
+            end
+        end
+
+        local function SwitchSubTab(targetTab, animated)
+            if animated == nil then animated = true end
             activeTab = targetTab
+            local curTheme = Window.CurrentTheme or Library.CurrentTheme
+            local onAccent = GetOnAccent(curTheme.ButtonBG)
+            local subText = curTheme.SubText
+
             for tName, btn in pairs(pillButtons) do
                 local isActive = (tName == activeTab)
-                local targetBg = isActive and Window.CurrentTheme.ButtonBG or Color3.fromRGB(255, 255, 255)
-                local targetTrans = isActive and 0 or 1
-                local textCol = isActive and GetOnAccent(Window.CurrentTheme.ButtonBG) or Window.CurrentTheme.SubText
-                TweenService:Create(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    BackgroundColor3 = targetBg,
-                    BackgroundTransparency = targetTrans,
-                    TextColor3 = textCol
-                }):Play()
+                local textCol = isActive and onAccent or subText
+                btn.BackgroundTransparency = 1
+                if animated then
+                    TweenService:Create(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                        TextColor3 = textCol
+                    }):Play()
+                else
+                    btn.TextColor3 = textCol
+                end
             end
+
             for tName, cFrame in pairs(subContainers) do
                 cFrame.Visible = (tName == activeTab)
             end
+
+            UpdateIndicator(animated)
         end
 
         local function CreateSubTabContainer(tName, order)
@@ -5507,25 +5564,25 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return subObj
         end
 
-        local pillCount = #tabsList
         for i, tNameRaw in ipairs(tabsList) do
             local tName = tostring(tNameRaw)
+            tabOrder[tName] = i
+
             local PillBtn = Instance.new("TextButton")
             PillBtn.Name = "Pill_" .. tName
             PillBtn.Size = UDim2.new(1 / pillCount, -math.floor(4 * (pillCount - 1) / pillCount), 1, 0)
-            PillBtn.BackgroundColor3 = (tName == activeTab) and Window.CurrentTheme.ButtonBG or Color3.fromRGB(255, 255, 255)
-            PillBtn.BackgroundTransparency = (tName == activeTab) and 0 or 1
+            PillBtn.BackgroundTransparency = 1
             PillBtn.BorderSizePixel = 0
-            PillBtn.FontFace = FontFingerPaintRegular
+            PillBtn.FontFace = FontBold
             PillBtn.Text = tName
             PillBtn.TextColor3 = (tName == activeTab) and GetOnAccent(Window.CurrentTheme.ButtonBG) or Window.CurrentTheme.SubText
             PillBtn.TextSize = 12
-            PillBtn.ZIndex = 12
+            PillBtn.ZIndex = 14
             PillBtn.LayoutOrder = i
-            PillBtn.Parent = PillBar
+            PillBtn.Parent = ButtonsContainer
 
             local pillCorner = Instance.new("UICorner")
-            pillCorner.CornerRadius = UDim.new(0, 6)
+            pillCorner.CornerRadius = UDim.new(0, 4)
             pillCorner.Parent = PillBtn
 
             pillButtons[tName] = PillBtn
@@ -5533,13 +5590,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             PillBtn.MouseButton1Click:Connect(function()
                 PlayClickSFX()
-                SwitchSubTab(tName)
+                SwitchSubTab(tName, true)
             end)
         end
+
+        ButtonsContainer:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+            UpdateIndicator(false)
+        end)
+
+        task.defer(function()
+            if ButtonsContainer and ButtonsContainer.Parent then
+                SwitchSubTab(activeTab, false)
+            end
+        end)
 
         local stObj = {
             Container = SubTabsContainer,
             PillBar = PillBar,
+            ActiveIndicator = ActiveIndicator,
             Get = function(selfOrName, maybeName)
                 local name = (type(selfOrName) == "string") and selfOrName or maybeName
                 return subObjects[name]
@@ -5550,17 +5618,31 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end,
             Select = function(selfOrName, maybeName)
                 local name = (type(selfOrName) == "string") and selfOrName or maybeName
-                SwitchSubTab(name)
+                SwitchSubTab(name, true)
             end,
             GetCurrent = function()
                 return activeTab
             end,
-            RefreshTheme = function(theme)
-                PillBar.BackgroundColor3 = GetThemedDarkColor(theme)
-                pStroke.Color = theme.Divider or Color3.fromRGB(60, 65, 80)
-                SwitchSubTab(activeTab)
+            RefreshTheme = function(theme, animated)
+                local barBg = theme.CardBG or GetThemedDarkColor(theme)
+                local divCol = theme.Divider or Color3.fromRGB(60, 65, 80)
+                if animated then
+                    local twInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    TweenService:Create(PillBar, twInfo, { BackgroundColor3 = barBg }):Play()
+                    TweenService:Create(BottomDivider, twInfo, { BackgroundColor3 = divCol }):Play()
+                    TweenService:Create(ActiveIndicator, twInfo, { BackgroundColor3 = theme.ButtonBG }):Play()
+                else
+                    PillBar.BackgroundColor3 = barBg
+                    BottomDivider.BackgroundColor3 = divCol
+                    ActiveIndicator.BackgroundColor3 = theme.ButtonBG
+                end
+                SwitchSubTab(activeTab, animated)
             end
         }
+
+        Window.RegisteredSubTabs = Window.RegisteredSubTabs or {}
+        table.insert(Window.RegisteredSubTabs, stObj)
+
         return stObj
     end
 
@@ -16832,6 +16914,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             for _, div in ipairs(Window.RegisteredDividers) do
                 if div and div.RefreshTheme then
                     pcall(function() div:RefreshTheme(newTheme, animated) end)
+                end
+            end
+        end
+
+        if Window.RegisteredSubTabs then
+            for _, st in ipairs(Window.RegisteredSubTabs) do
+                if st and st.RefreshTheme then
+                    pcall(function() st.RefreshTheme(newTheme, animated) end)
                 end
             end
         end
