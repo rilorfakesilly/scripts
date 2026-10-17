@@ -1,6 +1,5 @@
 local Library = {}
 
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -6828,6 +6827,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             GetState = function() return isToggled end,
             SetState = function(state, triggerCallback)
                 PerformToggle(state, triggerCallback)
+            end,
             SetTitle = function(selfOrTitle, maybeTitle)
                 local newT = (maybeTitle ~= nil) and maybeTitle or selfOrTitle
                 if type(newT) == "table" then
