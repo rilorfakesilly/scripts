@@ -4354,19 +4354,23 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             tStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             tStroke.Parent = Tile
 
-            -- 3px accent bar on left
-            local AccentBar = Instance.new("Frame")
-            AccentBar.Name = "Accent"
-            AccentBar.Size = UDim2.new(0, 3, 1, 0)
-            AccentBar.Position = UDim2.new(0, 0, 0, 0)
-            AccentBar.BackgroundColor3 = accentColor
-            AccentBar.BackgroundTransparency = 0.2
-            AccentBar.BorderSizePixel = 0
-            AccentBar.ZIndex = 13
-            AccentBar.Parent = Tile
+            local showAccent = (hasCustomColor or config.ShowAccent == true or config.Accent == true or (type(statDef) == "table" and (statDef.Accent == true or statDef.ShowAccent == true)))
+
+            local AccentBar = nil
+            if showAccent then
+                AccentBar = Instance.new("Frame")
+                AccentBar.Name = "Accent"
+                AccentBar.Size = UDim2.new(0, 3, 1, 0)
+                AccentBar.Position = UDim2.new(0, 0, 0, 0)
+                AccentBar.BackgroundColor3 = accentColor
+                AccentBar.BackgroundTransparency = 0.2
+                AccentBar.BorderSizePixel = 0
+                AccentBar.ZIndex = 13
+                AccentBar.Parent = Tile
+            end
 
             local tPad = Instance.new("UIPadding")
-            tPad.PaddingLeft = UDim.new(0, 11)
+            tPad.PaddingLeft = showAccent and UDim.new(0, 11) or UDim.new(0, 12)
             tPad.PaddingRight = UDim.new(0, 8)
             tPad.PaddingTop = UDim.new(0, 6)
             tPad.PaddingBottom = UDim.new(0, 6)
