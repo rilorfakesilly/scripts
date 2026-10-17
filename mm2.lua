@@ -177,6 +177,10 @@ state = {
     killAuraParticleMaxSpin = 0,
     killAuraParticleColorMode = "Normal",
     killAuraParticleColor2 = Color3.fromRGB(255, 0, 128),
+    killAuraParticleIsFlipbook = false,
+    killAuraParticleFlipbookLayout = "Grid4x4",
+    killAuraParticleFlipbookMode = "Loop",
+    killAuraParticleFlipbookSpeed = 15,
 
     emoteStopOnMove = false,
     selectedEmote = "Sit",
@@ -250,11 +254,22 @@ local function formatCustomAssetId(raw)
 end
 
 local killAuraParticlePresets = {
-    ["Fade circle"]           = "112096280571499",
-    ["Telemon's fire circle"] = "58889937",
-    ["Dashed circle"]         = "10131954007",
-    ["Magic circle"]          = "7452563698",
-    ["Custom"]                = "",
+    ["Fade circle"]           = { texture = "112096280571499", isAnimated = false },
+    ["Telemon's fire circle"] = { texture = "58889937", isAnimated = false },
+    ["Dashed circle"]         = { texture = "10131954007", isAnimated = false },
+    ["Magic circle"]          = { texture = "7452563698", isAnimated = false },
+    ["Smoke (animated)"]      = { texture = "8733226116", isAnimated = true, flipbookLayout = "Grid4x4" },
+    ["Pixel sparkle (animated)"] = { texture = "13448020277", isAnimated = true, flipbookLayout = "Grid4x4" },
+    ["Spinning robux (animated)"] = { texture = "12859930047", isAnimated = true, flipbookLayout = "Grid4x4" },
+    ["Bat (animated)"]        = { texture = "117267873734624", isAnimated = true, flipbookLayout = "Grid4x4" },
+    ["Potion particle (animated)"] = { texture = "8733731095", isAnimated = true, flipbookLayout = "Grid4x4" },
+    ["Wingdings (animated)"]  = { texture = "92668765537961", isAnimated = true, flipbookLayout = "Grid8x8" },
+    ["YouAreAnIdiot (animated)"] = { texture = "119483013767759", isAnimated = true, flipbookLayout = "Grid2x2" },
+    ["Eye (animated)"]        = { texture = "136598435215978", isAnimated = true, flipbookLayout = "Grid8x8" },
+    ["Dollar (animated)"]     = { texture = "17451596749", isAnimated = true, flipbookLayout = "Grid4x4" },
+    ["maxwell (animated)"]    = { texture = "12890944256", isAnimated = true, flipbookLayout = "Grid4x4" },
+    ["Triangle shard (animated)"] = { texture = "79466620842369", isAnimated = true, flipbookLayout = "Grid8x8" },
+    ["Custom"]                = { texture = "", isAnimated = false },
 }
 
 local connections = {}
@@ -545,6 +560,22 @@ local function storeItem(rName, name, numVal)
         MM2ValuesNormalized[cNorm] = numVal
         MM2ValuesByRarity[rName][cDotName] = numVal
         MM2ValuesNormalizedByRarity[rName][cNorm] = numVal
+    end
+
+    -- Sunset (Gun) Rare alias: The orange palm-tree revolver (asset 120907601916735) has value 0.5, while "Sun" on the site has value 3
+    if name == "Sunset (Gun)" and rName == "Rare" then
+        if not MM2ValuesByRarity["Rare"]["Sunset"] then
+            MM2ValuesByRarity["Rare"]["Sunset"] = numVal
+        end
+        if not MM2ValuesNormalizedByRarity["Rare"]["sunset"] then
+            MM2ValuesNormalizedByRarity["Rare"]["sunset"] = numVal
+        end
+        if not MM2ValuesByRarity["Rare"]["Sunset Gun"] then
+            MM2ValuesByRarity["Rare"]["Sunset Gun"] = numVal
+        end
+        if not MM2ValuesNormalizedByRarity["Rare"]["sunsetgun"] then
+            MM2ValuesNormalizedByRarity["Rare"]["sunsetgun"] = numVal
+        end
     end
 
     -- Index without parentheses e.g. "Cursed (Knife)" -> "Cursed"
@@ -1322,6 +1353,8 @@ local MM2_STATIC_VALUES = {
     ["Sunny"] = { val = 0.38, rarity = "Rare" },
     ["Sunrise"] = { val = 1369, rarity = "Godly" },
     ["Sunset"] = { val = 719, rarity = "Godly" },
+    ["Sunset (Gun)"] = { val = 0.25, rarity = "Rare" },
+    ["Sunset Gun"] = { val = 0.5, rarity = "Rare" },
     ["Sweater"] = { val = 0.23, rarity = "Uncommon" },
     ["Sweater (Gun)"] = { val = 0.15, rarity = "Uncommon" },
     ["Sweater (Knife)"] = { val = 0.23, rarity = "Uncommon" },
@@ -3542,40 +3575,46 @@ local function detectRarityFromColor(guiObj)
     return nil
 end
 
-local tierDefaults = {
-    Ancient   = 10,
-    Godly     = 2,
-    Vintage   = 5,
-    Classic   = 5,
-    Unique    = 1,
-    Legendary = 0.32,
-    Rare      = 0.22,
-    Uncommon  = 0.13,
-    Common    = 0.11,
-}
-
 local function getMM2ItemValue(rawName, rarity)
-    if not rawName or rawName == "" then return 0 end
+    if not rawName or rawName == "" then return nil end
     local clean = rawName:gsub("^%s+", ""):gsub("%s+$", "")
     if clean:lower():find("default") then return 0 end
 
-    local normKey = clean:lower():gsub("[^%w]", "")
-    local normNoSuf = clean:lower()
+    local noParens = clean:gsub("%s*%b()", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    local noSuf = noParens:lower()
         :gsub("%s+knife$", ""):gsub("%s+gun$", ""):gsub("%s+axe$", ""):gsub("%s+scythe$", "")
-        :gsub("%s+blade$", ""):gsub("%s+sword$", ""):gsub("%s+dagger$", "")
-        :gsub("[^%w]", "")
+        :gsub("%s+blade$", ""):gsub("%s+sword$", ""):gsub("%s+dagger$", ""):gsub("%s+saber$", "")
+        :gsub("^%s+", ""):gsub("%s+$", "")
 
-    -- 1. direct match in MM2Values
+    local normKey = clean:lower():gsub("[^%w]", "")
+    local normNoParens = noParens:lower():gsub("[^%w]", "")
+    local normNoSuf = noSuf:gsub("[^%w]", "")
+
+    -- 1. Rarity-specific match FIRST if rarity is known
+    -- (This prevents e.g. Rare Sunset Gun or Rare Candleflame from returning Godly values)
+    if rarity and MM2ValuesByRarity and MM2ValuesByRarity[rarity] then
+        local rTab = MM2ValuesByRarity[rarity]
+        if rTab[clean] and rTab[clean] > 0 then return rTab[clean] end
+        if noParens ~= "" and rTab[noParens] and rTab[noParens] > 0 then return rTab[noParens] end
+        if MM2ValuesNormalizedByRarity and MM2ValuesNormalizedByRarity[rarity] then
+            local rNorm = MM2ValuesNormalizedByRarity[rarity]
+            if normKey ~= "" and rNorm[normKey] and rNorm[normKey] > 0 then return rNorm[normKey] end
+            if normNoParens ~= "" and rNorm[normNoParens] and rNorm[normNoParens] > 0 then return rNorm[normNoParens] end
+            if normNoSuf ~= "" and rNorm[normNoSuf] and rNorm[normNoSuf] > 0 then return rNorm[normNoSuf] end
+        end
+    end
+
+    -- 2. Direct match in MM2Values
     if MM2Values and MM2Values[clean] and MM2Values[clean] > 0 then
         return MM2Values[clean]
     end
 
-    -- 2. normalized key match in MM2ValuesNormalized
-    if MM2ValuesNormalized and MM2ValuesNormalized[normKey] and MM2ValuesNormalized[normKey] > 0 then
+    -- 3. Normalized key match in MM2ValuesNormalized
+    if normKey ~= "" and MM2ValuesNormalized and MM2ValuesNormalized[normKey] and MM2ValuesNormalized[normKey] > 0 then
         return MM2ValuesNormalized[normKey]
     end
 
-    -- 3. Chroma alias ("Chroma Luger" <-> "C. Luger")
+    -- 4. Chroma alias ("Chroma Luger" <-> "C. Luger")
     if clean:lower():find("^chroma%s+") then
         local cDot = clean:gsub("^[Cc][Hh][Rr][Oo][Mm][Aa]%s+", "C. ")
         if MM2Values and MM2Values[cDot] and MM2Values[cDot] > 0 then return MM2Values[cDot] end
@@ -3588,49 +3627,47 @@ local function getMM2ItemValue(rawName, rarity)
         if MM2ValuesNormalized and MM2ValuesNormalized[cNorm] and MM2ValuesNormalized[cNorm] > 0 then return MM2ValuesNormalized[cNorm] end
     end
 
-    -- 4. rarity table match if rarity is detected
-    if rarity and MM2ValuesByRarity and MM2ValuesByRarity[rarity] then
-        local rTab = MM2ValuesByRarity[rarity]
-        if rTab[clean] and rTab[clean] > 0 then return rTab[clean] end
-        if MM2ValuesNormalizedByRarity and MM2ValuesNormalizedByRarity[rarity] then
-            local rNorm = MM2ValuesNormalizedByRarity[rarity]
-            if rNorm[normKey] and rNorm[normKey] > 0 then return rNorm[normKey] end
-            if rNorm[normNoSuf] and rNorm[normNoSuf] > 0 then return rNorm[normNoSuf] end
+    -- 5. Match without parentheses e.g. "Sunset (Gun)" -> "Sunset"
+    if noParens ~= "" and noParens ~= clean then
+        if MM2Values and MM2Values[noParens] and MM2Values[noParens] > 0 then
+            return MM2Values[noParens]
+        end
+        if normNoParens ~= "" and MM2ValuesNormalized and MM2ValuesNormalized[normNoParens] and MM2ValuesNormalized[normNoParens] > 0 then
+            return MM2ValuesNormalized[normNoParens]
         end
     end
 
-    -- 5. check without weapon suffix
-    if normNoSuf ~= normKey and MM2ValuesNormalized and MM2ValuesNormalized[normNoSuf] and MM2ValuesNormalized[normNoSuf] > 0 then
+    -- 6. Match without weapon suffix
+    if normNoSuf ~= "" and normNoSuf ~= normKey and MM2ValuesNormalized and MM2ValuesNormalized[normNoSuf] and MM2ValuesNormalized[normNoSuf] > 0 then
         return MM2ValuesNormalized[normNoSuf]
     end
 
-    -- 6. check all other rarities
+    -- 7. Search all other rarities
     if MM2ValuesNormalizedByRarity then
         for _, checkR in ipairs({"Godly", "Ancient", "Vintage", "Legendary", "Rare", "Uncommon", "Common", "Pets", "Other"}) do
-            local rNorm = MM2ValuesNormalizedByRarity[checkR]
-            if rNorm then
-                if rNorm[normKey] and rNorm[normKey] > 0 then return rNorm[normKey] end
-                if rNorm[normNoSuf] and rNorm[normNoSuf] > 0 then return rNorm[normNoSuf] end
+            if checkR ~= rarity then
+                local rNorm = MM2ValuesNormalizedByRarity[checkR]
+                if rNorm then
+                    if normKey ~= "" and rNorm[normKey] and rNorm[normKey] > 0 then return rNorm[normKey] end
+                    if normNoParens ~= "" and rNorm[normNoParens] and rNorm[normNoParens] > 0 then return rNorm[normNoParens] end
+                    if normNoSuf ~= "" and rNorm[normNoSuf] and rNorm[normNoSuf] > 0 then return rNorm[normNoSuf] end
+                end
             end
         end
     end
 
-    -- 7. tier fallback for unlisted / new items
-    if rarity and tierDefaults[rarity] then
-        return tierDefaults[rarity]
-    end
-
-    return 0
+    -- value could not be fetched
+    return nil
 end
 
 -- Like getMM2ItemValue but uses icon to disambiguate gun vs knife.
--- Returns 0 (skip) when name is ambiguous and icon gives no resolution.
+-- Returns nil when value cannot be fetched or icon resolution fails on ambiguous names.
 local function getMM2ItemValueWithIcon(rawName, rarity, iconObj)
     local resolved, iconRarity = nil, nil
     if iconObj then
         resolved, iconRarity = resolveItemNameFromIcon(iconObj)
     end
-    local effectiveRarity = rarity or iconRarity
+    local effectiveRarity = iconRarity or rarity
     if resolved then
         local v = getMM2ItemValue(resolved, effectiveRarity)
         if v and v > 0 then return v end
@@ -3639,7 +3676,7 @@ local function getMM2ItemValueWithIcon(rawName, rarity, iconObj)
     if rawName and MM2Values then
         local hasGun   = MM2Values[rawName .. " (Gun)"]   or MM2Values[rawName .. " Gun"]
         local hasKnife = MM2Values[rawName .. " (Knife)"] or MM2Values[rawName .. " Knife"]
-        if hasGun and hasKnife then return 0 end  -- ambiguous, skip
+        if hasGun and hasKnife then return nil end  -- ambiguous, cannot be fetched without icon
     end
     return getMM2ItemValue(rawName, effectiveRarity)
 end
@@ -3660,17 +3697,19 @@ local function getMM2ItemDisplay(rawName)
 end
 
 local function formatValue(val)
-    val = tonumber(val) or 0
-    if val >= 1000000 then
-        return string.format("%.1fM", val / 1000000):gsub("%.0M", "M")
-    elseif val >= 10000 then
-        return string.format("%.1fk", val / 1000):gsub("%.0k", "k")
-    elseif val >= 1 then
-        if math.abs(val - math.floor(val)) > 0.01 then
-            local formatted = string.format("%.2f", val):gsub("%.?0+$", "")
+    if val == nil or val == "?" then return "?" end
+    local num = tonumber(val)
+    if not num then return "?" end
+    if num >= 1000000 then
+        return string.format("%.1fM", num / 1000000):gsub("%.0M", "M")
+    elseif num >= 10000 then
+        return string.format("%.1fk", num / 1000):gsub("%.0k", "k")
+    elseif num >= 1 then
+        if math.abs(num - math.floor(num)) > 0.01 then
+            local formatted = string.format("%.2f", num):gsub("%.?0+$", "")
             return formatted
         else
-            local formatted = tostring(math.floor(val))
+            local formatted = tostring(math.floor(num))
             while true do
                 local k
                 formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", "%1,%2")
@@ -3678,8 +3717,8 @@ local function formatValue(val)
             end
             return formatted
         end
-    elseif val > 0 then
-        local formatted = string.format("%.2f", val):gsub("%.?0+$", "")
+    elseif num > 0 then
+        local formatted = string.format("%.2f", num):gsub("%.?0+$", "")
         return formatted
     else
         return "0"
@@ -3699,8 +3738,8 @@ Window = Library:CreateWindow({
 
 -- sync palette updates to active elements
 local _origApplyTheme = Window.ApplyTheme
-function Window:ApplyTheme(themeKey)
-    local res = _origApplyTheme(self, themeKey)
+function Window:ApplyTheme(themeKey, animated)
+    local res = _origApplyTheme(self, themeKey, animated)
     local currentTheme = Window.CurrentTheme or (Library.ThemePresets and Library.ThemePresets[themeKey])
     if currentTheme then
         if Window.RegisteredMDButtons then
@@ -3714,7 +3753,7 @@ function Window:ApplyTheme(themeKey)
         if Window.RegisteredSections then
             for _, sec in ipairs(Window.RegisteredSections) do
                 if sec and sec.RefreshTheme then
-                    pcall(function() sec:RefreshTheme(currentTheme, false) end)
+                    pcall(function() sec:RefreshTheme(currentTheme, animated) end)
                 end
             end
         end
@@ -3723,8 +3762,8 @@ function Window:ApplyTheme(themeKey)
 end
 
 local _origApplyCustomTheme = Window.ApplyCustomTheme
-function Window:ApplyCustomTheme(baseColor)
-    local res = _origApplyCustomTheme(self, baseColor)
+function Window:ApplyCustomTheme(baseColor, animated)
+    local res = _origApplyCustomTheme(self, baseColor, animated)
     local currentTheme = Window.CurrentTheme
     if currentTheme then
         if Window.RegisteredMDButtons then
@@ -3738,7 +3777,7 @@ function Window:ApplyCustomTheme(baseColor)
         if Window.RegisteredSections then
             for _, sec in ipairs(Window.RegisteredSections) do
                 if sec and sec.RefreshTheme then
-                    pcall(function() sec:RefreshTheme(currentTheme, false) end)
+                    pcall(function() sec:RefreshTheme(currentTheme, animated) end)
                 end
             end
         end
@@ -5523,6 +5562,7 @@ local function stopTween()
 end
 
 local SAFEZONE_POS = Vector3.new(390.562195, -41.5624847, 110.499878)
+local safeZoneAnchorToken = 0
 
 local function tpToSafeSpawn(anchor)
     if state then
@@ -5536,8 +5576,18 @@ local function tpToSafeSpawn(anchor)
         hrp.AssemblyLinearVelocity  = Vector3.zero
         hrp.AssemblyAngularVelocity = Vector3.zero
     end)
+    safeZoneAnchorToken = safeZoneAnchorToken + 1
+    local currentToken = safeZoneAnchorToken
     if anchor ~= false then
-        pcall(function() hrp.Anchored = true end)
+        pcall(function() hrp.Anchored = false end)
+        task.delay(0.2, function()
+            if safeZoneAnchorToken ~= currentToken then return end
+            local c = LocalPlayer.Character
+            local root = c and c:FindFirstChild("HumanoidRootPart")
+            if root and (root.Position - SAFEZONE_POS).Magnitude < 100 then
+                pcall(function() root.Anchored = true end)
+            end
+        end)
     else
         pcall(function() hrp.Anchored = false end)
     end
@@ -6240,15 +6290,59 @@ local function getGroundCFrame(character, rootPart)
     return CFrame.new(rootPart.Position.X, rootPart.Position.Y - 2.35, rootPart.Position.Z)
 end
 
--- resolve decal asset from preset choice
-local function getParticleTextureId()
+-- resolve decal asset and flipbook metadata from preset choice
+local function getParticleTextureData()
     local preset = state.killAuraParticlePreset
-    local rawId = (preset == "Custom") and state.killAuraParticleCustomId or killAuraParticlePresets[preset]
+    local presetVal = killAuraParticlePresets[preset]
+    local rawId = ""
+    local isAnim = false
+    local layout = "Grid4x4"
+    if type(presetVal) == "table" then
+        rawId = presetVal.texture
+        isAnim = presetVal.isAnimated or false
+        layout = presetVal.flipbookLayout or "Grid4x4"
+    elseif type(presetVal) == "string" then
+        rawId = presetVal
+    end
+    if preset == "Custom" then
+        rawId = state.killAuraParticleCustomId or ""
+    end
     local formatted = formatCustomAssetId(rawId)
     if not formatted or formatted == "" then
-        return "rbxassetid://112096280571499"
+        formatted = "rbxassetid://112096280571499"
     end
+    return formatted, isAnim, layout
+end
+
+local function getParticleTextureId()
+    local formatted = getParticleTextureData()
     return formatted
+end
+
+local auraFlipbookState = {
+    lastTime = 0,
+    frameIndex = 0,
+    pingPongForward = true
+}
+
+local function parseAuraFlipbookGrid(layoutStr)
+    local s = tostring(layoutStr or "4x4"):gsub("%s+", "")
+    local c, r = s:match("^(%d+)[xX*:,](%d+)$")
+    if not c and s:match("^(%d+)$") then
+        local d = s:match("^(%d+)$")
+        c, r = d, d
+    end
+    if c and r then
+        return tonumber(c) or 4, tonumber(r) or 4
+    end
+    local upper = s:upper()
+    if upper:find("2X2") or upper:find("2") then
+        return 2, 2
+    elseif upper:find("8X8") or upper:find("8") then
+        return 8, 8
+    else
+        return 4, 4
+    end
 end
 
 -- vary layer spin rates for natural parallax
@@ -6330,6 +6424,66 @@ local function updateAuraVisuals(dt)
             img.ImageColor3 = color1
         end
     end
+
+    -- advance flipbook animation across frames
+    local _, presetIsAnim, presetLayout = getParticleTextureData()
+    local isFlipbook = state.killAuraParticleIsFlipbook or (presetIsAnim and state.killAuraParticlePreset ~= "Custom")
+    if isFlipbook then
+        local layoutStr = state.killAuraParticleFlipbookLayout
+        if presetIsAnim and (not state.killAuraParticleIsFlipbook or layoutStr == "Grid4x4" or not layoutStr) then
+            layoutStr = presetLayout
+        end
+        local gridX, gridY = parseAuraFlipbookGrid(layoutStr)
+        local fps = tonumber(state.killAuraParticleFlipbookSpeed) or 15
+        local interval = 1 / math.max(1, fps)
+        local now = tick()
+        if now - auraFlipbookState.lastTime >= interval then
+            auraFlipbookState.lastTime = now
+            local totalFrames = math.max(1, gridX * gridY)
+            local mode = state.killAuraParticleFlipbookMode or "Loop"
+            if mode == "OneShot" then
+                auraFlipbookState.frameIndex = math.min(auraFlipbookState.frameIndex + 1, totalFrames - 1)
+            elseif mode == "PingPong" then
+                if auraFlipbookState.pingPongForward then
+                    auraFlipbookState.frameIndex = auraFlipbookState.frameIndex + 1
+                    if auraFlipbookState.frameIndex >= totalFrames - 1 then
+                        auraFlipbookState.frameIndex = totalFrames - 1
+                        auraFlipbookState.pingPongForward = false
+                    end
+                else
+                    auraFlipbookState.frameIndex = auraFlipbookState.frameIndex - 1
+                    if auraFlipbookState.frameIndex <= 0 then
+                        auraFlipbookState.frameIndex = 0
+                        auraFlipbookState.pingPongForward = true
+                    end
+                end
+            else
+                auraFlipbookState.frameIndex = (auraFlipbookState.frameIndex + 1) % totalFrames
+            end
+        end
+
+        local col = auraFlipbookState.frameIndex % gridX
+        local row = math.floor(auraFlipbookState.frameIndex / gridX)
+        for _, layer in ipairs(auraLayers) do
+            local img = layer.imageLabel
+            if img then
+                local imgW = (img.ContentImageSize and img.ContentImageSize.X > 0) and img.ContentImageSize.X or 1024
+                local imgH = (img.ContentImageSize and img.ContentImageSize.Y > 0) and img.ContentImageSize.Y or 1024
+                local frameW = imgW / gridX
+                local frameH = imgH / gridY
+                img.ImageRectSize = Vector2.new(frameW, frameH)
+                img.ImageRectOffset = Vector2.new(col * frameW, row * frameH)
+            end
+        end
+    else
+        for _, layer in ipairs(auraLayers) do
+            local img = layer.imageLabel
+            if img and img.ImageRectSize ~= Vector2.zero then
+                img.ImageRectSize = Vector2.zero
+                img.ImageRectOffset = Vector2.zero
+            end
+        end
+    end
 end
 
 -- clean up aura visual instances
@@ -6363,7 +6517,7 @@ local function rebuildParticleAura()
     local size = state.killAuraParticleSize
     local groundCFrame = getGroundCFrame(char, hrp)
     local count = math.clamp(state.killAuraParticleCount, 1, 10)
-    local textureId = getParticleTextureId()
+    local textureId, presetIsAnim, presetLayout = getParticleTextureData()
     local heightDiff = state.killAuraHeightOffset or 0
     local brightness = 1 + (state.killAuraParticleGlow * 2)
 
@@ -6406,6 +6560,22 @@ local function rebuildParticleAura()
         img.ScaleType = Enum.ScaleType.Fit
         img.ZIndex = i
         img.Parent = sg
+
+        local isFlipbook = state.killAuraParticleIsFlipbook or (presetIsAnim and state.killAuraParticlePreset ~= "Custom")
+        if isFlipbook then
+            local layoutStr = state.killAuraParticleFlipbookLayout
+            if presetIsAnim and (not state.killAuraParticleIsFlipbook or layoutStr == "Grid4x4" or not layoutStr) then
+                layoutStr = presetLayout
+            end
+            local gridX, gridY = parseAuraFlipbookGrid(layoutStr)
+            local frameW = 1024 / gridX
+            local frameH = 1024 / gridY
+            img.ImageRectSize = Vector2.new(frameW, frameH)
+            img.ImageRectOffset = Vector2.zero
+        else
+            img.ImageRectSize = Vector2.zero
+            img.ImageRectOffset = Vector2.zero
+        end
 
         local uiAspect = Instance.new("UIAspectRatioConstraint")
         uiAspect.AspectRatio = 1
@@ -6778,6 +6948,25 @@ local function applyRedGradient(label)
             ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 0, 10))
         })
     end
+
+    label.TextStrokeTransparency = 0
+    label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+
+    local stroke = label:FindFirstChild("ValueStroke") or label:FindFirstChildOfClass("UIStroke")
+    if not stroke then
+        stroke = Instance.new("UIStroke")
+        stroke.Name = "ValueStroke"
+        stroke.Color = Color3.fromRGB(0, 0, 0)
+        stroke.Thickness = 1.5
+        stroke.Transparency = 0
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+        stroke.Parent = label
+    else
+        stroke.Color = Color3.fromRGB(0, 0, 0)
+        stroke.Thickness = 1.5
+        stroke.Transparency = 0
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+    end
 end
 
 local function isSlotFilled(slot)
@@ -6809,14 +6998,17 @@ local function updateTradeValues()
         local slotContainer = offerFrame:FindFirstChild("Container")
         local itemBg = offerFrame:FindFirstChild("ItemBackground")
         local totalOfferVal = 0
+        local hasUnknown = false
 
         -- clear previous summary labels before redraw
         if itemBg then
             local oldLbl = itemBg:FindFirstChild("TotalValueLabel")
             if oldLbl then oldLbl:Destroy() end
         end
-        local oldOfferTotal = offerFrame:FindFirstChild("TotalValueLabel")
-        if oldOfferTotal then oldOfferTotal:Destroy() end
+        if slotContainer then
+            local oldContainerTotal = slotContainer:FindFirstChild("TotalValueLabel")
+            if oldContainerTotal then oldContainerTotal:Destroy() end
+        end
 
         if slotContainer then
             -- mm2 trade slots are indexed NewItem1 through NewItem4 under trade offer containers
@@ -6841,28 +7033,39 @@ local function updateTradeValues()
                             local iconObj = itemCont:FindFirstChild("Icon")
                             local rarity = detectRarityFromColor(nameObj)
                             local unitVal = getMM2ItemValueWithIcon(rawName, rarity, iconObj)
-                            local slotVal = unitVal * amount
-                            totalOfferVal = totalOfferVal + slotVal
+                            local isDefault = rawName and rawName:lower():find("default")
 
                             if not valLabel then
                                 valLabel = Instance.new("TextLabel")
                                 valLabel.Name = "ItemValueLabel"
                                 valLabel.BackgroundTransparency = 1
                                 valLabel.BorderSizePixel = 0
-                                valLabel.Size = UDim2.new(0, 60, 0, 18)
-                                valLabel.Position = UDim2.new(0.55, -4, 0, 3)
+                                valLabel.Size = UDim2.new(0, 75, 0, 20)
+                                valLabel.Position = UDim2.new(0.05, 0, 0, 3)
                                 valLabel.ZIndex = (itemCont.ZIndex or 1) + 20
                                 valLabel.Font = Enum.Font.GothamBold
-                                valLabel.TextSize = 13
+                                valLabel.TextSize = 15
                                 valLabel.TextXAlignment = Enum.TextXAlignment.Left
                                 valLabel.Parent = itemCont
                             end
                             valLabel.Name = "ItemValueLabel"
                             valLabel.Visible = true
                             valLabel.BackgroundTransparency = 1
-                            valLabel.Position = UDim2.new(0.55, -4, 0, 3)
+                            valLabel.Size = UDim2.new(0, 75, 0, 20)
+                            valLabel.Position = UDim2.new(0.05, 0, 0, 3)
+                            valLabel.TextSize = 15
                             valLabel.TextXAlignment = Enum.TextXAlignment.Left
-                            valLabel.Text = formatValue(slotVal)
+
+                            if unitVal and unitVal > 0 then
+                                local slotVal = unitVal * amount
+                                totalOfferVal = totalOfferVal + slotVal
+                                valLabel.Text = formatValue(slotVal)
+                            elseif unitVal == 0 and isDefault then
+                                valLabel.Text = "0"
+                            else
+                                valLabel.Text = "?"
+                                hasUnknown = true
+                            end
                             applyRedGradient(valLabel)
                         else
                             if valLabel then
@@ -6873,34 +7076,48 @@ local function updateTradeValues()
                     end
                 end
             end
+        end
 
-            -- place total value of current trade offer in this path:
-            -- game:GetService("Players").LocalPlayer.PlayerGui.TradeGUI.Container.Trade.TheirOffer.Container
-            -- the position of the text should be {0.025, 0}, {0.95, 3}
-            local totalLabel = slotContainer:FindFirstChild("TotalValueLabel")
-            if isTradeOpen then
-                if not totalLabel then
-                    totalLabel = Instance.new("TextLabel")
-                    totalLabel.Name = "TotalValueLabel"
-                    totalLabel.BackgroundTransparency = 1
-                    totalLabel.BorderSizePixel = 0
-                    totalLabel.Size = UDim2.new(0, 260, 0, 24)
-                    totalLabel.Position = UDim2.new(0.025, 0, 0.95, 3)
-                    totalLabel.ZIndex = (slotContainer.ZIndex or 1) + 20
-                    totalLabel.Font = Enum.Font.GothamBold
-                    totalLabel.TextSize = 16
-                    totalLabel.TextXAlignment = Enum.TextXAlignment.Left
-                    totalLabel.Parent = slotContainer
-                end
-                totalLabel.Visible = true
+        -- place total value of current trade offer parented to TheirOffer or YourOffer respectfully
+        offerFrame.ClipsDescendants = false
+        local totalLabel = offerFrame:FindFirstChild("TotalValueLabel")
+        if isTradeOpen then
+            if not totalLabel then
+                totalLabel = Instance.new("TextLabel")
+                totalLabel.Name = "TotalValueLabel"
                 totalLabel.BackgroundTransparency = 1
+                totalLabel.BorderSizePixel = 0
+                totalLabel.Size = UDim2.new(0, 300, 0, 26)
                 totalLabel.Position = UDim2.new(0.025, 0, 0.95, 3)
+                totalLabel.ZIndex = (offerFrame.ZIndex or 1) + 20
+                totalLabel.Font = Enum.Font.GothamBold
+                totalLabel.TextSize = 18
                 totalLabel.TextXAlignment = Enum.TextXAlignment.Left
-                totalLabel.Text = "Total Value: " .. formatValue(totalOfferVal)
-                applyRedGradient(totalLabel)
-            elseif totalLabel then
-                totalLabel.Visible = false
+                totalLabel.Parent = offerFrame
             end
+            totalLabel.Visible = true
+            totalLabel.BackgroundTransparency = 1
+            totalLabel.Size = UDim2.new(0, 300, 0, 26)
+            totalLabel.Position = UDim2.new(0.025, 0, 0.95, 3)
+            totalLabel.TextSize = 18
+            totalLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+            local totalStr
+            if totalOfferVal > 0 then
+                if hasUnknown then
+                    totalStr = "Total Value: " .. formatValue(totalOfferVal) .. "+?"
+                else
+                    totalStr = "Total Value: " .. formatValue(totalOfferVal)
+                end
+            elseif hasUnknown then
+                totalStr = "Total Value: ?"
+            else
+                totalStr = "Total Value: 0"
+            end
+            totalLabel.Text = totalStr
+            applyRedGradient(totalLabel)
+        elseif totalLabel then
+            totalLabel.Visible = false
         end
     end
 
@@ -6927,6 +7144,7 @@ local function updateViewProfileValues()
     if not containerRoot then return end
 
     local grandTotal = 0
+    local hasUnknown = false
 
     local function scanVPContainer(parentCont)
         if not parentCont then return end
@@ -6952,8 +7170,17 @@ local function updateViewProfileValues()
                     local iconObj  = cont and cont:FindFirstChild("Icon")
                     local rarity   = detectRarityFromColor(nameObj)
                     local unitVal  = getMM2ItemValueWithIcon(skinName, rarity, iconObj)
-                    local itemTotal = unitVal * amount
-                    grandTotal = grandTotal + itemTotal
+                    local isDefault = skinName:lower():find("default")
+
+                    local displayValText = nil
+                    if unitVal and unitVal > 0 then
+                        local itemTotal = unitVal * amount
+                        grandTotal = grandTotal + itemTotal
+                        displayValText = formatValue(itemTotal)
+                    elseif not isDefault then
+                        displayValText = "?"
+                        hasUnknown = true
+                    end
 
                     local oldCardBadge = card:FindFirstChild("VPValueLabel") or card:FindFirstChild("ItemValueLabel")
                     if oldCardBadge then oldCardBadge:Destroy() end
@@ -6962,25 +7189,27 @@ local function updateViewProfileValues()
                         cont.ClipsDescendants = false
                         card.ClipsDescendants = false
                         local badge = cont:FindFirstChild("ItemValueLabel")
-                        if state.valueCalculatorEnabled and itemTotal > 0 then
+                        if state.valueCalculatorEnabled and displayValText then
                             if not badge then
                                 badge = Instance.new("TextLabel")
                                 badge.Name = "ItemValueLabel"
                                 badge.BackgroundTransparency = 1
                                 badge.BorderSizePixel = 0
-                                badge.Size = UDim2.new(0, 60, 0, 18)
-                                badge.Position = UDim2.new(0.55, -4, 0, 3)
+                                badge.Size = UDim2.new(0, 75, 0, 20)
+                                badge.Position = UDim2.new(0.05, 0, 0, 3)
                                 badge.ZIndex = (cont.ZIndex or 1) + 20
                                 badge.Font = Enum.Font.GothamBold
-                                badge.TextSize = 13
+                                badge.TextSize = 15
                                 badge.TextXAlignment = Enum.TextXAlignment.Left
                                 badge.Parent = cont
                             end
                             badge.Visible = true
                             badge.BackgroundTransparency = 1
-                            badge.Position = UDim2.new(0.55, -4, 0, 3)
+                            badge.Size = UDim2.new(0, 75, 0, 20)
+                            badge.Position = UDim2.new(0.05, 0, 0, 3)
+                            badge.TextSize = 15
                             badge.TextXAlignment = Enum.TextXAlignment.Left
-                            badge.Text = formatValue(itemTotal)
+                            badge.Text = displayValText
                             applyRedGradient(badge)
                         elseif badge then
                             badge.Visible = false
@@ -7023,20 +7252,35 @@ local function updateViewProfileValues()
             totalLbl.Name = "VPTotalValueLabel"
             totalLbl.BackgroundTransparency = 1
             totalLbl.BorderSizePixel = 0
-            totalLbl.Size = UDim2.new(0, 320, 0, 24)
+            totalLbl.Size = UDim2.new(0, 350, 0, 28)
             totalLbl.AnchorPoint = Vector2.new(0, 1)
             totalLbl.Position = UDim2.new(0, 6, 1, -4)
             totalLbl.ZIndex = 100
             totalLbl.Font = Enum.Font.GothamBold
-            totalLbl.TextSize = 18
+            totalLbl.TextSize = 20
             totalLbl.TextXAlignment = Enum.TextXAlignment.Left
             totalLbl.Parent = items
         end
         totalLbl.AnchorPoint = Vector2.new(0, 1)
         totalLbl.Position = UDim2.new(0, 6, 1, -4)
+        totalLbl.Size = UDim2.new(0, 350, 0, 28)
+        totalLbl.TextSize = 20
         totalLbl.Visible = true
         totalLbl.BackgroundTransparency = 1
-        totalLbl.Text = "Total Value: " .. formatValue(grandTotal)
+
+        local totalStr
+        if grandTotal > 0 then
+            if hasUnknown then
+                totalStr = "Total Value: " .. formatValue(grandTotal) .. "+?"
+            else
+                totalStr = "Total Value: " .. formatValue(grandTotal)
+            end
+        elseif hasUnknown then
+            totalStr = "Total Value: ?"
+        else
+            totalStr = "Total Value: 0"
+        end
+        totalLbl.Text = totalStr
         applyRedGradient(totalLbl)
     elseif totalLbl then
         totalLbl.Visible = false
@@ -7087,34 +7331,43 @@ local function updateTradeItemPanelValues()
                         end
                         local rarity  = detectRarityFromColor(nameObj)
                         local unitVal = getMM2ItemValueWithIcon(skinName, rarity, iconObj)
-                        local total   = unitVal * amount
+                        local isDefault = skinName:lower():find("default")
 
                         local oldCardBadge = card:FindFirstChild("TradePanelValueLabel") or card:FindFirstChild("ItemValueLabel")
                         if oldCardBadge then oldCardBadge:Destroy() end
+
+                        local displayValText = nil
+                        if unitVal and unitVal > 0 then
+                            displayValText = formatValue(unitVal * amount)
+                        elseif not isDefault then
+                            displayValText = "?"
+                        end
 
                         if cardCont then
                             cardCont.ClipsDescendants = false
                             card.ClipsDescendants = false
                             local badge = cardCont:FindFirstChild("ItemValueLabel")
-                            if state.valueCalculatorEnabled and total > 0 then
+                            if state.valueCalculatorEnabled and displayValText then
                                 if not badge then
                                     badge = Instance.new("TextLabel")
                                     badge.Name = "ItemValueLabel"
                                     badge.BackgroundTransparency = 1
                                     badge.BorderSizePixel = 0
-                                    badge.Size = UDim2.new(0, 60, 0, 18)
-                                    badge.Position = UDim2.new(0.55, -4, 0, 3)
+                                    badge.Size = UDim2.new(0, 75, 0, 20)
+                                    badge.Position = UDim2.new(0.05, 0, 0, 3)
                                     badge.ZIndex = (cardCont.ZIndex or 1) + 20
                                     badge.Font = Enum.Font.GothamBold
-                                    badge.TextSize = 13
+                                    badge.TextSize = 15
                                     badge.TextXAlignment = Enum.TextXAlignment.Left
                                     badge.Parent = cardCont
                                 end
                                 badge.Visible = true
                                 badge.BackgroundTransparency = 1
-                                badge.Position = UDim2.new(0.55, -4, 0, 3)
+                                badge.Size = UDim2.new(0, 75, 0, 20)
+                                badge.Position = UDim2.new(0.05, 0, 0, 3)
+                                badge.TextSize = 15
                                 badge.TextXAlignment = Enum.TextXAlignment.Left
-                                badge.Text = formatValue(total)
+                                badge.Text = displayValText
                                 applyRedGradient(badge)
                             elseif badge then
                                 badge.Visible = false
@@ -7167,6 +7420,7 @@ local function updateInventoryValues()
     if not containerRoot then return end
 
     local grandTotal = 0
+    local hasUnknown = false
 
     local function scanCardContainer(parentCont)
         if not parentCont then return end
@@ -7187,8 +7441,17 @@ local function updateInventoryValues()
                     local iconObj = cont and cont:FindFirstChild("Icon")
                     local rarity = detectRarityFromColor(nameObj)
                     local unitVal = getMM2ItemValueWithIcon(skinName, rarity, iconObj)
-                    local itemTotal = unitVal * amount
-                    grandTotal = grandTotal + itemTotal
+                    local isDefault = skinName:lower():find("default")
+
+                    local displayValText = nil
+                    if unitVal and unitVal > 0 then
+                        local itemTotal = unitVal * amount
+                        grandTotal = grandTotal + itemTotal
+                        displayValText = formatValue(itemTotal)
+                    elseif not isDefault then
+                        displayValText = "?"
+                        hasUnknown = true
+                    end
 
                     local oldBadge = card:FindFirstChild("ItemValueLabel")
                     if oldBadge then oldBadge:Destroy() end
@@ -7197,25 +7460,27 @@ local function updateInventoryValues()
                         cont.ClipsDescendants = false
                         card.ClipsDescendants = false
                         local badge = cont:FindFirstChild("ItemValueLabel")
-                        if state.valueCalculatorEnabled and itemTotal > 0 then
+                        if state.valueCalculatorEnabled and displayValText then
                             if not badge then
                                 badge = Instance.new("TextLabel")
                                 badge.Name = "ItemValueLabel"
                                 badge.BackgroundTransparency = 1
                                 badge.BorderSizePixel = 0
-                                badge.Size = UDim2.new(0, 60, 0, 18)
-                                badge.Position = UDim2.new(0.55, -4, 0, 3)
+                                badge.Size = UDim2.new(0, 75, 0, 20)
+                                badge.Position = UDim2.new(0.05, 0, 0, 3)
                                 badge.ZIndex = (cont.ZIndex or 1) + 20
                                 badge.Font = Enum.Font.GothamBold
-                                badge.TextSize = 13
+                                badge.TextSize = 15
                                 badge.TextXAlignment = Enum.TextXAlignment.Left
                                 badge.Parent = cont
                             end
                             badge.Visible = true
                             badge.BackgroundTransparency = 1
-                            badge.Position = UDim2.new(0.55, -4, 0, 3)
+                            badge.Size = UDim2.new(0, 75, 0, 20)
+                            badge.Position = UDim2.new(0.05, 0, 0, 3)
+                            badge.TextSize = 15
                             badge.TextXAlignment = Enum.TextXAlignment.Left
-                            badge.Text = formatValue(itemTotal)
+                            badge.Text = displayValText
                             applyRedGradient(badge)
                         elseif badge then
                             badge.Visible = false
@@ -7260,20 +7525,35 @@ local function updateInventoryValues()
             totalInvLabel.Name = "TotalInventoryValueLabel"
             totalInvLabel.BackgroundTransparency = 1
             totalInvLabel.BorderSizePixel = 0
-            totalInvLabel.Size = UDim2.new(0, 320, 0, 24)
+            totalInvLabel.Size = UDim2.new(0, 350, 0, 28)
             totalInvLabel.AnchorPoint = Vector2.new(0, 1)
             totalInvLabel.Position = UDim2.new(0, 6, 1, -4)
             totalInvLabel.ZIndex = 100
             totalInvLabel.Font = Enum.Font.GothamBold
-            totalInvLabel.TextSize = 18
+            totalInvLabel.TextSize = 20
             totalInvLabel.TextXAlignment = Enum.TextXAlignment.Left
             totalInvLabel.Parent = items
         end
         totalInvLabel.AnchorPoint = Vector2.new(0, 1)
         totalInvLabel.Position = UDim2.new(0, 6, 1, -4)
+        totalInvLabel.Size = UDim2.new(0, 350, 0, 28)
+        totalInvLabel.TextSize = 20
         totalInvLabel.Visible = true
         totalInvLabel.BackgroundTransparency = 1
-        totalInvLabel.Text = "Total Value: " .. formatValue(grandTotal)
+
+        local totalStr
+        if grandTotal > 0 then
+            if hasUnknown then
+                totalStr = "Total Value: " .. formatValue(grandTotal) .. "+?"
+            else
+                totalStr = "Total Value: " .. formatValue(grandTotal)
+            end
+        elseif hasUnknown then
+            totalStr = "Total Value: ?"
+        else
+            totalStr = "Total Value: 0"
+        end
+        totalInvLabel.Text = totalStr
         applyRedGradient(totalInvLabel)
     elseif totalInvLabel then
         totalInvLabel.Visible = false
@@ -8467,6 +8747,7 @@ local function _buildScriptUI()
         color2 = Color3.fromRGB(170, 0, 255),
         color = Color3.fromRGB(0, 255, 170),
         transparency = 0.55,
+        glow = 1.28,
         speed = 3.5,
         size = 0.59,
         posX = 1.41,
@@ -8499,13 +8780,19 @@ local function _buildScriptUI()
         if not wingsConfig.enabled then return end
         if not char then return end
         local root = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
+        if not root then
+            root = char:WaitForChild("UpperTorso", 4)
+                or char:WaitForChild("Torso", 2)
+                or char:WaitForChild("HumanoidRootPart", 4)
+        end
+        if not root or not char.Parent then return end
 
         removeWings(player, char)
 
         if not wingsConfig.enabled then return end
 
         local curColor = getColor(wingsConfig.colorMode, wingsConfig.color1, wingsConfig.color2)
+        local curGlow = wingsConfig.glow or 1.28
 
         local leftPart = Instance.new("Part")
         leftPart.Name = "LeftWing"
@@ -8530,7 +8817,8 @@ local function _buildScriptUI()
         lightL.Name = "WingLight"
         lightL.Color = curColor
         lightL.Range = 8
-        lightL.Brightness = 2.14
+        lightL.Brightness = curGlow
+        lightL.Enabled = curGlow > 0
         lightL.Parent = leftPart
 
         local rightPart = Instance.new("Part")
@@ -8556,7 +8844,8 @@ local function _buildScriptUI()
         lightR.Name = "WingLight"
         lightR.Color = curColor
         lightR.Range = 8
-        lightR.Brightness = 2.14
+        lightR.Brightness = curGlow
+        lightR.Enabled = curGlow > 0
         lightR.Parent = rightPart
 
         local function createFeatherEmitter(parentPart)
@@ -8571,7 +8860,8 @@ local function _buildScriptUI()
             pe.Lifetime = NumberRange.new(5.0, 7.0)
             pe.Rotation = NumberRange.new(0, 360)
             pe.RotSpeed = NumberRange.new(-70, 70)
-            pe.LightEmission = 0.71
+            local glowRatio = curGlow / 2.14
+            pe.LightEmission = math.clamp(0.71 * glowRatio, 0, 1)
             pe.LightInfluence = 0.0
             pe.Size = NumberSequence.new({
                 NumberSequenceKeypoint.new(0, 0.4),
@@ -8607,17 +8897,25 @@ local function _buildScriptUI()
             wingsConnections[player] = nil
         end
         local function onCharAdded(char)
-            if wingsConfig.enabled then
-                if player == LocalPlayer or not wingsConfig.selfOnly then
-                    applyWings(player, char)
+            task.spawn(function()
+                if not char then return end
+                local root = char:WaitForChild("UpperTorso", 5)
+                    or char:WaitForChild("Torso", 2)
+                    or char:WaitForChild("HumanoidRootPart", 5)
+                if not root or not char.Parent then return end
+
+                if wingsConfig.enabled then
+                    if player == LocalPlayer or not wingsConfig.selfOnly then
+                        applyWings(player, char)
+                    end
+                else
+                    removeWings(player, char)
                 end
-            else
-                removeWings(player, char)
-            end
+            end)
         end
         if player.Character and wingsConfig.enabled then
             if player == LocalPlayer or not wingsConfig.selfOnly then
-                applyWings(player, player.Character)
+                task.spawn(applyWings, player, player.Character)
             end
         end
         wingsConnections[player] = player.CharacterAdded:Connect(onCharAdded)
@@ -8676,21 +8974,58 @@ local function _buildScriptUI()
         end
     end
 
+    local function updateWingsGlow(val)
+        wingsConfig.glow = val
+        local glowRatio = (val or 1.28) / 2.14
+        for _, w in pairs(wingsParts) do
+            if w.lightL then
+                w.lightL.Brightness = val
+                w.lightL.Enabled = val > 0
+            end
+            if w.lightR then
+                w.lightR.Brightness = val
+                w.lightR.Enabled = val > 0
+            end
+            if w.emitterL then
+                w.emitterL.LightEmission = math.clamp(0.71 * glowRatio, 0, 1)
+            end
+            if w.emitterR then
+                w.emitterR.LightEmission = math.clamp(0.71 * glowRatio, 0, 1)
+            end
+        end
+    end
+
     local function updateWings()
         if not wingsConfig.enabled then return end
         local curColor = getColor(wingsConfig.colorMode, wingsConfig.color1, wingsConfig.color2)
+        local curGlow = wingsConfig.glow or 1.28
+        local glowRatio = curGlow / 2.14
         for player, w in pairs(wingsParts) do
             if w.left and w.left.Parent then
                 w.left.Color = curColor
                 w.left.Transparency = wingsConfig.transparency
-                if w.emitterL then w.emitterL.Color = ColorSequence.new(curColor) end
-                if w.lightL then w.lightL.Color = curColor end
+                if w.emitterL then
+                    w.emitterL.Color = ColorSequence.new(curColor)
+                    w.emitterL.LightEmission = math.clamp(0.71 * glowRatio, 0, 1)
+                end
+                if w.lightL then
+                    w.lightL.Color = curColor
+                    w.lightL.Brightness = curGlow
+                    w.lightL.Enabled = curGlow > 0
+                end
             end
             if w.right and w.right.Parent then
                 w.right.Color = curColor
                 w.right.Transparency = wingsConfig.transparency
-                if w.emitterR then w.emitterR.Color = ColorSequence.new(curColor) end
-                if w.lightR then w.lightR.Color = curColor end
+                if w.emitterR then
+                    w.emitterR.Color = ColorSequence.new(curColor)
+                    w.emitterR.LightEmission = math.clamp(0.71 * glowRatio, 0, 1)
+                end
+                if w.lightR then
+                    w.lightR.Color = curColor
+                    w.lightR.Brightness = curGlow
+                    w.lightR.Enabled = curGlow > 0
+                end
             end
         end
     end
@@ -9207,8 +9542,13 @@ local function _buildScriptUI()
                     if not char then continue end
 
                     local parts = antiFlingPartCache[plr]
+                    if not parts or #parts == 0 or (parts[1] and parts[1].Parent == nil) then
+                        cachePlayerParts(plr)
+                        parts = antiFlingPartCache[plr]
+                    end
                     if parts then
-                        for _, part in ipairs(parts) do
+                        for i = 1, #parts do
+                            local part = parts[i]
                             if part and part.Parent then
                                 part.CanCollide = false
                             end
@@ -9318,12 +9658,38 @@ local function _buildScriptUI()
         table.clear(antiFlingPlayers)
     end)
 
+    local function hookCharacter(plr, char)
+        if not char then return end
+        cachePlayerParts(plr)
+        trackPlayerConnection(plr, char.ChildAdded:Connect(function(child)
+            if child:IsA("Tool") or child:IsA("BasePart") or child:IsA("Accessory") then
+                task.wait(0.05)
+                cachePlayerParts(plr)
+            end
+        end))
+    end
+
+    -- Periodic auto-refresh watchdog: updates players and recaches parts every 1.5s
+    -- ensures players who respawned, equipped tools, or reset collision states never become collidable
+    task.spawn(function()
+        while not state.unloaded do
+            task.wait(1.5)
+            if state.antiFlingEnabled and not state.isFlinging then
+                rebuildPlayerList()
+                for _, plr in ipairs(antiFlingPlayers) do
+                    cachePlayerParts(plr)
+                end
+                pruneNoCollisionConstraints()
+            end
+        end
+    end)
+
     -- keep player cache in sync with lobby changes
     trackConnection(Players.PlayerAdded:Connect(function(plr)
         rebuildPlayerList()
-        trackPlayerConnection(plr, plr.CharacterAdded:Connect(function()
+        trackPlayerConnection(plr, plr.CharacterAdded:Connect(function(char)
             task.wait(0.1)
-            cachePlayerParts(plr)
+            hookCharacter(plr, char)
         end))
     end))
     trackConnection(Players.PlayerRemoving:Connect(function(plr)
@@ -9332,9 +9698,10 @@ local function _buildScriptUI()
     end))
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then
-            trackPlayerConnection(plr, plr.CharacterAdded:Connect(function()
+            if plr.Character then hookCharacter(plr, plr.Character) end
+            trackPlayerConnection(plr, plr.CharacterAdded:Connect(function(char)
                 task.wait(0.1)
-                cachePlayerParts(plr)
+                hookCharacter(plr, char)
             end))
         end
     end
@@ -10702,10 +11069,22 @@ local function _buildScriptUI()
 
     Tabs.Murderer:AddDropdown("KillAuraParticlePreset", {
         Title = "Circle texture",
-        Values = { "Fade circle", "Telemon's fire circle", "Dashed circle", "Magic circle", "Custom" },
+        Values = {
+            "Fade circle", "Telemon's fire circle", "Dashed circle", "Magic circle",
+            "Smoke (animated)", "Pixel sparkle (animated)", "Spinning robux (animated)", "Bat (animated)",
+            "Potion particle (animated)", "Wingdings (animated)", "YouAreAnIdiot (animated)", "Eye (animated)",
+            "Dollar (animated)", "maxwell (animated)", "Triangle shard (animated)", "Custom"
+        },
         Default = "Fade circle",
         Callback = function(v)
             state.killAuraParticlePreset = v
+            local presetData = killAuraParticlePresets[v]
+            if type(presetData) == "table" and presetData.isAnimated then
+                state.killAuraParticleIsFlipbook = true
+                if presetData.flipbookLayout then
+                    state.killAuraParticleFlipbookLayout = presetData.flipbookLayout
+                end
+            end
             if state.killAuraParticleEnabled then
                 rebuildParticleAura()
             end
@@ -10721,6 +11100,52 @@ local function _buildScriptUI()
             if state.killAuraParticleEnabled and state.killAuraParticlePreset == "Custom" then
                 rebuildParticleAura()
             end
+        end
+    })
+
+    Tabs.Murderer:AddToggle("KillAuraParticleIsFlipbook", {
+        Title = "Particle flipbook animation",
+        Default = state.killAuraParticleIsFlipbook,
+        Callback = function(v)
+            state.killAuraParticleIsFlipbook = v
+            if state.killAuraParticleEnabled then
+                rebuildParticleAura()
+            end
+        end
+    })
+
+    Tabs.Murderer:AddInput("KillAuraParticleFlipbookLayout", {
+        Title = "Flipbook layout (grid)",
+        Default = state.killAuraParticleFlipbookLayout or "Grid4x4",
+        Placeholder = "Grid4x4 or 4x4, 8x8, 2x2",
+        Callback = function(text)
+            state.killAuraParticleFlipbookLayout = text
+            if state.killAuraParticleEnabled then
+                rebuildParticleAura()
+            end
+        end
+    })
+
+    Tabs.Murderer:AddDropdown("KillAuraParticleFlipbookMode", {
+        Title = "Flipbook mode",
+        Values = { "Loop", "OneShot", "PingPong" },
+        Default = state.killAuraParticleFlipbookMode or "Loop",
+        Callback = function(v)
+            state.killAuraParticleFlipbookMode = v
+            if state.killAuraParticleEnabled then
+                rebuildParticleAura()
+            end
+        end
+    })
+
+    Tabs.Murderer:AddSlider("KillAuraParticleFlipbookSpeed", {
+        Title = "Flipbook play speed",
+        Min = 1,
+        Max = 60,
+        Default = state.killAuraParticleFlipbookSpeed or 15,
+        Suffix = " FPS",
+        Callback = function(v)
+            state.killAuraParticleFlipbookSpeed = v
         end
     })
 
@@ -12602,10 +13027,16 @@ local function _buildScriptUI()
                 -- avoid redundant palette calculations across wings
                 local curColor = getColor(wingsConfig.colorMode, wingsConfig.color1, wingsConfig.color2)
 
-                for player, w in pairs(wingsParts) do
+                local targetList = wingsConfig.selfOnly and { LocalPlayer } or Players:GetPlayers()
+                for _, player in ipairs(targetList) do
                     local char = player.Character
                     local root = char and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart"))
-                    if root and w.left and w.left.Parent and w.right and w.right.Parent then
+                    local w = wingsParts[player]
+                    if root and (not w or not w.left or not w.left.Parent or w.left.Parent ~= char) then
+                        applyWings(player, char)
+                        w = wingsParts[player]
+                    end
+                    if root and w and w.left and w.left.Parent and w.right and w.right.Parent then
                         local zCompensation = math.sin(_t * flapSpeed) * -0.23
                         local xCompensation = math.sin(_t * flapSpeed) * 0.12
                         local backCF = root.CFrame * CFrame.new(0, wingsConfig.posY, wingsConfig.posZ)
@@ -14252,6 +14683,22 @@ end))
         end
     })
 
+    Tabs.Visuals:AddSlider("WingsGlow", {
+        Title = "Wings glow",
+        Min = 0,
+        Max = 5,
+        Default = 1.28,
+        Increment = 0.05,
+        Rounding = 2,
+        Callback = function(v)
+            if updateWingsGlow then
+                updateWingsGlow(v)
+            else
+                wingsConfig.glow = v
+            end
+        end
+    })
+
     Tabs.Visuals:AddSlider("WingsSpeed", {
         Title = "Wings flap speed",
         Min = 0.1,
@@ -14428,6 +14875,12 @@ end))
     })
 
     -- ── Gun ray / bullet tracer ─────────────────────────────────────────────
+    local tracerPresets = {
+        ["Lighting beam"]   = "rbxassetid://81042383807716",
+        ["Lighting beam 2"] = "rbxassetid://104296222791074",
+        ["Thick beam"]      = "rbxassetid://78956314822091",
+    }
+
     local tracerConfig = {
         enabled       = false,
         ownOnly       = false,
@@ -14437,7 +14890,7 @@ end))
         duration      = 1.0,
         width         = 0.25,
         lightEmission = 3,
-        texture       = "rbxassetid://12781800668",
+        texture       = "rbxassetid://81042383807716",
         customTexture = "",
     }
 
@@ -14657,18 +15110,36 @@ end))
             Callback = function(c) tracerConfig.color2 = c end
         }
     })
-    Tabs.Visuals:AddDropdown("GunTracerTexture", {
+    local tracerDrop = Tabs.Visuals:AddDropdown("GunTracerTexture", {
         Title    = "Ray texture",
-        Values   = { "Laser", "Custom" },
-        Default  = "Laser",
+        Values   = { "Lighting beam", "Lighting beam 2", "Thick beam", "Custom" },
+        Default  = "Lighting beam",
         Callback = function(v)
-            if v == "Laser" then
-                tracerConfig.texture       = "rbxassetid://12781800668"
+            if tracerPresets[v] then
+                tracerConfig.texture       = tracerPresets[v]
                 tracerConfig.customTexture = ""
             end
             -- "Custom" → user fills in the input below; texture resolved at fire time
         end
     })
+
+    -- Migration safeguard: if an older saved config file restores obsolete presets (e.g. "Laser"),
+    -- ensure the updated beam options are restored and a valid beam is selected
+    if Window and Window.OnConfigLoaded then
+        Window:OnConfigLoaded(function()
+            if tracerDrop then
+                if tracerDrop.SetOptions then
+                    tracerDrop.SetOptions({ "Lighting beam", "Lighting beam 2", "Thick beam", "Custom" })
+                end
+                local cur = tracerDrop.GetSelected and tracerDrop.GetSelected()
+                if cur == "Laser" or (not tracerPresets[cur] and cur ~= "Custom") then
+                    if tracerDrop.SetSelected then
+                        tracerDrop.SetSelected("Lighting beam", true)
+                    end
+                end
+            end
+        end)
+    end
     Tabs.Visuals:AddInput("GunTracerCustomTex", {
         Title       = "Custom texture ID",
         Placeholder = "Asset ID or full rbxassetid://...",
