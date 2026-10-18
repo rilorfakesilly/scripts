@@ -87,6 +87,8 @@ state = {
     deadPlayers = {},
     knifeHolder = nil,
     gunHolder = nil,
+    avoidMurderer = false,
+    avoidDistance = 35,
     noRoundStartTime = tick(),
     
     -- configure coin and round automation settings
@@ -116,6 +118,10 @@ state = {
     speedEnabled = false,
     speedValue = 16,
     speedMode = "WalkSpeed",
+    
+    bhopEnabled = false,
+    bhopSpeed = 30,
+    autoBhop = false,
     
     flightEnabled = false,
     flightSpeed = 50,
@@ -351,6 +357,8 @@ local function doCleanup()
     state.aimbotEnabled = false
     state.autoAimEnabled = false
     state.autoAimWallbang = false
+    state.bhopEnabled = false
+    state.autoBhop = false
     state.flightEnabled = false
     state.speedMode = "WalkSpeed"
     state.isFlinging = false
@@ -3715,13 +3723,383 @@ local function formatValue(val)
     end
 end
 
--- load ui library directly from github
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/rilorfakesilly/scripts/refs/heads/main/MDuiLib.lua"))()
+-- load ui library from github
+local Library = (function()
+    local src = game:HttpGet("https://raw.githubusercontent.com/rilorfakesilly/scripts/refs/heads/main/MDuiLib.lua")
+    local fn, err = loadstring(src, "MDuiLib")
+    if not fn then
+        error("[MorningDrift MM2] Failed to compile MDuiLib: " .. tostring(err), 2)
+    end
+    return fn()
+end)()
 
 Window = Library:CreateWindow({
     Title = "MorningDrift MM2",
     ScriptName = "MorningDrift MM2",
-    Discord = "discord.gg/48jdqB8rAw"
+    Discord = "discord.gg/48jdqB8rAw",
+    Languages = { "English", "Russian" },
+    DefaultLanguage = "English",
+    LanguageSelector = true,
+    Translations = {
+        Russian = {
+            -- Tabs
+            ["Main"] = "Главная",
+            ["Autofarm"] = "Автофарм",
+            ["Player"] = "Игрок",
+            ["Murderer"] = "Убийца",
+            ["Sheriff"] = "Шериф",
+            ["Sounds"] = "Звуки",
+            ["Visuals"] = "Визуалы",
+            ["Animations"] = "Анимации",
+            ["World"] = "Мир",
+            ["Camera"] = "Камера",
+            ["Webhook"] = "Вебхук",
+            ["Settings"] = "Настройки",
+
+            -- Sections
+            ["Farm"] = "Фарм",
+            ["Movement"] = "Движение",
+            ["Body stuff"] = "Эффекты тела",
+            ["China hat"] = "Азиатская шляпа",
+            ["Spinbot"] = "Спинбот",
+            ["Murderer tools"] = "Инструменты убийцы",
+            ["Kill aura circle"] = "Круг киллауры",
+            ["Sheriff tools"] = "Инструменты шерифа",
+            ["Silent aim"] = "Сайлент аим",
+            ["Auto aim"] = "Авто аим",
+            ["Camlock"] = "Камлок",
+            ["Gun ray"] = "Трейсер выстрела",
+            ["Gunshot sound"] = "Звук выстрела",
+            ["Knife kill sound"] = "Звук убийства ножом",
+            ["Gun kill sound"] = "Звук убийства из пистолета",
+            ["Reload sound"] = "Звук перезарядки",
+            ["Coin pickup sound"] = "Звук сбора монет",
+            ["Player esp"] = "ВХ на игроков",
+            ["Custom crosshair"] = "Кастомный прицел",
+            ["Crosshair"] = "Прицел",
+            ["Emotes"] = "Эмоции",
+            ["Custom animations"] = "Кастомные анимации",
+            ["Skybox"] = "Небо (Skybox)",
+            ["Atmosphere and lighting"] = "Атмосфера и освещение",
+            ["Resolution stretch"] = "Растяжение экрана",
+            ["Discord webhook"] = "Discord вебхук",
+            ["Server"] = "Сервер",
+            ["Auto open crates"] = "Автооткрытие ящиков",
+            ["Auto server hop"] = "Авто смена сервера",
+            ["Utility"] = "Утилиты",
+            ["Target"] = "Цель",
+            ["Mobile overlay"] = "Мобильный оверлей",
+            ["Configurations"] = "Конфигурации",
+            ["Credits"] = "Создатели",
+            ["Language"] = "Язык",
+            ["Audio & Notifications"] = "Звуки и уведомления",
+            ["Interface & Customization"] = "Интерфейс и кастомизация",
+            ["Neon wings"] = "Неоновые крылья",
+            ["Orb"] = "Сфера",
+            ["Trail"] = "Трейл",
+            ["Jump ring"] = "Кольцо прыжка",
+            ["Color animation"] = "Анимация цвета",
+            ["Value calculator"] = "Калькулятор ценностей",
+
+            -- Buttons & Actions
+            ["Rejoin server"] = "Перезайти на сервер",
+            ["Server hop"] = "Сменить сервер",
+            ["Kill character"] = "Убить персонажа",
+            ["Fling murderer"] = "Флингнуть убийцу",
+            ["Fling murd"] = "Флингнуть убийцу",
+            ["Fling sheriff"] = "Флингнуть шерифа",
+            ["Fling target"] = "Флингнуть цель",
+            ["Kill all"] = "Убить всех",
+            ["Shoot"] = "Выстрелить",
+            ["Wallbang murder"] = "Прострелить убийцу",
+            ["Play emote"] = "Включить эмоцию",
+            ["Stop emote"] = "Остановить эмоцию",
+            ["Send test webhook"] = "Отправить тестовый вебхук",
+            ["Teleport to target"] = "Телепорт к цели",
+            ["Spectate target"] = "Наблюдать за целью",
+            ["Add custom emote"] = "Добавить свою эмоцию",
+            ["Remove custom emote"] = "Удалить свою эмоцию",
+            ["Trade & inventory values"] = "Ценности инвентаря и трейда",
+
+            -- Interface & Controls
+            ["Interface language"] = "Язык интерфейса",
+            ["Autofarm"] = "Автофарм",
+            ["Autofarm mode"] = "Режим автофарма",
+            ["Tween speed"] = "Скорость полёта (твина)",
+            ["After farm"] = "После фарма",
+            ["Auto take dropped gun"] = "Автоподбор выпавшего пистолета",
+            ["Gun pickup method"] = "Способ подбора пистолета",
+            ["Wait for round end"] = "Ждать конца раунда",
+            ["Speed"] = "Скорость",
+            ["Speed method"] = "Метод скорости",
+            ["Speed value"] = "Значение скорости",
+            ["Flight"] = "Полёт",
+            ["Flight speed"] = "Скорость полёта",
+            ["Jump power"] = "Сила прыжка",
+            ["China hat cosmetic"] = "Косметика: шляпа",
+            ["Hat always on top"] = "Шляпа поверх всего",
+            ["Hat head offset"] = "Смещение шляпы",
+            ["Hat cone height"] = "Высота конуса",
+            ["Hat cone radius"] = "Радиус конуса",
+            ["Follow user head (X/Z only)"] = "Следовать за головой (только X/Z)",
+            ["Hat self player only"] = "Шляпа только для себя",
+            ["Hat transparency"] = "Прозрачность шляпы",
+            ["Hat color mode"] = "Цветовой режим шляпы",
+            ["Hat primary color"] = "Основной цвет шляпы",
+            ["Hat secondary color"] = "Второй цвет шляпы",
+            ["Spinbot"] = "Спинбот",
+            ["Spinbot rotation speed"] = "Скорость вращения спинбота",
+            ["Min spin speed"] = "Мин. скорость вращения",
+            ["Max spin speed"] = "Макс. скорость вращения",
+            ["Degree difference"] = "Разница углов",
+            ["Height difference"] = "Разница высоты",
+            ["Random offset"] = "Случайное смещение",
+            ["Horizontal prediction"] = "Горизонтальное упреждение",
+            ["Vertical prediction"] = "Вертикальное упреждение",
+            ["Fling offset"] = "Дистанция флинга",
+            ["Fling dynamic Y velocity"] = "Динамическая Y скорость",
+            ["Fling head height offset"] = "Высота цели для флинга",
+            ["Anti fling"] = "Анти-флинг",
+            ["Target player"] = "Выбрать игрока",
+            ["Kill aura"] = "Киллаура",
+            ["Kill aura range"] = "Радиус киллауры",
+            ["Kill aura type"] = "Тип киллауры",
+            ["Kill aura zone visible"] = "Отображать зону киллауры",
+            ["Circle glow"] = "Свечение круга",
+            ["Circle layers"] = "Слои круга",
+            ["Circle transparency"] = "Прозрачность круга",
+            ["Circle color 1"] = "Цвет круга 1",
+            ["Circle color 2"] = "Цвет круга 2",
+            ["Circle size"] = "Размер круга",
+            ["Circle texture"] = "Текстура круга",
+            ["Custom texture ID"] = "ID кастомной текстуры",
+            ["Body particles"] = "Частицы на теле",
+            ["Particle preset"] = "Пресет частиц",
+            ["Custom particle asset id"] = "ID кастомных частиц",
+            ["Particle emission rate"] = "Частота испускания частиц",
+            ["Particle lifetime"] = "Время жизни частиц",
+            ["Particle speed"] = "Скорость частиц",
+            ["Particle size"] = "Размер частиц",
+            ["Particle transparency"] = "Прозрачность частиц",
+            ["Particle spin"] = "Вращение частиц",
+            ["Particle orientation"] = "Ориентация частиц",
+            ["Particle color mode"] = "Цветовой режим частиц",
+            ["Particle primary color"] = "Основной цвет частиц",
+            ["Particle secondary color"] = "Второй цвет частиц",
+            ["Particle flipbook animation"] = "Флипбук-анимация частиц",
+            ["Flipbook mode"] = "Режим флипбука",
+            ["Flipbook layout (grid)"] = "Сетка флипбука",
+            ["Flipbook play speed"] = "Скорость проигрывания",
+            ["Neon wings cosmetic"] = "Неоновые крылья",
+            ["Wings self player only"] = "Крылья только для себя",
+            ["Wings glow"] = "Свечение крыльев",
+            ["Wings scale size"] = "Размер крыльев",
+            ["Wings flap speed"] = "Скорость взмахов",
+            ["Wings transparency"] = "Прозрачность крыльев",
+            ["Wings position offset x"] = "Смещение крыльев по X",
+            ["Wings position offset y"] = "Смещение крыльев по Y",
+            ["Wings position offset z"] = "Смещение крыльев по Z",
+            ["Wings color mode"] = "Цветовой режим крыльев",
+            ["Wings primary color"] = "Основной цвет крыльев",
+            ["Wings secondary color"] = "Второй цвет крыльев",
+            ["Orbiting light orb"] = "Орбитальная световая сфера",
+            ["Orb orbit distance"] = "Дистанция орбиты",
+            ["Orb orbit speed"] = "Скорость орбиты",
+            ["Orb size scale"] = "Размер сферы",
+            ["Orb color mode"] = "Цветовой режим сферы",
+            ["Orb primary color"] = "Основной цвет сферы",
+            ["Orb secondary color"] = "Второй цвет сферы",
+            ["Character trail"] = "Трейл за персонажем",
+            ["Trail duration lifetime"] = "Длительность трейла",
+            ["Trail width scale"] = "Ширина трейла",
+            ["Trail transparency"] = "Прозрачность трейла",
+            ["Trail color mode"] = "Цветовой режим трейла",
+            ["Trail primary color"] = "Основной цвет трейла",
+            ["Trail secondary color"] = "Второй цвет трейла",
+            ["Jump ring"] = "Кольцо прыжка",
+            ["Ring max size"] = "Макс. размер кольца",
+            ["Ring fade speed"] = "Скорость затухания кольца",
+            ["Ring color mode"] = "Цветовой режим кольца",
+            ["Ring color 1"] = "Цвет кольца 1",
+            ["Ring color 2"] = "Цвет кольца 2",
+            ["Translucent body"] = "Полупрозрачное тело",
+            ["Body color mode"] = "Цветовой режим тела",
+            ["Body primary color"] = "Основной цвет тела",
+            ["Body secondary color"] = "Второй цвет тела",
+            ["Gun ray"] = "Трейсер выстрела",
+            ["Own shots only"] = "Только свои выстрелы",
+            ["Ray texture"] = "Текстура луча",
+            ["Color mode"] = "Режим цвета",
+            ["Color"] = "Цвет",
+            ["Color 2 (Gradient / Shift)"] = "Цвет 2 (Градиент / Перелив)",
+            ["Width"] = "Ширина",
+            ["Initial transparency"] = "Начальная прозрачность",
+            ["Fade in"] = "Появление",
+            ["Duration"] = "Длительность",
+            ["Glowing"] = "Свечение",
+            ["Light emission"] = "Излучение света",
+            ["Rainbow & gradient animation speed"] = "Скорость анимации цвета",
+            ["Auto aim"] = "Авто аим",
+            ["Hit chance"] = "Шанс попадания",
+            ["Target body part"] = "Часть тела цели",
+            ["Wallbang"] = "Прострел сквозь стены",
+            ["Silent aim"] = "Сайлент аим",
+            ["Target part"] = "Целевая часть",
+            ["Wall check"] = "Проверка стен",
+            ["Alive check"] = "Проверка на живого",
+            ["Fov circle"] = "Круг FOV",
+            ["Fov radius"] = "Радиус FOV",
+            ["Spin fov"] = "Вращение FOV",
+            ["Fov transparency"] = "Прозрачность FOV",
+            ["Fill fov"] = "Заливка FOV",
+            ["Fov drop shadow"] = "Тень круга FOV",
+            ["Fov shadow transparency"] = "Прозрачность тени FOV",
+            ["Camlock"] = "Камлок",
+            ["Camlock smoothness"] = "Плавность камлока",
+            ["Enable ESP"] = "Включить ESP",
+            ["Esp chams"] = "Чамсы игроков",
+            ["Esp box"] = "Боксы (Box ESP)",
+            ["Esp skeleton"] = "Скелеты (Skeleton ESP)",
+            ["Esp name"] = "Имена игроков",
+            ["Esp role"] = "Роли игроков",
+            ["Gun ESP"] = "Пистолет (Gun ESP)",
+            ["Chams mode"] = "Режим чамсов",
+            ["Murderer chams color"] = "Цвет чамсов убийцы",
+            ["Sheriff chams color"] = "Цвет чамсов шерифа",
+            ["Innocent chams color"] = "Цвет чамсов невиновного",
+            ["Highlight fill transparency"] = "Прозрачность заливки",
+            ["Highlight outline transparency"] = "Прозрачность обводки",
+            ["Esp max render distance"] = "Макс. дистанция отрисовки ESP",
+            ["Skeleton color mode"] = "Цветовой режим скелетов",
+            ["Skeleton use role color"] = "Цвет роли для скелета",
+            ["Skeleton primary color"] = "Основной цвет скелета",
+            ["Skeleton secondary color"] = "Второй цвет скелета",
+            ["Skeleton line thickness"] = "Толщина линий скелета",
+            ["Skeleton transparency"] = "Прозрачность скелета",
+            ["Custom crosshair"] = "Кастомный прицел",
+            ["Crosshair preset"] = "Пресет прицела",
+            ["Crosshair follows cursor"] = "Прицел следует за курсором",
+            ["Spin crosshair"] = "Вращение прицела",
+            ["Crosshair spin speed"] = "Скорость вращения",
+            ["Crosshair size scale"] = "Размер прицела",
+            ["Crosshair transparency"] = "Прозрачность прицела",
+            ["Crosshair color mode"] = "Цветовой режим прицела",
+            ["Crosshair primary color"] = "Основной цвет прицела",
+            ["Crosshair secondary color"] = "Второй цвет прицела",
+            ["Crosshair animation speed"] = "Скорость анимации прицела",
+            ["Crosshair flipbook animation"] = "Флипбук-анимация прицела",
+            ["Crosshair flipbook mode"] = "Режим флипбука прицела",
+            ["Crosshair flipbook layout"] = "Сетка флипбука прицела",
+            ["Crosshair custom asset id"] = "Кастомный ID прицела",
+            ["Crosshair custom flipbook"] = "Кастомный флипбук прицела",
+            ["Custom crosshair asset id"] = "Кастомный ID прицела",
+            ["Select emote"] = "Выбрать эмоцию",
+            ["Stop on move"] = "Останавливать при движении",
+            ["Custom emote name"] = "Название своей эмоции",
+            ["Custom animation ID"] = "ID анимации",
+            ["Animation pack ID"] = "ID набора анимаций",
+            ["Custom animations"] = "Кастомные анимации",
+            ["Custom skybox id"] = "ID кастомного скайбокса",
+            ["Skybox preset"] = "Пресет скайбокса",
+            ["Custom time"] = "Кастомное время суток",
+            ["Time"] = "Время",
+            ["Custom brightness"] = "Кастомная яркость",
+            ["Brightness"] = "Яркость",
+            ["Custom fog"] = "Кастомный туман",
+            ["Fog distance"] = "Дистанция тумана",
+            ["Fog color"] = "Цвет тумана",
+            ["Custom field of view"] = "Кастомный угол обзора (FOV)",
+            ["Field of view"] = "Угол обзора (FOV)",
+            ["Enable stretch"] = "Включить растяжение",
+            ["Horizontal stretch"] = "Растяжение по горизонтали",
+            ["Vertical stretch"] = "Растяжение по вертикали",
+            ["Gun sound preset"] = "Пресет звука выстрела",
+            ["Gun sound volume"] = "Громкость выстрела",
+            ["Custom gun sound"] = "Кастомный звук выстрела",
+            ["Knife kill volume"] = "Громкость убийства ножом",
+            ["Custom knife kill sound"] = "Кастомный звук убийства ножом",
+            ["Gun kill volume"] = "Громкость убийства из пистолета",
+            ["Custom gun kill sound"] = "Кастомный звук убийства из пистолета",
+            ["Reload volume"] = "Громкость перезарядки",
+            ["Custom reload sound"] = "Кастомный звук перезарядки",
+            ["Coin sound volume"] = "Громкость сбора монет",
+            ["Custom coin pickup sound"] = "Кастомный звук сбора монет",
+            ["Custom sound asset ID"] = "ID кастомного звука",
+            ["Auto open crates"] = "Автооткрытие ящиков",
+            ["Crate box type"] = "Тип ящика",
+            ["Auto server hop"] = "Авто смена сервера",
+            ["Hop timer"] = "Таймер смены",
+            ["Webhook logger"] = "Логирование в вебхук",
+            ["Webhook url"] = "URL вебхука",
+            ["Webhook interval"] = "Интервал отправки вебхука",
+            ["Include current coins"] = "Указывать текущие монеты",
+            ["Include coins / hour"] = "Указывать монеты / час",
+            ["Mobile buttons overlay"] = "Кнопки на экране для телефона",
+            ["Lock button positions"] = "Заблокировать позиции кнопок",
+            ["Flight button"] = "Кнопка полёта",
+            ["Camlock button"] = "Кнопка камлока",
+            ["Shoot button"] = "Кнопка выстрела",
+            ["Fling murderer button"] = "Кнопка флинга убийцы",
+            ["Fling sheriff button"] = "Кнопка флинга шерифа",
+            ["Enable notifications"] = "Включить уведомления",
+            ["Enable UI sounds"] = "Включить звуки интерфейса",
+            ["UI sound volume"] = "Громкость звуков UI",
+            ["Theme preset"] = "Пресет темы",
+            ["Custom theme color"] = "Кастомный цвет темы",
+            ["Custom background transparency"] = "Кастомная прозрачность фона",
+            ["Elements transparency"] = "Прозрачность элементов",
+            ["Top/bottom bar transparency"] = "Прозрачность верхней/нижней панели",
+            ["Enable UI shadows"] = "Включить тени интерфейса",
+            ["Shadow intensity"] = "Интенсивность теней",
+            ["Sections transparent"] = "Прозрачные секции",
+            ["Background blur"] = "Размытие фона",
+            ["Spiderweb background"] = "Фоновая паутинка",
+            ["Click particles"] = "Частицы при клике",
+            ["Click particle type"] = "Тип частиц клика",
+            ["Noise overlay"] = "Шумовой оверлей",
+            ["Noise type"] = "Тип шума",
+            ["Noise size"] = "Размер зерна шума",
+            ["Noise transparency"] = "Прозрачность шума",
+            ["Save config"] = "Сохранить конфигурацию",
+            ["Load config"] = "Загрузить конфигурацию",
+            ["Delete config"] = "Удалить конфигурацию",
+            ["Config name"] = "Название конфига",
+            ["Export config"] = "Экспорт конфига",
+            ["Import config"] = "Импорт конфига",
+            ["Creator"] = "Создатель",
+            ["Developer"] = "Разработчик",
+            ["Creator and developer"] = "Создатель и разработчик",
+            ["Discord"] = "Дискорд",
+            ["Discord server"] = "Сервер Discord",
+            ["Discord server if you have any questions"] = "Сервер Discord, если у вас есть вопросы",
+            ["Click to copy Discord link"] = "Нажмите, чтобы скопировать ссылку",
+            ["Copy link"] = "Копировать ссылку",
+            ["UI shadows"] = "Тени интерфейса",
+            ["Section backgrounds"] = "Фон секций",
+            ["Background noise"] = "Шумовой фон",
+            ["Noise tile size"] = "Размер зерна шума",
+            ["Background transparency"] = "Прозрачность фона",
+            ["UI elements transparency"] = "Прозрачность элементов",
+            ["Top, left & bottom frames transparency"] = "Прозрачность панелей",
+            ["Blur intensity"] = "Интенсивность размытия",
+            ["Enable click effects"] = "Включить эффекты клика",
+            ["Particle style"] = "Стиль частиц",
+            ["Custom image ID"] = "ID своего изображения",
+            ["Themes"] = "Темы",
+            ["Click Effects & Particles"] = "Эффекты и частицы клика",
+            ["Appearance & Visuals"] = "Внешний вид и визуалы",
+            ["Hover sound ID"] = "ID звука наведения",
+            ["Click sound ID"] = "ID звука клика",
+            ["Notification sound ID"] = "ID звука уведомления",
+            ["Anchored"] = "Зафиксировать (Anchored)",
+            ["Glowing"] = "Свечение (Glowing)",
+            ["Fade in"] = "Плавное появление (Fade in)",
+            ["Fov shape"] = "Форма FOV",
+            ["Color mode"] = "Цветовой режим",
+            ["Jump ring color mode"] = "Цветовой режим кольца прыжка",
+            ["Skeleton color mode"] = "Цветовой режим скелета"
+        }
+    }
 })
 
 -- leverage library layout rows for element grouping
@@ -5929,14 +6307,15 @@ local function scanAllCoins()
         if seen[part] then return end
         if not part.Parent then return end
 
-        -- ignore coins picked up by other players
+        -- ignore coins already collected: CoinVisual fades to ~1 when collected (normal value ~0.05)
         if item then
             local visual = item:FindFirstChild("CoinVisual")
-            if visual and visual:IsA("BasePart") and visual.Transparency >= 1 then return end
+            if visual and visual:IsA("BasePart") and visual.Transparency >= 0.9 then return end
         end
-        if part.Transparency >= 1 then return end
+        if part.Transparency >= 0.9 then return end
 
-        local ti = getCoinTouchInterest(part)
+        -- TouchInterest lives on Coin_Server (item), fall back to checking part directly
+        local ti = (item and getCoinTouchInterest(item)) or getCoinTouchInterest(part)
         if not ti then return end  -- ignore static decoration coins
 
         seen[part] = true
@@ -5955,9 +6334,10 @@ local function scanAllCoins()
               or map:FindFirstChild("CoinArea")
         if cc then
             for _, item in ipairs(cc:GetChildren()) do
-                local cs = item:FindFirstChild("Coin_Server")
-                if cs and cs:IsA("BasePart") then
-                    tryAdd(item, cs)
+                -- item IS the Coin_Server model; CoinVisual is the BasePart inside it
+                local visual = item:FindFirstChild("CoinVisual")
+                if visual and visual:IsA("BasePart") then
+                    tryAdd(item, visual)
                 elseif item:IsA("BasePart") then
                     tryAdd(nil, item)
                 else
@@ -5974,9 +6354,10 @@ local function scanAllCoins()
             local cc = p:FindFirstChild("CoinContainer") or p:FindFirstChild("Coins") or p:FindFirstChild("CoinArea")
             if cc then
                 for _, item in ipairs(cc:GetChildren()) do
-                    local cs = item:FindFirstChild("Coin_Server")
-                    if cs and cs:IsA("BasePart") then
-                        tryAdd(item, cs)
+                    -- item IS the Coin_Server model; CoinVisual is the BasePart inside it
+                    local visual = item:FindFirstChild("CoinVisual")
+                    if visual and visual:IsA("BasePart") then
+                        tryAdd(item, visual)
                     elseif item:IsA("BasePart") then
                         tryAdd(nil, item)
                     else
@@ -5987,12 +6368,13 @@ local function scanAllCoins()
         end
     end
 
-    -- scan workspace if map hierarchy differs
+    -- scan workspace if map hierarchy differs (look for CoinVisual BaseParts)
     local now = tick()
     if #coins == 0 and (now - lastFallbackCoinScan >= 5) then
         lastFallbackCoinScan = now
         for _, desc in ipairs(Workspace:GetDescendants()) do
-            if desc:IsA("BasePart") and desc.Name == "Coin_Server" then
+            if desc:IsA("BasePart") and desc.Name == "CoinVisual" then
+                -- desc.Parent is Coin_Server
                 tryAdd(desc.Parent, desc)
             end
         end
@@ -8396,19 +8778,101 @@ local function _buildScriptUI()
         return adapter
     end
 
+    local function createRoutedTabAdapter(rawTab, subTabConfig)
+        if not rawTab or not rawTab.AddSubTabs then
+            return createTabAdapter(rawTab)
+        end
+
+        local defaultName = subTabConfig.Default or subTabConfig.Names[1]
+        local subTabsObj = rawTab:AddSubTabs(subTabConfig.Names, defaultName)
+        local adapters = {}
+        for _, name in ipairs(subTabConfig.Names) do
+            local subObj = subTabsObj:Get(name)
+            adapters[name] = createTabAdapter(subObj)
+        end
+
+        local router = {
+            RawTab = rawTab,
+            SubTabsObj = subTabsObj,
+            SubAdapters = adapters,
+            _activeAdapter = adapters[defaultName],
+            _activeSubName = defaultName,
+
+            AddSection = function(self, title, isFullWidth)
+                local targetSubName = (subTabConfig.Routes and subTabConfig.Routes[title]) or subTabConfig.Default or subTabConfig.Names[1]
+                local targetAdapter = adapters[targetSubName] or self._activeAdapter
+                self._activeAdapter = targetAdapter
+                self._activeSubName = targetSubName
+                local sec = targetAdapter:AddSection(title, isFullWidth)
+                self._currentSection = targetAdapter._currentSection
+                self._sectionContainer = targetAdapter._sectionContainer
+                return sec
+            end
+        }
+
+        setmetatable(router, {
+            __index = function(t, k)
+                local active = rawget(t, "_activeAdapter")
+                if active and active[k] then
+                    return function(self, ...)
+                        local res = active[k](active, ...)
+                        rawset(t, "_currentSection", active._currentSection)
+                        rawset(t, "_sectionContainer", active._sectionContainer)
+                        if res == active then return t end
+                        return res
+                    end
+                elseif rawTab and rawTab[k] then
+                    return function(self, ...)
+                        return rawTab[k](rawTab, ...)
+                    end
+                end
+                return nil
+            end
+        })
+
+        return router
+    end
+
     local Tabs = {
-        Main     = createTabAdapter(mdTabs.Main),
-        Autofarm = createTabAdapter(mdTabs.Autofarm),
-        Player   = createTabAdapter(mdTabs.Player),
-        Murderer = createTabAdapter(mdTabs.Murderer),
-        Sheriff  = createTabAdapter(mdTabs.Sheriff),
-        Sounds   = createTabAdapter(mdTabs.Sounds),
-        Visuals  = createTabAdapter(mdTabs.Visuals),
+        Main       = createTabAdapter(mdTabs.Main),
+        Autofarm   = createTabAdapter(mdTabs.Autofarm),
+        Player     = createRoutedTabAdapter(mdTabs.Player, {
+            Names = { "Movement", "Aim & combat" },
+            Default = "Movement",
+            Routes = {
+                ["Movement"] = "Movement",
+                ["Utility"] = "Movement",
+                ["Silent aim"] = "Aim & combat",
+                ["Camlock"] = "Aim & combat",
+                ["Target"] = "Aim & combat",
+            }
+        }),
+        Murderer   = createTabAdapter(mdTabs.Murderer),
+        Sheriff    = createTabAdapter(mdTabs.Sheriff),
+        Sounds     = createTabAdapter(mdTabs.Sounds),
+        Visuals    = createRoutedTabAdapter(mdTabs.Visuals, {
+            Names = { "ESP", "Cosmetics", "Effects" },
+            Default = "ESP",
+            Routes = {
+                ["Player esp"] = "ESP",
+                ["Value calculator"] = "ESP",
+                ["Body stuff"] = "Cosmetics",
+                ["China hat"] = "Cosmetics",
+                ["Neon wings"] = "Cosmetics",
+                ["Trail"] = "Cosmetics",
+                ["Orb"] = "Cosmetics",
+                ["Jump ring"] = "Cosmetics",
+                ["Spinbot"] = "Cosmetics",
+                ["Crosshair"] = "Effects",
+                ["Gun ray"] = "Effects",
+                ["Color animation"] = "Effects",
+            }
+        }),
         Animations = createTabAdapter(mdTabs.Animations),
-        World    = createTabAdapter(mdTabs.World),
-        Camera   = createTabAdapter(mdTabs.Camera),
-        Webhook  = createTabAdapter(mdTabs.Webhook),
-        Settings = createTabAdapter(mdTabs.Settings),
+        World      = createTabAdapter(mdTabs.World),
+        Camera     = createTabAdapter(mdTabs.Camera),
+        Webhook    = createTabAdapter(mdTabs.Webhook),
+        Settings   = createTabAdapter(mdTabs.Settings),
     }
 
     -- construct automated farming controls
@@ -8489,6 +8953,20 @@ local function _buildScriptUI()
             state.roundEndFling = (val == "End round")
             log("After farm action: " .. val)
         end
+    })
+
+    Tabs.Autofarm:AddToggle("AvoidMurderer", {
+        Title = "Avoid murderer",
+        Default = false,
+        Slider = {
+            Title = "Avoid distance",
+            Min = 10,
+            Max = 80,
+            Default = 35,
+            Suffix = " studs",
+            Callback = function(v) state.avoidDistance = v end
+        },
+        Callback = function(v) state.avoidMurderer = v end
     })
 
     Tabs.Autofarm:AddSection("Auto open crates")
@@ -9732,6 +10210,7 @@ local function _buildScriptUI()
 
     -- run primary farming lifecycle 
     local collectedCoinsDebounce = {}
+
     local autofarmLoopThread = task.spawn(function()
         local wasFarmingLastTick = false
         while not state.unloaded do
@@ -9923,6 +10402,40 @@ local function _buildScriptUI()
                                 end
                             end
 
+                            local function coinGone(part)
+                                return not part.Parent or not getCoinTouchInterest(part) or part.Transparency >= 0.9
+                            end
+
+                            local function fireCoin(part)
+                                if not touchFire or not part or not part.Parent then return end
+                                local ti = getCoinTouchInterest(part)
+                                local target = (ti and ti.Parent and ti.Parent:IsA("BasePart") and ti.Parent) or part
+                                pcall(function() touchFire(hrp, target, 0) end)
+                                pcall(function() touchFire(hrp, target, 1) end)
+                            end
+
+                            local function murdPos()
+                                if not state.avoidMurderer then return nil end
+                                local m = state.knifeHolder
+                                if not m or m == LocalPlayer or not isPlayerAlive(m) then return nil end
+                                local r = m.Character and m.Character:FindFirstChild("HumanoidRootPart")
+                                if not r then return nil end
+                                -- lead the murderer slightly so we avoid where he's heading
+                                return r.Position + r.AssemblyLinearVelocity * 0.4
+                            end
+
+                            local function safeCoins(list)
+                                local mp = murdPos()
+                                if not mp then return list end
+                                local out = {}
+                                for _, c in ipairs(list) do
+                                    if (c.Position - mp).Magnitude > state.avoidDistance then
+                                        out[#out + 1] = c
+                                    end
+                                end
+                                return out
+                            end
+
                             local function getCoinContainer()
                                 -- locate coin container within active map
                                 local map = getActiveMap()
@@ -9961,24 +10474,29 @@ local function _buildScriptUI()
                                 end
 
                                 for _, item in ipairs(container:GetChildren()) do
+                                    -- item IS the Coin_Server model; CoinVisual is the BasePart inside it
                                     local visual = item:FindFirstChild("CoinVisual")
-                                    local coinServer = item:FindFirstChild("Coin_Server")
-                                    local part = coinServer or (item:IsA("BasePart") and item) or item:FindFirstChildWhichIsA("BasePart")
+                                    -- CoinVisual is used for position/transparency; item (Coin_Server) has the TouchInterest
+                                    local part = (visual and visual:IsA("BasePart") and visual)
+                                        or (item:IsA("BasePart") and item)
+                                        or item:FindFirstChildWhichIsA("BasePart")
 
                                     if part then
-                                        local hasTouch = getCoinTouchInterest(part)
+                                        -- TouchInterest lives on Coin_Server (item), not on CoinVisual
+                                        local touchTarget = item:IsA("BasePart") and item or item
+                                        local hasTouch = getCoinTouchInterest(touchTarget) or getCoinTouchInterest(part)
                                         local inDebounce = collectedCoinsDebounce[part]
                                         local yCheck = part.Position.Y >= minY
 
+                                        -- coin is available when CoinVisual is visible; normal value ~0.05, fully collected = 1
                                         local isNotCollected = true
-
                                         if visual and visual:IsA("BasePart") then
-                                            isNotCollected = visual.Transparency >= 1
-                                        elseif part.Transparency ~= 1 then
+                                            isNotCollected = visual.Transparency < 0.9
+                                        elseif part.Transparency >= 0.9 then
                                             isNotCollected = false
                                         end
 
-                                        if part and yCheck and not inDebounce and hasTouch and isNotCollected then
+                                        if yCheck and not inDebounce and hasTouch and isNotCollected then
                                             table.insert(coins, part)
                                         end
                                     end
@@ -10007,7 +10525,8 @@ local function _buildScriptUI()
                                     table.clear(collectedCoinsDebounce)
                                     refreshCoinCache(true)
 
-                                    local firstCoin = cachedCoins[math.random(1, #cachedCoins)]
+                                    local startPool = safeCoins(cachedCoins)
+                                    local firstCoin = startPool[math.random(1, math.max(#startPool, 1))] or cachedCoins[math.random(1, #cachedCoins)]
                                     if firstCoin then
                                         local firstPosition = Vector3.new(firstCoin.Position.X, firstCoin.Position.Y - 2.6, firstCoin.Position.Z)
                                         pcall(function()
@@ -10051,11 +10570,18 @@ local function _buildScriptUI()
                                             continue
                                         end
 
-                                        table.sort(cachedCoins, function(a, b)
+                                        local pool = safeCoins(cachedCoins)
+                                        if #pool == 0 then
+                                            state.currentTaskStatus = "Avoiding murderer"
+                                            task.wait(0.2)
+                                            continue
+                                        end
+
+                                        table.sort(pool, function(a, b)
                                             return (a.Position - hrp.Position).Magnitude < (b.Position - hrp.Position).Magnitude
                                         end)
 
-                                        local coinPart = cachedCoins[1]
+                                        local coinPart = pool[1]
                                         local targetPos = Vector3.new(coinPart.Position.X, coinPart.Position.Y - 2.6, coinPart.Position.Z)
                                         local flyDuration = (hrp.Position - targetPos).Magnitude / math.max(COIN_FARM_SPEED, 1)
                                         local flyStart = tick()
@@ -10068,6 +10594,15 @@ local function _buildScriptUI()
                                             if not coinPart.Parent or not getCoinTouchInterest(coinPart) then
                                                 retarget = true
                                                 break
+                                            end
+
+                                            if state.avoidMurderer then
+                                                local mp = murdPos()
+                                                if mp and ((coinPart.Position - mp).Magnitude <= state.avoidDistance
+                                                    or (hrp.Position - mp).Magnitude <= state.avoidDistance * 0.6) then
+                                                    retarget = true
+                                                    break
+                                                end
                                             end
 
                                             if refreshCoinCache() then
@@ -10094,26 +10629,26 @@ local function _buildScriptUI()
 
                                             if not touched and (hrp.Position - coinPart.Position).Magnitude <= 3.5 then
                                                 touched = true
-                                                if touchFire and coinPart.Parent and getCoinTouchInterest(coinPart) then
-                                                    pcall(function() touchFire(hrp, coinPart, 0) end)
-                                                    pcall(function() touchFire(hrp, coinPart, 1) end)
-                                                    markCoinCollected(coinPart)
-                                                end
+                                                fireCoin(coinPart)
                                             end
                                             task.wait()
-                                        end
-
-                                        if touched then
-                                            refreshCoinCache(true)
                                         end
 
                                         if retarget then
                                             refreshCoinCache(true)
                                             task.wait()
-                                        elseif not touched and coinPart.Parent and getCoinTouchInterest(coinPart) and touchFire then
-                                            pcall(function() touchFire(hrp, coinPart, 0) end)
-                                            pcall(function() touchFire(hrp, coinPart, 1) end)
-                                            markCoinCollected(coinPart)
+                                        else
+                                            for _ = 1, 6 do
+                                                if coinGone(coinPart) then break end
+                                                fireCoin(coinPart)
+                                                task.wait(0.05)
+                                            end
+                                            if coinGone(coinPart) then
+                                                markCoinCollected(coinPart)
+                                            else
+                                                collectedCoinsDebounce[coinPart] = true
+                                                task.delay(3, function() collectedCoinsDebounce[coinPart] = nil end)
+                                            end
                                             refreshCoinCache(true)
                                         end
                                     end
@@ -10433,6 +10968,45 @@ local function _buildScriptUI()
                     hum.WalkSpeed = 16
                 end
             end
+        end
+    })
+
+    -- Bunnyhop with speed slider
+    Tabs.Player:AddToggle("BhopEnabled", {
+        Title = "Bunnyhop",
+        Default = false,
+        Slider = {
+            Title = "Bhop speed",
+            Min = 16,
+            Max = 250,
+            Default = 30,
+            Suffix = " studs/s",
+            Callback = function(v)
+                state.bhopSpeed = v
+            end
+        },
+        Callback = function(v)
+            state.bhopEnabled = v
+            if not v then
+                isAirborneFromJump = false
+            end
+            local char = LocalPlayer.Character
+            local hum  = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if state.speedEnabled and state.speedMode == "WalkSpeed" then
+                    hum.WalkSpeed = state.speedValue
+                else
+                    hum.WalkSpeed = 16
+                end
+            end
+        end
+    })
+
+    Tabs.Player:AddCheckbox("AutoBhop", {
+        Title = "Auto bhop",
+        Default = false,
+        Callback = function(v)
+            state.autoBhop = v
         end
     })
     
@@ -10853,7 +11427,7 @@ local function _buildScriptUI()
     })
 
     -- dispatch targeted flings against players
-    mdTabs.Player:AddButtonRow({
+    Tabs.Player:AddButtonRow({
         { Text = "Fling target", Callback = function()
             local target, err = findPlayer(state.targetUsername)
             if not target then log("Fling stopped: " .. (err or "No target")); return end
@@ -13766,7 +14340,7 @@ end))
     Tabs.Visuals:AddSection("Player esp")
 
     -- group visual tracking checkboxes
-    mdTabs.Visuals:AddToggleGroup({
+    Tabs.Visuals:AddToggleGroup({
         { Name = "Enable ESP", Default = false, Callback = function(v) state.espEnabled = v end },
         { Name = "Esp chams", Default = true, Callback = function(v) state.chamsEnabled = v end },
         { Name = "Esp box", Default = false, Callback = function(v) state.boxEspEnabled = v end },
@@ -14179,7 +14753,7 @@ end))
     })
 
     -- align visual appearance toggles in a row
-    mdTabs.Visuals:AddToggleGroup({
+    Tabs.Visuals:AddToggleGroup({
         { Title = "Glowing", Default = false, Callback = function(v) bodyParticlesConfig.glowing = v; applyBodyParticles() end },
         { Title = "Anchored", Default = false, Callback = function(v) bodyParticlesConfig.anchored = v; applyBodyParticles() end },
         { Title = "Fade in", Default = true, Callback = function(v) bodyParticlesConfig.fadeIn = v; applyBodyParticles() end }
@@ -15719,7 +16293,7 @@ Tabs.World:AddSection("Skybox")
         end
     })
 
-    mdTabs.Webhook:AddToggleGroup({
+    Tabs.Webhook:AddToggleGroup({
         { Name = "Include current coins", Default = true, Callback = function(v) state.webhookCurrentCoins = v end },
         { Name = "Include coins / hour", Default = true, Callback = function(v) state.webhookCoinsPerHour = v end }
     })
@@ -15735,7 +16309,7 @@ Tabs.World:AddSection("Skybox")
     Tabs.Settings:AddSection("Mobile overlay")
 
     -- group mobile on-screen buttons
-    mdTabs.Settings:AddToggleGroup({
+    Tabs.Settings:AddToggleGroup({
         { Name = "Mobile buttons overlay", Default = false, Callback = function(v)
             state.mobileButtonsEnabled = v
             if Window.MobileUI then
@@ -15773,7 +16347,7 @@ Tabs.World:AddSection("Skybox")
     Tabs.Settings:AddSection("Server")
 
     -- group server management shortcuts
-    mdTabs.Settings:AddButtonRow({
+    Tabs.Settings:AddButtonRow({
         { Text = "Server hop", Callback = function() serverHop() end },
         { Text = "Rejoin server", Callback = function() pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end) end }
     }, 31)
@@ -16443,17 +17017,81 @@ Tabs.World:AddSection("Skybox")
     end)
     trackThread(speedThread)
 
+    local isAirborneFromJump = false
+    local lastJumpTick = 0
+
+    local function hookBhopHumanoid(hum)
+        if not hum then return end
+        trackConnection(hum.StateChanged:Connect(function(oldState, newState)
+            if newState == Enum.HumanoidStateType.Jumping then
+                isAirborneFromJump = true
+                lastJumpTick = os.clock()
+            elseif newState == Enum.HumanoidStateType.Landed or newState == Enum.HumanoidStateType.Running then
+                if os.clock() - lastJumpTick > 0.15 then
+                    isAirborneFromJump = false
+                end
+            elseif newState == Enum.HumanoidStateType.Dead or newState == Enum.HumanoidStateType.Seated then
+                isAirborneFromJump = false
+            end
+        end))
+        trackConnection(hum.Jumping:Connect(function(active)
+            if active then
+                isAirborneFromJump = true
+                lastJumpTick = os.clock()
+            end
+        end))
+    end
+
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        hookBhopHumanoid(LocalPlayer.Character:FindFirstChildOfClass("Humanoid"))
+    end
+    trackConnection(LocalPlayer.CharacterAdded:Connect(function(char)
+        isAirborneFromJump = false
+        lastJumpTick = 0
+        local hum = char:WaitForChild("Humanoid", 5)
+        if hum then
+            hookBhopHumanoid(hum)
+        end
+    end))
+    trackConnection(UserInputService.JumpRequest:Connect(function()
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum and hum.FloorMaterial ~= Enum.Material.Air and hum.Health > 0 and not hum.Sit then
+            isAirborneFromJump = true
+            lastJumpTick = os.clock()
+        end
+    end))
+
     local cframeSpeedConn = RunService.Heartbeat:Connect(function(dt)
-        if state.unloaded then return end
-        if not state.speedEnabled or state.speedMode ~= "CFrame" then return end
+        if state.unloaded or state.flightEnabled then return end
         local char = LocalPlayer.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not hrp or not hum or hum.Health <= 0 or hum.Sit then return end
+
+        if hum.FloorMaterial ~= Enum.Material.Air and (os.clock() - lastJumpTick > 0.15) then
+            isAirborneFromJump = false
+        end
+
+        if state.bhopEnabled and state.autoBhop and hum.FloorMaterial ~= Enum.Material.Air and (hum.MoveDirection.Magnitude > 0.05 or UserInputService:IsKeyDown(Enum.KeyCode.Space)) then
+            isAirborneFromJump = true
+            lastJumpTick = os.clock()
+            hum.Jump = true
+            pcall(function() hum:ChangeState(Enum.HumanoidStateType.Jumping) end)
+        end
+
         local md = hum.MoveDirection
         local flat = Vector3.new(md.X, 0, md.Z)
         if flat.Magnitude > 0.05 then
-            local extraSpeed = math.max(0, state.speedValue - 16)
+            local extraSpeed = 0
+            if state.bhopEnabled and isAirborneFromJump then
+                local currentY = hrp.AssemblyLinearVelocity.Y
+                local baseSpeed = math.min(state.bhopSpeed, 16)
+                hrp.AssemblyLinearVelocity = Vector3.new(flat.Unit.X * baseSpeed, currentY, flat.Unit.Z * baseSpeed)
+                extraSpeed = math.max(0, state.bhopSpeed - baseSpeed)
+            elseif state.speedEnabled and state.speedMode == "CFrame" then
+                extraSpeed = math.max(0, state.speedValue - 16)
+            end
             if extraSpeed > 0 then
                 local clampedDt = math.min(dt, 0.1)
                 hrp.CFrame = hrp.CFrame + (flat.Unit * (extraSpeed * clampedDt))
