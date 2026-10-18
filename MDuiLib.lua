@@ -122,9 +122,31 @@ Library.IsInsideSection = IsInsideSection
 
 Library.ActiveGuis = Library.ActiveGuis or {}
 
+local _MontserratFamily = Font.fromEnum(Enum.Font.Montserrat).Family
+
+local FontBold     = Font.new(_MontserratFamily, Enum.FontWeight.Bold,     Enum.FontStyle.Normal)
+local FontSemiBold = Font.new(_MontserratFamily, Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+local FontMedium   = Font.new(_MontserratFamily, Enum.FontWeight.Medium,   Enum.FontStyle.Normal)
+local FontRegular  = Font.new(_MontserratFamily, Enum.FontWeight.Regular,  Enum.FontStyle.Normal)
+local FontLight    = Font.new(_MontserratFamily, Enum.FontWeight.Light,    Enum.FontStyle.Normal)
+
+local FontTitle   = FontMedium
+local FontTabBtn  = FontSemiBold
+local FontFingerPaintBold = FontMedium
+local FontFingerPaintRegular = FontRegular
+local FontFingerPaintHeavy = FontMedium
+local FontFingerPaintMedium = FontMedium
+
+Library.FontBold = FontBold
+Library.FontTitle = FontTitle
+Library.FontTabBtn = FontTabBtn
+Library.FontMedium = FontMedium
+Library.FontRegular = FontRegular
+Library.FontLight = FontLight
+
 local FontSilkscreenRegular = Font.new("rbxassetid://12187371840", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
 local FontSilkscreenBold = Font.new("rbxassetid://12187371840", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-local FontScriptNameDefault = FontSilkscreenBold
+local FontScriptNameDefault = FontSemiBold
 Library.ScriptNameFont = FontScriptNameDefault
 
 local IconsRest = {
@@ -582,28 +604,6 @@ function Library:GetIcon(iconName, asAssetUrl)
     return nil
 end
 Library.GetIcon = Library.GetIcon
-
-local _MontserratFamily = Font.fromEnum(Enum.Font.Montserrat).Family
-
-local FontBold     = Font.new(_MontserratFamily, Enum.FontWeight.Bold,     Enum.FontStyle.Normal)
-local FontSemiBold = Font.new(_MontserratFamily, Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-local FontMedium   = Font.new(_MontserratFamily, Enum.FontWeight.Medium,   Enum.FontStyle.Normal)
-local FontRegular  = Font.new(_MontserratFamily, Enum.FontWeight.Regular,  Enum.FontStyle.Normal)
-local FontLight    = Font.new(_MontserratFamily, Enum.FontWeight.Light,    Enum.FontStyle.Normal)
-
-local FontTitle   = FontMedium
-local FontTabBtn  = FontSemiBold
-local FontFingerPaintBold = FontMedium
-local FontFingerPaintRegular = FontRegular
-local FontFingerPaintHeavy = FontMedium
-local FontFingerPaintMedium = FontMedium
-
-Library.FontBold = FontBold
-Library.FontTitle = FontTitle
-Library.FontTabBtn = FontTabBtn
-Library.FontMedium = FontMedium
-Library.FontRegular = FontRegular
-Library.FontLight = FontLight
 
 Library.ThemePresets = {
     Dark = {
@@ -11132,6 +11132,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MadebyText.AnchorPoint = Vector2.new(0, 0)
     MadebyText.Position = showDiscord and UDim2.new(0, 54, 0, 7) or UDim2.new(0, 54, 0.5, -11)
     MadebyText.BackgroundTransparency = 1
+    MadebyText.FontFace = FontRegular
     local rawPlayerName = lp and lp.Name or "Player"
     local initialPlayerDisplay = streamerMode and (Window.MaskedUsername or maskedUsername) or rawPlayerName
     MadebyText.Text = playerProfileEnabled and initialPlayerDisplay or ((scriptName and scriptName ~= "" and scriptName) or (hubTitle and hubTitle ~= "" and hubTitle) or (Window.ScriptName and Window.ScriptName ~= "" and Window.ScriptName) or "script name")
