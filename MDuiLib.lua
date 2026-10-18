@@ -10906,7 +10906,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LeftFrame.BackgroundColor3 = Window.CurrentTheme.MainBG
     LeftFrame.BackgroundTransparency = Window.CurrentTheme.TopTrans
     LeftFrame.BorderSizePixel = 0
-    LeftFrame.ZIndex = 1
+    LeftFrame.ZIndex = 20
     LeftFrame.Parent = MainContainer
 
     local LeftFrameNoise = AddNoise(LeftFrame)
@@ -10929,7 +10929,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     -- Init Spiderweb Background at ZIndex 2 (Above LeftFrame & MainFrame panel backgrounds, below UI contents)
     InitSpiderwebBackground(MainContainer, ScriptUi)
 
-    -- Content Overlay Layer (ZIndex 3 for all UI controls, cards, tab buttons, dividers, and text)
+    -- Content Overlay Layer (ZIndex 21 for all UI controls, cards, tab buttons, dividers, and text)
     local ContentOverlay = Instance.new("Frame")
     ContentOverlay.Name = "ContentOverlay"
     ContentOverlay.Size = UDim2.new(1, 0, 1, -94)
@@ -10937,7 +10937,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     ContentOverlay.BackgroundTransparency = 1
     ContentOverlay.BorderSizePixel = 0
     ContentOverlay.ClipsDescendants = false
-    ContentOverlay.ZIndex = 3
+    ContentOverlay.ZIndex = 21
     ContentOverlay.Parent = MainContainer
 
     local SidebarIndicatorLayer = Instance.new("Frame")
