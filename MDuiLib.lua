@@ -11686,6 +11686,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end
     end
+    end
 
     function Window:AddSidebarBigDivider(layoutOrder)
         local dummy = Instance.new("Frame")
