@@ -1262,7 +1262,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NotifSoundId = "97455084935031",
         ShadowIntensity = 1 / 1.8,
         BackgroundBlurEnabled = true,
-        SpiderwebBGEnabled = true,
+        SpiderwebBGEnabled = false,
         CustomThemeColor = nil,
         CustomBGTransparency = 0.22,
         ShadowsEnabled = true,
@@ -5374,7 +5374,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         SubTabBar.Size = UDim2.new(1, 0, 0, 34)
         SubTabBar.Position = UDim2.new(0, 0, 0, 0)
         SubTabBar.BackgroundColor3 = Window.CurrentTheme.TopBG
-        SubTabBar.BackgroundTransparency = Window.CurrentTheme.TopTrans
+        SubTabBar.BackgroundTransparency = 1
         SubTabBar.BorderSizePixel = 0
         SubTabBar.ZIndex = 5
         SubTabBar.Visible = (Window.ActiveTab == parentTab.Name and hasSubTabs)
@@ -5390,20 +5390,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TabsHolder.ZIndex = 6
         TabsHolder.Parent = SubTabBar
 
-        -- Moving indicator that glides behind the active subtab
-        local ActiveIndicator = Instance.new("Frame")
+        -- Moving indicator image pill that glides behind the active subtab
+        local ActiveIndicator = Instance.new("ImageLabel")
         ActiveIndicator.Name = "ActiveIndicator"
         ActiveIndicator.Size = UDim2.new(0, 0, 1, 0)
         ActiveIndicator.Position = UDim2.new(0, 0, 0, 0)
-        ActiveIndicator.BackgroundColor3 = Window.CurrentTheme.ButtonBG
-        ActiveIndicator.BackgroundTransparency = 0.7
+        ActiveIndicator.BackgroundTransparency = 1
         ActiveIndicator.BorderSizePixel = 0
+        ActiveIndicator.Image = "http://www.roblox.com/asset/?id=120212666174604"
+        ActiveIndicator.ImageColor3 = Window.CurrentTheme.ButtonBG
+        ActiveIndicator.ScaleType = Enum.ScaleType.Stretch
         ActiveIndicator.ZIndex = 6
         ActiveIndicator.Parent = TabsHolder
-
-        local aiCorner = Instance.new("UICorner")
-        aiCorner.CornerRadius = UDim.new(0, 6)
-        aiCorner.Parent = ActiveIndicator
 
         -- Isolated container for buttons to avoid UIListLayout interfering with indicator
         local ButtonsContainer = Instance.new("Frame")
@@ -5458,14 +5456,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TweenService:Create(ActiveIndicator, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                     Position = targetPos,
                     Size = targetSize,
-                    BackgroundColor3 = targetBg,
-                    BackgroundTransparency = 0.7
+                    ImageColor3 = targetBg
                 }):Play()
             else
                 ActiveIndicator.Position = targetPos
                 ActiveIndicator.Size = targetSize
-                ActiveIndicator.BackgroundColor3 = targetBg
-                ActiveIndicator.BackgroundTransparency = 0.7
+                ActiveIndicator.ImageColor3 = targetBg
             end
         end
 
@@ -5613,16 +5609,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end,
             RefreshTheme = function(theme, animated)
                 local barBg = theme.TopBG
-                local barTrans = theme.TopTrans
                 if animated then
                     local twInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    TweenService:Create(SubTabBar, twInfo, { BackgroundColor3 = barBg, BackgroundTransparency = barTrans }):Play()
-                    TweenService:Create(ActiveIndicator, twInfo, { BackgroundColor3 = theme.ButtonBG, BackgroundTransparency = 0.7 }):Play()
+                    TweenService:Create(SubTabBar, twInfo, { BackgroundColor3 = barBg, BackgroundTransparency = 1 }):Play()
+                    TweenService:Create(ActiveIndicator, twInfo, { ImageColor3 = theme.ButtonBG }):Play()
                 else
                     SubTabBar.BackgroundColor3 = barBg
-                    SubTabBar.BackgroundTransparency = barTrans
-                    ActiveIndicator.BackgroundColor3 = theme.ButtonBG
-                    ActiveIndicator.BackgroundTransparency = 0.7
+                    SubTabBar.BackgroundTransparency = 1
+                    ActiveIndicator.ImageColor3 = theme.ButtonBG
+                    ActiveIndicator.BackgroundTransparency = 1
                 end
                 SwitchSubTab(activeTab, animated)
             end
