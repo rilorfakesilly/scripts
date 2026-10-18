@@ -5361,63 +5361,48 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         local ContentFrame = parentTab.Content or parentTab.ContentFrame or parentTab.Container or parentTab.ItemContainer or parentTab
-        
         local hasSubTabs = (tabsList and #tabsList > 0)
 
-        local SubTabsContainer = Instance.new("Frame")
-        SubTabsContainer.Name = GenerateSafeName("SubTabsContainer")
-        SubTabsContainer.Size = UDim2.new(1, 0, 0, 0)
-        SubTabsContainer.AutomaticSize = Enum.AutomaticSize.Y
-        SubTabsContainer.BackgroundTransparency = 1
-        SubTabsContainer.BorderSizePixel = 0
-        SubTabsContainer.ZIndex = 10
-        SubTabsContainer.Visible = hasSubTabs
-        SubTabsContainer.Parent = ContentFrame
+        if hasSubTabs then
+            parentTab.HasSubTabs = true
+            ContentFrame.Position = UDim2.new(0, 0, 0, 34)
+            ContentFrame.Size = UDim2.new(1, 0, 1, -34)
+        end
 
-        local mainList = Instance.new("UIListLayout")
-        mainList.SortOrder = Enum.SortOrder.LayoutOrder
-        mainList.Padding = UDim.new(0, 10)
-        mainList.Parent = SubTabsContainer
+        local SubTabBar = Instance.new("Frame")
+        SubTabBar.Name = "SubTabBar_" .. tostring(parentTab.Name or "Tab")
+        SubTabBar.Size = UDim2.new(1, 0, 0, 34)
+        SubTabBar.Position = UDim2.new(0, 0, 0, 0)
+        SubTabBar.BackgroundColor3 = Window.CurrentTheme.TopBG or GetThemedDarkColor(Window.CurrentTheme)
+        SubTabBar.BackgroundTransparency = Window.CurrentTheme.TopTrans or 0.15
+        SubTabBar.BorderSizePixel = 0
+        SubTabBar.ZIndex = 5
+        SubTabBar.Visible = (Window.ActiveTab == parentTab.Name and hasSubTabs)
+        SubTabBar.Parent = MainContentFrame or parentTab.Container or ContentFrame.Parent
+        parentTab.SubTabBar = SubTabBar
 
-        local PillBar = Instance.new("Frame")
-        PillBar.Name = "SubTabBar"
-        PillBar.Size = UDim2.new(1, 0, 0, 36)
-        PillBar.BackgroundColor3 = Window.CurrentTheme.CardBG or GetThemedDarkColor(Window.CurrentTheme)
-        PillBar.BackgroundTransparency = Window.SectionsTransparent and 1 or (Window.ElementsTransparency or 0.33)
-        PillBar.BorderSizePixel = 0
-        PillBar.ZIndex = 11
-        PillBar.LayoutOrder = 1
-        PillBar.ClipsDescendants = false
-        PillBar.Visible = hasSubTabs
-        PillBar.Parent = SubTabsContainer
-
-        local BottomDivider = Instance.new("Frame")
-        BottomDivider.Name = "BottomDivider"
-        BottomDivider.Size = UDim2.new(1, 0, 0, 1)
-        BottomDivider.Position = UDim2.new(0, 0, 1, -1)
-        BottomDivider.BackgroundColor3 = Window.CurrentTheme.Divider or Color3.fromRGB(60, 65, 80)
-        BottomDivider.BorderSizePixel = 0
-        BottomDivider.ZIndex = 12
-        BottomDivider.Parent = PillBar
-
-        local pPad = Instance.new("UIPadding")
-        pPad.PaddingTop = UDim.new(0, 3)
-        pPad.PaddingBottom = UDim.new(0, 4)
-        pPad.PaddingLeft = UDim.new(0, 4)
-        pPad.PaddingRight = UDim.new(0, 4)
-        pPad.Parent = PillBar
+        local TabsHolder = Instance.new("Frame")
+        TabsHolder.Name = "TabsHolder"
+        TabsHolder.Size = UDim2.new(1, -12, 1, -8)
+        TabsHolder.Position = UDim2.new(0, 6, 0, 4)
+        TabsHolder.BackgroundTransparency = 1
+        TabsHolder.BorderSizePixel = 0
+        TabsHolder.ZIndex = 6
+        TabsHolder.Parent = SubTabBar
 
         -- Moving indicator that glides behind the active subtab
         local ActiveIndicator = Instance.new("Frame")
         ActiveIndicator.Name = "ActiveIndicator"
+        ActiveIndicator.Size = UDim2.new(0, 0, 1, 0)
+        ActiveIndicator.Position = UDim2.new(0, 0, 0, 0)
         ActiveIndicator.BackgroundColor3 = Window.CurrentTheme.ButtonBG
         ActiveIndicator.BackgroundTransparency = 0
         ActiveIndicator.BorderSizePixel = 0
-        ActiveIndicator.ZIndex = 12
-        ActiveIndicator.Parent = PillBar
+        ActiveIndicator.ZIndex = 6
+        ActiveIndicator.Parent = TabsHolder
 
         local aiCorner = Instance.new("UICorner")
-        aiCorner.CornerRadius = UDim.new(0, 4)
+        aiCorner.CornerRadius = UDim.new(0, 6)
         aiCorner.Parent = ActiveIndicator
 
         -- Isolated container for buttons to avoid UIListLayout interfering with indicator
@@ -5427,13 +5412,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ButtonsContainer.Position = UDim2.new(0, 0, 0, 0)
         ButtonsContainer.BackgroundTransparency = 1
         ButtonsContainer.BorderSizePixel = 0
-        ButtonsContainer.ZIndex = 13
-        ButtonsContainer.Parent = PillBar
+        ButtonsContainer.ZIndex = 7
+        ButtonsContainer.Parent = TabsHolder
 
         local pillList = Instance.new("UIListLayout")
         pillList.FillDirection = Enum.FillDirection.Horizontal
         pillList.SortOrder = Enum.SortOrder.LayoutOrder
-        pillList.Padding = UDim.new(0, 4)
+        pillList.Padding = UDim.new(0, 6)
         pillList.Parent = ButtonsContainer
 
         local activeTab = defaultTabName or (tabsList[1] and tostring(tabsList[1])) or "Tab"
@@ -5447,26 +5432,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local btn = pillButtons[activeTab]
             if not btn then return end
 
-            local barX = PillBar.AbsolutePosition.X
-            local barY = PillBar.AbsolutePosition.Y
-            local btnX = btn.AbsolutePosition.X
-            local btnY = btn.AbsolutePosition.Y
-            local btnW = btn.AbsoluteSize.X
-            local btnH = btn.AbsoluteSize.Y
+            local targetX = 0
+            local targetW = 0
 
-            local targetPos
-            local targetSize
-
-            if PillBar.AbsoluteSize.X > 0 and btnW > 0 then
-                targetPos = UDim2.new(0, btnX - barX, 0, btnY - barY)
-                targetSize = UDim2.new(0, btnW, 0, btnH)
+            if ButtonsContainer.AbsoluteSize.X > 0 and btn.AbsoluteSize.X > 0 then
+                targetX = btn.AbsolutePosition.X - ButtonsContainer.AbsolutePosition.X
+                targetW = btn.AbsoluteSize.X
             else
                 local idx = tabOrder[activeTab] or 1
                 local wScale = 1 / pillCount
-                local wOffset = -math.floor(4 * (pillCount - 1) / pillCount)
-                targetPos = UDim2.new((idx - 1) * wScale, math.floor(4 * (idx - 1) / pillCount), 0, 0)
-                targetSize = UDim2.new(wScale, wOffset, 1, 0)
+                local wOffset = -math.floor(6 * (pillCount - 1) / pillCount)
+                local totalW = ButtonsContainer.AbsoluteSize.X > 0 and ButtonsContainer.AbsoluteSize.X or (SubTabBar.AbsoluteSize.X - 12)
+                if totalW <= 0 then totalW = 400 end
+                targetW = (totalW * wScale) + wOffset
+                targetX = (idx - 1) * (targetW + 6)
             end
+
+            local targetPos = UDim2.new(0, targetX, 0, 0)
+            local targetSize = UDim2.new(0, targetW, 1, 0)
 
             local curTheme = Window.CurrentTheme or Library.CurrentTheme
             local targetBg = curTheme.ButtonBG
@@ -5483,6 +5466,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 ActiveIndicator.BackgroundColor3 = targetBg
             end
         end
+
+        parentTab.UpdateSubTabIndicator = UpdateIndicator
 
         local function SwitchSubTab(targetTab, animated)
             if animated == nil then animated = true end
@@ -5519,13 +5504,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SubFrame.BackgroundTransparency = 1
             SubFrame.BorderSizePixel = 0
             SubFrame.ZIndex = 11
-            SubFrame.LayoutOrder = 2
+            SubFrame.LayoutOrder = order or 1
             SubFrame.Visible = (tName == activeTab)
-            SubFrame.Parent = SubTabsContainer
+            SubFrame.Parent = ContentFrame
 
             local subLayout = Instance.new("UIListLayout")
             subLayout.SortOrder = Enum.SortOrder.LayoutOrder
-            subLayout.Padding = UDim.new(0, 6)
+            subLayout.Padding = UDim.new(0, 8)
             subLayout.Parent = SubFrame
 
             local subObj = {
@@ -5570,7 +5555,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local PillBtn = Instance.new("TextButton")
             PillBtn.Name = "Pill_" .. tName
-            PillBtn.Size = UDim2.new(1 / pillCount, -math.floor(4 * (pillCount - 1) / pillCount), 1, 0)
+            PillBtn.Size = UDim2.new(1 / pillCount, -math.floor(6 * (pillCount - 1) / pillCount), 1, 0)
             PillBtn.BackgroundTransparency = 1
             PillBtn.BorderSizePixel = 0
             PillBtn.FontFace = FontBold
@@ -5582,7 +5567,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             PillBtn.Parent = ButtonsContainer
 
             local pillCorner = Instance.new("UICorner")
-            pillCorner.CornerRadius = UDim.new(0, 4)
+            pillCorner.CornerRadius = UDim.new(0, 6)
             pillCorner.Parent = PillBtn
 
             pillButtons[tName] = PillBtn
@@ -5605,8 +5590,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end)
 
         local stObj = {
-            Container = SubTabsContainer,
-            PillBar = PillBar,
+            Container = ContentFrame,
+            SubTabBar = SubTabBar,
+            PillBar = SubTabBar,
             ActiveIndicator = ActiveIndicator,
             Get = function(selfOrName, maybeName)
                 local name = (type(selfOrName) == "string") and selfOrName or maybeName
@@ -5624,16 +5610,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return activeTab
             end,
             RefreshTheme = function(theme, animated)
-                local barBg = theme.CardBG or GetThemedDarkColor(theme)
-                local divCol = theme.Divider or Color3.fromRGB(60, 65, 80)
+                local barBg = theme.TopBG or GetThemedDarkColor(theme)
                 if animated then
                     local twInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    TweenService:Create(PillBar, twInfo, { BackgroundColor3 = barBg }):Play()
-                    TweenService:Create(BottomDivider, twInfo, { BackgroundColor3 = divCol }):Play()
+                    TweenService:Create(SubTabBar, twInfo, { BackgroundColor3 = barBg }):Play()
                     TweenService:Create(ActiveIndicator, twInfo, { BackgroundColor3 = theme.ButtonBG }):Play()
                 else
-                    PillBar.BackgroundColor3 = barBg
-                    BottomDivider.BackgroundColor3 = divCol
+                    SubTabBar.BackgroundColor3 = barBg
                     ActiveIndicator.BackgroundColor3 = theme.ButtonBG
                 end
                 SwitchSubTab(activeTab, animated)
@@ -11652,24 +11635,40 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         -- Hide inactive tab containers
         for name, tabObj in pairs(Window.Tabs) do
-            if name ~= tabName and tabObj and tabObj.ContentFrame then
-                tabObj.ContentFrame.Visible = false
-                tabObj.ContentFrame.Position = UDim2.new(0, 0, 0, 0)
+            if name ~= tabName and tabObj then
+                if tabObj.ContentFrame then
+                    tabObj.ContentFrame.Visible = false
+                    local baseY = tabObj.HasSubTabs and 34 or 0
+                    tabObj.ContentFrame.Position = UDim2.new(0, 0, 0, baseY)
+                end
+                if tabObj.SubTabBar then
+                    tabObj.SubTabBar.Visible = false
+                end
             end
         end
 
         -- Animate active tab into view
-        if newTab and newTab.ContentFrame then
-            local grad = newTab.ContentFrame:FindFirstChild("TabFadeGradient")
-            if grad then
-                grad.Transparency = NumberSequence.new(1.0)
+        if newTab then
+            if newTab.SubTabBar then
+                newTab.SubTabBar.Visible = (newTab.HasSubTabs == true)
+                task.defer(function()
+                    if newTab.UpdateSubTabIndicator then
+                        newTab.UpdateSubTabIndicator(false)
+                    end
+                end)
             end
-            newTab.ContentFrame.CanvasPosition = Vector2.new(0, 0)
-            newTab.ContentFrame.Position = UDim2.new(0, 0, 0, 10)
-            newTab.ContentFrame.Visible = true
-            TweenService:Create(newTab.ContentFrame, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Position = UDim2.new(0, 0, 0, 0)
-            }):Play()
+            if newTab.ContentFrame then
+                local grad = newTab.ContentFrame:FindFirstChild("TabFadeGradient")
+                if grad then
+                    grad.Transparency = NumberSequence.new(1.0)
+                end
+                newTab.ContentFrame.CanvasPosition = Vector2.new(0, 0)
+                local targetY = newTab.HasSubTabs and 34 or 0
+                newTab.ContentFrame.Position = UDim2.new(0, 0, 0, targetY + 10)
+                newTab.ContentFrame.Visible = true
+                TweenService:Create(newTab.ContentFrame, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Position = UDim2.new(0, 0, 0, targetY)
+                }):Play()
             if grad then
                 task.spawn(function()
                     local start = tick()
@@ -15238,14 +15237,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     if oldTarget then
                         oldTarget.Visible = false
                     end
+                    if oldTabData.SubTabBar then
+                        oldTabData.SubTabBar.Visible = false
+                    end
                 end
             end
             Window.ActiveTab = tabName
             -- Show first active tab with a gentle fade-in from slightly below
-            ContentFrame.Position = UDim2.new(0, 0, 0, 8)
+            local initTargetY = TabObj.HasSubTabs and 34 or 0
+            ContentFrame.Position = UDim2.new(0, 0, 0, initTargetY + 8)
             ContentFrame.Visible = true
             TweenService:Create(ContentFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Position = UDim2.new(0, 0, 0, 0)
+                Position = UDim2.new(0, 0, 0, initTargetY)
             }):Play()
             TabButton.TextColor3 = Window.CurrentTheme.Text
             TabButton.TextSize = 16
