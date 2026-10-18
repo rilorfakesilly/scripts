@@ -89,6 +89,7 @@ state = {
     gunHolder = nil,
     avoidMurderer = false,
     avoidDistance = 35,
+    farmExpAsMurderer = false,
     noRoundStartTime = tick(),
     
     -- configure coin and round automation settings
@@ -5997,6 +5998,11 @@ local function flingTarget(targetPlr, isManual, customDuration)
         while (isManual or state.autofarmEnabled) and isPlayerAlive(targetPlr) and isPlayerAlive(LocalPlayer)
               and (tick() - startTime < flingMaxDuration) and not state.unloaded do
 
+            -- If player acquired a gun while flinging during autofarm, abort fling to shoot murderer instead
+            if state.autofarmEnabled and hasTool(LocalPlayer, "Gun") then
+                break
+            end
+
             targetChar = targetPlr.Character
             targetHrp  = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
             if not targetHrp then break end
@@ -6206,7 +6212,8 @@ local function killTarget()
     elseif role == "Sheriff" or hasTool(LocalPlayer, "Gun") then
         local gunTool = getPlayerTool(LocalPlayer, "Gun")
         local murderer = state.knifeHolder
-        if murderer and not hasTool(murderer, "Knife") then murderer = nil end
+        if not murderer or not isMurdererAlive(murderer) then murderer = getMurd() end
+        if murderer and isMurdererAlive(murderer) then state.knifeHolder = murderer end
         if gunTool and murderer and isPlayerAlive(murderer) then
             hum:EquipTool(gunTool)
             task.wait(0.1)
@@ -6263,7 +6270,30 @@ local function killTarget()
         end
 
         if not gunShot and state.knifeHolder and isPlayerAlive(state.knifeHolder) and state.knifeHolder ~= LocalPlayer then
-            flingTarget(state.knifeHolder)
+            while state.autofarmEnabled and isPlayerAlive(LocalPlayer) and isCoinBagVisible() do
+                -- Check if player acquired gun during or before fling
+                if hasTool(LocalPlayer, "Gun") or getPlayerRole(LocalPlayer) == "Sheriff" then
+                    killTarget()
+                    break
+                end
+
+                local m = state.knifeHolder
+                if not m or not isMurdererAlive(m) then m = getMurd() end
+                if not m or not isMurdererAlive(m) or m == LocalPlayer then break end
+                flingTarget(m, true, 4.0)
+
+                -- Check again immediately after fling return if player acquired a gun
+                if hasTool(LocalPlayer, "Gun") or getPlayerRole(LocalPlayer) == "Sheriff" then
+                    killTarget()
+                    break
+                end
+
+                if isMurdererAlive(m) and state.autofarmEnabled and isPlayerAlive(LocalPlayer) and isCoinBagVisible() then
+                    task.wait(2.0)
+                else
+                    break
+                end
+            end
         end
     end
 end
@@ -8969,6 +8999,16 @@ local function _buildScriptUI()
         Callback = function(v) state.avoidMurderer = v end
     })
 
+    Tabs.Autofarm:AddToggle("FarmExpAsMurderer", {
+        Title = "Kill all as murderer",
+        Description = "When assigned Murderer, instantly kill all players to farm exp (murderer earns XP only from kills)",
+        Default = false,
+        Callback = function(v)
+            state.farmExpAsMurderer = v
+            log("Kill all as murderer: " .. (v and "Enabled" or "Disabled"))
+        end
+    })
+
     Tabs.Autofarm:AddSection("Auto open crates")
     Tabs.Autofarm:AddToggle("AutoOpenCratesEnabled", {
         Title = "Auto open crates",
@@ -10221,6 +10261,23 @@ local function _buildScriptUI()
                 local hum = char and char:FindFirstChildOfClass("Humanoid")
             
                 if hrp and hum and hum.Health > 0 then
+                    -- Kill all players immediately if assigned Murderer and farmExpAsMurderer is enabled
+                    -- (Murderer earns XP only from kills, not from round survival)
+                    if state.farmExpAsMurderer and getPlayerRole(LocalPlayer) == "Murderer" and state.roundActive then
+                        local anyAlive = false
+                        for _, plr in ipairs(Players:GetPlayers()) do
+                            if plr ~= LocalPlayer and isPlayerAlive(plr) then
+                                anyAlive = true
+                                break
+                            end
+                        end
+                        if anyAlive then
+                            state.currentTaskStatus = "Killing all (exp)"
+                            killTarget()
+                            task.wait(0.3)
+                        end
+                    end
+
                     -- collect coins via direct position updates
                     if state.autofarmMode == "Teleport (unreliable)" or state.autofarmMode == "Tp Coin Farm (unreliable)" then
                         state.hasTeleportedToLobby = false
@@ -10339,14 +10396,29 @@ local function _buildScriptUI()
                                 killTarget()
                             else
                                 while state.autofarmEnabled and isPlayerAlive(LocalPlayer) and isCoinBagVisible() do
+                                    -- If player picked up or received a gun, abort fling and shoot murderer instead
+                                    if hasTool(LocalPlayer, "Gun") or getPlayerRole(LocalPlayer) == "Sheriff" then
+                                        state.currentTaskStatus = "Shooting murd"
+                                        killTarget()
+                                        break
+                                    end
+
                                     local m = state.knifeHolder
                                     if not m or not isMurdererAlive(m) then m = getMurd() end
                                     if not m or not isMurdererAlive(m) or m == LocalPlayer then break end
                                     state.currentTaskStatus = "Flinging murd"
                                     flingTarget(m, true, 4.0)
-                                    if isMurdererAlive(m) then
-                                        state.currentTaskStatus = "retrying fling..."
-                                        task.wait(0.5)
+
+                                    -- Check again immediately after fling finishes/aborts
+                                    if hasTool(LocalPlayer, "Gun") or getPlayerRole(LocalPlayer) == "Sheriff" then
+                                        state.currentTaskStatus = "Shooting murd"
+                                        killTarget()
+                                        break
+                                    end
+
+                                    if isMurdererAlive(m) and state.autofarmEnabled and isPlayerAlive(LocalPlayer) and isCoinBagVisible() then
+                                        state.currentTaskStatus = "retrying fling in 2s..."
+                                        task.wait(2.0)
                                     else
                                         break
                                     end
@@ -10896,8 +10968,13 @@ local function _buildScriptUI()
                 local elapsed = tick() - (state.lastServerHopTimer or tick())
                 if elapsed >= intervalSec then
                     local canHop = true
-                    if state.autoServerHopWaitForRound and (state.roundActive or isRoundActiveUI()) then
-                        canHop = false
+                    if state.autoServerHopWaitForRound then
+                        -- If wait for round end is active, allow hop when not actively collecting coins
+                        -- (e.g. coin bag is not visible/intermission, bag is full, player is dead, or round is inactive)
+                        local isCollectingCoins = canFarmCoins()
+                        if isCollectingCoins then
+                            canHop = false
+                        end
                     end
                     if canHop then
                         state.lastServerHopTimer = tick()
