@@ -10693,12 +10693,24 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             titleLbl.ZIndex = 53
             titleLbl.Parent = rowBtn
 
+            local subTabName = nil
+            if item.Instance and item.Instance.Parent then
+                local current = item.Instance.Parent
+                while current and current ~= game do
+                    if current.Name and current.Name:sub(1, 7) == "SubTab_" then
+                        subTabName = current.Name:sub(8)
+                        break
+                    end
+                    current = current.Parent
+                end
+            end
+
             local subLbl = Instance.new("TextLabel")
             subLbl.Size = UDim2.new(1, -12, 0, 12)
             subLbl.Position = UDim2.new(0, 8, 0, 15)
             subLbl.BackgroundTransparency = 1
             subLbl.FontFace = FontFingerPaintRegular
-            subLbl.Text = item.TabName
+            subLbl.Text = subTabName and (item.TabName .. " > " .. subTabName) or item.TabName
             subLbl.TextColor3 = Window.CurrentTheme.SubText
             subLbl.TextSize = 10
             subLbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -10718,6 +10730,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 if SwitchTab then
                     SwitchTab(item.TabName)
                 end
+
+                if subTabName and Window.RegisteredSubTabs then
+                    for _, st in ipairs(Window.RegisteredSubTabs) do
+                        if st.Select then
+                            pcall(function()
+                                st:Select(subTabName)
+                            end)
+                        end
+                    end
+                end
+
                 SearchResultsOverlay.Visible = false
                 SearchResultsOverlay.Size = UDim2.new(0, barW, 0, 0)
                 for _, it in ipairs(Window.SearchableItems) do
