@@ -5398,7 +5398,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         SubTabBar.Name = "SubTabBar_" .. tostring(parentTab.Name or "Tab")
         SubTabBar.Size = UDim2.new(1, 0, 0, 34)
         SubTabBar.Position = UDim2.new(0, 0, 0, 0)
-        SubTabBar.BackgroundColor3 = Window.CurrentTheme.TopBG
+        SubTabBar.BackgroundColor3 = Window.CurrentTheme.MainBG
         SubTabBar.BackgroundTransparency = 1
         SubTabBar.BorderSizePixel = 0
         SubTabBar.ZIndex = 5
@@ -5634,7 +5634,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return activeTab
             end,
             RefreshTheme = function(theme, animated)
-                local barBg = theme.TopBG
+                local barBg = theme.MainBG
                 if animated then
                     local twInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                     TweenService:Create(SubTabBar, twInfo, { BackgroundColor3 = barBg, BackgroundTransparency = 1 }):Play()
@@ -10433,7 +10433,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TopFrame.Name = "TopFrame"
     TopFrame.Size = UDim2.new(1, 0, 0, 42)
     TopFrame.Position = UDim2.new(0, 0, 0, 0)
-    TopFrame.BackgroundColor3 = Window.CurrentTheme.TopBG
+    TopFrame.BackgroundColor3 = Window.CurrentTheme.MainBG
     TopFrame.BackgroundTransparency = Window.CurrentTheme.TopTrans
     TopFrame.BorderSizePixel = 0
     TopFrame.ZIndex = 20
@@ -10903,7 +10903,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LeftFrame.Name = "LeftFrame"
     LeftFrame.Size = UDim2.new(0, 175, 1, -94)
     LeftFrame.Position = UDim2.new(0, 0, 0, 42)
-    LeftFrame.BackgroundColor3 = Window.CurrentTheme.TopBG
+    LeftFrame.BackgroundColor3 = Window.CurrentTheme.MainBG
     LeftFrame.BackgroundTransparency = Window.CurrentTheme.TopTrans
     LeftFrame.BorderSizePixel = 0
     LeftFrame.ZIndex = 1
@@ -10916,7 +10916,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MainFrame.Name = "MainFrame"
     MainFrame.Size = UDim2.new(1, -175, 1, -94)
     MainFrame.Position = UDim2.new(0, 175, 0, 42)
-    MainFrame.BackgroundColor3 = Window.CurrentTheme.MainBG
+    MainFrame.BackgroundColor3 = Window.CurrentTheme.TopBG or Window.CurrentTheme.AccentBG
     MainFrame.BackgroundTransparency = Window.CurrentTheme.MainTrans
     MainFrame.BorderSizePixel = 0
     MainFrame.ClipsDescendants = true
@@ -11090,7 +11090,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     BottomFrame.Name = "BottomFrame"
     BottomFrame.Size = UDim2.new(1, 0, 0, 52)
     BottomFrame.Position = UDim2.new(0, 0, 1, -52)
-    BottomFrame.BackgroundColor3 = Window.CurrentTheme.TopBG
+    BottomFrame.BackgroundColor3 = Window.CurrentTheme.MainBG
     BottomFrame.BackgroundTransparency = Window.CurrentTheme.TopTrans
     BottomFrame.BorderSizePixel = 0
     BottomFrame.ZIndex = 20
@@ -16707,17 +16707,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         if Window.MainFrame then
             local mainTrans = Window.CustomBGTransparency or newTheme.MainTrans
+            local rightColor = newTheme.TopBG or newTheme.AccentBG
             if animated then
                 TweenService:Create(Window.MainFrame, tweenInfo, {
-                    BackgroundColor3 = newTheme.MainBG,
+                    BackgroundColor3 = rightColor,
                     BackgroundTransparency = mainTrans
                 }):Play()
             else
-                Window.MainFrame.BackgroundColor3 = newTheme.MainBG
+                Window.MainFrame.BackgroundColor3 = rightColor
                 Window.MainFrame.BackgroundTransparency = mainTrans
             end
         end
-        local frameColor = newTheme.TopBG or newTheme.AccentBG
+        local frameColor = newTheme.MainBG
         local frameTrans = Window.TopBottomTransparency or newTheme.TopTrans or 0.30
 
         if Window.LeftFrame then
