@@ -5373,8 +5373,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         SubTabBar.Name = "SubTabBar_" .. tostring(parentTab.Name or "Tab")
         SubTabBar.Size = UDim2.new(1, 0, 0, 34)
         SubTabBar.Position = UDim2.new(0, 0, 0, 0)
-        SubTabBar.BackgroundColor3 = Window.CurrentTheme.TopBG or GetThemedDarkColor(Window.CurrentTheme)
-        SubTabBar.BackgroundTransparency = Window.CurrentTheme.TopTrans or 0.15
+        SubTabBar.BackgroundColor3 = Window.CurrentTheme.TopBG
+        SubTabBar.BackgroundTransparency = Window.CurrentTheme.TopTrans
         SubTabBar.BorderSizePixel = 0
         SubTabBar.ZIndex = 5
         SubTabBar.Visible = (Window.ActiveTab == parentTab.Name and hasSubTabs)
@@ -5396,7 +5396,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ActiveIndicator.Size = UDim2.new(0, 0, 1, 0)
         ActiveIndicator.Position = UDim2.new(0, 0, 0, 0)
         ActiveIndicator.BackgroundColor3 = Window.CurrentTheme.ButtonBG
-        ActiveIndicator.BackgroundTransparency = 0
+        ActiveIndicator.BackgroundTransparency = 0.7
         ActiveIndicator.BorderSizePixel = 0
         ActiveIndicator.ZIndex = 6
         ActiveIndicator.Parent = TabsHolder
@@ -5458,12 +5458,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 TweenService:Create(ActiveIndicator, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                     Position = targetPos,
                     Size = targetSize,
-                    BackgroundColor3 = targetBg
+                    BackgroundColor3 = targetBg,
+                    BackgroundTransparency = 0.7
                 }):Play()
             else
                 ActiveIndicator.Position = targetPos
                 ActiveIndicator.Size = targetSize
                 ActiveIndicator.BackgroundColor3 = targetBg
+                ActiveIndicator.BackgroundTransparency = 0.7
             end
         end
 
@@ -5610,14 +5612,17 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 return activeTab
             end,
             RefreshTheme = function(theme, animated)
-                local barBg = theme.TopBG or GetThemedDarkColor(theme)
+                local barBg = theme.TopBG
+                local barTrans = theme.TopTrans
                 if animated then
                     local twInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    TweenService:Create(SubTabBar, twInfo, { BackgroundColor3 = barBg }):Play()
-                    TweenService:Create(ActiveIndicator, twInfo, { BackgroundColor3 = theme.ButtonBG }):Play()
+                    TweenService:Create(SubTabBar, twInfo, { BackgroundColor3 = barBg, BackgroundTransparency = barTrans }):Play()
+                    TweenService:Create(ActiveIndicator, twInfo, { BackgroundColor3 = theme.ButtonBG, BackgroundTransparency = 0.7 }):Play()
                 else
                     SubTabBar.BackgroundColor3 = barBg
+                    SubTabBar.BackgroundTransparency = barTrans
                     ActiveIndicator.BackgroundColor3 = theme.ButtonBG
+                    ActiveIndicator.BackgroundTransparency = 0.7
                 end
                 SwitchSubTab(activeTab, animated)
             end
