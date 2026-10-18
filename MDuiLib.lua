@@ -5397,7 +5397,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ActiveIndicator.Position = UDim2.new(0, 0, 0, 0)
         ActiveIndicator.BackgroundTransparency = 1
         ActiveIndicator.BorderSizePixel = 0
-        ActiveIndicator.Image = "http://www.roblox.com/asset/?id=97902259685369"
+        ActiveIndicator.Image = "http://www.roblox.com/asset/?id=119111498217684"
+        ActiveIndicator.ImageTransparency = 0.9
         ActiveIndicator.ImageColor3 = Window.CurrentTheme.ButtonBG
         ActiveIndicator.ScaleType = Enum.ScaleType.Stretch
         ActiveIndicator.ZIndex = 6
