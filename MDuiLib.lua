@@ -1125,18 +1125,31 @@ Library.RegisterTheme = Library.RegisterTheme
 function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Library.ShadowsEnabled = true
     local hubTitle, scriptName, authorText, discordLink, iconAsset
+    local playerProfileEnabled = false
+    local showDiscord = true
 
     if type(arg1) == "table" then
         hubTitle = arg1.Title or arg1.HubTitle or arg1.Name or arg1.hubTitle or arg1.ScriptName or "script name"
         scriptName = arg1.ScriptName or arg1.scriptName or hubTitle or "script name"
         authorText = arg1.Author or arg1.AuthorText or arg1.MadeBy or arg1.madeBy or arg1.Creator
-        discordLink = arg1.Discord or arg1.DiscordLink or arg1.DiscordServer or arg1.discord or arg1.Invite
+        if arg1.Discord == false or arg1.ShowDiscord == false or arg1.DiscordLink == false or arg1.DiscordEnabled == false or arg1.Discord == "" then
+            showDiscord = false
+            discordLink = ""
+        else
+            discordLink = arg1.Discord or arg1.DiscordLink or arg1.DiscordServer or arg1.discord or arg1.Invite
+        end
         iconAsset = arg1.Icon or arg1.IconAsset or arg1.Logo or arg1.IconId or arg1.icon
+        playerProfileEnabled = (arg1.PlayerProfile == true or arg1.ShowPlayerProfile == true or arg1.UserAvatar == true or arg1.ShowUserAvatar == true or arg1.PlayerAvatar == true or arg1.UserInfo == true)
     else
         hubTitle = arg1 or "script name"
         scriptName = arg2 or hubTitle or "script name"
         authorText = arg3
-        discordLink = arg4
+        if arg4 == false or arg4 == "" then
+            showDiscord = false
+            discordLink = ""
+        else
+            discordLink = arg4
+        end
         iconAsset = arg5
     end
 
@@ -1146,12 +1159,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         authorText = "Made by " .. authorText
     end
 
-    if not discordLink or discordLink == "" then
+    if showDiscord and (not discordLink or discordLink == "") then
         discordLink = "discord.gg/48jdqB8rAw"
     end
 
-    local discordDisplay = discordLink:gsub("^https?://", "")
-    local discordCopyUrl = discordLink:find("^https?://") and discordLink or ("https://" .. discordDisplay)
+    local discordDisplay = (discordLink and tostring(discordLink):gsub("^https?://", "")) or ""
+    local discordCopyUrl = (discordLink and discordLink ~= "") and (discordLink:find("^https?://") and discordLink or ("https://" .. discordDisplay)) or ""
 
     if not iconAsset or iconAsset == "" then
         iconAsset = "rbxassetid://71647461889740"
@@ -1248,6 +1261,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         GetIcon = Library.GetIcon,
         AuthorText = authorText,
         DiscordLink = discordLink,
+        ShowDiscord = showDiscord,
+        PlayerProfileEnabled = playerProfileEnabled,
         IconAsset = iconAsset,
         Icons = Library.Icons,
         MinimizedIcon = minimizedIcon,
@@ -10425,15 +10440,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local MDHUBNAME = Instance.new("TextLabel")
     MDHUBNAME.Name = "HubName"
-    MDHUBNAME.Size = UDim2.new(0, 220, 0, 36)
-    MDHUBNAME.Position = UDim2.new(0.0259, 0, 0.1, 0)
+    MDHUBNAME.Size = UDim2.new(0, 190, 0, 24)
+    MDHUBNAME.AnchorPoint = Vector2.new(0, 0.5)
+    MDHUBNAME.Position = UDim2.new(0, 16, 0.5, 0)
     MDHUBNAME.BackgroundTransparency = 1
     MDHUBNAME.FontFace = Window.ScriptNameFont or FontScriptNameDefault
-    MDHUBNAME.Text = hubTitle
+    MDHUBNAME.Text = Window.ScriptName or hubTitle or "script name"
     MDHUBNAME.TextColor3 = Window.CurrentTheme.Text
-    MDHUBNAME.TextSize = 22
+    MDHUBNAME.TextSize = 16
+    MDHUBNAME.TextTruncate = Enum.TextTruncate.AtEnd
     MDHUBNAME.TextXAlignment = Enum.TextXAlignment.Left
-    MDHUBNAME.Visible = false    MDHUBNAME.ZIndex = 5
+    MDHUBNAME.TextYAlignment = Enum.TextYAlignment.Center
+    MDHUBNAME.Visible = Window.PlayerProfileEnabled == true
+    MDHUBNAME.ZIndex = 6
     MDHUBNAME.Parent = MDTextFolder
 
     function Window:SetScriptNameFont(newFont)
@@ -11072,22 +11091,27 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local BottomFrameNoise = AddNoise(BottomFrame, { CornerRadii = {0, 0, 8, 8} })
 
+    local lp = LocalPlayer or Players.LocalPlayer
+    local uId = lp and lp.UserId or 0
+    local playerAvatarUrl = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(uId) .. "&w=150&h=150"
+
     local MDicon = Instance.new("ImageLabel")
     MDicon.Name = "Icon"
     MDicon.Size = UDim2.new(0, 34, 0, 34)
     MDicon.AnchorPoint = Vector2.new(0, 0.5)
     MDicon.Position = UDim2.new(0, 12, 0.5, 0)
     MDicon.BackgroundTransparency = 1
-    MDicon.Image = iconAsset
-    MDicon.ImageColor3 = Window.CurrentTheme.Text
+    MDicon.Image = playerProfileEnabled and playerAvatarUrl or iconAsset
+    MDicon.ImageColor3 = playerProfileEnabled and Color3.fromRGB(255, 255, 255) or Window.CurrentTheme.Text
     MDicon.ZIndex = 6
     MDicon.Parent = BottomFrame
 
     Window._MDicon = MDicon
 
     local MDiconCorner = Instance.new("UICorner")
-    MDiconCorner.CornerRadius = UDim.new(0, 8)
+    MDiconCorner.CornerRadius = playerProfileEnabled and UDim.new(1, 0) or UDim.new(0, 8)
     MDiconCorner.Parent = MDicon
+    Window._MDiconCorner = MDiconCorner
 
     AddUIShadow(MDicon, 20, 0.5)
 
@@ -11095,10 +11119,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MadebyText.Name = "MadebyText"
     MadebyText.Size = UDim2.new(0, 220, 0, 22)
     MadebyText.AnchorPoint = Vector2.new(0, 0)
-    MadebyText.Position = UDim2.new(0, 54, 0, 7)
+    MadebyText.Position = showDiscord and UDim2.new(0, 54, 0, 7) or UDim2.new(0, 54, 0.5, -11)
     MadebyText.BackgroundTransparency = 1
     MadebyText.FontFace = FontRegular
-    MadebyText.Text = (scriptName and scriptName ~= "" and scriptName) or (hubTitle and hubTitle ~= "" and hubTitle) or (Window.ScriptName and Window.ScriptName ~= "" and Window.ScriptName) or "script name"
+    MadebyText.Text = playerProfileEnabled and (lp and lp.Name or "Player") or ((scriptName and scriptName ~= "" and scriptName) or (hubTitle and hubTitle ~= "" and hubTitle) or (Window.ScriptName and Window.ScriptName ~= "" and Window.ScriptName) or "script name")
     MadebyText.TextColor3 = Window.CurrentTheme.Text
     MadebyText.TextSize = 14
     MadebyText.TextXAlignment = Enum.TextXAlignment.Left
@@ -11118,6 +11142,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     DiscordBtn.TextColor3 = Window.CurrentTheme.SubText
     DiscordBtn.TextSize = 11
     DiscordBtn.TextXAlignment = Enum.TextXAlignment.Left
+    DiscordBtn.Visible = showDiscord
     DiscordBtn.ZIndex = 7
     DiscordBtn.Parent = BottomFrame
 
@@ -11521,7 +11546,10 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     function Window:SetScriptName(newName)
         Window.ScriptName = tostring(newName or "script name")
-        if MadebyText then
+        if MDHUBNAME then
+            MDHUBNAME.Text = Window.ScriptName
+        end
+        if not Window.PlayerProfileEnabled and MadebyText then
             MadebyText.Text = Window.ScriptName
         end
     end
@@ -11529,13 +11557,68 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     function Window:SetTitle(newTitle)
         Window.Title = tostring(newTitle or "script name")
         Window.ScriptName = Window.Title
-        if MadebyText then
+        if MDHUBNAME then
+            MDHUBNAME.Text = Window.Title
+        end
+        if not Window.PlayerProfileEnabled and MadebyText then
             MadebyText.Text = Window.Title
         end
     end
 
+    function Window:SetPlayerProfile(enabled)
+        Window.PlayerProfileEnabled = (enabled == true)
+        local pl = LocalPlayer or Players.LocalPlayer
+        if Window.PlayerProfileEnabled then
+            local uId = pl and pl.UserId or 0
+            local avatarUrl = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(uId) .. "&w=150&h=150"
+            if Window._MDicon then
+                Window._MDicon.Image = avatarUrl
+                Window._MDicon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+            end
+            if Window._MDiconCorner then
+                Window._MDiconCorner.CornerRadius = UDim.new(1, 0)
+            end
+            if Window._MadebyText then
+                Window._MadebyText.Text = pl and pl.Name or "Player"
+            end
+            if Window.MDHUBNAME then
+                Window.MDHUBNAME.Text = Window.ScriptName or hubTitle or "script name"
+                Window.MDHUBNAME.Visible = true
+            end
+        else
+            if Window._MDicon then
+                Window._MDicon.Image = Window.IconAsset or iconAsset
+                Window._MDicon.ImageColor3 = Window.CurrentTheme.Text
+            end
+            if Window._MDiconCorner then
+                Window._MDiconCorner.CornerRadius = UDim.new(0, 8)
+            end
+            if Window._MadebyText then
+                Window._MadebyText.Text = (Window.ScriptName and Window.ScriptName ~= "" and Window.ScriptName) or (hubTitle and hubTitle ~= "" and hubTitle) or "script name"
+            end
+            if Window.MDHUBNAME then
+                Window.MDHUBNAME.Visible = false
+            end
+        end
+    end
+
+    function Window:SetDiscordVisible(visible)
+        Window.ShowDiscord = (visible == true)
+        if DiscordBtn then
+            DiscordBtn.Visible = Window.ShowDiscord
+        end
+        if MadebyText then
+            MadebyText.Position = Window.ShowDiscord and UDim2.new(0, 54, 0, 7) or UDim2.new(0, 54, 0.5, -11)
+        end
+    end
+
     function Window:SetDiscord(newDiscord)
-        if not newDiscord or newDiscord == "" then
+        if newDiscord == false then
+            Window:SetDiscordVisible(false)
+            return
+        end
+        Window:SetDiscordVisible(true)
+        if not newDiscord or newDiscord == "" or newDiscord == true then
             newDiscord = "discord.gg/48jdqB8rAw"
         end
         Window.DiscordLink = tostring(newDiscord)
@@ -11555,7 +11638,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             newIcon = tostring(newIcon)
         end
         Window.IconAsset = newIcon
-        if MDicon then
+        if MDicon and not Window.PlayerProfileEnabled then
             MDicon.Image = newIcon
         end
     end
@@ -16499,6 +16582,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Window.MDHUBNAME = MDHUBNAME
     Window.MadebyText = MadebyText
     Window.DiscordBtn = DiscordBtn
+    Window._MDiconCorner = MDiconCorner
     Window.LocalTime = LocalTime
     Window.SidebarScroll = SidebarScroll
     Window.UIScaleConstraint = UIScaleConstraint
@@ -16654,10 +16738,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         if Window._MDicon and Window._MDicon.Parent then
-            if animated then
-                TweenService:Create(Window._MDicon, tweenInfo, {ImageColor3 = newTheme.Text}):Play()
+            if not Window.PlayerProfileEnabled then
+                if animated then
+                    TweenService:Create(Window._MDicon, tweenInfo, {ImageColor3 = newTheme.Text}):Play()
+                else
+                    Window._MDicon.ImageColor3 = newTheme.Text
+                end
             else
-                Window._MDicon.ImageColor3 = newTheme.Text
+                Window._MDicon.ImageColor3 = Color3.fromRGB(255, 255, 255)
             end
         end
         if Window._MadebyText and Window._MadebyText.Parent then
