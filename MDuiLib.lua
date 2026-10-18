@@ -1127,6 +1127,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local hubTitle, scriptName, authorText, discordLink, iconAsset
     local playerProfileEnabled = false
     local showDiscord = true
+    local streamerMode = false
+
+    local function GenerateMaskedUsername()
+        return string.rep("*", math.random(7, 13))
+    end
+    local maskedUsername = GenerateMaskedUsername()
 
     if type(arg1) == "table" then
         hubTitle = arg1.Title or arg1.HubTitle or arg1.Name or arg1.hubTitle or arg1.ScriptName or "script name"
@@ -1140,6 +1146,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
         iconAsset = arg1.Icon or arg1.IconAsset or arg1.Logo or arg1.IconId or arg1.icon
         playerProfileEnabled = (arg1.PlayerProfile == true or arg1.ShowPlayerProfile == true or arg1.UserAvatar == true or arg1.ShowUserAvatar == true or arg1.PlayerAvatar == true or arg1.UserInfo == true)
+        streamerMode = (arg1.StreamerMode == true or arg1.Streamer == true)
     else
         hubTitle = arg1 or "script name"
         scriptName = arg2 or hubTitle or "script name"
@@ -1263,6 +1270,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         DiscordLink = discordLink,
         ShowDiscord = showDiscord,
         PlayerProfileEnabled = playerProfileEnabled,
+        StreamerMode = streamerMode,
+        MaskedUsername = maskedUsername,
+        WelcomeUpdateCallbacks = {},
         IconAsset = iconAsset,
         Icons = Library.Icons,
         MinimizedIcon = minimizedIcon,
@@ -6134,6 +6144,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             ["UI shadows"] = "Тени интерфейса",
             ["Section backgrounds"] = "Фон секций",
             ["Background noise"] = "Шумовой фон",
+            ["Streamer mode"] = "Режим стримера",
             ["Noise tile size"] = "Размер зерна шума",
             ["Background transparency"] = "Прозрачность фона",
             ["UI elements transparency"] = "Прозрачность элементов",
@@ -11121,8 +11132,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MadebyText.AnchorPoint = Vector2.new(0, 0)
     MadebyText.Position = showDiscord and UDim2.new(0, 54, 0, 7) or UDim2.new(0, 54, 0.5, -11)
     MadebyText.BackgroundTransparency = 1
-    MadebyText.FontFace = FontRegular
-    MadebyText.Text = playerProfileEnabled and (lp and lp.Name or "Player") or ((scriptName and scriptName ~= "" and scriptName) or (hubTitle and hubTitle ~= "" and hubTitle) or (Window.ScriptName and Window.ScriptName ~= "" and Window.ScriptName) or "script name")
+    local rawPlayerName = lp and lp.Name or "Player"
+    local initialPlayerDisplay = streamerMode and (Window.MaskedUsername or maskedUsername) or rawPlayerName
+    MadebyText.Text = playerProfileEnabled and initialPlayerDisplay or ((scriptName and scriptName ~= "" and scriptName) or (hubTitle and hubTitle ~= "" and hubTitle) or (Window.ScriptName and Window.ScriptName ~= "" and Window.ScriptName) or "script name")
     MadebyText.TextColor3 = Window.CurrentTheme.Text
     MadebyText.TextSize = 14
     MadebyText.TextXAlignment = Enum.TextXAlignment.Left
@@ -11579,7 +11591,11 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 Window._MDiconCorner.CornerRadius = UDim.new(1, 0)
             end
             if Window._MadebyText then
-                Window._MadebyText.Text = pl and pl.Name or "Player"
+                if Window.StreamerMode then
+                    Window._MadebyText.Text = Window.MaskedUsername or string.rep("*", math.random(7, 12))
+                else
+                    Window._MadebyText.Text = pl and pl.Name or "Player"
+                end
             end
             if Window.MDHUBNAME then
                 Window.MDHUBNAME.Text = Window.ScriptName or hubTitle or "script name"
@@ -11598,6 +11614,26 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
             if Window.MDHUBNAME then
                 Window.MDHUBNAME.Visible = false
+            end
+        end
+    end
+
+    function Window:SetStreamerMode(enabled)
+        Window.StreamerMode = (enabled == true)
+        if Window.StreamerMode then
+            Window.MaskedUsername = string.rep("*", math.random(7, 13))
+        end
+        if Window.PlayerProfileEnabled and Window._MadebyText then
+            if Window.StreamerMode then
+                Window._MadebyText.Text = Window.MaskedUsername
+            else
+                local pl = LocalPlayer or Players.LocalPlayer
+                Window._MadebyText.Text = pl and pl.Name or "Player"
+            end
+        end
+        if Window.WelcomeUpdateCallbacks then
+            for _, cb in ipairs(Window.WelcomeUpdateCallbacks) do
+                pcall(cb)
             end
         end
     end
@@ -12096,6 +12132,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     pName = n
                 end
             end
+
+            local function GetGreetingDisplayName()
+                if Window.StreamerMode then
+                    return Window.MaskedUsername or string.rep("*", math.random(7, 12))
+                end
+                return pName
+            end
+
             local WelcomeMsg = Instance.new("TextLabel")
             WelcomeMsg.Name = "Welcomemsg"
             WelcomeMsg.Size = UDim2.new(0, 360, 0, 45)
@@ -12103,7 +12147,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             WelcomeMsg.BackgroundTransparency = 1
             WelcomeMsg.BorderSizePixel = 0
             WelcomeMsg.FontFace = FontFingerPaintBold
-            WelcomeMsg.Text = GetGreeting() .. ", " .. pName
+            WelcomeMsg.Text = GetGreeting() .. ", " .. GetGreetingDisplayName()
             WelcomeMsg.TextColor3 = Window.CurrentTheme.Text
             WelcomeMsg.TextSize = 28
             WelcomeMsg.TextWrapped = true
@@ -12111,6 +12155,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             WelcomeMsg.TextYAlignment = Enum.TextYAlignment.Center
             WelcomeMsg.ZIndex = 4
             WelcomeMsg.Parent = MainHeaderFrame
+
+            local function UpdateWelcomeText()
+                if WelcomeMsg and WelcomeMsg.Parent then
+                    WelcomeMsg.Text = GetGreeting() .. ", " .. GetGreetingDisplayName()
+                end
+            end
+
+            Window.WelcomeUpdateCallbacks = Window.WelcomeUpdateCallbacks or {}
+            table.insert(Window.WelcomeUpdateCallbacks, UpdateWelcomeText)
 
             Window.WelcomeMsg = WelcomeMsg
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
@@ -15493,6 +15546,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     Window:SetNoiseEnabled(state)
                     Window:Notify("Settings", "Background noise " .. (state and "enabled" or "disabled"), 2)
                 end
+            },
+            {
+                Title = "Streamer mode",
+                Default = Window.StreamerMode,
+                Callback = function(state)
+                    Window:SetStreamerMode(state)
+                    Window:Notify("Settings", "Streamer mode " .. (state and "enabled" or "disabled"), 2)
+                end
             }
         })
         Window.RegisteredToggles["SpiderwebBG"]           = bgToggles[1]
@@ -15500,6 +15561,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         Window.RegisteredToggles["Shadows"]               = bgToggles[3]
         Window.RegisteredToggles["SectionBGTransparent"]  = bgToggles[4]
         Window.RegisteredToggles["BackgroundNoise"]       = bgToggles[5]
+        Window.RegisteredToggles["StreamerMode"]          = bgToggles[6]
 
         local noiseSizeSlider = SettingsTab:AddSlider({
             Title = "Noise tile size",
