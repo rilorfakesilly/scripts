@@ -1174,14 +1174,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local discordCopyUrl = (discordLink and discordLink ~= "") and (discordLink:find("^https?://") and discordLink or ("https://" .. discordDisplay)) or ""
 
     if not iconAsset or iconAsset == "" then
-        iconAsset = "rbxassetid://71647461889740"
+        iconAsset = "rbxassetid://78209859871518"
     elseif type(iconAsset) == "number" or tostring(iconAsset):match("^%d+$") then
         iconAsset = "rbxassetid://" .. tostring(iconAsset)
     end
 
     local minimizedIcon = (type(arg1) == "table" and (arg1.MinimizedIcon or arg1.MinimisedIcon or arg1.MiniIcon)) or iconAsset
     if not minimizedIcon or minimizedIcon == "" then
-        minimizedIcon = "rbxassetid://71647461889740"
+        minimizedIcon = "rbxassetid://78209859871518"
     elseif type(minimizedIcon) == "number" or tostring(minimizedIcon):match("^%d+$") then
         minimizedIcon = "rbxassetid://" .. tostring(minimizedIcon)
     end
@@ -11345,7 +11345,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MiniLogoIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
     MiniLogoIcon.Size = UDim2.new(1.05, 0, 1.05, 0)
     MiniLogoIcon.BackgroundTransparency = 1
-    MiniLogoIcon.Image = Window.MinimizedIcon or minimizedIcon or "rbxassetid://71647461889740"
+    MiniLogoIcon.Image = Window.MinimizedIcon or minimizedIcon or "rbxassetid://78209859871518"
     MiniLogoIcon.ImageColor3 = miniThemeColor
     MiniLogoIcon.ScaleType = Enum.ScaleType.Fit
     MiniLogoIcon.ZIndex = 105
@@ -11476,7 +11476,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NotifIcon.Size = UDim2.new(0, 48, 0, 48)
         NotifIcon.Position = UDim2.new(0, 12, 0.5, -24)
         NotifIcon.BackgroundTransparency = 1
-        NotifIcon.Image = Window.IconAsset or iconAsset or "rbxassetid://71647461889740"
+        NotifIcon.Image = Window.IconAsset or iconAsset or "rbxassetid://78209859871518"
         NotifIcon.ImageColor3 = Window.CurrentTheme.Text
         NotifIcon.ZIndex = 32
         NotifIcon.Parent = NotifMain
