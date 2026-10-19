@@ -11343,7 +11343,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MiniLogoIcon.Name = "MiniLogo"
     MiniLogoIcon.AnchorPoint = Vector2.new(0.5, 0.5)
     MiniLogoIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
-    MiniLogoIcon.Size = UDim2.new(1.05, 0, 1.05, 0)
+    MiniLogoIcon.Size = UDim2.new(1.15, 0, 1.15, 0)
     MiniLogoIcon.BackgroundTransparency = 1
     MiniLogoIcon.Image = Window.MinimizedIcon or minimizedIcon or "rbxassetid://78209859871518"
     MiniLogoIcon.ImageColor3 = miniThemeColor
