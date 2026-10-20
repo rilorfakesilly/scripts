@@ -5600,6 +5600,15 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             pillButtons[tName] = PillBtn
             CreateSubTabContainer(tName, i)
 
+            if Window.RegisterLocalizedElement then
+                Window:RegisterLocalizedElement(PillBtn, tNameRaw, function(newText)
+                    if type(newText) == "table" then
+                        newText = newText[Window.CurrentLanguage or "English"] or newText["English"] or newText[1] or tName
+                    end
+                    PillBtn.Text = tostring(newText or tName)
+                end)
+            end
+
             PillBtn.MouseButton1Click:Connect(function()
                 PlayClickSFX()
                 SwitchSubTab(tName, true)
@@ -6737,10 +6746,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TextFolder.Name = GenerateSafeName("Text")
         TextFolder.Parent = BtnFrame
 
+        local textYOffset = isSmall and -1 or -2
+
         local Label = Instance.new("TextLabel")
         Label.Name = textName or "btntext"
         Label.Size = UDim2.new(1, -(textX + rightReserve), 1, 0)
-        Label.Position = UDim2.new(0, textX, 0, 0)
+        Label.Position = UDim2.new(0, textX, 0, textYOffset)
         Label.BackgroundTransparency = 1
         Label.FontFace = FontTabBtn
         Label.RichText = true
@@ -6757,6 +6768,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return {
             Text = Label, Icon = Icon, Arrow = Arrow, Stroke = Stroke,
             PadX = padX, IconSize = iconSize, ArrowSize = arrowSize, Gap = gap,
+            TextYOffset = textYOffset,
         }
     end
 
@@ -6796,7 +6808,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local hasIcon = parts.Icon and parts.Icon.Visible
         local textX = parts.PadX + (hasIcon and (parts.IconSize + parts.Gap) or 0)
         local rightReserve = parts.Arrow and (parts.PadX + parts.ArrowSize + 6) or parts.PadX
-        parts.Text.Position = UDim2.new(0, textX, 0, 0)
+        local textYOffset = parts.TextYOffset or -2
+        parts.Text.Position = UDim2.new(0, textX, 0, textYOffset)
         parts.Text.Size = UDim2.new(1, -(textX + rightReserve), 1, 0)
     end
 
@@ -9476,7 +9489,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         if config.CornerRadius then
             Corner.CornerRadius = UDim.new(0, config.CornerRadius)
         else
-            Corner.CornerRadius = UDim.new(0, 6)
+            Corner.CornerRadius = UDim.new(1, 0)
         end
         Corner.Parent = BtnFrame
 
@@ -13727,6 +13740,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local btnData = Window:CreateMDButtonLong(targetParent, pos, finalSize, text, callback, icon, showArrow)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
 
+            if Window.RegisterLocalizedElement then
+                Window:RegisterLocalizedElement(btnData, text, function(newText)
+                    if btnData.SetText then
+                        btnData:SetText(newText)
+                    end
+                end)
+            end
+
             table.insert(Window.SearchableItems, {
                 Type = "Button",
                 Name = text or "Button",
@@ -13771,6 +13792,14 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local offsetSub = math.floor(padTotal / math.max(1, count))
                 local itemSize = explicitUDim or UDim2.new(fraction or defaultFraction, -offsetSub, 0, height)
                 local btn = Window:CreateMDButtonLong(row, UDim2.new(0, 0, 0, 0), itemSize, text, callback, icon)
+
+                if Window.RegisterLocalizedElement then
+                    Window:RegisterLocalizedElement(btn, text, function(newText)
+                        if btn.SetText then
+                            btn:SetText(newText)
+                        end
+                    end)
+                end
 
                 table.insert(Window.SearchableItems, {
                     Type = "Button",
