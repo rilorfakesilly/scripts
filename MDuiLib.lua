@@ -6721,6 +6721,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Arrow.ImageColor3 = theme.SubText
             Arrow.ZIndex = z
             Arrow.Parent = BtnFrame
+
+            -- fallback if the asset fails to load: rotated chevron
+            task.delay(3, function()
+                if Arrow and Arrow.Parent and not Arrow.IsLoaded then
+                    Arrow.Image = "rbxassetid://101007429951147"
+                end
+            end)
         end
 
         local textX = padX + (Icon and (iconSize + gap) or 0)
@@ -8544,8 +8551,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
     end
 
-    function Window:CreateMDButtonLong(parent, position, size, text, onClick, icon)
-        local btnText, callback, btnSize, btnPos, targetParent, btnIcon
+    function Window:CreateMDButtonLong(parent, position, size, text, onClick, icon, showArrow)
+        local btnText, callback, btnSize, btnPos, targetParent, btnIcon, btnArrow
 
         if type(parent) == "table" and not parent.IsA and not parent.Frame and not parent.Instance then
             targetParent = parent.Parent or parent.parent or parent.Row or parent[1]
@@ -8554,6 +8561,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             btnText = parent.Text or parent.text or parent.Title or parent.Name or parent[3] or "Button"
             callback = parent.Callback or parent.callback or parent.OnClick or parent[4]
             btnIcon = parent.Icon or parent.icon or parent.IconAsset
+            btnArrow = parent.ShowArrow
         else
             targetParent = parent
             btnPos = position or UDim2.new(0, 0, 0, 0)
@@ -8561,6 +8569,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             btnText = text or "Function"
             callback = onClick
             btnIcon = icon
+            btnArrow = showArrow
         end
 
         local fraction, explicitUDim = ResolveSizeFraction(btnSize, nil)
@@ -8607,7 +8616,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnScale.Scale = 1.0
         BtnScale.Parent = BtnFrame
 
-        local parts = BuildMDButtonContent(BtnFrame, text, btnIcon, isSmall, false, inRow and 13 or 11, "btntext")
+        local parts = BuildMDButtonContent(BtnFrame, text, btnIcon, isSmall, btnArrow ~= false, inRow and 13 or 11, "btntext")
 
         local ClickBtn = Instance.new("TextButton")
         ClickBtn.Name = GenerateSafeName("Trigger")
@@ -8626,6 +8635,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             PlayHoverSFX()
             TweenService:Create(BtnScale, TweenInfo.new(0.18, quart, Enum.EasingDirection.Out), {Scale = 1.02}):Play()
             TweenService:Create(BtnFrame, TweenInfo.new(0.18, quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.05}):Play()
+            if parts.Arrow then
+                TweenService:Create(parts.Arrow, TweenInfo.new(0.18), {ImageColor3 = Window.CurrentTheme.Text}):Play()
+            end
         end))
 
         TrackConn(ClickBtn.MouseLeave:Connect(function()
@@ -8633,6 +8645,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             _pressActive = false
             TweenService:Create(BtnScale, TweenInfo.new(0.18, quart, Enum.EasingDirection.Out), {Scale = 1.0}):Play()
             TweenService:Create(BtnFrame, TweenInfo.new(0.18, quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.2}):Play()
+            if parts.Arrow then
+                TweenService:Create(parts.Arrow, TweenInfo.new(0.18), {ImageColor3 = Window.CurrentTheme.SubText}):Play()
+            end
         end))
 
         TrackConn(ClickBtn.MouseButton1Down:Connect(function()
@@ -8654,6 +8669,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local btnData = {
             Frame = BtnFrame,
             TextLabel = parts.Text,
+            ArrowIcon = parts.Arrow,
             IconImage = parts.Icon,
             Trigger = ClickBtn,
             BaseSize = size,
@@ -11205,11 +11221,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local uId = lp and lp.UserId or 0
     local playerAvatarUrl = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(uId) .. "&w=150&h=150"
 
-    -- Returns white for dark themes, black for light themes
     local function GetIconColorForTheme(theme)
-        local bg = theme.MainBG or theme.Background or Color3.fromRGB(30, 30, 30)
-        local lum = 0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B
-        return lum > 0.5 and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
+        local bg = theme.MainBG or Color3.fromRGB(30, 30, 30)
+        local _, s, v = Color3.toHSV(bg)
+
+        -- black themes (AMOLED, Very Dark, custom black) -> white icon
+        if s < 0.3 and v < 0.1 then
+            return Color3.fromRGB(255, 255, 255)
+        end
+        -- white themes (White, custom white) -> black icon
+        if s < 0.15 and v > 0.85 then
+            return Color3.fromRGB(0, 0, 0)
+        end
+
+        -- everything else follows the theme accent
+        return theme.ButtonBG or theme.Text or Color3.fromRGB(255, 255, 255)
     end
 
     local MDicon = Instance.new("ImageLabel")
@@ -13632,8 +13658,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             return RowObj
         end
 
-        function TabObj:AddLongButton(arg1, arg2, arg3, arg4, arg5, arg6)
-            local text, callback, sizeInput, parentRow, position, icon
+        function TabObj:AddLongButton(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+            local text, callback, sizeInput, parentRow, position, icon, showArrow
             if type(arg1) == "table" and not arg1.IsA then
                 text = arg1.Text or arg1.Title or arg1.Name or arg1[1] or "Button"
                 callback = arg1.Callback or arg1.OnClick or arg1.callback or arg1[2]
@@ -13641,6 +13667,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 parentRow = arg1.Parent or arg1.Row or arg1.parentRow
                 position = arg1.Position or arg1.pos
                 icon = arg1.Icon or arg1.icon or arg1.IconAsset
+                showArrow = arg1.ShowArrow
             else
                 text = arg1 or "Button"
                 callback = arg2
@@ -13653,6 +13680,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     position = arg5
                 end
                 icon = arg6
+                showArrow = arg7
             end
 
             parentRow = ResolveParent(parentRow) or TabObj.CurrentSectionContainer
@@ -13696,7 +13724,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
 
             local pos = position or UDim2.new(0, 0, 0, 0)
-            local btnData = Window:CreateMDButtonLong(targetParent, pos, finalSize, text, callback, icon)
+            local btnData = Window:CreateMDButtonLong(targetParent, pos, finalSize, text, callback, icon, showArrow)
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
 
             table.insert(Window.SearchableItems, {
