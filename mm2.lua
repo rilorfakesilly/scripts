@@ -89,7 +89,6 @@ state = {
     gunHolder = nil,
     avoidMurderer = false,
     avoidDistance = 35,
-    farmExpAsMurderer = false,
     noRoundStartTime = tick(),
     
     -- configure coin and round automation settings
@@ -3471,8 +3470,8 @@ local function resolveItemNameFromIcon(iconObj)
     return MM2_ITEM_ASSET_MAP[id], MM2_ITEM_RARITY_MAP[id]
 end
 
-local function detectRarityFromColor(guiObj)
-    if not guiObj then return nil end
+local function detectRarityFromColor(guiObj, fallbackCont)
+    if not guiObj and not fallbackCont then return nil end
     local candidates = {}
 
     local function addColor(col)
@@ -3538,6 +3537,23 @@ local function detectRarityFromColor(guiObj)
         end
     end
 
+    if fallbackCont and fallbackCont:IsA("GuiObject") then
+        if (fallbackCont:IsA("ImageLabel") or fallbackCont:IsA("ImageButton")) and fallbackCont.ImageColor3 then
+            addColor(fallbackCont.ImageColor3)
+        end
+        if fallbackCont.BackgroundColor3 then
+            addColor(fallbackCont.BackgroundColor3)
+        end
+        for _, ch in ipairs(fallbackCont:GetChildren()) do
+            if (ch:IsA("ImageLabel") or ch:IsA("ImageButton")) and ch.ImageColor3 then
+                addColor(ch.ImageColor3)
+            end
+            if ch:IsA("GuiObject") and ch.BackgroundColor3 then
+                addColor(ch.BackgroundColor3)
+            end
+        end
+    end
+
     local bestRarity = nil
     local globalMinDist = 999999
 
@@ -3568,7 +3584,7 @@ local function detectRarityFromColor(guiObj)
         end
     end
 
-    if globalMinDist <= 80 then
+    if globalMinDist <= 90 then
         return bestRarity
     end
     return nil
@@ -3590,7 +3606,7 @@ local function getMM2ItemValue(rawName, rarity)
     local normNoSuf = noSuf:gsub("[^%w]", "")
 
     -- 1. Rarity-specific match FIRST if rarity is known
-    -- (This prevents e.g. Rare Sunset Gun or Rare Candleflame from returning Godly values)
+    -- (This prevents cross-rarity collisions, e.g. Common Skulls/Wolf taking Uncommon Skulls/Wolf values)
     if rarity and MM2ValuesByRarity and MM2ValuesByRarity[rarity] then
         local rTab = MM2ValuesByRarity[rarity]
         if rTab[clean] and rTab[clean] > 0 then return rTab[clean] end
@@ -3601,50 +3617,63 @@ local function getMM2ItemValue(rawName, rarity)
             if normNoParens ~= "" and rNorm[normNoParens] and rNorm[normNoParens] > 0 then return rNorm[normNoParens] end
             if normNoSuf ~= "" and rNorm[normNoSuf] and rNorm[normNoSuf] > 0 then return rNorm[normNoSuf] end
         end
-    end
-
-    -- 2. Direct match in MM2Values
-    if MM2Values and MM2Values[clean] and MM2Values[clean] > 0 then
-        return MM2Values[clean]
-    end
-
-    -- 3. Normalized key match in MM2ValuesNormalized
-    if normKey ~= "" and MM2ValuesNormalized and MM2ValuesNormalized[normKey] and MM2ValuesNormalized[normKey] > 0 then
-        return MM2ValuesNormalized[normKey]
-    end
-
-    -- 4. Chroma alias ("Chroma Luger" <-> "C. Luger")
-    if clean:lower():find("^chroma%s+") then
-        local cDot = clean:gsub("^[Cc][Hh][Rr][Oo][Mm][Aa]%s+", "C. ")
-        if MM2Values and MM2Values[cDot] and MM2Values[cDot] > 0 then return MM2Values[cDot] end
-        local cNorm = cDot:lower():gsub("[^%w]", "")
-        if MM2ValuesNormalized and MM2ValuesNormalized[cNorm] and MM2ValuesNormalized[cNorm] > 0 then return MM2ValuesNormalized[cNorm] end
-    elseif clean:lower():find("^c%.%s*") then
-        local cFull = clean:gsub("^[Cc]%.%s*", "Chroma ")
-        if MM2Values and MM2Values[cFull] and MM2Values[cFull] > 0 then return MM2Values[cFull] end
-        local cNorm = cFull:lower():gsub("[^%w]", "")
-        if MM2ValuesNormalized and MM2ValuesNormalized[cNorm] and MM2ValuesNormalized[cNorm] > 0 then return MM2ValuesNormalized[cNorm] end
-    end
-
-    -- 5. Match without parentheses e.g. "Sunset (Gun)" -> "Sunset"
-    if noParens ~= "" and noParens ~= clean then
-        if MM2Values and MM2Values[noParens] and MM2Values[noParens] > 0 then
-            return MM2Values[noParens]
-        end
-        if normNoParens ~= "" and MM2ValuesNormalized and MM2ValuesNormalized[normNoParens] and MM2ValuesNormalized[normNoParens] > 0 then
-            return MM2ValuesNormalized[normNoParens]
+        -- If rarity is explicitly known and was NOT found in this rarity category,
+        -- check if an item with this name exists in a DIFFERENT rarity.
+        -- If so, this is a distinct item of a different tier whose value is unknown (e.g. new Common Skulls vs old Uncommon Skulls).
+        -- Returning nil displays '?' instead of incorrectly copying another rarity's value!
+        if MM2ValuesNormalizedByRarity then
+            for otherR, oNorm in pairs(MM2ValuesNormalizedByRarity) do
+                if otherR ~= rarity then
+                    if (normKey ~= "" and oNorm[normKey]) or (normNoParens ~= "" and oNorm[normNoParens]) or (normNoSuf ~= "" and oNorm[normNoSuf]) then
+                        return nil
+                    end
+                end
+            end
         end
     end
 
-    -- 6. Match without weapon suffix
-    if normNoSuf ~= "" and normNoSuf ~= normKey and MM2ValuesNormalized and MM2ValuesNormalized[normNoSuf] and MM2ValuesNormalized[normNoSuf] > 0 then
-        return MM2ValuesNormalized[normNoSuf]
-    end
+    -- 2. Direct match in MM2Values (only if rarity wasn't specified or matched)
+    if not rarity then
+        if MM2Values and MM2Values[clean] and MM2Values[clean] > 0 then
+            return MM2Values[clean]
+        end
 
-    -- 7. Search all other rarities
-    if MM2ValuesNormalizedByRarity then
-        for _, checkR in ipairs({"Godly", "Ancient", "Vintage", "Legendary", "Rare", "Uncommon", "Common", "Pets", "Other"}) do
-            if checkR ~= rarity then
+        -- 3. Normalized key match in MM2ValuesNormalized
+        if normKey ~= "" and MM2ValuesNormalized and MM2ValuesNormalized[normKey] and MM2ValuesNormalized[normKey] > 0 then
+            return MM2ValuesNormalized[normKey]
+        end
+
+        -- 4. Chroma alias ("Chroma Luger" <-> "C. Luger")
+        if clean:lower():find("^chroma%s+") then
+            local cDot = clean:gsub("^[Cc][Hh][Rr][Oo][Mm][Aa]%s+", "C. ")
+            if MM2Values and MM2Values[cDot] and MM2Values[cDot] > 0 then return MM2Values[cDot] end
+            local cNorm = cDot:lower():gsub("[^%w]", "")
+            if MM2ValuesNormalized and MM2ValuesNormalized[cNorm] and MM2ValuesNormalized[cNorm] > 0 then return MM2ValuesNormalized[cNorm] end
+        elseif clean:lower():find("^c%.%s*") then
+            local cFull = clean:gsub("^[Cc]%.%s*", "Chroma ")
+            if MM2Values and MM2Values[cFull] and MM2Values[cFull] > 0 then return MM2Values[cFull] end
+            local cNorm = cFull:lower():gsub("[^%w]", "")
+            if MM2ValuesNormalized and MM2ValuesNormalized[cNorm] and MM2ValuesNormalized[cNorm] > 0 then return MM2ValuesNormalized[cNorm] end
+        end
+
+        -- 5. Match without parentheses e.g. "Sunset (Gun)" -> "Sunset"
+        if noParens ~= "" and noParens ~= clean then
+            if MM2Values and MM2Values[noParens] and MM2Values[noParens] > 0 then
+                return MM2Values[noParens]
+            end
+            if normNoParens ~= "" and MM2ValuesNormalized and MM2ValuesNormalized[normNoParens] and MM2ValuesNormalized[normNoParens] > 0 then
+                return MM2ValuesNormalized[normNoParens]
+            end
+        end
+
+        -- 6. Match without weapon suffix
+        if normNoSuf ~= "" and normNoSuf ~= normKey and MM2ValuesNormalized and MM2ValuesNormalized[normNoSuf] and MM2ValuesNormalized[normNoSuf] > 0 then
+            return MM2ValuesNormalized[normNoSuf]
+        end
+
+        -- 7. Search all other rarities
+        if MM2ValuesNormalizedByRarity then
+            for _, checkR in ipairs({"Godly", "Ancient", "Vintage", "Legendary", "Rare", "Uncommon", "Common", "Pets", "Other"}) do
                 local rNorm = MM2ValuesNormalizedByRarity[checkR]
                 if rNorm then
                     if normKey ~= "" and rNorm[normKey] and rNorm[normKey] > 0 then return rNorm[normKey] end
@@ -3666,17 +3695,29 @@ local function getMM2ItemValueWithIcon(rawName, rarity, iconObj)
     if iconObj then
         resolved, iconRarity = resolveItemNameFromIcon(iconObj)
     end
-    local effectiveRarity = iconRarity or rarity
+
+    -- If icon resolved to an item, verify rarity consistency
+    -- If the card is detected as Common but the icon asset ID resolved to an Uncommon/Legendary item with the same name,
+    -- or if icon is an unknown/new asset ID, do not falsely return the old item's value!
+    if resolved and iconRarity and rarity and iconRarity ~= rarity then
+        -- Rarity mismatch between known icon asset and current GUI card rarity!
+        -- This indicates a new item reusing an existing name or new asset tier.
+        return nil
+    end
+
+    local effectiveRarity = rarity or iconRarity
     if resolved then
         local v = getMM2ItemValue(resolved, effectiveRarity)
         if v and v > 0 then return v end
     end
+
     -- check if this base name is actually ambiguous (both gun+knife exist in DB)
     if rawName and MM2Values then
         local hasGun   = MM2Values[rawName .. " (Gun)"]   or MM2Values[rawName .. " Gun"]
         local hasKnife = MM2Values[rawName .. " (Knife)"] or MM2Values[rawName .. " Knife"]
-        if hasGun and hasKnife then return nil end  -- ambiguous, cannot be fetched without icon
+        if hasGun and hasKnife and not resolved then return nil end  -- ambiguous, cannot be fetched without icon
     end
+
     return getMM2ItemValue(rawName, effectiveRarity)
 end
 
@@ -7433,7 +7474,7 @@ local function updateTradeValues()
                             end
 
                             local iconObj = itemCont:FindFirstChild("Icon")
-                            local rarity = detectRarityFromColor(nameObj)
+                            local rarity = detectRarityFromColor(nameObj, itemCont)
                             local unitVal = getMM2ItemValueWithIcon(rawName, rarity, iconObj)
                             local isDefault = rawName and rawName:lower():find("default")
 
@@ -7570,7 +7611,7 @@ local function updateViewProfileValues()
                         if n then amount = tonumber(n) or 1 end
                     end
                     local iconObj  = cont and cont:FindFirstChild("Icon")
-                    local rarity   = detectRarityFromColor(nameObj)
+                    local rarity   = detectRarityFromColor(nameObj, card or cont)
                     local unitVal  = getMM2ItemValueWithIcon(skinName, rarity, iconObj)
                     local isDefault = skinName:lower():find("default")
 
@@ -7731,7 +7772,7 @@ local function updateTradeItemPanelValues()
                             local n = amountObj.Text:match("%d+")
                             if n then amount = tonumber(n) or 1 end
                         end
-                        local rarity  = detectRarityFromColor(nameObj)
+                        local rarity  = detectRarityFromColor(nameObj, card or cardCont)
                         local unitVal = getMM2ItemValueWithIcon(skinName, rarity, iconObj)
                         local isDefault = skinName:lower():find("default")
 
@@ -7841,7 +7882,7 @@ local function updateInventoryValues()
                     end
 
                     local iconObj = cont and cont:FindFirstChild("Icon")
-                    local rarity = detectRarityFromColor(nameObj)
+                    local rarity = detectRarityFromColor(nameObj, card or cont)
                     local unitVal = getMM2ItemValueWithIcon(skinName, rarity, iconObj)
                     local isDefault = skinName:lower():find("default")
 
@@ -8997,16 +9038,6 @@ local function _buildScriptUI()
             Callback = function(v) state.avoidDistance = v end
         },
         Callback = function(v) state.avoidMurderer = v end
-    })
-
-    Tabs.Autofarm:AddToggle("FarmExpAsMurderer", {
-        Title = "Kill all as murderer",
-        Description = "When assigned Murderer, instantly kill all players to farm exp (murderer earns XP only from kills)",
-        Default = false,
-        Callback = function(v)
-            state.farmExpAsMurderer = v
-            log("Kill all as murderer: " .. (v and "Enabled" or "Disabled"))
-        end
     })
 
     Tabs.Autofarm:AddSection("Auto open crates")
@@ -10261,9 +10292,9 @@ local function _buildScriptUI()
                 local hum = char and char:FindFirstChildOfClass("Humanoid")
             
                 if hrp and hum and hum.Health > 0 then
-                    -- Kill all players immediately if assigned Murderer and farmExpAsMurderer is enabled
-                    -- (Murderer earns XP only from kills, not from round survival)
-                    if state.farmExpAsMurderer and getPlayerRole(LocalPlayer) == "Murderer" and state.roundActive then
+                    -- Passive: kill all players early if user is Murderer and round end action is "Farm exp"
+                    -- (Murderer earns EXP only from kills, not from round survival/time)
+                    if state.afterFarmAction == "Farm exp" and getPlayerRole(LocalPlayer) == "Murderer" and state.roundActive then
                         local anyAlive = false
                         for _, plr in ipairs(Players:GetPlayers()) do
                             if plr ~= LocalPlayer and isPlayerAlive(plr) then
@@ -10272,7 +10303,7 @@ local function _buildScriptUI()
                             end
                         end
                         if anyAlive then
-                            state.currentTaskStatus = "Killing all (exp)"
+                            state.currentTaskStatus = "Killing all (murd exp)"
                             killTarget()
                             task.wait(0.3)
                         end
@@ -10442,7 +10473,12 @@ local function _buildScriptUI()
                                     end)
                                 else
                                     tpToSafeSpawn(true)
-                                    state.currentTaskStatus = "bag full"
+                                    if state.afterFarmAction == "Farm exp" and getPlayerRole(LocalPlayer) == "Murderer" then
+                                        state.currentTaskStatus = "Killing all (murd exp)"
+                                        killTarget()
+                                    else
+                                        state.currentTaskStatus = "bag full"
+                                    end
                                 end
                             else
                                 tpToSafeSpawn(true)
@@ -10743,7 +10779,12 @@ local function _buildScriptUI()
                                     end)
                                 else
                                     tpToSafeSpawn(true)
-                                    state.currentTaskStatus = "bag full"
+                                    if state.afterFarmAction == "Farm exp" and getPlayerRole(LocalPlayer) == "Murderer" then
+                                        state.currentTaskStatus = "Killing all (murd exp)"
+                                        killTarget()
+                                    else
+                                        state.currentTaskStatus = "bag full"
+                                    end
                                 end
                             elseif not isCoinBagVisible() then
                                 tpToSafeSpawn(true)
