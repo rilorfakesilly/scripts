@@ -114,6 +114,10 @@ state = {
     taskLoggerEnabled = true,
     tweenRoundTeleported = false,
     
+    -- map auto voting
+    autoVoteRunning = false,
+    autoVotePadIndex = 1,
+    
     -- tune movement physics and weapon targeting
     speedEnabled = false,
     speedValue = 16,
@@ -3798,8 +3802,19 @@ Window = Library:CreateWindow({
             ["Webhook"] = "Вебхук",
             ["Settings"] = "Настройки",
 
+            -- Sub Tabs
+            ["Movement"] = "Движение",
+            ["Aim & combat"] = "Аим и бой",
+            ["ESP"] = "ВХ",
+            ["Cosmetics"] = "Косметика",
+            ["Effects"] = "Эффекты",
+
             -- Sections
             ["Farm"] = "Фарм",
+            ["Aim & combat"] = "Аим и бой",
+            ["Cosmetics"] = "Косметика",
+            ["Effects"] = "Эффекты",
+            ["ESP"] = "ВХ",
             ["Movement"] = "Движение",
             ["Body stuff"] = "Эффекты тела",
             ["China hat"] = "Азиатская шляпа",
@@ -3842,9 +3857,52 @@ Window = Library:CreateWindow({
             ["Jump ring"] = "Кольцо прыжка",
             ["Color animation"] = "Анимация цвета",
             ["Value calculator"] = "Калькулятор ценностей",
+            ["Map voting"] = "Голосование за карту",
+            ["Choose map"] = "Выбор карты",
+            ["Start auto voting"] = "Начать автоголосование",
+            ["Stop auto voting"] = "Остановить автоголосование",
+            ["Start dupe voting"] = "Начать дюп голосования",
+            ["Stop dupe voting"] = "Остановить дюп голосования",
+            ["Refresh maps"] = "Обновить карты",
 
             -- Buttons & Actions
             ["Rejoin server"] = "Перезайти на сервер",
+            ["Server hop"] = "Сменить сервер",
+            ["Kill character"] = "Убить персонажа",
+            ["Fling murderer"] = "Флингнуть убийцу",
+            ["Fling murd"] = "Флингнуть убийцу",
+            ["Fling sheriff"] = "Флингнуть шерифа",
+            ["Fling target"] = "Флингнуть цель",
+            ["Kill all"] = "Убить всех",
+            ["Shoot"] = "Выстрелить",
+            ["Wallbang murder"] = "Прострелить убийцу",
+            ["Wallbang"] = "Прострел сквозь стены",
+            ["Play emote"] = "Включить эмоцию",
+            ["Stop emote"] = "Остановить эмоцию",
+            ["Send test webhook"] = "Отправить тестовый вебхук",
+            ["Teleport to target"] = "Телепорт к цели",
+            ["Spectate target"] = "Наблюдать за целью",
+            ["Add custom emote"] = "Добавить свою эмоцию",
+            ["Remove custom emote"] = "Удалить свою эмоцию",
+            ["Trade & inventory values"] = "Ценности инвентаря и трейда",
+            ["Save config"] = "Сохранить конфиг",
+            ["Load config"] = "Загрузить конфиг",
+            ["Delete config"] = "Удалить конфиг",
+            ["Export config"] = "Экспорт конфига",
+            ["Import config"] = "Импорт конфига",
+            ["Copy link"] = "Скопировать ссылку",
+            ["Lock"] = "Захват цели",
+            ["Fly"] = "Полёт",
+            ["Auto bhop"] = "Авто распрыжка",
+            ["Bunnyhop"] = "Распрыжка (Bhop)",
+            ["Bhop speed"] = "Скорость распрыжки",
+            ["Avoid murderer"] = "Убегать от убийцы",
+            ["Avoid distance"] = "Дистанция побега",
+            ["Spin speed"] = "Скорость вращения",
+            ["Preset"] = "Пресет",
+            ["Custom emote name"] = "Название эмоции",
+            ["Custom animation ID"] = "ID анимации",
+            ["Stop on move"] = "Остановка при ходьбе",
             ["Server hop"] = "Сменить сервер",
             ["Kill character"] = "Убить персонажа",
             ["Fling murderer"] = "Флингнуть убийцу",
@@ -4539,6 +4597,33 @@ local function getPlayerRole(plr)
     return "Innocent"
 end
 
+local function getMurderers()
+    local list = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and isPlayerAlive(p) and hasTool(p, "Knife") then
+            list[#list + 1] = p
+        end
+    end
+    if #list == 0 then
+        local m = state.knifeHolder or getMurd()
+        if m and m ~= LocalPlayer and isPlayerAlive(m) then list[1] = m end
+    end
+    return list
+end
+
+local function getClosestMurderer()
+    local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local best, bestDist
+    for _, p in ipairs(getMurderers()) do
+        local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local d = myHrp and (hrp.Position - myHrp.Position).Magnitude or 0
+            if not bestDist or d < bestDist then best, bestDist = p, d end
+        end
+    end
+    return best
+end
+
 -- configure projectile aim-assist bounds
 local silentAimConfig = {
     enabled = false,
@@ -5118,16 +5203,9 @@ local function getAutoAimTarget()
     local targetPlayer = nil
     local targetPart = nil
 
-    local murderer = state and state.knifeHolder or getMurd()
-    if murderer and isPlayerAlive(murderer) and murderer ~= LocalPlayer then
+    local murderer = getClosestMurderer()
+    if murderer then
         targetPlayer = murderer
-    else
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and isPlayerAlive(p) and hasTool(p, "Knife") then
-                targetPlayer = p
-                break
-            end
-        end
     end
 
     if not targetPlayer then
@@ -5246,27 +5324,27 @@ end
 
 local function getSilentAimTarget()
     if not silentAimConfig.enabled or (state and state.unloaded) then return nil, nil, nil end
-    local shortestDist = silentAimConfig.fovRadius or 125
-    local targetPlayer = nil
-    local targetPart = nil
-    local targetPos = nil
+    local fov = silentAimConfig.fovRadius or 125
+    local bestScreen = fov
+    local bestWorld = math.huge
+    local targetPlayer, targetPart, targetPos = nil, nil, nil
     local mouseLoc = UserInputService:GetMouseLocation()
+    local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
-    local murderer = state and state.knifeHolder or getMurd()
-    local sheriff  = state and state.gunHolder or getSheriff()
-    local hasGun   = hasTool(LocalPlayer, "Gun")
-    local hasKnife = hasTool(LocalPlayer, "Knife")
+    local hasGun = hasTool(LocalPlayer, "Gun")
+    local murdererSet, anyMurderer = {}, false
+    if hasGun then
+        for _, m in ipairs(getMurderers()) do
+            murdererSet[m] = true
+            anyMurderer = true
+        end
+    end
+    local byDistance = hasGun and anyMurderer
 
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and (not silentAimConfig.aliveCheck or isPlayerAlive(p)) then
-            local isValidTarget = false
-            if hasGun then
-                isValidTarget = (p == murderer or (not murderer and p ~= LocalPlayer))
-            elseif hasKnife then
-                isValidTarget = true
-            else
-                isValidTarget = (p == murderer or p == sheriff or true)
-            end
+            local isValidTarget = true
+            if byDistance then isValidTarget = murdererSet[p] == true end
 
             if isValidTarget and p.Character then
                 local char = p.Character
@@ -5274,44 +5352,41 @@ local function getSilentAimTarget()
                 if silentAimConfig.wallbang then
                     part = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("LowerTorso") or char:FindFirstChild("HumanoidRootPart")
                 elseif silentAimConfig.targetPart == "Random" then
-                    local partsList = {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "Torso"}
                     local available = {}
-                    for _, pName in ipairs(partsList) do
+                    for _, pName in ipairs({"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "Torso"}) do
                         local pt = char:FindFirstChild(pName)
-                        if pt and pt:IsA("BasePart") then
-                            table.insert(available, pt)
-                        end
+                        if pt and pt:IsA("BasePart") then available[#available + 1] = pt end
                     end
-                    if #available > 0 then
-                        part = available[math.random(1, #available)]
-                    end
+                    if #available > 0 then part = available[math.random(1, #available)] end
                 elseif silentAimConfig.targetPart and silentAimConfig.targetPart ~= "" then
                     part = char:FindFirstChild(silentAimConfig.targetPart)
                 end
-
                 if not part then
                     part = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
                 end
 
                 if part and (silentAimConfig.wallbang or not silentAimConfig.wallCheck or isPartVisible(part, char)) then
+                    local worldDist = myHrp and (part.Position - myHrp.Position).Magnitude or 0
+
                     if silentAimConfig.wallbang then
-                        targetPlayer = p
-                        targetPart = part
-                        targetPos = part.Position
-                        break
+                        local better = byDistance and (worldDist < bestWorld) or (not byDistance and not targetPlayer)
+                        if better then
+                            bestWorld = worldDist
+                            targetPlayer, targetPart, targetPos = p, part, part.Position
+                        end
                     else
                         local screenPos, onScreen = CurrentCamera:WorldToViewportPoint(part.Position)
                         if onScreen and screenPos.Z > 0 then
                             local dist = (Vector2.new(screenPos.X, screenPos.Y) - mouseLoc).Magnitude
-                            if dist <= shortestDist then
-                                local rawPos = part.Position
-                                local predH, predV = getSilentAimPred()
-                                local predicted = calculateAimPosition(rawPos, part, predH, predV)
-
-                                shortestDist = dist
-                                targetPlayer = p
-                                targetPart = part
-                                targetPos = predicted
+                            if dist <= fov then
+                                local better
+                                if byDistance then better = worldDist < bestWorld else better = dist <= bestScreen end
+                                if better then
+                                    local predH, predV = getSilentAimPred()
+                                    bestScreen, bestWorld = dist, worldDist
+                                    targetPlayer, targetPart = p, part
+                                    targetPos = calculateAimPosition(part.Position, part, predH, predV)
+                                end
                             end
                         end
                     end
@@ -8073,9 +8148,9 @@ local function _buildScriptUI()
     mdTabs.Main:AddWelcomeHeader()
 
     mdTabs.Main:AddButtonRow({
-        { Text = "Rejoin server", Callback = function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end },
-        { Text = "Server hop",    Callback = function() serverHop() end },
-        { Text = "Kill character",Callback = function() if LocalPlayer.Character then LocalPlayer.Character:BreakJoints() end end }
+        { Text = "Rejoin server", Icon = "rotate-ccw", Callback = function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end },
+        { Text = "Server hop",    Icon = "shuffle",    Callback = function() serverHop() end },
+        { Text = "Kill character",Icon = "skull",      Callback = function() if LocalPlayer.Character then LocalPlayer.Character:BreakJoints() end end }
     }, 31)
 
     local function createTabAdapter(rawTab)
@@ -8549,11 +8624,12 @@ local function _buildScriptUI()
             AddButton = function(self, cfg)
                 local title = cfg.Title or cfg.Text or "Button"
                 local cb = cfg.Callback
-                local target = self._sectionContainer or self._currentSection
+                local target = cfg.Parent or self._sectionContainer or self._currentSection
+                local icon = cfg.Icon or cfg.icon or cfg.IconAsset
 
                 local btnObj = rawTab:AddLongButton(title, function()
                     if cb then cb() end
-                end, 1.0, target)
+                end, cfg.Size or 1.0, target, nil, icon, cfg.ShowArrow)
                 return btnObj
             end,
             AddButtonRow = function(self, buttonList, height, parentRow)
@@ -8834,6 +8910,16 @@ local function _buildScriptUI()
                     end
                 end
                 return results
+            end,
+            AddImageGrid = function(self, cfg, container)
+                local target = container or self._sectionContainer or self._currentSection
+                if rawTab and rawTab.AddImageGrid then
+                    return rawTab:AddImageGrid(cfg, target)
+                end
+                return nil
+            end,
+            AddGallery = function(self, cfg, container)
+                return self:AddImageGrid(cfg, container)
             end
         }
         setmetatable(adapter, {
@@ -8945,6 +9031,301 @@ local function _buildScriptUI()
         Webhook    = createTabAdapter(mdTabs.Webhook),
         Settings   = createTabAdapter(mdTabs.Settings),
     }
+
+    -- construct main tab map voting controls
+    Tabs.Main:AddSection("Map voting", true)
+
+    local function getVotePadsFolder()
+        local lobby = workspace:FindFirstChild("Lobby")
+        if not lobby then return nil end
+        return lobby:FindFirstChild("VotePads")
+    end
+
+    local function extractMapImage(iconObj)
+        if not iconObj then return "" end
+        if iconObj:IsA("ImageLabel") or iconObj:IsA("ImageButton") then
+            if iconObj.Image and iconObj.Image ~= "" then return iconObj.Image end
+        end
+        if iconObj:IsA("Decal") or iconObj:IsA("Texture") then
+            if iconObj.Texture and iconObj.Texture ~= "" then return iconObj.Texture end
+        end
+        local subImg = iconObj:FindFirstChildWhichIsA("ImageLabel", true)
+        if subImg and subImg.Image and subImg.Image ~= "" then
+            return subImg.Image
+        end
+        local subDecal = iconObj:FindFirstChildWhichIsA("Decal", true)
+        if subDecal and subDecal.Texture and subDecal.Texture ~= "" then
+            return subDecal.Texture
+        end
+        local s, val = pcall(function() return iconObj.Image end)
+        if s and type(val) == "string" and val ~= "" then
+            return val
+        end
+        local s2, val2 = pcall(function() return iconObj.Texture end)
+        if s2 and type(val2) == "string" and val2 ~= "" then
+            return val2
+        end
+        return ""
+    end
+
+    local function getVotePadDetails(padIndex)
+        local padsFolder = getVotePadsFolder()
+        local padModel = padsFolder and padsFolder:FindFirstChild("VotePad" .. tostring(padIndex))
+        local mapName = "Map " .. tostring(padIndex)
+        local mapImage = ""
+        local padPart = nil
+
+        if padModel then
+            padPart = padModel:FindFirstChild("Pad")
+            local vig = padModel:FindFirstChild("VoteInfoGui")
+            local container = vig and vig:FindFirstChild("Container")
+            local nameLabel = container and container:FindFirstChild("MapName")
+            if nameLabel and nameLabel:IsA("TextLabel") and nameLabel.Text and nameLabel.Text ~= "" then
+                mapName = nameLabel.Text
+            elseif vig then
+                local fallback = vig:FindFirstChild("MapName", true)
+                if fallback and fallback:IsA("TextLabel") and fallback.Text and fallback.Text ~= "" then
+                    mapName = fallback.Text
+                end
+            end
+
+            local mig = padModel:FindFirstChild("MapInfoGui")
+            local iconObj = mig and mig:FindFirstChild("MapIcon")
+            if iconObj then
+                mapImage = extractMapImage(iconObj)
+            end
+        end
+
+        return {
+            Index = padIndex,
+            Name = mapName,
+            Image = mapImage,
+            PadPart = padPart,
+            Model = padModel
+        }
+    end
+
+    local function isVoteMapIconGone(padIndex)
+        local padsFolder = getVotePadsFolder()
+        if not padsFolder or not padsFolder.Parent then
+            return true
+        end
+        local padModel = padsFolder:FindFirstChild("VotePad" .. tostring(padIndex))
+        if not padModel or not padModel.Parent then
+            return true
+        end
+        local mig = padModel:FindFirstChild("MapInfoGui")
+        if not mig or not mig.Parent then
+            return true
+        end
+        if mig:IsA("LayerCollector") and not mig.Enabled then
+            return true
+        end
+        local iconObj = mig:FindFirstChild("MapIcon")
+        if not iconObj or not iconObj.Parent then
+            return true
+        end
+        if iconObj:IsA("GuiObject") and not iconObj.Visible then
+            return true
+        end
+        local img = extractMapImage(iconObj)
+        if img == "" then
+            if iconObj:IsA("ImageLabel") or iconObj:IsA("ImageButton") or iconObj:FindFirstChildWhichIsA("ImageLabel", true) then
+                return true
+            end
+        end
+        return false
+    end
+
+    local function teleportInsidePad(padPart)
+        if not padPart or not padPart:IsA("BasePart") then return false end
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return false end
+
+        hrp.CFrame = padPart.CFrame * CFrame.new(0, 1.0, 0)
+        pcall(function()
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end)
+
+        if typeof(firetouchinterest) == "function" then
+            pcall(function()
+                firetouchinterest(hrp, padPart, 0)
+                task.wait(0.04)
+                firetouchinterest(hrp, padPart, 1)
+            end)
+        end
+        return true
+    end
+
+    local function resetPlayerCharacter()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.Health = 0
+        end
+        pcall(function()
+            char:BreakJoints()
+        end)
+    end
+
+    local function waitForCharacterRespawn(oldChar, timeout)
+        local startT = tick()
+        timeout = timeout or 10
+
+        while tick() - startT < timeout do
+            local c = LocalPlayer.Character
+            local h = c and c:FindFirstChildOfClass("Humanoid")
+            if not c or c ~= oldChar or not h or h.Health <= 0 then
+                break
+            end
+            task.wait(0.05)
+        end
+
+        while tick() - startT < timeout do
+            local c = LocalPlayer.Character
+            local h = c and c:FindFirstChildOfClass("Humanoid")
+            local hrp = c and c:FindFirstChild("HumanoidRootPart")
+            if (c ~= oldChar or (h and h.Health > 0 and tick() - startT > 1.0)) and hrp and h and h.Health > 0 then
+                task.wait(0.15)
+                return c
+            end
+            task.wait(0.05)
+        end
+
+        return LocalPlayer.Character
+    end
+
+    local function getMapGridItems()
+        local items = {}
+        for i = 1, 3 do
+            local det = getVotePadDetails(i)
+            table.insert(items, {
+                Name = det.Name,
+                Image = det.Image ~= "" and det.Image or "rbxassetid://6034287525",
+                PadIndex = i
+            })
+        end
+        return items
+    end
+
+    local initialMapItems = getMapGridItems()
+    local mapGrid = Tabs.Main:AddImageGrid({
+        Title = "Choose map",
+        Columns = 3,
+        Items = initialMapItems,
+        Default = initialMapItems[1] and initialMapItems[1].Name,
+        Callback = function(item)
+            if type(item) == "table" and item.PadIndex then
+                state.autoVotePadIndex = item.PadIndex
+            end
+        end
+    })
+
+    local autoVoteBtn = nil
+
+    autoVoteBtn = Tabs.Main:AddButton({
+        Title = "Start dupe voting",
+        Icon = "play",
+        Callback = function()
+            if state.autoVoteRunning then
+                state.autoVoteRunning = false
+                if autoVoteBtn and autoVoteBtn.SetText then
+                    autoVoteBtn:SetText("Start dupe voting")
+                    autoVoteBtn:SetIcon("play")
+                end
+                Window:Notify("Map voting", "Dupe voting stopped", 2)
+                return
+            end
+
+            local chosenPad = state.autoVotePadIndex or 1
+            if isVoteMapIconGone(chosenPad) then
+                Window:Notify("Map voting", "Map voting is not active right now!", 2.5)
+                return
+            end
+
+            state.autoVoteRunning = true
+            if autoVoteBtn and autoVoteBtn.SetText then
+                autoVoteBtn:SetText("Stop dupe voting")
+                autoVoteBtn:SetIcon("square")
+            end
+            Window:Notify("Map voting", "Dupe voting started for map " .. tostring(chosenPad), 2)
+
+            task.spawn(function()
+                while state.autoVoteRunning and not (state and state.unloaded) do
+                    local currentPad = state.autoVotePadIndex or 1
+                    if isVoteMapIconGone(currentPad) then
+                        log("Auto vote stopped: Voting ended or map icon is gone.")
+                        Window:Notify("Map voting", "Voting ended (map icon is gone)", 3)
+                        break
+                    end
+
+                    local padDetails = getVotePadDetails(currentPad)
+                    local padPart = padDetails.PadPart
+                    if not padPart then
+                        task.wait(0.5)
+                        continue
+                    end
+
+                    local char = LocalPlayer.Character
+                    local hum = char and char:FindFirstChildOfClass("Humanoid")
+                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+                    if char and hum and hrp and hum.Health > 0 then
+                        teleportInsidePad(padPart)
+                        task.wait(0.2)
+
+                        if not state.autoVoteRunning or isVoteMapIconGone(currentPad) then
+                            break
+                        end
+
+                        local oldChar = LocalPlayer.Character
+                        resetPlayerCharacter()
+                        waitForCharacterRespawn(oldChar, 10)
+                    else
+                        task.wait(0.2)
+                    end
+
+                    task.wait(0.1)
+                end
+
+                state.autoVoteRunning = false
+                if autoVoteBtn and autoVoteBtn.SetText then
+                    autoVoteBtn:SetText("Start dupe voting")
+                    autoVoteBtn:SetIcon("play")
+                end
+            end)
+        end
+    })
+
+    -- Background watcher to dynamically update map thumbnails & names during voting phase
+    task.spawn(function()
+        local lastSignature = ""
+        while not (state and state.unloaded) do
+            local p1 = getVotePadDetails(1)
+            local p2 = getVotePadDetails(2)
+            local p3 = getVotePadDetails(3)
+            local sig = string.format("%s|%s|%s|%s|%s|%s", p1.Name, p1.Image, p2.Name, p2.Image, p3.Name, p3.Image)
+            if sig ~= lastSignature then
+                lastSignature = sig
+                if mapGrid and mapGrid.SetItems then
+                    local updatedItems = {
+                        { Name = p1.Name, Image = p1.Image ~= "" and p1.Image or "rbxassetid://6034287525", PadIndex = 1 },
+                        { Name = p2.Name, Image = p2.Image ~= "" and p2.Image or "rbxassetid://6034287525", PadIndex = 2 },
+                        { Name = p3.Name, Image = p3.Image ~= "" and p3.Image or "rbxassetid://6034287525", PadIndex = 3 },
+                    }
+                    mapGrid:SetItems(updatedItems)
+                    local currIndex = state.autoVotePadIndex or 1
+                    if updatedItems[currIndex] and mapGrid.SetSelected then
+                        mapGrid:SetSelected(updatedItems[currIndex].Name)
+                    end
+                end
+            end
+            task.wait(1.5)
+        end
+    end)
 
     -- construct automated farming controls
     Tabs.Autofarm:AddSection("Farm")
@@ -10294,7 +10675,7 @@ local function _buildScriptUI()
                 if hrp and hum and hum.Health > 0 then
                     -- Passive: kill all players early if user is Murderer and round end action is "Farm exp"
                     -- (Murderer earns EXP only from kills, not from round survival/time)
-                    if state.afterFarmAction == "Farm exp" and getPlayerRole(LocalPlayer) == "Murderer" and state.roundActive then
+                    if state.afterFarmAction == "Farm exp" and state.autofarmMode ~= "Wins" and getPlayerRole(LocalPlayer) == "Murderer" and state.roundActive and isBagFull() then
                         local anyAlive = false
                         for _, plr in ipairs(Players:GetPlayers()) do
                             if plr ~= LocalPlayer and isPlayerAlive(plr) then
@@ -11454,6 +11835,7 @@ local function _buildScriptUI()
 
     Tabs.Player:AddButton({
         Title = "Teleport to target",
+        Icon = "navigation",
         Callback = function()
             local target = findPlayer(state.targetUsername)
             if target and isPlayerAlive(target) then
@@ -11546,7 +11928,7 @@ local function _buildScriptUI()
 
     -- dispatch targeted flings against players
     Tabs.Player:AddButtonRow({
-        { Text = "Fling target", Callback = function()
+        { Text = "Fling target", Icon = "wind", Callback = function()
             local target, err = findPlayer(state.targetUsername)
             if not target then log("Fling stopped: " .. (err or "No target")); return end
             if not isPlayerAlive(target) then log("target died"); return end
@@ -11564,7 +11946,7 @@ local function _buildScriptUI()
             end
             log("Fling done")
         end },
-        { Text = "Fling murderer", Callback = function()
+        { Text = "Fling murderer", Icon = "flame", Callback = function()
             local target = state.knifeHolder or getMurd()
             if not target then log("Murderer not found"); return end
             if not isPlayerAlive(target) then log("Murderer not alive"); return end
@@ -11582,7 +11964,7 @@ local function _buildScriptUI()
             end
             log("Fling done")
         end },
-        { Text = "Fling sheriff", Callback = function()
+        { Text = "Fling sheriff", Icon = "shield-alert", Callback = function()
             local target = state.gunHolder or getSheriff()
             if not target then log("Sheriff not found"); return end
             if not isPlayerAlive(target) then log("Sheriff not alive"); return end
@@ -11607,7 +11989,7 @@ local function _buildScriptUI()
 
     -- provide quick actions for knife attacks
     Tabs.Murderer:AddButtonRow({
-        { Text = "Kill all", Callback = function()
+        { Text = "Kill all", Icon = "swords", Callback = function()
             if not isPlayerAlive(LocalPlayer) then log("Dead - cannot kill"); return end
             local char = LocalPlayer.Character
             local hrp  = char and char:FindFirstChild("HumanoidRootPart")
@@ -11642,7 +12024,7 @@ local function _buildScriptUI()
                 log("Kill all executed on " .. count .. " players")
             end
         end },
-        { Text = "Fling sheriff", Callback = function()
+        { Text = "Fling sheriff", Icon = "shield-alert", Callback = function()
             local target = state.gunHolder or getSheriff()
             if not target then log("Sheriff not found"); return end
             if not isPlayerAlive(target) then log("Sheriff not alive"); return end
@@ -11967,7 +12349,7 @@ local function _buildScriptUI()
 
     -- construct sheriff shooting and role assist tools
     Tabs.Sheriff:AddButtonRow({
-        { Text = "Wallbang murder", Callback = function()
+        { Text = "Wallbang murder", Icon = "crosshair", Callback = function()
             local murderer = state.knifeHolder or getMurd()
             if not murderer or not isPlayerAlive(murderer) then log("Murderer not found or dead"); return end
             local gunTool = getPlayerTool(LocalPlayer, "Gun")
@@ -11996,7 +12378,7 @@ local function _buildScriptUI()
                 log("Wallbanged murderer: " .. murderer.Name)
             end
         end },
-        { Text = "Fling murderer", Callback = function()
+        { Text = "Fling murderer", Icon = "flame", Callback = function()
             local target = state.knifeHolder or getMurd()
             if not target then log("Murderer not found"); return end
             if not isPlayerAlive(target) then log("Murderer not alive"); return end
@@ -15969,12 +16351,14 @@ end))
     Tabs.Animations:AddButtonRow({
         {
             Text = "Play emote",
+            Icon = "play",
             Callback = function()
                 playEmote(state.selectedEmote)
             end
         },
         {
             Text = "Stop emote",
+            Icon = "square",
             Callback = function()
                 stopEmote()
             end
@@ -16010,6 +16394,7 @@ end))
 
     Tabs.Animations:AddButton({
         Title = "Add custom emote",
+        Icon = "plus-circle",
         Callback = function()
             local name = customEmoteTempName:gsub("^%s+", ""):gsub("%s+$", "")
             local id = customEmoteTempId:gsub("^%s+", ""):gsub("%s+$", "")
@@ -16035,6 +16420,7 @@ end))
 
     Tabs.Animations:AddButton({
         Title = "Remove custom emote",
+        Icon = "trash-2",
         Callback = function()
             local selected = state.selectedEmote
             if selected and state.customEmotes and state.customEmotes[selected] then
@@ -16418,6 +16804,7 @@ Tabs.World:AddSection("Skybox")
 
     Tabs.Webhook:AddButton({
         Title = "Send test webhook",
+        Icon = "send",
         Callback = function()
             sendDiscordWebhook(true)
         end
@@ -16466,8 +16853,8 @@ Tabs.World:AddSection("Skybox")
 
     -- group server management shortcuts
     Tabs.Settings:AddButtonRow({
-        { Text = "Server hop", Callback = function() serverHop() end },
-        { Text = "Rejoin server", Callback = function() pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end) end }
+        { Text = "Server hop",    Icon = "shuffle",    Callback = function() serverHop() end },
+        { Text = "Rejoin server", Icon = "rotate-ccw", Callback = function() pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end) end }
     }, 31)
 
     -- render 2d boxes, nametags, and chams highlights for players
