@@ -2,28 +2,41 @@
 -- MorningDrift UI Library: Theme Manager & Visual Effects Module
 local TweenService = game:GetService("TweenService")
 local LightingService = game:GetService("Lighting")
+local Lighting = LightingService
 
 return function(Library, Window)
-    local GetThemedDarkColor = Library.GetThemedDarkColor
-    local GetOnAccent = Library.GetOnAccent
-    local GetIconColorForTheme = Library.GetIconColorForTheme
-    local IsInsideSection = Library.IsInsideSection
-    local ApplyCornerRadii = Library.ApplyCornerRadii
-    local GetThemeCornerRadius = Library.GetThemeCornerRadius
+    local GetThemedDarkColor = Library.GetThemedDarkColor or function(theme)
+        local cardBG = (theme and theme.CardBG) or Color3.fromRGB(30, 32, 40)
+        return cardBG
+    end
+    local GetOnAccent = Library.GetOnAccent or function(bg)
+        if typeof(bg) ~= "Color3" then return Color3.fromRGB(255, 255, 255) end
+        local lum = 0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B
+        return lum > 0.6 and Color3.fromRGB(20, 22, 28) or Color3.fromRGB(255, 255, 255)
+    end
+    local IsInsideSection = Library.IsInsideSection or function() return false end
+    local ApplyCornerRadii = Library.ApplyCornerRadii or Window.ApplyCornerRadii or function() end
 
-    local ClearSearchBtn = Window.ClearSearchBtn
-    local SearchBarContainer = Window.SearchBarContainer
-    local SearchIcon = Window.SearchIcon
-    local SearchInput = Window.SearchInput
-    local ScriptUi = Window.ScriptUi
-    local ParentGui = Window.ParentGui
-    local MainContentFrame = Window.MainContentFrame
-    local BackgroundDOF = Window.BackgroundDOF
-    local LocalUIBlurPart = Window.LocalUIBlurPart
-    local UpdateLocalUIBlur = Window.UpdateLocalUIBlur
-    local ClickSoundTemplate = Window.ClickSoundTemplate
-    local HoverSoundTemplate = Window.HoverSoundTemplate
-    local NotifSoundTemplate = Window.NotifSoundTemplate
+    local function GetIconColorForTheme(theme)
+        if Window.GetIconColorForTheme then
+            return Window.GetIconColorForTheme(theme)
+        end
+        if Library.GetIconColorForTheme then
+            return Library.GetIconColorForTheme(theme)
+        end
+        if not theme then return Color3.fromRGB(255, 255, 255) end
+        local bg = theme.MainBG or Color3.fromRGB(30, 30, 30)
+        local _, s, v = Color3.toHSV(bg)
+
+        if s < 0.3 and v < 0.1 then
+            return Color3.fromRGB(255, 255, 255)
+        end
+        if s < 0.15 and v > 0.85 then
+            return Color3.fromRGB(0, 0, 0)
+        end
+
+        return theme.ButtonBG or theme.Text or Color3.fromRGB(255, 255, 255)
+    end
 
     local activeThemeTweens = {}
     local function cancelActiveThemeTweens()
@@ -454,6 +467,11 @@ return function(Library, Window)
                 end
             end
         end
+
+        local SearchBarContainer = Window.SearchBarContainer
+        local SearchInput = Window.SearchInput
+        local SearchIcon = Window.SearchIcon
+        local ClearSearchBtn = Window.ClearSearchBtn
 
         if SearchBarContainer then
             local searchBarColor = GetThemedDarkColor(newTheme)
@@ -937,6 +955,9 @@ return function(Library, Window)
     function Window:SetSoundVolume(volume)
         local pct = math.clamp(volume or 0.8, 0, 1)
         Window.SoundVolume = pct
+        local HoverSoundTemplate = Window.HoverSoundTemplate
+        local ClickSoundTemplate = Window.ClickSoundTemplate
+        local NotifSoundTemplate = Window.NotifSoundTemplate
         if HoverSoundTemplate then HoverSoundTemplate.Volume = pct * 0.4 end
         if ClickSoundTemplate then ClickSoundTemplate.Volume = pct * 0.5 end
         if NotifSoundTemplate then NotifSoundTemplate.Volume = pct * 0.5 end
@@ -947,6 +968,7 @@ return function(Library, Window)
         if num > 1 then num = num / 100 end
         num = math.clamp(num, 0, 1.0)
         Window.BlurIntensity = num
+        local BackgroundDOF = Window.BackgroundDOF
         if BackgroundDOF and BackgroundDOF.Parent then
             BackgroundDOF.NearIntensity = num
         end
@@ -954,6 +976,9 @@ return function(Library, Window)
 
     function Window:SetBackgroundBlur(enabled)
         Window.BackgroundBlurEnabled = enabled
+        local BackgroundDOF = Window.BackgroundDOF
+        local LocalUIBlurPart = Window.LocalUIBlurPart
+        local UpdateLocalUIBlur = Window.UpdateLocalUIBlur
         if BackgroundDOF and BackgroundDOF.Parent then
             BackgroundDOF.Enabled = enabled
             if enabled then
