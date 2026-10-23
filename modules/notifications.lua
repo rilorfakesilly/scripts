@@ -138,7 +138,7 @@ return function(Library, Window)
 
         local currentScale = GetHUDScale()
         local baseX = math.round(-32 * currentScale)
-        local baseY = math.round(-6 * currentScale)
+        local baseY = math.round(-2 * currentScale)
 
         local ApplyCornerRadii = Window.ApplyCornerRadii or Library.ApplyCornerRadii or function() end
         local AddUIShadow = Window.AddUIShadow or Library.AddUIShadow or function() end
@@ -270,7 +270,7 @@ return function(Library, Window)
 
         for index, notif in ipairs(ActiveNotifications) do
             local targetX = baseX + math.round((index - 1) * 14 * currentScale)
-            local targetY = math.min(0, baseY + math.round((index - 1) * 6 * currentScale))
+            local targetY = math.min(0, baseY + math.round((index - 1) * 4 * currentScale))
             local targetZ = math.max(1, 35 - ((index - 1) * 10))
 
             notif.ZIndex = targetZ
@@ -304,7 +304,7 @@ return function(Library, Window)
 
             for index, notif in ipairs(ActiveNotifications) do
                 local targetX = baseX + math.round((index - 1) * 14 * currentScale)
-                local targetY = math.min(0, baseY + math.round((index - 1) * 6 * currentScale))
+                local targetY = math.min(0, baseY + math.round((index - 1) * 4 * currentScale))
                 local targetZ = math.max(1, 35 - ((index - 1) * 10))
 
                 notif.ZIndex = targetZ
