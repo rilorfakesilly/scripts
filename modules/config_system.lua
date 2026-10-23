@@ -309,6 +309,10 @@ return function(Library, Window)
     function Window:ApplyConfigSaveData(data)
         if not data then return end
 
+        Window._SuppressNotificationCount = (Window._SuppressNotificationCount or 0) + 1
+        Window._SuppressNotifications = true
+        Window._IsLoadingConfig = true
+
         if data.Theme == "Custom" and data.Settings and data.Settings.CustomThemeColor and data.Settings.CustomThemeColor ~= "" and Window.ApplyCustomTheme then
             pcall(function()
                 local col = Color3.fromHex(data.Settings.CustomThemeColor)
@@ -648,6 +652,14 @@ return function(Library, Window)
                 pcall(fn, data)
             end
         end
+
+        task.delay(0.5, function()
+            Window._SuppressNotificationCount = math.max(0, (Window._SuppressNotificationCount or 1) - 1)
+            if Window._SuppressNotificationCount == 0 then
+                Window._SuppressNotifications = false
+                Window._IsLoadingConfig = false
+            end
+        end)
     end
 
     local DefaultConfigMemoryData = nil
@@ -771,6 +783,19 @@ return function(Library, Window)
 
     function Window:LoadConfig(configName)
         configName = configName or "DEFAULT"
+        Window._SuppressNotificationCount = (Window._SuppressNotificationCount or 0) + 1
+        Window._SuppressNotifications = true
+        Window._IsLoadingConfig = true
+
+        local function EndSuppress()
+            task.delay(0.5, function()
+                Window._SuppressNotificationCount = math.max(0, (Window._SuppressNotificationCount or 1) - 1)
+                if Window._SuppressNotificationCount == 0 then
+                    Window._SuppressNotifications = false
+                    Window._IsLoadingConfig = false
+                end
+            end)
+        end
 
         if configName:upper() == "DEFAULT" then
             if not DefaultConfigMemoryData then
@@ -783,6 +808,7 @@ return function(Library, Window)
                 Window.ConfigDropdown.SetSelected("DEFAULT", false)
             end
             Window:Notify("Config loaded", "Loaded default config!", 2.5)
+            EndSuppress()
             return true
         end
 
@@ -810,8 +836,10 @@ return function(Library, Window)
                 end
             end
             Window:Notify("Config loaded", "Loaded '" .. configName .. "'!", 2.5)
+            EndSuppress()
             return true
         else
+            EndSuppress()
             Window:Notify("Config error", "Config '" .. configName .. "' not found!", 3)
             return false
         end
