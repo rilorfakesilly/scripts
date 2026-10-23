@@ -146,11 +146,11 @@ return function(Library, Window)
         local NotifContainer = Instance.new("Frame")
         NotifContainer.Name = "NotifContainer"
         NotifContainer.Size = UDim2.new(0, 290, 0, 105)
-        NotifContainer.Position = UDim2.new(1, 350, 1, -105)
+        NotifContainer.AnchorPoint = Vector2.new(1, 1)
+        NotifContainer.Position = UDim2.new(1, 350, 1, -20)
         NotifContainer.BackgroundTransparency = 1
         NotifContainer.ZIndex = 30
         NotifContainer.Parent = NotificationUI
-        RegisterHUDScale(NotifContainer)
 
         local NotifTop = Instance.new("Frame")
         NotifTop.Name = "TopFrame"
@@ -197,7 +197,8 @@ return function(Library, Window)
         NotifMain.Parent = NotifContainer
 
         local NotifMainCorner = Instance.new("UICorner")
-        ApplyCornerRadii(NotifMainCorner, 0, 0, 8, 8)
+        NotifMainCorner.CornerRadius = UDim.new(0, 0)
+        ApplyCornerRadii(NotifMainCorner, 0, 0, 0, 0)
         NotifMainCorner.Parent = NotifMain
 
         AddUIShadow(NotifMain, 20, 0.5)
@@ -255,9 +256,9 @@ return function(Library, Window)
         table.insert(ActiveNotifications, 1, NotifContainer)
 
         for index, notif in ipairs(ActiveNotifications) do
-            local targetX = -320 + ((index - 1) * 18)
-            local targetY = -105 + ((index - 1) * 12)
-            local targetZ = math.max(1, 30 - ((index - 1) * 10))
+            local targetX = -20
+            local targetY = -20 - ((index - 1) * 115)
+            local targetZ = math.max(1, 30 - ((index - 1) * 2))
 
             notif.ZIndex = targetZ
             for _, child in ipairs(notif:GetDescendants()) do
@@ -274,8 +275,8 @@ return function(Library, Window)
         task.delay(duration, function()
             if not NotifContainer or not NotifContainer.Parent then return end
 
-            local slideOut = TweenService:Create(NotifContainer, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                Position = UDim2.new(1, 350, NotifContainer.Position.Y.Scale, NotifContainer.Position.Y.Offset)
+            local slideOut = TweenService:Create(NotifContainer, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                Position = UDim2.new(1, 350, 1, NotifContainer.Position.Y.Offset)
             })
             slideOut:Play()
             slideOut.Completed:Wait()
@@ -289,9 +290,9 @@ return function(Library, Window)
             NotifContainer:Destroy()
 
             for index, notif in ipairs(ActiveNotifications) do
-                local targetX = -320 + ((index - 1) * 18)
-                local targetY = -105 + ((index - 1) * 12)
-                local targetZ = math.max(1, 30 - ((index - 1) * 10))
+                local targetX = -20
+                local targetY = -20 - ((index - 1) * 115)
+                local targetZ = math.max(1, 30 - ((index - 1) * 2))
 
                 notif.ZIndex = targetZ
                 for _, child in ipairs(notif:GetDescendants()) do
