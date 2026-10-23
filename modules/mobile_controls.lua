@@ -4,8 +4,42 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 return function(Library, Window)
-    local MobileUI = Window.MobileUI
+    local GenerateSafeName = (Window._I and Window._I.GenerateSafeName)
+        or Window.GenerateSafeName
+        or Library.GenerateSafeName
+        or function(prefix)
+            return (prefix or "MD") .. "_" .. tostring(math.random(100000, 999999))
+        end
+    local RegisterHUDScale = (Window._I and Window._I.RegisterHUDScale)
+        or Window.RegisterHUDScale
+        or Library.RegisterHUDScale
+        or function(o) return o end
+    local AddUIShadow = (Window._I and Window._I.AddUIShadow)
+        or Window.AddUIShadow
+        or Library.AddUIShadow
+        or function() end
+    local FontTabBtn = (Window._I and Window._I.FontTabBtn)
+        or Window.FontTabBtn
+        or Library.FontTabBtn
+        or Window.FontTitle
+        or Library.FontTitle
+        or Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+    local PlayClickSFX = (Window._I and Window._I.PlayClickSFX)
+        or Window.PlayClickSFX
+        or (Library and Library.PlayClickSFX)
+        or function() end
+    local TrackConn = (Window._I and Window._I.TrackConn)
+        or Window.TrackConn
+        or (Library and Library.TrackConn)
+        or function(c) return c end
+    local GetHUDScale = (Window._I and Window._I.GetHUDScale)
+        or Window.GetHUDScale
+        or Library.GetHUDScale
+        or function() return 1 end
+
     function Window:CreateMobileButton(arg1, arg2, arg3, arg4, arg5)
+        local MobileUI = Window.MobileUI
+        if not MobileUI then return end
         local config = {}
         if type(arg1) == "table" then
             config = arg1
