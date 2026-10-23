@@ -114,6 +114,26 @@ return function(Library, Window)
 
     function Window:Notify(titleText, contentText, duration, notifType)
         if not Window.NotificationsEnabled then return end
+
+        local rawTitle = ""
+        if type(titleText) == "table" then
+            rawTitle = tostring(titleText.Title or titleText.title or "")
+        else
+            rawTitle = tostring(titleText or "")
+        end
+
+        local titleLower = rawTitle:lower()
+        local isAllowedNotif = titleLower:find("config loaded")
+            or titleLower:find("loaded config")
+            or titleLower:find("tab config loaded")
+            or titleLower:find("config imported")
+            or titleLower:find("config error")
+            or titleLower:find("import error")
+
+        if (Window._SuppressNotifications or Window._IsLoadingConfig) and not isAllowedNotif then
+            return
+        end
+
         PlayNotifSFX()
         if type(titleText) == "table" then
             notifType = titleText.Type or titleText.notifType or notifType
