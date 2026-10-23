@@ -9130,6 +9130,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         -- everything else follows the theme accent
         return theme.ButtonBG or theme.Text or Color3.fromRGB(255, 255, 255)
     end
+    Window.GetIconColorForTheme = GetIconColorForTheme
+    Library.GetIconColorForTheme = GetIconColorForTheme
+    if Window._I then Window._I.GetIconColorForTheme = GetIconColorForTheme end
 
     local MDicon = Instance.new("ImageLabel")
     MDicon.Name = "Icon"
