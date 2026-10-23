@@ -610,13 +610,13 @@ Library.ThemePresets = {
     Dark = {
         Name = "Dark",
         MainBG = Color3.fromRGB(32, 34, 42),
-        MainTrans = 0.22,
+        MainTrans = 0.12,
         AccentBG = Color3.fromRGB(38, 41, 52),
-        AccentTrans = 0.30,
+        AccentTrans = 0.12,
         TopBG = Color3.fromRGB(38, 41, 52),
-        TopTrans = 0.30,
+        TopTrans = 0.12,
         BottomBG = Color3.fromRGB(38, 41, 52),
-        BottomTrans = 0.30,
+        BottomTrans = 0.12,
         BottomGradient = {
             Color3.fromRGB(45, 48, 60),
             Color3.fromRGB(60, 64, 80),
@@ -636,13 +636,13 @@ Library.ThemePresets = {
     VeryDark = {
         Name = "Very Dark",
         MainBG = Color3.fromRGB(15, 16, 20),
-        MainTrans = 0.22,
+        MainTrans = 0.12,
         AccentBG = Color3.fromRGB(24, 26, 34),
-        AccentTrans = 0.30,
+        AccentTrans = 0.12,
         TopBG = Color3.fromRGB(24, 26, 34),
-        TopTrans = 0.30,
+        TopTrans = 0.12,
         BottomBG = Color3.fromRGB(24, 26, 34),
-        BottomTrans = 0.30,
+        BottomTrans = 0.12,
         BottomGradient = {
             Color3.fromRGB(24, 26, 34),
             Color3.fromRGB(35, 38, 50),
@@ -662,13 +662,13 @@ Library.ThemePresets = {
     Midnight = {
         Name = "Midnight",
         MainBG = Color3.fromRGB(11, 15, 25),
-        MainTrans = 0.22,
+        MainTrans = 0.12,
         AccentBG = Color3.fromRGB(16, 22, 38),
-        AccentTrans = 0.30,
+        AccentTrans = 0.12,
         TopBG = Color3.fromRGB(16, 22, 38),
-        TopTrans = 0.30,
+        TopTrans = 0.12,
         BottomBG = Color3.fromRGB(16, 22, 38),
-        BottomTrans = 0.30,
+        BottomTrans = 0.12,
         BottomGradient = {
             Color3.fromRGB(16, 22, 38),
             Color3.fromRGB(25, 35, 60),
@@ -688,13 +688,13 @@ Library.ThemePresets = {
     Nord = {
         Name = "Nord",
         MainBG = Color3.fromRGB(46, 52, 64),
-        MainTrans = 0.22,
+        MainTrans = 0.12,
         AccentBG = Color3.fromRGB(59, 66, 82),
-        AccentTrans = 0.30,
+        AccentTrans = 0.12,
         TopBG = Color3.fromRGB(59, 66, 82),
-        TopTrans = 0.30,
+        TopTrans = 0.12,
         BottomBG = Color3.fromRGB(59, 66, 82),
-        BottomTrans = 0.30,
+        BottomTrans = 0.12,
         BottomGradient = {
             Color3.fromRGB(59, 66, 82),
             Color3.fromRGB(67, 76, 94),
@@ -740,13 +740,13 @@ Library.ThemePresets = {
     White = {
         Name = "White",
         MainBG = Color3.fromRGB(242, 244, 248),
-        MainTrans = 0.22,
+        MainTrans = 0.12,
         AccentBG = Color3.fromRGB(210, 215, 228),
-        AccentTrans = 0.30,
+        AccentTrans = 0.12,
         TopBG = Color3.fromRGB(210, 215, 228),
-        TopTrans = 0.30,
+        TopTrans = 0.12,
         BottomBG = Color3.fromRGB(210, 215, 228),
-        BottomTrans = 0.30,
+        BottomTrans = 0.12,
         BottomGradient = {
             Color3.fromRGB(210, 215, 228),
             Color3.fromRGB(230, 235, 245),
@@ -766,13 +766,13 @@ Library.ThemePresets = {
     Coffee = {
         Name = "Coffee",
         MainBG = Color3.fromRGB(43, 31, 26),
-        MainTrans = 0.22,
+        MainTrans = 0.12,
         AccentBG = Color3.fromRGB(54, 39, 32),
-        AccentTrans = 0.30,
+        AccentTrans = 0.12,
         TopBG = Color3.fromRGB(54, 39, 32),
-        TopTrans = 0.30,
+        TopTrans = 0.12,
         BottomBG = Color3.fromRGB(54, 39, 32),
-        BottomTrans = 0.30,
+        BottomTrans = 0.12,
         BottomGradient = {
             Color3.fromRGB(54, 39, 32),
             Color3.fromRGB(75, 55, 45),
@@ -792,13 +792,13 @@ Library.ThemePresets = {
     Dracula = {
         Name = "Dracula",
         MainBG = Color3.fromRGB(40, 42, 54),
-        MainTrans = 0.22,
+        MainTrans = 0.12,
         AccentBG = Color3.fromRGB(33, 34, 44),
-        AccentTrans = 0.30,
+        AccentTrans = 0.12,
         TopBG = Color3.fromRGB(33, 34, 44),
-        TopTrans = 0.30,
+        TopTrans = 0.12,
         BottomBG = Color3.fromRGB(33, 34, 44),
-        BottomTrans = 0.30,
+        BottomTrans = 0.12,
         BottomGradient = {
             Color3.fromRGB(33, 34, 44),
             Color3.fromRGB(50, 52, 68),
@@ -818,13 +818,13 @@ Library.ThemePresets = {
     Rose = {
         Name = "Rose",
         MainBG = Color3.fromRGB(35, 24, 30),
-        MainTrans = 0.22,
+        MainTrans = 0.12,
         AccentBG = Color3.fromRGB(48, 30, 40),
-        AccentTrans = 0.30,
+        AccentTrans = 0.12,
         TopBG = Color3.fromRGB(48, 30, 40),
-        TopTrans = 0.30,
+        TopTrans = 0.12,
         BottomBG = Color3.fromRGB(48, 30, 40),
-        BottomTrans = 0.30,
+        BottomTrans = 0.12,
         BottomGradient = {
             Color3.fromRGB(48, 30, 40),
             Color3.fromRGB(68, 42, 58),
@@ -844,13 +844,13 @@ Library.ThemePresets = {
     Mint = {
         Name = "Mint",
         MainBG = Color3.fromRGB(14, 42, 38),
-        MainTrans = 0.22,
+        MainTrans = 0.12,
         AccentBG = Color3.fromRGB(18, 55, 49),
-        AccentTrans = 0.30,
+        AccentTrans = 0.12,
         TopBG = Color3.fromRGB(18, 55, 49),
-        TopTrans = 0.30,
+        TopTrans = 0.12,
         BottomBG = Color3.fromRGB(18, 55, 49),
-        BottomTrans = 0.30,
+        BottomTrans = 0.12,
         BottomGradient = {
             Color3.fromRGB(18, 55, 49),
             Color3.fromRGB(28, 80, 72),
@@ -870,13 +870,13 @@ Library.ThemePresets = {
     Amethyst = {
         Name = "Amethyst",
         MainBG = Color3.fromRGB(45, 18, 75),
-        MainTrans = 0.22,
+        MainTrans = 0.12,
         AccentBG = Color3.fromRGB(68, 22, 105),
-        AccentTrans = 0.30,
+        AccentTrans = 0.12,
         TopBG = Color3.fromRGB(68, 22, 105),
-        TopTrans = 0.30,
+        TopTrans = 0.12,
         BottomBG = Color3.fromRGB(68, 22, 105),
-        BottomTrans = 0.30,
+        BottomTrans = 0.12,
         BottomGradient = {
             Color3.fromRGB(68, 22, 105),
             Color3.fromRGB(100, 30, 160),
@@ -896,13 +896,13 @@ Library.ThemePresets = {
     Original = {
         Name = "Blue",
         MainBG = Color3.fromRGB(10, 55, 110),
-        MainTrans = 0.22,
+        MainTrans = 0.12,
         AccentBG = Color3.fromRGB(18, 85, 165),
-        AccentTrans = 0.30,
+        AccentTrans = 0.12,
         TopBG = Color3.fromRGB(18, 85, 165),
-        TopTrans = 0.30,
+        TopTrans = 0.12,
         BottomBG = Color3.fromRGB(18, 85, 165),
-        BottomTrans = 0.30,
+        BottomTrans = 0.12,
         BottomGradient = {
             Color3.fromRGB(15, 90, 180),
             Color3.fromRGB(40, 140, 230),
@@ -922,13 +922,13 @@ Library.ThemePresets = {
     Nature = {
         Name = "Green",
         MainBG = Color3.fromRGB(15, 60, 32),
-        MainTrans = 0.22,
+        MainTrans = 0.12,
         AccentBG = Color3.fromRGB(20, 83, 45),
-        AccentTrans = 0.30,
+        AccentTrans = 0.12,
         TopBG = Color3.fromRGB(20, 83, 45),
-        TopTrans = 0.30,
+        TopTrans = 0.12,
         BottomBG = Color3.fromRGB(20, 83, 45),
-        BottomTrans = 0.30,
+        BottomTrans = 0.12,
         BottomGradient = {
             Color3.fromRGB(20, 83, 45),
             Color3.fromRGB(34, 139, 74),
@@ -1265,7 +1265,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         RegisteredLocalizedElements = {},
         LanguageChangedCallbacks = {},
         ElementsTransparency = 0.33,
-        TopBottomTransparency = 0.30,
+        TopBottomTransparency = 0.12,
         GetIcon = Library.GetIcon,
         AuthorText = authorText,
         DiscordLink = discordLink,
@@ -1290,7 +1290,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BackgroundBlurEnabled = true,
         SpiderwebBGEnabled = false,
         CustomThemeColor = nil,
-        CustomBGTransparency = 0.22,
+        CustomBGTransparency = 0.12,
         ShadowsEnabled = true,
         SectionsTransparent = false,
         ClickEffectsEnabled = true,
@@ -8419,7 +8419,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     TopFrame.Size = UDim2.new(1, 0, 0, 42)
     TopFrame.Position = UDim2.new(0, 0, 0, 0)
     TopFrame.BackgroundColor3 = Window.CurrentTheme.MainBG
-    TopFrame.BackgroundTransparency = Window.CurrentTheme.TopTrans
+    TopFrame.BackgroundTransparency = Window.TopBottomTransparency or Window.CurrentTheme.TopTrans or 0.12
     TopFrame.BorderSizePixel = 0
     TopFrame.ZIndex = 20
     TopFrame.Parent = MainContainer
@@ -8912,7 +8912,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     LeftFrame.Size = UDim2.new(0, 175, 1, -94)
     LeftFrame.Position = UDim2.new(0, 0, 0, 42)
     LeftFrame.BackgroundColor3 = Window.CurrentTheme.MainBG
-    LeftFrame.BackgroundTransparency = Window.CurrentTheme.TopTrans
+    LeftFrame.BackgroundTransparency = Window.TopBottomTransparency or Window.CurrentTheme.TopTrans or 0.12
     LeftFrame.BorderSizePixel = 0
     LeftFrame.ZIndex = 20
     LeftFrame.Parent = MainContainer
@@ -8925,7 +8925,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MainFrame.Size = UDim2.new(1, -175, 1, -94)
     MainFrame.Position = UDim2.new(0, 175, 0, 42)
     MainFrame.BackgroundColor3 = Window.CurrentTheme.TopBG or Window.CurrentTheme.AccentBG
-    MainFrame.BackgroundTransparency = Window.CurrentTheme.MainTrans
+    MainFrame.BackgroundTransparency = Window.CustomBGTransparency or Window.CurrentTheme.MainTrans or 0.12
     MainFrame.BorderSizePixel = 0
     MainFrame.ClipsDescendants = true
     MainFrame.ZIndex = 1
@@ -9099,7 +9099,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     BottomFrame.Size = UDim2.new(1, 0, 0, 52)
     BottomFrame.Position = UDim2.new(0, 0, 1, -52)
     BottomFrame.BackgroundColor3 = Window.CurrentTheme.MainBG
-    BottomFrame.BackgroundTransparency = Window.CurrentTheme.TopTrans
+    BottomFrame.BackgroundTransparency = Window.TopBottomTransparency or Window.CurrentTheme.TopTrans or 0.12
     BottomFrame.BorderSizePixel = 0
     BottomFrame.ZIndex = 20
     BottomFrame.Parent = MainContainer
@@ -13448,7 +13448,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Title = "Background transparency",
             Min = 0,
             Max = 90,
-            Default = math.floor((Window.CustomBGTransparency or 0.22) * 100),
+            Default = math.floor((Window.CustomBGTransparency or 0.12) * 100),
             Suffix = "%",
             Callback = function(val, pct) Window:SetBackgroundTransparency(val / 100) end
         })
@@ -13468,7 +13468,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Title = "Top, left & bottom frames transparency",
             Min = 0,
             Max = 90,
-            Default = math.floor((Window.TopBottomTransparency or (Window.CurrentTheme and Window.CurrentTheme.TopTrans) or 0.30) * 100),
+            Default = math.floor((Window.TopBottomTransparency or (Window.CurrentTheme and Window.CurrentTheme.TopTrans) or 0.12) * 100),
             Suffix = "%",
             Callback = function(val, pct) Window:SetTopBottomTransparency(val / 100) end
         })
