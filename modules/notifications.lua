@@ -137,8 +137,8 @@ return function(Library, Window)
             or function() return 1 end
 
         local currentScale = GetHUDScale()
-        local baseX = math.round(-16 * currentScale)
-        local baseY = math.round(-8 * currentScale)
+        local baseX = math.round(-32 * currentScale)
+        local baseY = math.round(-6 * currentScale)
 
         local ApplyCornerRadii = Window.ApplyCornerRadii or Library.ApplyCornerRadii or function() end
         local AddUIShadow = Window.AddUIShadow or Library.AddUIShadow or function() end
@@ -269,8 +269,8 @@ return function(Library, Window)
         table.insert(ActiveNotifications, 1, NotifContainer)
 
         for index, notif in ipairs(ActiveNotifications) do
-            local targetX = baseX - math.round((index - 1) * 14 * currentScale)
-            local targetY = baseY - math.round((index - 1) * 16 * currentScale)
+            local targetX = baseX + math.round((index - 1) * 14 * currentScale)
+            local targetY = math.min(0, baseY + math.round((index - 1) * 6 * currentScale))
             local targetZ = math.max(1, 35 - ((index - 1) * 10))
 
             notif.ZIndex = targetZ
@@ -303,8 +303,8 @@ return function(Library, Window)
             NotifContainer:Destroy()
 
             for index, notif in ipairs(ActiveNotifications) do
-                local targetX = baseX - math.round((index - 1) * 14 * currentScale)
-                local targetY = baseY - math.round((index - 1) * 16 * currentScale)
+                local targetX = baseX + math.round((index - 1) * 14 * currentScale)
+                local targetY = math.min(0, baseY + math.round((index - 1) * 6 * currentScale))
                 local targetZ = math.max(1, 35 - ((index - 1) * 10))
 
                 notif.ZIndex = targetZ
