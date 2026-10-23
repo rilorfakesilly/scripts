@@ -127,7 +127,19 @@ return function(Library, Window)
         if not NotificationUI then return end
 
         local ActiveNotifications = Window.ActiveNotifications or Library.ActiveNotifications or {}
-        local RegisterHUDScale = Window.RegisterHUDScale or Library.RegisterHUDScale or function(o) return o end
+        local RegisterHUDScale = (Window._I and Window._I.RegisterHUDScale)
+            or Window.RegisterHUDScale
+            or Library.RegisterHUDScale
+            or function(o) return o end
+        local GetHUDScale = (Window._I and Window._I.GetHUDScale)
+            or Window.GetHUDScale
+            or Library.GetHUDScale
+            or function() return 1 end
+
+        local currentScale = GetHUDScale()
+        local baseX = math.round(-16 * currentScale)
+        local baseY = math.round(-8 * currentScale)
+
         local ApplyCornerRadii = Window.ApplyCornerRadii or Library.ApplyCornerRadii or function() end
         local AddUIShadow = Window.AddUIShadow or Library.AddUIShadow or function() end
         local FontTitle = Window.FontTitle or Library.FontTitle or Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal)
@@ -147,10 +159,11 @@ return function(Library, Window)
         NotifContainer.Name = "NotifContainer"
         NotifContainer.Size = UDim2.new(0, 290, 0, 105)
         NotifContainer.AnchorPoint = Vector2.new(1, 1)
-        NotifContainer.Position = UDim2.new(1, 350, 1, -20)
+        NotifContainer.Position = UDim2.new(1, math.round(350 * currentScale), 1, baseY)
         NotifContainer.BackgroundTransparency = 1
-        NotifContainer.ZIndex = 30
+        NotifContainer.ZIndex = 35
         NotifContainer.Parent = NotificationUI
+        RegisterHUDScale(NotifContainer)
 
         local NotifTop = Instance.new("Frame")
         NotifTop.Name = "TopFrame"
@@ -256,9 +269,9 @@ return function(Library, Window)
         table.insert(ActiveNotifications, 1, NotifContainer)
 
         for index, notif in ipairs(ActiveNotifications) do
-            local targetX = -20
-            local targetY = -20 - ((index - 1) * 115)
-            local targetZ = math.max(1, 30 - ((index - 1) * 2))
+            local targetX = baseX - math.round((index - 1) * 14 * currentScale)
+            local targetY = baseY - math.round((index - 1) * 16 * currentScale)
+            local targetZ = math.max(1, 35 - ((index - 1) * 10))
 
             notif.ZIndex = targetZ
             for _, child in ipairs(notif:GetDescendants()) do
@@ -276,7 +289,7 @@ return function(Library, Window)
             if not NotifContainer or not NotifContainer.Parent then return end
 
             local slideOut = TweenService:Create(NotifContainer, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                Position = UDim2.new(1, 350, 1, NotifContainer.Position.Y.Offset)
+                Position = UDim2.new(1, math.round(350 * currentScale), 1, NotifContainer.Position.Y.Offset)
             })
             slideOut:Play()
             slideOut.Completed:Wait()
@@ -290,9 +303,9 @@ return function(Library, Window)
             NotifContainer:Destroy()
 
             for index, notif in ipairs(ActiveNotifications) do
-                local targetX = -20
-                local targetY = -20 - ((index - 1) * 115)
-                local targetZ = math.max(1, 30 - ((index - 1) * 2))
+                local targetX = baseX - math.round((index - 1) * 14 * currentScale)
+                local targetY = baseY - math.round((index - 1) * 16 * currentScale)
+                local targetZ = math.max(1, 35 - ((index - 1) * 10))
 
                 notif.ZIndex = targetZ
                 for _, child in ipairs(notif:GetDescendants()) do
