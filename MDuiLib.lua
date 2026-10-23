@@ -21,6 +21,7 @@ local function GenerateSafeName(prefix)
     local id = table.concat(res)
     return prefix and (tostring(prefix) .. "_" .. id) or id
 end
+Library.GenerateSafeName = GenerateSafeName
 
 local function GetSafeParentGui()
     local success, hui = pcall(function()
@@ -1301,6 +1302,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NoiseTransparency = 0.88,
         Connections = {},
         ActiveNotifications = {},
+        IconAsset = iconAsset,
+        iconAsset = iconAsset,
+        ApplyCornerRadii = ApplyCornerRadii,
+        AddUIShadow = AddUIShadow,
+        FontTitle = FontTitle,
+        FontRegular = FontRegular,
         SidebarDividers = {},
         RegisteredMDButtons = {},
         RegisteredMDToggles = {},
@@ -1413,6 +1420,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         table.insert(HUD_UIScales, sc)
         return sc
     end
+    Window.RegisterHUDScale = RegisterHUDScale
+    Library.RegisterHUDScale = RegisterHUDScale
 
     local function RefreshHUDScales()
         local s = GetHUDScale()
@@ -4770,7 +4779,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return stObj
     end
 
-
     -- ==========================================
     -- Localization / Multi-Language System
     -- ==========================================
@@ -7828,6 +7836,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     ProtectGui(NotificationUI)
     NotificationUI.Parent = ParentGui
     table.insert(Library.ActiveGuis, NotificationUI)
+    Window.NotificationUI = NotificationUI
 
     local MobileUI = Instance.new("ScreenGui")
     MobileUI.Name = GenerateSafeName("UI")
@@ -7932,10 +7941,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Window.TooltipFrame = TooltipFrame
     Window.TooltipStroke = TooltipStroke
     Window.TooltipShadow = TooltipShadow
+    Window.TooltipText = TooltipText
 
     local activeTooltipTarget = nil
     local tooltipTween = nil
-    local tooltipContentMap = {}
+    local tooltipContentMap = Window._TooltipContentMap or setmetatable({}, {__mode = "k"})
+    Window._TooltipContentMap = tooltipContentMap
 
     -- Local background blur engine
     local Lighting = game:GetService("Lighting")
