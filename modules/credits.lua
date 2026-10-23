@@ -3,6 +3,15 @@
 local TweenService = game:GetService("TweenService")
 
 return function(Library, Window)
+    local TrackConn = (Window._I and Window._I.TrackConn)
+        or Window.TrackConn
+        or (Library and Library.TrackConn)
+        or function(c) return c end
+
+    local PlayClickSFX = (Window._I and Window._I.PlayClickSFX)
+        or Window.PlayClickSFX
+        or (Library and Library.PlayClickSFX)
+        or function() end
     function Window:CreateCreditsSection(parentTab)
         local creditsConfig = Window.CreditsConfig or {
             Enabled = true,
