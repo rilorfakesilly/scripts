@@ -1371,6 +1371,43 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     local MainContentFrame = nil
     local UIScaleConstraint = nil
     local GetTargetViewportScale = nil
+
+    -- Responsive scaling: everything is designed for a 1920x1080 reference (1x) screen
+    -- and grows/shrinks with the real viewport. Library.UIScaleMultiplier is a user tweak.
+    local UI_REF_W, UI_REF_H = 1920, 1080
+    local UI_BASE_WIN_W, UI_BASE_WIN_H = 760, 470
+    local HUD_UIScales = {}
+
+    local function GetViewportSizeSafe()
+        local cam = workspace.CurrentCamera or Camera
+        local vp = cam and cam.ViewportSize
+        if not vp or vp.X <= 0 or vp.Y <= 0 then return Vector2.new(UI_REF_W, UI_REF_H) end
+        return vp
+    end
+
+    -- scale for small floating pieces (notifications, minimized icon, mobile buttons, loader)
+    local function GetHUDScale()
+        local vp = GetViewportSizeSafe()
+        local s = math.min(vp.X / UI_REF_W, vp.Y / UI_REF_H) * (Library.UIScaleMultiplier or 1)
+        return math.clamp(s, 0.7, 2.5)
+    end
+
+    local function RegisterHUDScale(guiObject)
+        local sc = Instance.new("UIScale")
+        sc.Name = "HUDScale"
+        sc.Scale = GetHUDScale()
+        sc.Parent = guiObject
+        table.insert(HUD_UIScales, sc)
+        return sc
+    end
+
+    local function RefreshHUDScales()
+        local s = GetHUDScale()
+        for i = #HUD_UIScales, 1, -1 do
+            local sc = HUD_UIScales[i]
+            if sc and sc.Parent then sc.Scale = s else table.remove(HUD_UIScales, i) end
+        end
+    end
     local AttachUniversalDrag = nil
 
     local function TrackConn(conn)
@@ -6461,8 +6498,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
     local LoadScale = Instance.new("UIScale")
     LoadScale.Name = GenerateSafeName("Scale")
-    LoadScale.Scale = 1
+    LoadScale.Scale = GetHUDScale()
     LoadScale.Parent = LoadCenterFrame
+    table.insert(HUD_UIScales, LoadScale)
 
     local Loadbarempty = Instance.new("Frame")
     Loadbarempty.Name = GenerateSafeName("BarEmpty")
@@ -6682,7 +6720,22 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         return Color3.fromHSV(h, math.clamp(s * 0.96, 0, 1), math.clamp(v * (factor or 1.05), 0, 1))
     end
 
-    local BUTTON_ARROW_ICON = "rbxassetid://134908902120212"
+    local BUTTON_ARROW_ICON = "rbxassetid://101007429951147"
+
+    local function GetButtonArrowColor(theme, isHovered)
+        local textCol = (theme and theme.Text) or Color3.fromRGB(255, 255, 255)
+        if isHovered then
+            return textCol
+        end
+        local lum = 0.299 * textCol.R + 0.587 * textCol.G + 0.114 * textCol.B
+        if lum > 0.5 then
+            -- Light text on dark bg: barely darker than white
+            return Color3.fromRGB(228, 230, 236)
+        else
+            -- Dark text on light bg: barely lighter than black
+            return Color3.fromRGB(55, 58, 65)
+        end
+    end
 
     -- Builds the card-style content: [icon] text ........ arrow
     local function BuildMDButtonContent(BtnFrame, text, iconName, isSmall, showArrow, z, textName)
@@ -6727,7 +6780,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Arrow.Position = UDim2.new(1, -padX, 0.5, 0)
             Arrow.BackgroundTransparency = 1
             Arrow.Image = BUTTON_ARROW_ICON
-            Arrow.ImageColor3 = theme.SubText
+            Arrow.ImageColor3 = GetButtonArrowColor(theme, false)
             Arrow.ZIndex = z
             Arrow.Parent = BtnFrame
 
@@ -6777,7 +6830,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         frame.BackgroundColor3 = GetThemedDarkColor(theme)
         parts.Text.TextColor3 = theme.Text
         if parts.Icon then parts.Icon.ImageColor3 = theme.Text end
-        if parts.Arrow then parts.Arrow.ImageColor3 = theme.SubText end
+        if parts.Arrow then parts.Arrow.ImageColor3 = GetButtonArrowColor(theme, false) end
         parts.Stroke.Color = theme.Divider or Color3.fromRGB(65, 70, 88)
     end
 
@@ -6866,7 +6919,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TweenService:Create(BtnScale, TweenInfo.new(0.18, quart, Enum.EasingDirection.Out), {Scale = 1.02}):Play()
             TweenService:Create(BtnFrame, TweenInfo.new(0.18, quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.05}):Play()
             if parts.Arrow then
-                TweenService:Create(parts.Arrow, TweenInfo.new(0.18), {ImageColor3 = Window.CurrentTheme.Text}):Play()
+                TweenService:Create(parts.Arrow, TweenInfo.new(0.18), {ImageColor3 = GetButtonArrowColor(Window.CurrentTheme, true)}):Play()
             end
         end))
 
@@ -6876,7 +6929,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TweenService:Create(BtnScale, TweenInfo.new(0.18, quart, Enum.EasingDirection.Out), {Scale = 1.0}):Play()
             TweenService:Create(BtnFrame, TweenInfo.new(0.18, quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.2}):Play()
             if parts.Arrow then
-                TweenService:Create(parts.Arrow, TweenInfo.new(0.18), {ImageColor3 = Window.CurrentTheme.SubText}):Play()
+                TweenService:Create(parts.Arrow, TweenInfo.new(0.18), {ImageColor3 = GetButtonArrowColor(Window.CurrentTheme, false)}):Play()
             end
         end))
 
@@ -8649,7 +8702,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TweenService:Create(BtnScale, TweenInfo.new(0.18, quart, Enum.EasingDirection.Out), {Scale = 1.02}):Play()
             TweenService:Create(BtnFrame, TweenInfo.new(0.18, quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.05}):Play()
             if parts.Arrow then
-                TweenService:Create(parts.Arrow, TweenInfo.new(0.18), {ImageColor3 = Window.CurrentTheme.Text}):Play()
+                TweenService:Create(parts.Arrow, TweenInfo.new(0.18), {ImageColor3 = GetButtonArrowColor(Window.CurrentTheme, true)}):Play()
             end
         end))
 
@@ -8659,7 +8712,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TweenService:Create(BtnScale, TweenInfo.new(0.18, quart, Enum.EasingDirection.Out), {Scale = 1.0}):Play()
             TweenService:Create(BtnFrame, TweenInfo.new(0.18, quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.2}):Play()
             if parts.Arrow then
-                TweenService:Create(parts.Arrow, TweenInfo.new(0.18), {ImageColor3 = Window.CurrentTheme.SubText}):Play()
+                TweenService:Create(parts.Arrow, TweenInfo.new(0.18), {ImageColor3 = GetButtonArrowColor(Window.CurrentTheme, false)}):Play()
             end
         end))
 
@@ -9483,6 +9536,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         BtnFrame.ClipsDescendants = false
         BtnFrame.ZIndex = 100
         BtnFrame.Parent = MobileUI
+        RegisterHUDScale(BtnFrame)
 
         local Corner = Instance.new("UICorner")
         Corner.Name = "BtnCorner"
@@ -9742,7 +9796,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
                 if not ButtonObj.IsDraggable or Window.MobileButtonsLocked or ButtonObj.IsLocked then return end
                 if dragging and dragStart and startPos then
-                    local scale = (UIScaleConstraint and UIScaleConstraint.Scale > 0) and UIScaleConstraint.Scale or 1
+                    local scale = GetHUDScale()
                     local deltaX = (input.Position.X - dragStart.X) / scale
                     local deltaY = (input.Position.Y - dragStart.Y) / scale
                     if math.abs(input.Position.X - dragStart.X) > 8 or math.abs(input.Position.Y - dragStart.Y) > 8 then
@@ -10515,19 +10569,44 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     Window._NoiseUpdateFunc = UpdateNoise
 
     GetTargetViewportScale = function()
-        if not Camera then return 0.85 end
-        local viewport = Camera.ViewportSize
-        local scaleX = viewport.X / 680
-        local scaleY = viewport.Y / 440
-        return math.clamp(math.min(scaleX, scaleY), 0.45, 1.0)
+        local vp = GetViewportSizeSafe()
+        local mult = Library.UIScaleMultiplier or 1
+        local wanted = math.clamp(math.min(vp.X / UI_REF_W, vp.Y / UI_REF_H), 0.3, 3) * mult
+        -- never let the window be bigger than the screen
+        local fit = math.min((vp.X - 24) / UI_BASE_WIN_W, (vp.Y - 24) / UI_BASE_WIN_H)
+        return math.max(0.3, math.min(wanted, fit))
     end
 
     local function UpdateScreenScaling()
-        UIScaleConstraint.Scale = GetTargetViewportScale()
+        -- don't fight the minimize/restore tween while the window is hidden
+        if ScriptUi and ScriptUi.Enabled then
+            UIScaleConstraint.Scale = GetTargetViewportScale()
+        end
+        RefreshHUDScales()
     end
 
-    TrackConn(Camera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateScreenScaling))
-    UpdateScreenScaling()
+    local function HookViewportSignal()
+        local cam = workspace.CurrentCamera or Camera
+        if cam then
+            TrackConn(cam:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateScreenScaling))
+        end
+    end
+    HookViewportSignal()
+    TrackConn(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+        HookViewportSignal()
+        UpdateScreenScaling()
+    end))
+    UIScaleConstraint.Scale = GetTargetViewportScale()
+    RefreshHUDScales()
+
+    -- Window:SetUIScaleMultiplier(1.2) makes everything 20% bigger on top of the auto scale
+    function Window:SetUIScaleMultiplier(m)
+        Library.UIScaleMultiplier = math.clamp(tonumber(m) or 1, 0.5, 2)
+        UpdateScreenScaling()
+    end
+    function Window:GetUIScaleMultiplier()
+        return Library.UIScaleMultiplier or 1
+    end
 
     local LastWindowSize = MainContainer.Size
     local LastWindowPos = MainContainer.Position
@@ -11430,6 +11509,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     MinimizedFrame.ClipsDescendants = false
     MinimizedFrame.ZIndex = 100
     MinimizedFrame.Parent = MinimisedUI
+    RegisterHUDScale(MinimizedFrame)
 
     -- Minimized icon: 5 ring layers (all slightly oversized) + logo on top + invisible click button
     local MINI_LAYERS = {
@@ -11542,6 +11622,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         NotifContainer.BackgroundTransparency = 1
         NotifContainer.ZIndex = 30
         NotifContainer.Parent = NotificationUI
+        RegisterHUDScale(NotifContainer)
 
         local NotifTop = Instance.new("Frame")
         NotifTop.Name = "TopFrame"
