@@ -158,7 +158,7 @@ return function(Library, Window)
 
         local currentScale = GetHUDScale()
         local baseX = math.round(-32 * currentScale)
-        local baseY = math.round(-2 * currentScale)
+        local baseY = math.round(2 * currentScale)
 
         local ApplyCornerRadii = Window.ApplyCornerRadii or Library.ApplyCornerRadii or function() end
         local AddUIShadow = Window.AddUIShadow or Library.AddUIShadow or function() end
@@ -248,8 +248,8 @@ return function(Library, Window)
 
         local NotifBody = Instance.new("TextLabel")
         NotifBody.Name = "NOTIFICATIONTXT"
-        NotifBody.Size = UDim2.new(1, -72, 1, -12)
-        NotifBody.Position = UDim2.new(0, 64, 0, 4)
+        NotifBody.Size = UDim2.new(1, -84, 1, -12)
+        NotifBody.Position = UDim2.new(0, 72, 0, 4)
         NotifBody.BackgroundTransparency = 1
         NotifBody.FontFace = FontRegular
         NotifBody.Text = contentText or ""
@@ -290,7 +290,7 @@ return function(Library, Window)
 
         for index, notif in ipairs(ActiveNotifications) do
             local targetX = baseX + math.round((index - 1) * 14 * currentScale)
-            local targetY = math.min(0, baseY + math.round((index - 1) * 4 * currentScale))
+            local targetY = baseY + math.round((index - 1) * 4 * currentScale)
             local targetZ = math.max(1, 35 - ((index - 1) * 10))
 
             notif.ZIndex = targetZ
