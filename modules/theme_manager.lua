@@ -103,7 +103,7 @@ return function(Library, Window)
             end
         end
         local frameColor = newTheme.MainBG
-        local frameTrans = Window.TopBottomTransparency or newTheme.TopTrans or 0.30
+        local frameTrans = Window.TopBottomTransparency or newTheme.TopTrans or 0.12
 
         if Window.LeftFrame then
             if animated then
@@ -524,14 +524,14 @@ return function(Library, Window)
         if Window.RegisteredSliders then
             local bgSld = Window.RegisteredSliders["BGTransparency"]
             if bgSld and bgSld.SetValue and bgSld.GetValue then
-                local targetVal = math.floor((Window.CustomBGTransparency or newTheme.MainTrans or 0.22) * 100)
+                local targetVal = math.floor((Window.CustomBGTransparency or newTheme.MainTrans or 0.12) * 100)
                 if bgSld:GetValue() ~= targetVal then
                     pcall(function() bgSld:SetValue(targetVal, false) end)
                 end
             end
             local tbSld = Window.RegisteredSliders["TopBottomTransparency"]
             if tbSld and tbSld.SetValue and tbSld.GetValue then
-                local targetVal = math.floor((Window.TopBottomTransparency or newTheme.TopTrans or 0.30) * 100)
+                local targetVal = math.floor((Window.TopBottomTransparency or newTheme.TopTrans or 0.12) * 100)
                 if tbSld:GetValue() ~= targetVal then
                     pcall(function() tbSld:SetValue(targetVal, false) end)
                 end
@@ -564,7 +564,7 @@ return function(Library, Window)
         end
         if Window.ThemeCard then
             Window.ThemeCard.BackgroundColor3 = newTheme.CardBG
-            Window.ThemeCard.BackgroundTransparency = newTheme.AccentTrans or 0.3
+            Window.ThemeCard.BackgroundTransparency = newTheme.AccentTrans or 0.12
             local tTitle = Window.ThemeCard:FindFirstChild("ThemeTitle", true)
             if tTitle then tTitle.TextColor3 = newTheme.Text end
         end
@@ -782,13 +782,13 @@ return function(Library, Window)
         local customTheme = {
             Name = "Custom",
             MainBG = mainBG,
-            MainTrans = Window.CustomBGTransparency or 0.22,
+            MainTrans = Window.CustomBGTransparency or 0.12,
             AccentBG = topBG,
-            AccentTrans = Window.TopBottomTransparency or 0.30,
+            AccentTrans = Window.TopBottomTransparency or 0.12,
             TopBG = topBG,
-            TopTrans = Window.TopBottomTransparency or 0.30,
+            TopTrans = Window.TopBottomTransparency or 0.12,
             BottomBG = topBG,
-            BottomTrans = Window.TopBottomTransparency or 0.30,
+            BottomTrans = Window.TopBottomTransparency or 0.12,
             BottomGradient = { bot1, bot2, bot3 },
             MinGradient = { min1, min2, min3 },
             Divider = divider,
@@ -803,7 +803,7 @@ return function(Library, Window)
     end
 
     function Window:SetBackgroundTransparency(transparency)
-        local pct = math.clamp(transparency or 0.22, 0, 0.95)
+        local pct = math.clamp(transparency or 0.12, 0, 0.95)
         Window.CustomBGTransparency = pct
         if Window.MainFrame then
             Window.MainFrame.BackgroundTransparency = pct
@@ -929,7 +929,7 @@ return function(Library, Window)
     end
 
     function Window:SetTopBottomTransparency(transparency)
-        local pct = math.clamp(transparency or 0.30, 0, 0.95)
+        local pct = math.clamp(transparency or 0.12, 0, 0.95)
         Window.TopBottomTransparency = pct
         if Window.TopFrame and Window.TopFrame.Parent then
             Window.TopFrame.BackgroundTransparency = pct
