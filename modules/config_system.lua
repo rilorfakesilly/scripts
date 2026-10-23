@@ -7,6 +7,18 @@ return function(Library, Window)
     local HttpService = game:GetService("HttpService")
     Window.KnownConfigs = Window.KnownConfigs or {}
 
+    local GenerateSafeName = (Window._I and Window._I.GenerateSafeName)
+        or Window.GenerateSafeName
+        or Library.GenerateSafeName
+        or function(prefix)
+            return (prefix or "MD") .. "_" .. tostring(math.random(100000, 999999))
+        end
+
+    local FontFingerPaintRegular = (Window._I and Window._I.FontFingerPaintRegular)
+        or Window.FontRegular
+        or Library.FontRegular
+        or Font.new("rbxasset://fonts/families/GothamSSm.json")
+
     local function GetConfigFolderPath()
         local name = Window.ScriptName or Window.Title or "default"
         local sanitized = name:gsub("[^%w_%-]", "_")
