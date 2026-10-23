@@ -5,9 +5,18 @@ local UserInputService = game:GetService("UserInputService")
 local TextService = game:GetService("TextService")
 
 return function(Library, Window)
-    local PlayNotifSFX = Window.PlayNotifSFX or function() end
-    local PlayHoverSFX = Window.PlayHoverSFX or function() end
-    local TrackConn = Window.TrackConn or function(c) return c end
+    local PlayNotifSFX = (Window._I and Window._I.PlayNotifSFX)
+        or Window.PlayNotifSFX
+        or (Library and Library.PlayNotifSFX)
+        or function() end
+    local PlayHoverSFX = (Window._I and Window._I.PlayHoverSFX)
+        or Window.PlayHoverSFX
+        or (Library and Library.PlayHoverSFX)
+        or function() end
+    local TrackConn = (Window._I and Window._I.TrackConn)
+        or Window.TrackConn
+        or (Library and Library.TrackConn)
+        or function(c) return c end
 
     local tooltipContentMap = Window._TooltipContentMap or setmetatable({}, {__mode = "k"})
     Window._TooltipContentMap = tooltipContentMap
