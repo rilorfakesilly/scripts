@@ -1422,6 +1422,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
     end
     Window.RegisterHUDScale = RegisterHUDScale
     Library.RegisterHUDScale = RegisterHUDScale
+    Window.GetHUDScale = GetHUDScale
+    Library.GetHUDScale = GetHUDScale
 
     local function RefreshHUDScales()
         local s = GetHUDScale()
@@ -1506,6 +1508,25 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Debris:AddItem(snd, 2.0)
         end)
     end
+
+    Window.TrackConn = TrackConn
+    Window.PlayHoverSFX = PlayHoverSFX
+    Window.PlayClickSFX = PlayClickSFX
+    Window.PlayNotifSFX = PlayNotifSFX
+
+    Window._I = Window._I or {}
+    Window._I.GenerateSafeName = GenerateSafeName
+    Window._I.FontFingerPaintRegular = FontFingerPaintRegular or FontRegular
+    Window._I.FontTitle = FontTitle
+    Window._I.FontRegular = FontRegular
+    Window._I.ApplyCornerRadii = ApplyCornerRadii
+    Window._I.AddUIShadow = AddUIShadow
+    Window._I.RegisterHUDScale = RegisterHUDScale
+    Window._I.GetHUDScale = GetHUDScale
+    Window._I.TrackConn = TrackConn
+    Window._I.PlayHoverSFX = PlayHoverSFX
+    Window._I.PlayClickSFX = PlayClickSFX
+    Window._I.PlayNotifSFX = PlayNotifSFX
 
     function Window:SetHoverSound(id)
         local formatted = FormatSoundId(id)
