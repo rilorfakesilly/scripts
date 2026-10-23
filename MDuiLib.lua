@@ -4769,7 +4769,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         return stObj
     end
-    end
+
 
     -- ==========================================
     -- Localization / Multi-Language System
