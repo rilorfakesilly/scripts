@@ -2,24 +2,39 @@
 -- MorningDrift UI Library: Notifications, Tooltips & Overlay Module
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local TextService = game:GetService("TextService")
 
 return function(Library, Window)
-    local PlayNotifSFX = Window.PlayNotifSFX
-    local PlayHoverSFX = Window.PlayHoverSFX
-    local TrackConn = Window.TrackConn
-    local TooltipFrame = Window.TooltipFrame
-    local TooltipStroke = Window.TooltipStroke
-    local TooltipShadow = Window.TooltipShadow
+    local PlayNotifSFX = Window.PlayNotifSFX or function() end
+    local PlayHoverSFX = Window.PlayHoverSFX or function() end
+    local TrackConn = Window.TrackConn or function(c) return c end
+
+    local tooltipContentMap = Window._TooltipContentMap or setmetatable({}, {__mode = "k"})
+    Window._TooltipContentMap = tooltipContentMap
+
+    local activeTooltipTarget = nil
+    local tooltipTween = nil
+
+    local function GetTooltipComponents()
+        local frame = Window.TooltipFrame
+        local stroke = Window.TooltipStroke or (frame and frame:FindFirstChildWhichIsA("UIStroke", true))
+        local shadow = Window.TooltipShadow
+        local text = Window.TooltipText or (frame and frame:FindFirstChildWhichIsA("TextLabel", true))
+        return frame, stroke, shadow, text
+    end
+
     function Window:AttachTooltip(guiObject, text)
         if not guiObject or not text or text == "" then return end
         tooltipContentMap[guiObject] = text
 
         TrackConn(guiObject.MouseEnter:Connect(function()
             if not guiObject or not tooltipContentMap[guiObject] or tooltipContentMap[guiObject] == "" then return end
+            local TooltipFrame, TooltipStroke, TooltipShadow, TooltipText = GetTooltipComponents()
+            if not TooltipFrame or not TooltipText then return end
+
             activeTooltipTarget = guiObject
             TooltipText.Text = tostring(tooltipContentMap[guiObject])
 
-            local TextService = game:GetService("TextService")
             local bounds = TextService:GetTextSize(TooltipText.Text, 12, Enum.Font.Montserrat or Enum.Font.SourceSans, Vector2.new(300, 100))
             local tw = math.clamp(bounds.X + 20, 48, 320)
             local th = math.clamp(bounds.Y + 12, 24, 80)
@@ -30,12 +45,17 @@ return function(Library, Window)
             TooltipFrame.Position = UDim2.new(0, mousePos.X + 12, 0, mousePos.Y - inset.Y + 12)
             TooltipText.TextColor3 = (Window.CurrentTheme and Window.CurrentTheme.Text) or Color3.fromRGB(240, 240, 245)
             TooltipFrame.BackgroundColor3 = (Window.CurrentTheme and Window.CurrentTheme.CardBG) or Color3.fromRGB(24, 26, 34)
-            TooltipStroke.Color = (Window.CurrentTheme and Window.CurrentTheme.Divider) or Color3.fromRGB(65, 70, 88)
+            if TooltipStroke then
+                TooltipStroke.Color = (Window.CurrentTheme and Window.CurrentTheme.Divider) or Color3.fromRGB(65, 70, 88)
+            end
             TooltipFrame.Visible = true
 
             if tooltipTween then tooltipTween:Cancel() end
-            TweenService:Create(TooltipFrame, TweenInfo.new(0.15), {BackgroundTransparency = 0.05}):Play()
-            TweenService:Create(TooltipStroke, TweenInfo.new(0.15), {Transparency = 0.2}):Play()
+            tooltipTween = TweenService:Create(TooltipFrame, TweenInfo.new(0.15), {BackgroundTransparency = 0.05})
+            tooltipTween:Play()
+            if TooltipStroke then
+                TweenService:Create(TooltipStroke, TweenInfo.new(0.15), {Transparency = 0.2}):Play()
+            end
             TweenService:Create(TooltipText, TweenInfo.new(0.15), {TextTransparency = 0}):Play()
             if TooltipShadow then
                 local intensity = Library.ShadowIntensity or (1 / 1.8)
@@ -45,25 +65,36 @@ return function(Library, Window)
         end))
 
         TrackConn(guiObject.MouseMoved:Connect(function()
-            if activeTooltipTarget == guiObject and TooltipFrame.Visible then
-                local mousePos = UserInputService:GetMouseLocation()
-                local inset = game:GetService("GuiService"):GetGuiInset()
-                TooltipFrame.Position = UDim2.new(0, mousePos.X + 12, 0, mousePos.Y - inset.Y + 12)
+            if activeTooltipTarget == guiObject then
+                local TooltipFrame = Window.TooltipFrame
+                if TooltipFrame and TooltipFrame.Visible then
+                    local mousePos = UserInputService:GetMouseLocation()
+                    local inset = game:GetService("GuiService"):GetGuiInset()
+                    TooltipFrame.Position = UDim2.new(0, mousePos.X + 12, 0, mousePos.Y - inset.Y + 12)
+                end
             end
         end))
 
         TrackConn(guiObject.MouseLeave:Connect(function()
             if activeTooltipTarget == guiObject then
                 activeTooltipTarget = nil
+                local TooltipFrame, TooltipStroke, TooltipShadow, TooltipText = GetTooltipComponents()
+                if not TooltipFrame then return end
+
                 if tooltipTween then tooltipTween:Cancel() end
-                TweenService:Create(TooltipFrame, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play()
-                TweenService:Create(TooltipStroke, TweenInfo.new(0.15), {Transparency = 1}):Play()
-                TweenService:Create(TooltipText, TweenInfo.new(0.15), {TextTransparency = 1}):Play()
+                tooltipTween = TweenService:Create(TooltipFrame, TweenInfo.new(0.15), {BackgroundTransparency = 1})
+                tooltipTween:Play()
+                if TooltipStroke then
+                    TweenService:Create(TooltipStroke, TweenInfo.new(0.15), {Transparency = 1}):Play()
+                end
+                if TooltipText then
+                    TweenService:Create(TooltipText, TweenInfo.new(0.15), {TextTransparency = 1}):Play()
+                end
                 if TooltipShadow then
                     TweenService:Create(TooltipShadow, TweenInfo.new(0.15), {Transparency = 1}):Play()
                 end
                 task.delay(0.16, function()
-                    if activeTooltipTarget == nil then
+                    if activeTooltipTarget == nil and TooltipFrame then
                         TooltipFrame.Visible = false
                     end
                 end)
@@ -83,13 +114,25 @@ return function(Library, Window)
         end
         duration = duration or 3.5
 
+        local NotificationUI = Window.NotificationUI or Library.NotificationUI
+        if not NotificationUI then return end
+
+        local ActiveNotifications = Window.ActiveNotifications or Library.ActiveNotifications or {}
+        local RegisterHUDScale = Window.RegisterHUDScale or Library.RegisterHUDScale or function(o) return o end
+        local ApplyCornerRadii = Window.ApplyCornerRadii or Library.ApplyCornerRadii or function() end
+        local AddUIShadow = Window.AddUIShadow or Library.AddUIShadow or function() end
+        local FontTitle = Window.FontTitle or Library.FontTitle or Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal)
+        local FontRegular = Window.FontRegular or Library.FontRegular or Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+        local iconAsset = Window.IconAsset or Window.iconAsset or "rbxassetid://78209859871518"
+
+        local currentTheme = Window.CurrentTheme or Library.CurrentTheme or {}
         local typeColors = {
             success = Color3.fromRGB(46, 204, 113),
             warning = Color3.fromRGB(241, 196, 15),
             error   = Color3.fromRGB(231, 76, 60),
-            info    = Window.CurrentTheme.ButtonBG,
+            info    = currentTheme.ButtonBG or Color3.fromRGB(60, 100, 200),
         }
-        local accentCol = typeColors[string.lower(tostring(notifType or ""))] or Window.CurrentTheme.ButtonBG
+        local accentCol = typeColors[string.lower(tostring(notifType or ""))] or currentTheme.ButtonBG or Color3.fromRGB(60, 100, 200)
 
         local NotifContainer = Instance.new("Frame")
         NotifContainer.Name = "NotifContainer"
@@ -104,8 +147,8 @@ return function(Library, Window)
         NotifTop.Name = "TopFrame"
         NotifTop.Size = UDim2.new(1, 0, 0, 28)
         NotifTop.Position = UDim2.new(0, 0, 0, 0)
-        NotifTop.BackgroundColor3 = Window.CurrentTheme.TopBG
-        NotifTop.BackgroundTransparency = Window.CurrentTheme.TopTrans
+        NotifTop.BackgroundColor3 = currentTheme.TopBG or Color3.fromRGB(30, 30, 36)
+        NotifTop.BackgroundTransparency = currentTheme.TopTrans or 0
         NotifTop.BorderSizePixel = 0
         NotifTop.ZIndex = 31
         NotifTop.Parent = NotifContainer
@@ -127,7 +170,7 @@ return function(Library, Window)
         NotifTitle.BackgroundTransparency = 1
         NotifTitle.FontFace = FontTitle
         NotifTitle.Text = titleText or "MD Notification"
-        NotifTitle.TextColor3 = Window.CurrentTheme.Text
+        NotifTitle.TextColor3 = currentTheme.Text or Color3.fromRGB(240, 240, 245)
         NotifTitle.TextSize = 14
         NotifTitle.TextXAlignment = Enum.TextXAlignment.Left
         NotifTitle.TextYAlignment = Enum.TextYAlignment.Center
@@ -138,8 +181,8 @@ return function(Library, Window)
         NotifMain.Name = "MainFrame"
         NotifMain.Size = UDim2.new(1, 0, 0, 77)
         NotifMain.Position = UDim2.new(0, 0, 0, 28)
-        NotifMain.BackgroundColor3 = Window.CurrentTheme.MainBG
-        NotifMain.BackgroundTransparency = Window.CurrentTheme.MainTrans
+        NotifMain.BackgroundColor3 = currentTheme.MainBG or Color3.fromRGB(20, 20, 26)
+        NotifMain.BackgroundTransparency = currentTheme.MainTrans or 0
         NotifMain.BorderSizePixel = 0
         NotifMain.ZIndex = 31
         NotifMain.Parent = NotifContainer
@@ -155,8 +198,8 @@ return function(Library, Window)
         NotifIcon.Size = UDim2.new(0, 48, 0, 48)
         NotifIcon.Position = UDim2.new(0, 12, 0.5, -24)
         NotifIcon.BackgroundTransparency = 1
-        NotifIcon.Image = Window.IconAsset or iconAsset or "rbxassetid://78209859871518"
-        NotifIcon.ImageColor3 = Window.CurrentTheme.Text
+        NotifIcon.Image = iconAsset or "rbxassetid://78209859871518"
+        NotifIcon.ImageColor3 = currentTheme.Text or Color3.fromRGB(240, 240, 245)
         NotifIcon.ZIndex = 32
         NotifIcon.Parent = NotifMain
 
@@ -167,7 +210,7 @@ return function(Library, Window)
         NotifBody.BackgroundTransparency = 1
         NotifBody.FontFace = FontRegular
         NotifBody.Text = contentText or ""
-        NotifBody.TextColor3 = Window.CurrentTheme.Text
+        NotifBody.TextColor3 = currentTheme.Text or Color3.fromRGB(240, 240, 245)
         NotifBody.TextSize = 12
         NotifBody.TextWrapped = true
         NotifBody.TextXAlignment = Enum.TextXAlignment.Left
@@ -200,9 +243,9 @@ return function(Library, Window)
         })
         progressTween:Play()
 
-        table.insert(Window.ActiveNotifications, 1, NotifContainer)
+        table.insert(ActiveNotifications, 1, NotifContainer)
 
-        for index, notif in ipairs(Window.ActiveNotifications) do
+        for index, notif in ipairs(ActiveNotifications) do
             local targetX = -320 + ((index - 1) * 18)
             local targetY = -105 + ((index - 1) * 12)
             local targetZ = math.max(1, 30 - ((index - 1) * 10))
@@ -228,15 +271,15 @@ return function(Library, Window)
             slideOut:Play()
             slideOut.Completed:Wait()
 
-            for idx, item in ipairs(Window.ActiveNotifications) do
+            for idx, item in ipairs(ActiveNotifications) do
                 if item == NotifContainer then
-                    table.remove(Window.ActiveNotifications, idx)
+                    table.remove(ActiveNotifications, idx)
                     break
                 end
             end
             NotifContainer:Destroy()
 
-            for index, notif in ipairs(Window.ActiveNotifications) do
+            for index, notif in ipairs(ActiveNotifications) do
                 local targetX = -320 + ((index - 1) * 18)
                 local targetY = -105 + ((index - 1) * 12)
                 local targetZ = math.max(1, 30 - ((index - 1) * 10))
