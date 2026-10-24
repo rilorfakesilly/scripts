@@ -378,8 +378,25 @@ local function doCleanup()
             LightingService.Brightness = defaultLighting.Brightness
             LightingService.FogEnd = defaultLighting.FogEnd
             LightingService.FogColor = defaultLighting.FogColor
+            if defaultLighting.Ambient then
+                LightingService.Ambient = defaultLighting.Ambient
+                LightingService.OutdoorAmbient = defaultLighting.OutdoorAmbient
+                LightingService.GlobalShadows = defaultLighting.GlobalShadows
+            end
         end)
     end
+    if cameraBlurInstance then pcall(function() cameraBlurInstance:Destroy() end) cameraBlurInstance = nil end
+    if cameraDofInstance then pcall(function() cameraDofInstance:Destroy() end) cameraDofInstance = nil end
+    if worldColorCorrection then pcall(function() worldColorCorrection:Destroy() end) worldColorCorrection = nil end
+    if worldBloom then pcall(function() worldBloom:Destroy() end) worldBloom = nil end
+    if worldSunRays then pcall(function() worldSunRays:Destroy() end) worldSunRays = nil end
+    pcall(function()
+        LocalPlayer.CameraMaxZoomDistance = 128
+        LocalPlayer.CameraMinZoomDistance = 0.5
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").CameraOffset = Vector3.zero
+        end
+    end)
     pcall(function()
         RunService:UnbindFromRenderStep("CameraPipeline")
         CurrentCamera.FieldOfView = 70
@@ -3839,6 +3856,35 @@ Window = Library:CreateWindow({
             ["Skybox"] = "Небо (Skybox)",
             ["Atmosphere and lighting"] = "Атмосфера и освещение",
             ["Resolution stretch"] = "Растяжение экрана",
+            ["Camera blur & depth of field"] = "Размытие и глубина резкости",
+            ["Camera blur"] = "Размытие камеры",
+            ["Blur intensity"] = "Сила размытия",
+            ["Depth of field"] = "Глубина резкости (DoF)",
+            ["Focus distance"] = "Дистанция фокуса",
+            ["In-focus radius"] = "Радиус резкости",
+            ["Near blur intensity"] = "Размытие вблизи",
+            ["Far blur intensity"] = "Размытие вдали",
+            ["Zoom & camera distance"] = "Зум и дистанция камеры",
+            ["Custom zoom distance"] = "Кастомная дистанция зума",
+            ["Max zoom distance"] = "Макс. дистанция зума",
+            ["Min zoom distance"] = "Мин. дистанция зума",
+            ["Camera offset"] = "Смещение камеры",
+            ["Horizontal offset"] = "Смещение по горизонтали",
+            ["Height offset"] = "Смещение по высоте",
+            ["Distance offset"] = "Смещение по дистанции",
+            ["Post-processing & visual effects"] = "Постобработка и эффекты",
+            ["Color correction"] = "Цветокоррекция",
+            ["Saturation"] = "Насыщенность",
+            ["Contrast"] = "Контраст",
+            ["Exposure"] = "Экспозиция",
+            ["Tint color"] = "Цветовой оттенок",
+            ["Bloom effect"] = "Эффект свечения (Bloom)",
+            ["Bloom intensity"] = "Интенсивность свечения",
+            ["Bloom size"] = "Размер свечения",
+            ["Sun rays"] = "Лучи солнца (Sun Rays)",
+            ["Sun rays intensity"] = "Интенсивность лучей",
+            ["Fullbright"] = "Максимальная яркость (Fullbright)",
+            ["Global shadows"] = "Тени мира",
             ["Discord webhook"] = "Discord вебхук",
             ["Server"] = "Сервер",
             ["Auto open crates"] = "Автооткрытие ящиков",
@@ -4289,8 +4335,149 @@ defaultLighting = {
     ClockTime = LightingService.ClockTime,
     Brightness = LightingService.Brightness,
     FogEnd = LightingService.FogEnd,
-    FogColor = LightingService.FogColor
+    FogColor = LightingService.FogColor,
+    Ambient = LightingService.Ambient,
+    OutdoorAmbient = LightingService.OutdoorAmbient,
+    GlobalShadows = LightingService.GlobalShadows
 }
+
+cameraVisualSettings = {
+    blurEnabled = false,
+    blurSize = 10,
+    dofEnabled = false,
+    dofFocusDistance = 25,
+    dofInFocusRadius = 15,
+    dofNearIntensity = 0.75,
+    dofFarIntensity = 0.75,
+    customZoomEnabled = false,
+    maxZoomDistance = 128,
+    minZoomDistance = 0.5,
+    cameraOffsetEnabled = false,
+    cameraOffsetX = 0,
+    cameraOffsetY = 0,
+    cameraOffsetZ = 0
+}
+
+cameraBlurInstance = nil
+cameraDofInstance = nil
+worldColorCorrection = nil
+worldBloom = nil
+worldSunRays = nil
+
+local function getOrCreateVisualEffect(className, name)
+    local eff = LightingService:FindFirstChild(name)
+    if not eff or not eff:IsA(className) then
+        if eff then pcall(function() eff:Destroy() end) end
+        eff = Instance.new(className)
+        eff.Name = name
+        eff.Parent = LightingService
+    end
+    return eff
+end
+
+local function updateWorldVisuals()
+    if not worldState then return end
+
+    -- Color correction
+    if worldState.colorCorrectionEnabled then
+        local cc = getOrCreateVisualEffect("ColorCorrectionEffect", "MD_ColorCorrection")
+        cc.Saturation = worldState.saturation or 0.2
+        cc.Contrast = worldState.contrast or 0.15
+        cc.Brightness = worldState.exposure or 0
+        cc.TintColor = worldState.tintColor or Color3.fromRGB(255, 255, 255)
+        cc.Enabled = true
+        worldColorCorrection = cc
+    elseif worldColorCorrection then
+        worldColorCorrection.Enabled = false
+    end
+
+    -- Bloom
+    if worldState.bloomEnabled then
+        local bl = getOrCreateVisualEffect("BloomEffect", "MD_Bloom")
+        bl.Intensity = worldState.bloomIntensity or 1.2
+        bl.Size = worldState.bloomSize or 24
+        bl.Threshold = worldState.bloomThreshold or 1.5
+        bl.Enabled = true
+        worldBloom = bl
+    elseif worldBloom then
+        worldBloom.Enabled = false
+    end
+
+    -- Sun rays
+    if worldState.sunRaysEnabled then
+        local sr = getOrCreateVisualEffect("SunRaysEffect", "MD_SunRays")
+        sr.Intensity = worldState.sunRaysIntensity or 0.25
+        sr.Spread = worldState.sunRaysSpread or 0.8
+        sr.Enabled = true
+        worldSunRays = sr
+    elseif worldSunRays then
+        worldSunRays.Enabled = false
+    end
+
+    -- Fullbright & Shadows
+    if worldState.fullbrightEnabled then
+        LightingService.Ambient = Color3.fromRGB(255, 255, 255)
+        LightingService.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        LightingService.GlobalShadows = false
+    else
+        LightingService.GlobalShadows = (worldState.shadowsEnabled ~= false)
+        if defaultLighting and defaultLighting.Ambient then
+            LightingService.Ambient = defaultLighting.Ambient
+            LightingService.OutdoorAmbient = defaultLighting.OutdoorAmbient
+        end
+    end
+end
+
+local function updateCameraVisuals()
+    if not cameraVisualSettings then return end
+
+    -- Fullscreen blur
+    if cameraVisualSettings.blurEnabled then
+        local bl = getOrCreateVisualEffect("BlurEffect", "MD_CameraBlur")
+        bl.Size = cameraVisualSettings.blurSize or 10
+        bl.Enabled = true
+        cameraBlurInstance = bl
+    elseif cameraBlurInstance then
+        cameraBlurInstance.Enabled = false
+    end
+
+    -- Depth of Field (Focus Distance Blur)
+    if cameraVisualSettings.dofEnabled then
+        local dof = getOrCreateVisualEffect("DepthOfFieldEffect", "MD_CameraDOF")
+        dof.FocusDistance = cameraVisualSettings.dofFocusDistance or 25
+        dof.InFocusRadius = cameraVisualSettings.dofInFocusRadius or 15
+        dof.NearIntensity = cameraVisualSettings.dofNearIntensity or 0.75
+        dof.FarIntensity = cameraVisualSettings.dofFarIntensity or 0.75
+        dof.Enabled = true
+        cameraDofInstance = dof
+    elseif cameraDofInstance then
+        cameraDofInstance.Enabled = false
+    end
+
+    -- Zoom limits
+    if cameraVisualSettings.customZoomEnabled then
+        LocalPlayer.CameraMaxZoomDistance = cameraVisualSettings.maxZoomDistance or 128
+        LocalPlayer.CameraMinZoomDistance = cameraVisualSettings.minZoomDistance or 0.5
+    else
+        LocalPlayer.CameraMaxZoomDistance = 128
+        LocalPlayer.CameraMinZoomDistance = 0.5
+    end
+
+    -- Camera offset
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        if cameraVisualSettings.cameraOffsetEnabled then
+            hum.CameraOffset = Vector3.new(
+                cameraVisualSettings.cameraOffsetX or 0,
+                cameraVisualSettings.cameraOffsetY or 0,
+                cameraVisualSettings.cameraOffsetZ or 0
+            )
+        else
+            hum.CameraOffset = Vector3.zero
+        end
+    end
+end
 
 local activeSkyboxAssetId = nil
 
@@ -4378,6 +4565,7 @@ end)
 
 local function updateLighting()
     if not worldState then return end
+    updateWorldVisuals()
     if worldState.timeEnabled then
         LightingService.ClockTime = worldState.customTime
     end
@@ -4419,6 +4607,19 @@ local function onCameraStep()
     -- scale camera fov dynamically
     if stretchSettings.fovModifierEnabled then
         CurrentCamera.FieldOfView = stretchSettings.customFov
+    end
+
+    -- sync camera offset and zoom
+    if cameraVisualSettings and cameraVisualSettings.cameraOffsetEnabled then
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.CameraOffset = Vector3.new(
+                cameraVisualSettings.cameraOffsetX or 0,
+                cameraVisualSettings.cameraOffsetY or 0,
+                cameraVisualSettings.cameraOffsetZ or 0
+            )
+        end
     end
 
     -- adjust viewport aspect scale
@@ -5248,7 +5449,10 @@ local function calculateAimPosition(rawPos, part, predH, predV)
 
     local vel = Vector3.zero
     pcall(function()
-        vel = part.AssemblyLinearVelocity or part.Velocity or Vector3.zero
+        local char = part:FindFirstAncestorOfClass("Model") or part.Parent
+        local root = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
+        local sourcePart = root or part
+        vel = sourcePart.AssemblyLinearVelocity or sourcePart.Velocity or part.AssemblyLinearVelocity or part.Velocity or Vector3.zero
     end)
 
     local hFactor = tonumber(predH) or 0
@@ -5256,12 +5460,14 @@ local function calculateAimPosition(rawPos, part, predH, predV)
     if hFactor < 0 then hFactor = 0 end
     if vFactor < 0 then vFactor = 0 end
 
+    -- Horizontal prediction (stays the same)
     local offsetX = vel.X * hFactor
     local offsetZ = vel.Z * hFactor
     local offsetY = 0
 
+    -- Vertical prediction dependent on target's vertical velocity / fall speed
     if vFactor > 0.001 then
-        local char = part.Parent
+        local char = part:FindFirstAncestorOfClass("Model") or part.Parent
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         local isGrounded = false
         if hum then
@@ -5271,15 +5477,8 @@ local function calculateAimPosition(rawPos, part, predH, predV)
             end
         end
 
-        if not isGrounded and math.abs(vel.Y) > 1 then
-            local grav = 196.2
-            pcall(function()
-                if Workspace.Gravity and Workspace.Gravity > 0 then
-                    grav = Workspace.Gravity
-                end
-            end)
-            local ballistic = (vel.Y * vFactor) - (0.5 * grav * (vFactor * vFactor))
-            offsetY = math.clamp(ballistic, -15, 15)
+        if not isGrounded or math.abs(vel.Y) > 1.5 then
+            offsetY = math.clamp(vel.Y * vFactor, -30, 30)
         end
     end
 
@@ -6019,6 +6218,7 @@ end))
 
 -- reset forces and recover character physics 
 local function stopTween()
+    state.safeAnchorToken = (state.safeAnchorToken or 0) + 1
     local char = LocalPlayer.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     local hum  = char and char:FindFirstChildOfClass("Humanoid")
@@ -6047,7 +6247,6 @@ local function stopTween()
 end
 
 local SAFEZONE_POS = Vector3.new(390.562195, -41.5624847, 110.499878)
-local safeZoneAnchorToken = 0
 
 local function tpToSafeSpawn(anchor)
     if state then
@@ -6058,23 +6257,33 @@ local function tpToSafeSpawn(anchor)
     if not hrp then return end
     hrp.CFrame = CFrame.new(SAFEZONE_POS)
     pcall(function()
+        hrp.Anchored = false
         hrp.AssemblyLinearVelocity  = Vector3.zero
         hrp.AssemblyAngularVelocity = Vector3.zero
     end)
-    safeZoneAnchorToken = safeZoneAnchorToken + 1
-    local currentToken = safeZoneAnchorToken
+    state.safeAnchorToken = (state.safeAnchorToken or 0) + 1
+    local currentToken = state.safeAnchorToken
     if anchor ~= false then
-        pcall(function() hrp.Anchored = false end)
         task.delay(0.2, function()
-            if safeZoneAnchorToken ~= currentToken then return end
+            if state.safeAnchorToken ~= currentToken then return end
+            if state.unloaded or not state.autofarmEnabled or state.isFlinging then return end
             local c = LocalPlayer.Character
             local root = c and c:FindFirstChild("HumanoidRootPart")
-            if root and (root.Position - SAFEZONE_POS).Magnitude < 100 then
+            local h = c and c:FindFirstChildOfClass("Humanoid")
+            if root and h and h.Health > 0 and (root.Position - SAFEZONE_POS).Magnitude < 100 then
                 pcall(function() root.Anchored = true end)
             end
         end)
-    else
-        pcall(function() hrp.Anchored = false end)
+    end
+end
+
+-- cancel any pending safe-zone anchor and free the character
+local function releaseSafeAnchor()
+    state.safeAnchorToken = (state.safeAnchorToken or 0) + 1
+    local c = LocalPlayer.Character
+    local root = c and c:FindFirstChild("HumanoidRootPart")
+    if root and root.Anchored then
+        pcall(function() root.Anchored = false end)
     end
 end
 
@@ -10880,9 +11089,7 @@ local function _buildScriptUI()
                             local minY = getMinAllowedY()
                             local COIN_FARM_SPEED = state.autofarmTweenSpeed or 22
 
-                            pcall(function()
-                                hrp.Anchored = false
-                            end)
+                            releaseSafeAnchor()
 
                             local function markCoinCollected(part)
                                 if part and not collectedCoinsDebounce[part] then
@@ -11007,6 +11214,8 @@ local function _buildScriptUI()
 
                             if #cachedCoins == 0 then
                                 state.currentTaskStatus = "Farming coins (no coins found)"
+                                stopTween()
+                                tpToSafeSpawn(true)
                                 task.wait(0.5)
                             else
                                 if not state.tweenRoundTeleported then
@@ -11052,11 +11261,14 @@ local function _buildScriptUI()
                                         hrp = char and char:FindFirstChild("HumanoidRootPart")
                                         local hum2 = char and char:FindFirstChildOfClass("Humanoid")
                                         if not hrp or not hum2 or hum2.Health <= 0 then break end
+                                        if hrp.Anchored then pcall(function() hrp.Anchored = false end) end
 
                                         refreshCoinCache()
                                         if #cachedCoins == 0 then
-                                            task.wait(0.5)
-                                            continue
+                                            state.currentTaskStatus = "Farming coins (no coins found)"
+                                            stopTween()
+                                            tpToSafeSpawn(true)
+                                            break
                                         end
 
                                         local pool = safeCoins(cachedCoins)
@@ -11077,6 +11289,7 @@ local function _buildScriptUI()
                                         local startPos = hrp.Position
                                         local touched = false
                                         local retarget = false
+                                        local collected = false
 
                                         while tick() - flyStart < flyDuration do
                                             if not state.autofarmEnabled or not canFarmCoins() then break end
@@ -11116,14 +11329,26 @@ local function _buildScriptUI()
                                                 hrp.AssemblyAngularVelocity = Vector3.zero
                                             end)
 
-                                            if not touched and (hrp.Position - coinPart.Position).Magnitude <= 3.5 then
-                                                touched = true
+                                            if (hrp.Position - coinPart.Position).Magnitude <= 3.5 then
                                                 fireCoin(coinPart)
+                                                fireCoin(coinPart)
+                                                collected = true
+                                                break
                                             end
                                             task.wait()
                                         end
 
-                                        if retarget then
+                                        if collected then
+                                            local part = coinPart
+                                            collectedCoinsDebounce[part] = true
+                                            task.delay(0.7, function()
+                                                if coinGone(part) then
+                                                    state.totalCoinsFarmed = state.totalCoinsFarmed + 1
+                                                end
+                                            end)
+                                            task.delay(3, function() collectedCoinsDebounce[part] = nil end)
+                                            refreshCoinCache(true)
+                                        elseif retarget then
                                             refreshCoinCache(true)
                                             task.wait()
                                         else
@@ -11170,6 +11395,9 @@ local function _buildScriptUI()
                             elseif not isCoinBagVisible() then
                                 tpToSafeSpawn(true)
                                 state.currentTaskStatus = "waiting in lobby"
+                            else
+                                tpToSafeSpawn(true)
+                                state.currentTaskStatus = "Farming coins (no coins found)"
                             end
                         end
 
@@ -12880,6 +13108,38 @@ local function _buildScriptUI()
         end
     end))
 
+    -- sound preview helper
+    local previewSound = nil
+    local function previewCustomSound(cat)
+        local cfg = customSoundConfigs[cat]
+        if not cfg then return end
+
+        local id = formatCustomAssetId(getActiveCustomSoundId(cat))
+        if id == "" then
+            log("Enter a sound id first")
+            return
+        end
+
+        if previewSound then
+            pcall(function() previewSound:Destroy() end)
+            previewSound = nil
+        end
+
+        local s = Instance.new("Sound")
+        s.Name = "MDPreview"
+        s.SoundId = id
+        s.Volume = cfg.Volume or 1
+        s.Parent = game:GetService("SoundService")
+        previewSound = s
+        s.Ended:Connect(function() pcall(function() s:Destroy() end) end)
+        Debris:AddItem(s, 20)
+        s:Play()
+    end
+
+    registerCleanupHook(function()
+        if previewSound then pcall(function() previewSound:Destroy() end) end
+    end)
+
     -- construct custom sound effect triggers
     Tabs.Sounds:AddSection("Gunshot sound")
     Tabs.Sounds:AddGroup({
@@ -12947,6 +13207,7 @@ local function _buildScriptUI()
             end
         }
     })
+    Tabs.Sounds:AddButton({ Title = "Preview sound", Icon = "play", Callback = function() previewCustomSound("Gunshot") end })
 
     Tabs.Sounds:AddSection("Reload sound")
     Tabs.Sounds:AddGroup({
@@ -13010,6 +13271,7 @@ local function _buildScriptUI()
             end
         }
     })
+    Tabs.Sounds:AddButton({ Title = "Preview sound", Icon = "play", Callback = function() previewCustomSound("Reload") end })
 
     Tabs.Sounds:AddSection("Gun kill sound")
     Tabs.Sounds:AddGroup({
@@ -13073,6 +13335,7 @@ local function _buildScriptUI()
             end
         }
     })
+    Tabs.Sounds:AddButton({ Title = "Preview sound", Icon = "play", Callback = function() previewCustomSound("GunKill") end })
 
     Tabs.Sounds:AddSection("Knife kill sound")
     Tabs.Sounds:AddGroup({
@@ -13136,6 +13399,7 @@ local function _buildScriptUI()
             end
         }
     })
+    Tabs.Sounds:AddButton({ Title = "Preview sound", Icon = "play", Callback = function() previewCustomSound("KnifeKill") end })
 
     Tabs.Sounds:AddSection("Coin pickup sound")
     Tabs.Sounds:AddGroup({
@@ -13199,6 +13463,7 @@ local function _buildScriptUI()
             end
         }
     })
+    Tabs.Sounds:AddButton({ Title = "Preview sound", Icon = "play", Callback = function() previewCustomSound("Coin") end })
 
     -- configure particle ribbons and orbiting spheres 
     local trailConfig = {
@@ -16562,6 +16827,139 @@ Tabs.World:AddSection("Skybox")
         end
     })
 
+    Tabs.World:AddSection("Post-processing & visual effects")
+
+    Tabs.World:AddToggle("WorldColorCorrection", {
+        Title = "Color correction",
+        Default = false,
+        Callback = function(v)
+            worldState.colorCorrectionEnabled = v
+            updateWorldVisuals()
+        end
+    })
+
+    Tabs.World:AddSlider("WorldSaturation", {
+        Title = "Saturation",
+        Min = -1,
+        Max = 2,
+        Default = 0.2,
+        Increment = 0.05,
+        Rounding = 2,
+        Callback = function(val)
+            worldState.saturation = val
+            updateWorldVisuals()
+        end
+    })
+
+    Tabs.World:AddSlider("WorldContrast", {
+        Title = "Contrast",
+        Min = -1,
+        Max = 1,
+        Default = 0.15,
+        Increment = 0.05,
+        Rounding = 2,
+        Callback = function(val)
+            worldState.contrast = val
+            updateWorldVisuals()
+        end
+    })
+
+    Tabs.World:AddSlider("WorldExposure", {
+        Title = "Exposure",
+        Min = -1,
+        Max = 1,
+        Default = 0,
+        Increment = 0.05,
+        Rounding = 2,
+        Callback = function(val)
+            worldState.exposure = val
+            updateWorldVisuals()
+        end
+    })
+
+    Tabs.World:AddColorpicker("WorldTintColor", {
+        Title = "Tint color",
+        Default = Color3.fromRGB(255, 255, 255),
+        Callback = function(col)
+            worldState.tintColor = col
+            updateWorldVisuals()
+        end
+    })
+
+    Tabs.World:AddToggle("WorldBloom", {
+        Title = "Bloom effect",
+        Default = false,
+        Callback = function(v)
+            worldState.bloomEnabled = v
+            updateWorldVisuals()
+        end
+    })
+
+    Tabs.World:AddSlider("WorldBloomIntensity", {
+        Title = "Bloom intensity",
+        Min = 0,
+        Max = 5,
+        Default = 1.2,
+        Increment = 0.1,
+        Rounding = 1,
+        Callback = function(val)
+            worldState.bloomIntensity = val
+            updateWorldVisuals()
+        end
+    })
+
+    Tabs.World:AddSlider("WorldBloomSize", {
+        Title = "Bloom size",
+        Min = 0,
+        Max = 56,
+        Default = 24,
+        Rounding = 0,
+        Callback = function(val)
+            worldState.bloomSize = val
+            updateWorldVisuals()
+        end
+    })
+
+    Tabs.World:AddToggle("WorldSunRays", {
+        Title = "Sun rays",
+        Default = false,
+        Callback = function(v)
+            worldState.sunRaysEnabled = v
+            updateWorldVisuals()
+        end
+    })
+
+    Tabs.World:AddSlider("WorldSunRaysIntensity", {
+        Title = "Sun rays intensity",
+        Min = 0,
+        Max = 1,
+        Default = 0.25,
+        Increment = 0.05,
+        Rounding = 2,
+        Callback = function(val)
+            worldState.sunRaysIntensity = val
+            updateWorldVisuals()
+        end
+    })
+
+    Tabs.World:AddToggle("WorldFullbright", {
+        Title = "Fullbright",
+        Default = false,
+        Callback = function(v)
+            worldState.fullbrightEnabled = v
+            updateWorldVisuals()
+        end
+    })
+
+    Tabs.World:AddToggle("WorldGlobalShadows", {
+        Title = "Global shadows",
+        Default = true,
+        Callback = function(v)
+            worldState.shadowsEnabled = v
+            updateWorldVisuals()
+        end
+    })
+
     -- construct camera fov and stretch adjustments
     Tabs.Camera:AddSection("Resolution stretch")
 
@@ -16619,6 +17017,179 @@ Tabs.World:AddSection("Skybox")
             if stretchSettings.fovModifierEnabled then
                 CurrentCamera.FieldOfView = val
             end
+        end
+    })
+
+    Tabs.Camera:AddSection("Camera blur & depth of field")
+
+    Tabs.Camera:AddToggle("CameraBlur", {
+        Title = "Camera blur",
+        Default = false,
+        Callback = function(v)
+            cameraVisualSettings.blurEnabled = v
+            updateCameraVisuals()
+        end
+    })
+
+    Tabs.Camera:AddSlider("CameraBlurSize", {
+        Title = "Blur intensity",
+        Min = 0,
+        Max = 56,
+        Default = 10,
+        Rounding = 0,
+        Callback = function(val)
+            cameraVisualSettings.blurSize = val
+            updateCameraVisuals()
+        end
+    })
+
+    Tabs.Camera:AddToggle("CameraDepthOfField", {
+        Title = "Depth of field",
+        Default = false,
+        Callback = function(v)
+            cameraVisualSettings.dofEnabled = v
+            updateCameraVisuals()
+        end
+    })
+
+    Tabs.Camera:AddSlider("CameraDOFFocusDistance", {
+        Title = "Focus distance",
+        Min = 0,
+        Max = 300,
+        Default = 25,
+        Suffix = " studs",
+        Rounding = 0,
+        Callback = function(val)
+            cameraVisualSettings.dofFocusDistance = val
+            updateCameraVisuals()
+        end
+    })
+
+    Tabs.Camera:AddSlider("CameraDOFInFocusRadius", {
+        Title = "In-focus radius",
+        Min = 0,
+        Max = 100,
+        Default = 15,
+        Suffix = " studs",
+        Rounding = 0,
+        Callback = function(val)
+            cameraVisualSettings.dofInFocusRadius = val
+            updateCameraVisuals()
+        end
+    })
+
+    Tabs.Camera:AddSlider("CameraDOFNearIntensity", {
+        Title = "Near blur intensity",
+        Min = 0,
+        Max = 1,
+        Default = 0.75,
+        Increment = 0.05,
+        Rounding = 2,
+        Callback = function(val)
+            cameraVisualSettings.dofNearIntensity = val
+            updateCameraVisuals()
+        end
+    })
+
+    Tabs.Camera:AddSlider("CameraDOFFarIntensity", {
+        Title = "Far blur intensity",
+        Min = 0,
+        Max = 1,
+        Default = 0.75,
+        Increment = 0.05,
+        Rounding = 2,
+        Callback = function(val)
+            cameraVisualSettings.dofFarIntensity = val
+            updateCameraVisuals()
+        end
+    })
+
+    Tabs.Camera:AddSection("Zoom & camera distance")
+
+    Tabs.Camera:AddToggle("CameraCustomZoom", {
+        Title = "Custom zoom distance",
+        Default = false,
+        Callback = function(v)
+            cameraVisualSettings.customZoomEnabled = v
+            updateCameraVisuals()
+        end
+    })
+
+    Tabs.Camera:AddSlider("CameraMaxZoom", {
+        Title = "Max zoom distance",
+        Min = 10,
+        Max = 1000,
+        Default = 128,
+        Suffix = " studs",
+        Rounding = 0,
+        Callback = function(val)
+            cameraVisualSettings.maxZoomDistance = val
+            updateCameraVisuals()
+        end
+    })
+
+    Tabs.Camera:AddSlider("CameraMinZoom", {
+        Title = "Min zoom distance",
+        Min = 0.5,
+        Max = 50,
+        Default = 0.5,
+        Suffix = " studs",
+        Increment = 0.5,
+        Rounding = 1,
+        Callback = function(val)
+            cameraVisualSettings.minZoomDistance = val
+            updateCameraVisuals()
+        end
+    })
+
+    Tabs.Camera:AddToggle("CameraOffsetEnabled", {
+        Title = "Camera offset",
+        Default = false,
+        Callback = function(v)
+            cameraVisualSettings.cameraOffsetEnabled = v
+            updateCameraVisuals()
+        end
+    })
+
+    Tabs.Camera:AddSlider("CameraOffsetX", {
+        Title = "Horizontal offset",
+        Min = -15,
+        Max = 15,
+        Default = 0,
+        Increment = 0.5,
+        Rounding = 1,
+        Suffix = " studs",
+        Callback = function(val)
+            cameraVisualSettings.cameraOffsetX = val
+            updateCameraVisuals()
+        end
+    })
+
+    Tabs.Camera:AddSlider("CameraOffsetY", {
+        Title = "Height offset",
+        Min = -10,
+        Max = 15,
+        Default = 0,
+        Increment = 0.5,
+        Rounding = 1,
+        Suffix = " studs",
+        Callback = function(val)
+            cameraVisualSettings.cameraOffsetY = val
+            updateCameraVisuals()
+        end
+    })
+
+    Tabs.Camera:AddSlider("CameraOffsetZ", {
+        Title = "Distance offset",
+        Min = -25,
+        Max = 25,
+        Default = 0,
+        Increment = 0.5,
+        Rounding = 1,
+        Suffix = " studs",
+        Callback = function(val)
+            cameraVisualSettings.cameraOffsetZ = val
+            updateCameraVisuals()
         end
     })
 
