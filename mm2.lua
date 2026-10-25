@@ -309,7 +309,7 @@ local function restoreCharacterCollision(char)
     if not char then return end
     for _, p in ipairs(char:GetDescendants()) do
         if p:IsA("BasePart") then
-            p.CanCollide = (p.Name == "HumanoidRootPart")
+            p.CanCollide = (p.Name ~= "HumanoidRootPart")
         end
     end
 end
@@ -441,7 +441,7 @@ local function doCleanup()
                 if p:IsA("BasePart") then
                     pcall(function()
                         p.Anchored = false
-                        p.CanCollide = (p.Name == "HumanoidRootPart")
+                        p.CanCollide = (p.Name ~= "HumanoidRootPart")
                     end)
                 end
             end
