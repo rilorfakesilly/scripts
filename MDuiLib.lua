@@ -4586,30 +4586,18 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         local tabOrder = {}
         local subContainers = {}
         local subObjects = {}
-        local pillCount = #tabsList
+        local pillCount = math.max(#tabsList, 1)
+        local pillGap = 6
 
         local function UpdateIndicator(animated)
             local btn = pillButtons[activeTab]
-            if not btn then return end
+            local idx = (btn and tabOrder[activeTab]) or tabOrder[activeTab] or 1
 
-            local targetX = 0
-            local targetW = 0
+            local wScale = 1 / pillCount
+            local wOffset = -math.floor(pillGap * (pillCount - 1) / pillCount)
 
-            if ButtonsContainer.AbsoluteSize.X > 0 and btn.AbsoluteSize.X > 0 then
-                targetX = btn.AbsolutePosition.X - ButtonsContainer.AbsolutePosition.X
-                targetW = btn.AbsoluteSize.X
-            else
-                local idx = tabOrder[activeTab] or 1
-                local wScale = 1 / pillCount
-                local wOffset = -math.floor(6 * (pillCount - 1) / pillCount)
-                local totalW = ButtonsContainer.AbsoluteSize.X > 0 and ButtonsContainer.AbsoluteSize.X or (SubTabBar.AbsoluteSize.X - 12)
-                if totalW <= 0 then totalW = 400 end
-                targetW = (totalW * wScale) + wOffset
-                targetX = (idx - 1) * (targetW + 6)
-            end
-
-            local targetPos = UDim2.new(0, targetX, 0, 0)
-            local targetSize = UDim2.new(0, targetW, 1, 0)
+            local targetPos = UDim2.new((idx - 1) * wScale, (idx - 1) * (wOffset + pillGap), 0, 0)
+            local targetSize = UDim2.new(wScale, wOffset, 1, 0)
 
             local curTheme = Window.CurrentTheme or Library.CurrentTheme
             local targetBg = curTheme.ButtonBG
@@ -4715,7 +4703,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local PillBtn = Instance.new("TextButton")
             PillBtn.Name = "Pill_" .. tName
-            PillBtn.Size = UDim2.new(1 / pillCount, -math.floor(6 * (pillCount - 1) / pillCount), 1, 0)
+            PillBtn.Size = UDim2.new(1 / pillCount, -math.floor(pillGap * (pillCount - 1) / pillCount), 1, 0)
             PillBtn.BackgroundTransparency = 1
             PillBtn.BorderSizePixel = 0
             PillBtn.FontFace = FontBold
