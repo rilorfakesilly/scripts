@@ -12923,7 +12923,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end
                 end
             end
-            GroupFrame.LayoutGroupCorners = LayoutGroupCorners
             for _, res in ipairs(results) do
                 if type(res) == "table" and not res.LayoutGroupCorners then
                     res.LayoutGroupCorners = LayoutGroupCorners
@@ -13230,8 +13229,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     if SliderCard and SliderCard.Parent then
                         SliderCard.Visible = vis
                     end
-                    if GroupFrame and GroupFrame.Parent and GroupFrame.LayoutGroupCorners then
-                        GroupFrame:LayoutGroupCorners()
+                    if type(sliderData) == "table" and sliderData.LayoutGroupCorners then
+                        pcall(function() sliderData:LayoutGroupCorners() end)
                     end
                     if ContentFrame and ContentLayout then
                         UpdateCanvasSize()
@@ -13277,8 +13276,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     if frame and frame.Parent then
                         frame.Visible = vis
                     end
-                    if GroupFrame and GroupFrame.Parent and GroupFrame.LayoutGroupCorners then
-                        GroupFrame:LayoutGroupCorners()
+                    if type(sliderData) == "table" and sliderData.LayoutGroupCorners then
+                        pcall(function() sliderData:LayoutGroupCorners() end)
                     end
                     if ContentFrame and ContentLayout then
                         UpdateCanvasSize()
