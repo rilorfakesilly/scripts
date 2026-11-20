@@ -1,42 +1,78 @@
 -- modules/theme_manager.lua
 -- MorningDrift UI Library: Theme Manager & Visual Effects Module
+
 local TweenService = game:GetService("TweenService")
-local LightingService = game:GetService("Lighting")
-local Lighting = LightingService
+local Lighting = game:GetService("Lighting")
+
+local WHITE = Color3.fromRGB(255, 255, 255)
+local DEFAULT_DIVIDER = Color3.fromRGB(65, 70, 88)
+
+local DESC_NAMES = {
+    CardBody = true, DescLabel = true, WebDesc = true, BlurDesc = true,
+    CustomThemeDesc = true, ClickEffectsDesc = true, SubTitle = true,
+}
+local SKIP_TEXT_NAMES = { LocalTime = true, percloaded = true, Loadingtext = true }
+local CUSTOM_THEME_PICKERS = { "CustomTheme", "Custom theme" }
+
+local function luminance(c)
+    return 0.299 * c.R + 0.587 * c.G + 0.114 * c.B
+end
+
+local function shallowCopy(t)
+    local out = {}
+    for k, v in pairs(t) do out[k] = v end
+    return out
+end
+
+local function isShadowInstance(inst)
+    if inst.Name:sub(1, 8) == "UIShadow" then return true end
+    local ok, res = pcall(function() return inst.ClassName == "UIShadow" end)
+    return ok and res == true
+end
+
+-- Calls RefreshTheme on every registered object in `list`, isolating errors.
+-- useSelf = true for objects that define RefreshTheme as a method (obj:RefreshTheme()).
+local function refreshAll(list, useSelf, ...)
+    if not list then return end
+    for _, obj in ipairs(list) do
+        if obj and obj.RefreshTheme then
+            if useSelf then
+                pcall(obj.RefreshTheme, obj, ...)
+            else
+                pcall(obj.RefreshTheme, ...)
+            end
+        end
+    end
+end
 
 return function(Library, Window)
+    Library.Shadows = Library.Shadows or {}
+    Library.ThemePresets = Library.ThemePresets or {}
+
     local GetThemedDarkColor = Library.GetThemedDarkColor or function(theme)
-        local cardBG = (theme and theme.CardBG) or Color3.fromRGB(30, 32, 40)
-        return cardBG
+        return (theme and theme.CardBG) or Color3.fromRGB(30, 32, 40)
     end
     local GetOnAccent = Library.GetOnAccent or function(bg)
-        if typeof(bg) ~= "Color3" then return Color3.fromRGB(255, 255, 255) end
-        local lum = 0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B
-        return lum > 0.6 and Color3.fromRGB(20, 22, 28) or Color3.fromRGB(255, 255, 255)
+        if typeof(bg) ~= "Color3" then return WHITE end
+        return luminance(bg) > 0.6 and Color3.fromRGB(20, 22, 28) or WHITE
     end
     local IsInsideSection = Library.IsInsideSection or function() return false end
-    local ApplyCornerRadii = Library.ApplyCornerRadii or Window.ApplyCornerRadii or function() end
 
     local function GetIconColorForTheme(theme)
-        if Window.GetIconColorForTheme then
-            return Window.GetIconColorForTheme(theme)
-        end
-        if Library.GetIconColorForTheme then
-            return Library.GetIconColorForTheme(theme)
-        end
-        if not theme then return Color3.fromRGB(255, 255, 255) end
+        if Window.GetIconColorForTheme then return Window.GetIconColorForTheme(theme) end
+        if Library.GetIconColorForTheme then return Library.GetIconColorForTheme(theme) end
+        if not theme then return WHITE end
+
         local bg = theme.MainBG or Color3.fromRGB(30, 30, 30)
         local _, s, v = Color3.toHSV(bg)
-
-        if s < 0.3 and v < 0.1 then
-            return Color3.fromRGB(255, 255, 255)
-        end
-        if s < 0.15 and v > 0.85 then
-            return Color3.fromRGB(0, 0, 0)
-        end
-
-        return theme.ButtonBG or theme.Text or Color3.fromRGB(255, 255, 255)
+        if s < 0.3 and v < 0.1 then return WHITE end
+        if s < 0.15 and v > 0.85 then return Color3.fromRGB(0, 0, 0) end
+        return theme.ButtonBG or theme.Text or WHITE
     end
+
+    ---------------------------------------------------------------------------
+    -- Shared helpers
+    ---------------------------------------------------------------------------
 
     local activeThemeTweens = {}
     local function cancelActiveThemeTweens()
@@ -46,17 +82,127 @@ return function(Library, Window)
         table.clear(activeThemeTweens)
     end
 
-    function Window:ApplyTheme(themeKey, animated)
-        cancelActiveThemeTweens()
-        animated = (animated == nil) and true or animated
-        local newTheme = Library.ThemePresets[themeKey]
-        if not newTheme then return end
+    local function themeRoots()
+        return {
+            Window.ScriptUi, Library.ScriptUi, Window.MinimisedUI,
+            Window.NotificationUI, Window.ParentGui, Library.ParentGui,
+        }
+    end
 
-        local themeCopy = {}
-        for k, v in pairs(newTheme) do
-            themeCopy[k] = v
+    -- Single source of truth for shadow visibility/transparency.
+    local function refreshShadows(sweep)
+        local enabled = Window.ShadowsEnabled ~= false
+        local intensity = Window.ShadowIntensity or Library.ShadowIntensity or (1 / 1.8)
+
+        local function apply(shadow, origTrans)
+            local parent = shadow.Parent
+            local suppressed = false
+            if parent and parent:IsA("GuiObject") then
+                if parent.BackgroundTransparency >= 0.99 then
+                    suppressed = true
+                elseif Window.SectionsTransparent and IsInsideSection(parent) then
+                    suppressed = true
+                end
+            end
+            local opacity = math.clamp((1 - (origTrans or 0.5)) * intensity, 0, 1)
+            local show = enabled and intensity > 0 and not suppressed
+            pcall(function() shadow.Enabled = show end)
+            pcall(function() shadow.Visible = show end)
+            pcall(function() shadow.Transparency = show and (1 - opacity) or 1 end)
         end
-        Window.CurrentTheme = themeCopy
+
+        for shadow, orig in pairs(Library.Shadows) do
+            if shadow and shadow.Parent then
+                apply(shadow, orig)
+            else
+                Library.Shadows[shadow] = nil
+            end
+        end
+
+        if not sweep then return end
+        -- Sweep for shadows that were never registered.
+        local seen = {}
+        for _, root in ipairs(themeRoots()) do
+            if typeof(root) == "Instance" and root.Parent and not seen[root] then
+                seen[root] = true
+                pcall(function()
+                    for _, desc in ipairs(root:GetDescendants()) do
+                        if isShadowInstance(desc) then
+                            local orig = Library.Shadows[desc]
+                            if not orig then
+                                orig = (desc.Transparency < 1) and desc.Transparency or 0.5
+                                Library.Shadows[desc] = orig
+                            end
+                            apply(desc, orig)
+                        end
+                    end
+                end)
+            end
+        end
+    end
+
+    local function syncSlider(key, value)
+        local sld = Window.RegisteredSliders and Window.RegisteredSliders[key]
+        if sld and sld.SetValue and sld.GetValue and sld:GetValue() ~= value then
+            pcall(function() sld:SetValue(value, false) end)
+        end
+    end
+
+    local function isButtonFrame(f)
+        local n = f.Name
+        return n == "MDButtonCard" or n:find("BtnFrame") ~= nil or n == "Btn"
+            or (f:FindFirstChildOfClass("TextButton") ~= nil and (n:find("Btn") ~= nil or n:find("Button") ~= nil))
+    end
+
+    local function isCardFrame(f)
+        local n = f.Name
+        if f:GetAttribute("MDCard") == true then return true end
+        if n:find("Card") or n:find("TextboxFrame") or n:find("DropdownFrame") or n:find("BoxFrame") then
+            return true
+        end
+        local theme = Window.CurrentTheme
+        return theme ~= nil and f.BackgroundColor3 == theme.CardBG
+    end
+
+    local function setCardTransparency(frame, pct)
+        if not (frame and frame.Parent) then return end
+        if Window.SectionsTransparent and IsInsideSection(frame) then
+            frame.BackgroundTransparency = 1
+        else
+            frame.BackgroundTransparency = pct
+        end
+    end
+
+    -- Toggle fallback used when a toggle exposes no RefreshTheme.
+    local function refreshToggleFallback(toggle, theme, set)
+        if not (toggle.Frame and toggle.Frame.Parent) then return end
+        local on = toggle.GetState and toggle.GetState()
+        local onAccent = GetOnAccent(theme.ButtonBG)
+        if toggle.Overlay then
+            set(toggle.Overlay, { ImageColor3 = on and theme.ButtonBG or WHITE })
+        end
+        if toggle.BaseCircle then
+            set(toggle.BaseCircle, { ImageColor3 = on and onAccent or theme.ButtonBG })
+        end
+        if toggle.CheckIcon then
+            set(toggle.CheckIcon, { ImageColor3 = onAccent })
+        end
+        set(toggle.Frame, { BackgroundColor3 = on and theme.ButtonBG or GetThemedDarkColor(theme) })
+    end
+
+    ---------------------------------------------------------------------------
+    -- Themes
+    ---------------------------------------------------------------------------
+
+    function Window:ApplyTheme(themeKey, animated, silent)
+        local preset = Library.ThemePresets[themeKey]
+        if not preset then return false end
+
+        cancelActiveThemeTweens()
+        animated = (animated ~= false)
+
+        local theme = shallowCopy(preset)
+        Window.CurrentTheme = theme
         Window.CurrentThemeKey = themeKey
 
         if themeKey == "Custom" then
@@ -64,1201 +210,384 @@ return function(Library, Window)
         else
             Window.IsCustomTheme = false
             Window.CustomThemeColor = nil
-            if Window.RegisteredColorPickers then
-                if Window.RegisteredColorPickers["CustomTheme"] then
-                    pcall(function()
-                        Window.RegisteredColorPickers["CustomTheme"].SetColor(newTheme.ButtonBG, false)
-                    end)
-                end
-                if Window.RegisteredColorPickers["Custom theme"] then
-                    pcall(function()
-                        Window.RegisteredColorPickers["Custom theme"].SetColor(newTheme.ButtonBG, false)
-                    end)
+            local pickers = Window.RegisteredColorPickers
+            if pickers then
+                for _, key in ipairs(CUSTOM_THEME_PICKERS) do
+                    local cp = pickers[key]
+                    if cp and cp.SetColor then
+                        pcall(cp.SetColor, theme.ButtonBG, false)
+                    end
                 end
             end
         end
-
-        local RealTweenService = game:GetService("TweenService")
-        local TweenService = {
-            Create = function(_, inst, info, props)
-                local tw = RealTweenService:Create(inst, info, props)
-                table.insert(activeThemeTweens, tw)
-                return tw
-            end
-        }
 
         local tweenInfo = TweenInfo.new(animated and 0.35 or 0, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
-        if Window.MainFrame then
-            local mainTrans = Window.CustomBGTransparency or newTheme.MainTrans
-            local rightColor = newTheme.TopBG or newTheme.AccentBG
+        local function set(inst, props)
+            if not inst then return end
             if animated then
-                TweenService:Create(Window.MainFrame, tweenInfo, {
-                    BackgroundColor3 = rightColor,
-                    BackgroundTransparency = mainTrans
-                }):Play()
+                local tw = TweenService:Create(inst, tweenInfo, props)
+                activeThemeTweens[#activeThemeTweens + 1] = tw
+                tw:Play()
             else
-                Window.MainFrame.BackgroundColor3 = rightColor
-                Window.MainFrame.BackgroundTransparency = mainTrans
-            end
-        end
-        local frameColor = newTheme.MainBG
-        local frameTrans = Window.TopBottomTransparency or newTheme.TopTrans or 0.12
-
-        if Window.LeftFrame then
-            if animated then
-                TweenService:Create(Window.LeftFrame, tweenInfo, {
-                    BackgroundColor3 = frameColor,
-                    BackgroundTransparency = frameTrans
-                }):Play()
-            else
-                Window.LeftFrame.BackgroundColor3 = frameColor
-                Window.LeftFrame.BackgroundTransparency = frameTrans
-            end
-        end
-        if Window.TopFrame then
-            if animated then
-                TweenService:Create(Window.TopFrame, tweenInfo, {
-                    BackgroundColor3 = frameColor,
-                    BackgroundTransparency = frameTrans
-                }):Play()
-            else
-                Window.TopFrame.BackgroundColor3 = frameColor
-                Window.TopFrame.BackgroundTransparency = frameTrans
-            end
-        end
-        if Window.BottomFrame then
-            local existingGrad = Window.BottomFrame:FindFirstChildOfClass("UIGradient")
-            if existingGrad then existingGrad:Destroy() end
-            if animated then
-                TweenService:Create(Window.BottomFrame, tweenInfo, {
-                    BackgroundColor3 = frameColor,
-                    BackgroundTransparency = frameTrans
-                }):Play()
-            else
-                Window.BottomFrame.BackgroundColor3 = frameColor
-                Window.BottomFrame.BackgroundTransparency = frameTrans
+                for k, v in pairs(props) do inst[k] = v end
             end
         end
 
-        if Window.SidebarScroll then
-            if animated then
-                TweenService:Create(Window.SidebarScroll, tweenInfo, {ScrollBarImageColor3 = newTheme.Divider}):Play()
-            else
-                Window.SidebarScroll.ScrollBarImageColor3 = newTheme.Divider
-            end
-        end
+        -- Core frames
+        local frameColor = theme.MainBG
+        local frameTrans = Window.TopBottomTransparency or theme.TopTrans or 0.12
 
-        if Window.SidebarCollapseBtn then
-            if animated then
-                TweenService:Create(Window.SidebarCollapseBtn, tweenInfo, {ImageColor3 = newTheme.Text}):Play()
-            else
-                Window.SidebarCollapseBtn.ImageColor3 = newTheme.Text
-            end
-        end
-
-        if Window.BottomFrame then
-            local existingGrad = Window.BottomFrame:FindFirstChildOfClass("UIGradient")
-            if existingGrad then existingGrad:Destroy() end
-        end
-
-        if Window.SidebarDividers then
-            for _, div in ipairs(Window.SidebarDividers) do
-                if div and div.Parent then
-                    local targetImg = div:IsA("ImageLabel") and div or div:FindFirstChildOfClass("ImageLabel")
-                    if targetImg then
-                        if animated then
-                            TweenService:Create(targetImg, tweenInfo, {ImageColor3 = newTheme.Divider, BackgroundTransparency = 1}):Play()
-                        else
-                            targetImg.ImageColor3 = newTheme.Divider
-                            targetImg.BackgroundTransparency = 1
-                        end
-                    else
-                        if animated then
-                            TweenService:Create(div, tweenInfo, {BackgroundColor3 = newTheme.Divider, BackgroundTransparency = 1}):Play()
-                        else
-                            div.BackgroundColor3 = newTheme.Divider
-                            div.BackgroundTransparency = 1
-                        end
-                    end
+        set(Window.MainFrame, {
+            BackgroundColor3 = theme.TopBG or theme.AccentBG,
+            BackgroundTransparency = Window.CustomBGTransparency or theme.MainTrans,
+        })
+        for _, frame in ipairs({ Window.LeftFrame, Window.TopFrame, Window.BottomFrame }) do
+            if frame then
+                if frame == Window.BottomFrame then
+                    local grad = frame:FindFirstChildOfClass("UIGradient")
+                    if grad then grad:Destroy() end
                 end
+                set(frame, { BackgroundColor3 = frameColor, BackgroundTransparency = frameTrans })
             end
         end
 
-        if Window._MDicon and Window._MDicon.Parent then
-            if not Window.PlayerProfileEnabled then
-                local iconCol = GetIconColorForTheme(newTheme)
-                if animated then
-                    TweenService:Create(Window._MDicon, tweenInfo, {ImageColor3 = iconCol}):Play()
+        -- Sidebar
+        set(Window.SidebarScroll, { ScrollBarImageColor3 = theme.Divider })
+        set(Window.SidebarCollapseBtn, { ImageColor3 = theme.Text })
+
+        for _, div in ipairs(Window.SidebarDividers or {}) do
+            if div and div.Parent then
+                local img = div:IsA("ImageLabel") and div or div:FindFirstChildOfClass("ImageLabel")
+                if img then
+                    set(img, { ImageColor3 = theme.Divider, BackgroundTransparency = 1 })
                 else
-                    Window._MDicon.ImageColor3 = iconCol
+                    set(div, { BackgroundColor3 = theme.Divider, BackgroundTransparency = 1 })
                 end
-            else
-                Window._MDicon.ImageColor3 = Color3.fromRGB(255, 255, 255)
-            end
-        end
-        if Window._MadebyText and Window._MadebyText.Parent then
-            if animated then
-                TweenService:Create(Window._MadebyText, tweenInfo, {TextColor3 = newTheme.Text}):Play()
-            else
-                Window._MadebyText.TextColor3 = newTheme.Text
             end
         end
 
-        if Window.ResizeArcStroke and Window.ResizeArcStroke.Parent then
-            if animated then
-                TweenService:Create(Window.ResizeArcStroke, tweenInfo, {Color = newTheme.Text}):Play()
+        -- Branding / header
+        if Window._MDicon and Window._MDicon.Parent then
+            if Window.PlayerProfileEnabled then
+                Window._MDicon.ImageColor3 = WHITE
             else
-                Window.ResizeArcStroke.Color = newTheme.Text
+                set(Window._MDicon, { ImageColor3 = GetIconColorForTheme(theme) })
             end
+        end
+        set(Window._MadebyText, { TextColor3 = theme.Text })
+        set(Window.MadebyText, { TextColor3 = theme.Text })
+        set(Window.MDHUBNAME, { TextColor3 = theme.Text })
+        set(Window.DiscordBtn, { TextColor3 = theme.SubText })
+        set(Window.LocalTime, { TextColor3 = theme.Text })
+        set(Window.WelcomeMsg, { TextColor3 = theme.Text })
+        if Window.ResizeArcStroke and Window.ResizeArcStroke.Parent then
+            set(Window.ResizeArcStroke, { Color = theme.Text })
         end
 
         if Window.ActiveTabGlow and Window.ActiveTabGlow.Parent then
-            local bg = newTheme.MainBG or Color3.fromRGB(25, 27, 34)
-            local isBright = (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) > 0.6
-            local glowColor = isBright and Color3.fromRGB(30, 32, 40) or Color3.fromRGB(220, 225, 235)
-            local glowTrans = isBright and 0.90 or 0.88
-            if animated then
-                TweenService:Create(Window.ActiveTabGlow, tweenInfo, {BackgroundColor3 = glowColor, BackgroundTransparency = glowTrans}):Play()
+            local bright = luminance(theme.MainBG or Color3.fromRGB(25, 27, 34)) > 0.6
+            set(Window.ActiveTabGlow, {
+                BackgroundColor3 = bright and Color3.fromRGB(30, 32, 40) or Color3.fromRGB(220, 225, 235),
+                BackgroundTransparency = bright and 0.90 or 0.88,
+            })
+        end
+
+        -- Buttons
+        for _, btn in ipairs(Window.RegisteredMDButtons or {}) do
+            if btn and btn.RefreshTheme then
+                pcall(btn.RefreshTheme, theme)
+            elseif btn and btn.Frame and btn.Frame.Parent then
+                local onAccent = GetOnAccent(theme.ButtonBG)
+                set(btn.Frame, { BackgroundColor3 = theme.ButtonBG })
+                set(btn.TextLabel, { TextColor3 = onAccent })
+                set(btn.ArrowIcon, { ImageColor3 = onAccent })
+                if btn.Stroke then
+                    btn.Stroke.Color = WHITE
+                    btn.Stroke.Thickness = 1.2
+                end
+            end
+        end
+
+        -- Toggles (list + keyed registry, de-duplicated)
+        local refreshed = {}
+        local function refreshToggle(toggle)
+            if not toggle or refreshed[toggle] then return end
+            refreshed[toggle] = true
+            if toggle.RefreshTheme then
+                pcall(toggle.RefreshTheme, theme, animated)
             else
-                Window.ActiveTabGlow.BackgroundColor3 = glowColor
-                Window.ActiveTabGlow.BackgroundTransparency = glowTrans
+                refreshToggleFallback(toggle, theme, set)
             end
         end
+        for _, toggle in ipairs(Window.RegisteredMDToggles or {}) do refreshToggle(toggle) end
+        for _, toggle in pairs(Window.RegisteredToggles or {}) do refreshToggle(toggle) end
 
-
-        for _, btnData in ipairs(Window.RegisteredMDButtons) do
-            if btnData and btnData.RefreshTheme then
-                pcall(function() btnData.RefreshTheme(newTheme) end)
-            elseif btnData and btnData.Frame and btnData.Frame.Parent then
-                if animated then
-                    TweenService:Create(btnData.Frame, tweenInfo, {BackgroundColor3 = newTheme.ButtonBG}):Play()
-                else
-                    btnData.Frame.BackgroundColor3 = newTheme.ButtonBG
-                end
-                local onAccent = GetOnAccent(newTheme.ButtonBG)
-                if btnData.TextLabel then
-                    if animated then
-                        TweenService:Create(btnData.TextLabel, tweenInfo, {TextColor3 = onAccent}):Play()
-                    else
-                        btnData.TextLabel.TextColor3 = onAccent
-                    end
-                end
-                if btnData.Stroke then
-                    btnData.Stroke.Color = Color3.fromRGB(255, 255, 255)
-                    btnData.Stroke.Thickness = 1.2
-                end
-                if btnData.ArrowIcon then
-                    if animated then
-                        TweenService:Create(btnData.ArrowIcon, tweenInfo, {ImageColor3 = onAccent}):Play()
-                    else
-                        btnData.ArrowIcon.ImageColor3 = onAccent
-                    end
-                end
-            end
-        end
-
-        local refreshedToggles = {}
-        for _, toggle in ipairs(Window.RegisteredMDToggles or {}) do
-            refreshedToggles[toggle] = true
-            if toggle and toggle.RefreshTheme then
-                pcall(function() toggle.RefreshTheme(newTheme, animated) end)
-            elseif toggle and toggle.Frame and toggle.Frame.Parent then
-                local isToggled = (toggle.GetState and toggle.GetState())
-                local targetColor = isToggled and newTheme.ButtonBG or GetThemedDarkColor(newTheme)
-                local targetBaseColor = isToggled and GetOnAccent(newTheme.ButtonBG) or newTheme.ButtonBG
-                local targetOverlayColor = isToggled and newTheme.ButtonBG or Color3.fromRGB(255, 255, 255)
-
-                if toggle.Overlay then
-                    if animated then
-                        TweenService:Create(toggle.Overlay, tweenInfo, {ImageColor3 = targetOverlayColor}):Play()
-                    else
-                        toggle.Overlay.ImageColor3 = targetOverlayColor
-                    end
-                end
-                if toggle.BaseCircle then
-                    if animated then
-                        TweenService:Create(toggle.BaseCircle, tweenInfo, {ImageColor3 = targetBaseColor}):Play()
-                    else
-                        toggle.BaseCircle.ImageColor3 = targetBaseColor
-                    end
-                end
-                if toggle.CheckIcon then
-                    local targetCheckColor = GetOnAccent(newTheme.ButtonBG)
-                    if animated then
-                        TweenService:Create(toggle.CheckIcon, tweenInfo, {ImageColor3 = targetCheckColor}):Play()
-                    else
-                        toggle.CheckIcon.ImageColor3 = targetCheckColor
-                    end
-                end
-                if animated then
-                    TweenService:Create(toggle.Frame, tweenInfo, {BackgroundColor3 = targetColor}):Play()
-                else
-                    toggle.Frame.BackgroundColor3 = targetColor
-                end
-            end
-        end
-
-        if Window.RegisteredToggles then
-            for _, toggle in pairs(Window.RegisteredToggles) do
-                if toggle and not refreshedToggles[toggle] then
-                    refreshedToggles[toggle] = true
-                    if toggle.RefreshTheme then
-                        pcall(function() toggle.RefreshTheme(newTheme, animated) end)
-                    elseif toggle.Frame and toggle.Frame.Parent then
-                        local isToggled = (toggle.GetState and toggle.GetState())
-                        local targetColor = isToggled and newTheme.ButtonBG or GetThemedDarkColor(newTheme)
-                        local targetBaseColor = isToggled and GetOnAccent(newTheme.ButtonBG) or newTheme.ButtonBG
-                        local targetOverlayColor = isToggled and newTheme.ButtonBG or Color3.fromRGB(255, 255, 255)
-
-                        if toggle.Overlay then
-                            if animated then
-                                TweenService:Create(toggle.Overlay, tweenInfo, {ImageColor3 = targetOverlayColor}):Play()
-                            else
-                                toggle.Overlay.ImageColor3 = targetOverlayColor
-                            end
-                        end
-                        if toggle.BaseCircle then
-                            if animated then
-                                TweenService:Create(toggle.BaseCircle, tweenInfo, {ImageColor3 = targetBaseColor}):Play()
-                            else
-                                toggle.BaseCircle.ImageColor3 = targetBaseColor
-                            end
-                        end
-                        if toggle.CheckIcon then
-                            local targetCheckColor = GetOnAccent(newTheme.ButtonBG)
-                            if animated then
-                                TweenService:Create(toggle.CheckIcon, tweenInfo, {ImageColor3 = targetCheckColor}):Play()
-                            else
-                                toggle.CheckIcon.ImageColor3 = targetCheckColor
-                            end
-                        end
-                        if animated then
-                            TweenService:Create(toggle.Frame, tweenInfo, {BackgroundColor3 = targetColor}):Play()
-                        else
-                            toggle.Frame.BackgroundColor3 = targetColor
-                        end
-                    end
-                end
-            end
-        end
-
-        for _, slider in ipairs(Window.RegisteredMDSliders) do
+        -- Sliders
+        for _, slider in ipairs(Window.RegisteredMDSliders or {}) do
             if slider and slider.RefreshTheme then
-                pcall(function() slider.RefreshTheme(newTheme) end)
+                pcall(slider.RefreshTheme, theme)
             elseif slider and slider.Track and slider.Track.Parent then
-                local trackColor = GetThemedDarkColor(newTheme)
-                if animated then
-                    TweenService:Create(slider.Track, tweenInfo, {BackgroundColor3 = trackColor}):Play()
-                else
-                    slider.Track.BackgroundColor3 = trackColor
-                end
-                if slider.FilledPart then
-                    if animated then
-                        TweenService:Create(slider.FilledPart, tweenInfo, {BackgroundColor3 = newTheme.ButtonBG}):Play()
-                    else
-                        slider.FilledPart.BackgroundColor3 = newTheme.ButtonBG
-                    end
-                end
-                if slider.Overlay then
-                    if animated then
-                        TweenService:Create(slider.Overlay, tweenInfo, {ImageColor3 = newTheme.ButtonBG}):Play()
-                    else
-                        slider.Overlay.ImageColor3 = newTheme.ButtonBG
-                    end
-                end
-                if slider.ValueLabel then
-                    if animated then
-                        TweenService:Create(slider.ValueLabel, tweenInfo, {TextColor3 = newTheme.Text}):Play()
-                    else
-                        slider.ValueLabel.TextColor3 = newTheme.Text
-                    end
+                set(slider.Track, { BackgroundColor3 = GetThemedDarkColor(theme) })
+                set(slider.FilledPart, { BackgroundColor3 = theme.ButtonBG })
+                set(slider.Overlay, { ImageColor3 = theme.ButtonBG })
+                set(slider.ValueLabel, { TextColor3 = theme.Text })
+            end
+        end
+
+        refreshAll(Window.RegisteredTextboxesList, false, theme)
+        refreshAll(Window.RegisteredDropdownsList, false, theme)
+        refreshAll(Window.RegisteredColorPickersList, false, theme)
+        refreshAll(Window.RegisteredMobileButtons, false, theme)
+        refreshAll(Window.RegisteredSections, true, theme, animated)
+        refreshAll(Window.RegisteredLabels, false, theme)
+        refreshAll(Window.RegisteredDividers, false, theme, animated)
+        refreshAll(Window.RegisteredMultiDropdownsList, false, theme)
+        refreshAll(Window.RegisteredNumberInputsList, false, theme)
+        refreshAll(Window.RegisteredSubTabs, false, theme, animated)
+
+        -- Keybind badges
+        for _, badge in ipairs(Window.RegisteredKeybindBadges or {}) do
+            if badge and badge.Container and badge.Container.Parent then
+                set(badge.Container, { BackgroundColor3 = GetThemedDarkColor(theme) })
+                set(badge.Label, { TextColor3 = theme.Text })
+                set(badge.DeleteBtn, { ImageColor3 = theme.Text })
+            end
+        end
+
+        -- Search bar
+        if Window.SearchBarContainer then
+            set(Window.SearchBarContainer, { BackgroundColor3 = GetThemedDarkColor(theme) })
+            set(Window.SearchInput, { TextColor3 = theme.Text })
+            if Window.SearchInput then Window.SearchInput.PlaceholderColor3 = theme.SubText end
+            set(Window.SearchIcon, { ImageColor3 = theme.SubText })
+            set(Window.ClearSearchBtn, { ImageColor3 = theme.SubText })
+        end
+
+        -- Minimized icon layers
+        if Window.MinimizedImage and Window.MinimizedLayers then
+            local grad = theme.MinGradient or theme.BottomGradient
+            local color = (grad and grad[1]) or theme.AccentBG or theme.Text or WHITE
+            for _, layer in ipairs(Window.MinimizedLayers) do
+                if layer and layer.Parent then
+                    set(layer, { ImageColor3 = color })
                 end
             end
         end
 
-        if Window.RegisteredTextboxesList then
-            for _, box in ipairs(Window.RegisteredTextboxesList) do
-                if box and box.RefreshTheme then
-                    pcall(function() box.RefreshTheme(newTheme) end)
-                end
-            end
-        end
+        -- Keep transparency sliders in sync with the theme
+        syncSlider("BGTransparency", math.floor((Window.CustomBGTransparency or theme.MainTrans or 0.12) * 100))
+        syncSlider("TopBottomTransparency", math.floor((Window.TopBottomTransparency or theme.TopTrans or 0.12) * 100))
+        syncSlider("ElementsTransparency", math.floor((Window.ElementsTransparency or 0.33) * 100))
 
-        if Window.RegisteredDropdownsList then
-            for _, drop in ipairs(Window.RegisteredDropdownsList) do
-                if drop and drop.RefreshTheme then
-                    pcall(function() drop.RefreshTheme(newTheme) end)
-                end
-            end
-        end
-
-        if Window.RegisteredColorPickersList then
-            for _, cp in ipairs(Window.RegisteredColorPickersList) do
-                if cp and cp.RefreshTheme then
-                    pcall(function() cp.RefreshTheme(newTheme) end)
-                end
-            end
-        end
-
-        if Window.RegisteredKeybindBadges then
-            for _, b in ipairs(Window.RegisteredKeybindBadges) do
-                if b and b.Container and b.Container.Parent then
-                    local containerColor = GetThemedDarkColor(newTheme)
-                    if animated then
-                        TweenService:Create(b.Container, tweenInfo, {BackgroundColor3 = containerColor}):Play()
-                    else
-                        b.Container.BackgroundColor3 = containerColor
-                    end
-                    if b.Label then
-                        if animated then
-                            TweenService:Create(b.Label, tweenInfo, {TextColor3 = newTheme.Text}):Play()
-                        else
-                            b.Label.TextColor3 = newTheme.Text
-                        end
-                    end
-                    if b.DeleteBtn then
-                        if animated then
-                            TweenService:Create(b.DeleteBtn, tweenInfo, {ImageColor3 = newTheme.Text}):Play()
-                        else
-                            b.DeleteBtn.ImageColor3 = newTheme.Text
-                        end
-                    end
-                end
-            end
-        end
-
-        if Window.RegisteredMobileButtons then
-            for _, mb in ipairs(Window.RegisteredMobileButtons) do
-                if mb and mb.RefreshTheme then
-                    pcall(function() mb.RefreshTheme(newTheme) end)
-                end
-            end
-        end
-
-        if Window.RegisteredSections then
-            for _, sec in ipairs(Window.RegisteredSections) do
-                if sec and sec.RefreshTheme then
-                    pcall(function() sec:RefreshTheme(newTheme, animated) end)
-                end
-            end
-        end
-
-        if Window.RegisteredLabels then
-            for _, lbl in ipairs(Window.RegisteredLabels) do
-                if lbl and lbl.RefreshTheme then
-                    pcall(function() lbl:RefreshTheme(newTheme) end)
-                end
-            end
-        end
-
-        if Window.RegisteredDividers then
-            for _, div in ipairs(Window.RegisteredDividers) do
-                if div and div.RefreshTheme then
-                    pcall(function() div:RefreshTheme(newTheme, animated) end)
-                end
-            end
-        end
-
-        if Window.RegisteredSubTabs then
-            for _, st in ipairs(Window.RegisteredSubTabs) do
-                if st and st.RefreshTheme then
-                    pcall(function() st.RefreshTheme(newTheme, animated) end)
-                end
-            end
-        end
-
-        local SearchBarContainer = Window.SearchBarContainer
-        local SearchInput = Window.SearchInput
-        local SearchIcon = Window.SearchIcon
-        local ClearSearchBtn = Window.ClearSearchBtn
-
-        if SearchBarContainer then
-            local searchBarColor = GetThemedDarkColor(newTheme)
-            if animated then
-                TweenService:Create(SearchBarContainer, tweenInfo, {BackgroundColor3 = searchBarColor}):Play()
-            else
-                SearchBarContainer.BackgroundColor3 = searchBarColor
-            end
-            if SearchInput then
-                if animated then
-                    TweenService:Create(SearchInput, tweenInfo, {TextColor3 = newTheme.Text}):Play()
-                else
-                    SearchInput.TextColor3 = newTheme.Text
-                end
-                SearchInput.PlaceholderColor3 = newTheme.SubText
-            end
-            if SearchIcon then
-                if animated then
-                    TweenService:Create(SearchIcon, tweenInfo, {ImageColor3 = newTheme.SubText}):Play()
-                else
-                    SearchIcon.ImageColor3 = newTheme.SubText
-                end
-            end
-            if ClearSearchBtn then
-                if animated then
-                    TweenService:Create(ClearSearchBtn, tweenInfo, {ImageColor3 = newTheme.SubText}):Play()
-                else
-                    ClearSearchBtn.ImageColor3 = newTheme.SubText
-                end
-            end
-        end
-
-        if Window.MinimizedImage then
-            -- Always recolor all icon layers (including mini icon) to theme accent color
-            if Window.MinimizedLayers then
-                local minGrad = newTheme.MinGradient or newTheme.BottomGradient
-                local themeColor = (minGrad and minGrad[1]) or newTheme.AccentBG or newTheme.Text or Color3.fromRGB(255, 255, 255)
-                for idx, layer in ipairs(Window.MinimizedLayers) do
-                    if layer and layer.Parent then
-                        if animated then
-                            TweenService:Create(layer, tweenInfo, {ImageColor3 = themeColor}):Play()
-                        else
-                            layer.ImageColor3 = themeColor
-                        end
-                    end
-                end
-            end
-        end
-
-        if Window.RegisteredSliders then
-            local bgSld = Window.RegisteredSliders["BGTransparency"]
-            if bgSld and bgSld.SetValue and bgSld.GetValue then
-                local targetVal = math.floor((Window.CustomBGTransparency or newTheme.MainTrans or 0.12) * 100)
-                if bgSld:GetValue() ~= targetVal then
-                    pcall(function() bgSld:SetValue(targetVal, false) end)
-                end
-            end
-            local tbSld = Window.RegisteredSliders["TopBottomTransparency"]
-            if tbSld and tbSld.SetValue and tbSld.GetValue then
-                local targetVal = math.floor((Window.TopBottomTransparency or newTheme.TopTrans or 0.12) * 100)
-                if tbSld:GetValue() ~= targetVal then
-                    pcall(function() tbSld:SetValue(targetVal, false) end)
-                end
-            end
-            local elemSld = Window.RegisteredSliders["ElementsTransparency"]
-            if elemSld and elemSld.SetValue and elemSld.GetValue then
-                local targetVal = math.floor((Window.ElementsTransparency or 0.33) * 100)
-                if elemSld:GetValue() ~= targetVal then
-                    pcall(function() elemSld:SetValue(targetVal, false) end)
-                end
-            end
-        end
-
+        -- Theme preset buttons
         if Window.UpdateThemeSwatches then
             pcall(function() Window:UpdateThemeSwatches() end)
         elseif Window.ThemePresetBtnMap then
-            for k, btnData in pairs(Window.ThemePresetBtnMap) do
-                if btnData then
-                    if btnData.Stroke then
-                        btnData.Stroke.Thickness = (k == themeKey) and 2.2 or 1.2
-                    end
-                    if btnData.Frame then
-                        btnData.Frame.BackgroundColor3 = newTheme.ButtonBG
-                    end
-                    if btnData.TextLabel then
-                        btnData.TextLabel.TextColor3 = newTheme.Text
-                    end
+            for key, btn in pairs(Window.ThemePresetBtnMap) do
+                if btn then
+                    if btn.Stroke then btn.Stroke.Thickness = (key == themeKey) and 2.2 or 1.2 end
+                    if btn.Frame then btn.Frame.BackgroundColor3 = theme.ButtonBG end
+                    if btn.TextLabel then btn.TextLabel.TextColor3 = theme.Text end
                 end
             end
         end
         if Window.ThemeCard then
-            Window.ThemeCard.BackgroundColor3 = newTheme.CardBG
-            Window.ThemeCard.BackgroundTransparency = newTheme.AccentTrans or 0.12
-            local tTitle = Window.ThemeCard:FindFirstChild("ThemeTitle", true)
-            if tTitle then tTitle.TextColor3 = newTheme.Text end
+            Window.ThemeCard.BackgroundColor3 = theme.CardBG
+            Window.ThemeCard.BackgroundTransparency = theme.AccentTrans or 0.12
+            local title = Window.ThemeCard:FindFirstChild("ThemeTitle", true)
+            if title then title.TextColor3 = theme.Text end
         end
 
-        if Window.MDHUBNAME then
-            if animated then
-                TweenService:Create(Window.MDHUBNAME, tweenInfo, {TextColor3 = newTheme.Text}):Play()
-            else
-                Window.MDHUBNAME.TextColor3 = newTheme.Text
-            end
-        end
-        if Window.MadebyText then
-            if animated then
-                TweenService:Create(Window.MadebyText, tweenInfo, {TextColor3 = newTheme.Text}):Play()
-            else
-                Window.MadebyText.TextColor3 = newTheme.Text
-            end
-        end
-        if Window.DiscordBtn then
-            if animated then
-                TweenService:Create(Window.DiscordBtn, tweenInfo, {TextColor3 = newTheme.SubText}):Play()
-            else
-                Window.DiscordBtn.TextColor3 = newTheme.SubText
-            end
-        end
-        if Window.LocalTime then
-            if animated then
-                TweenService:Create(Window.LocalTime, tweenInfo, {TextColor3 = newTheme.Text}):Play()
-            else
-                Window.LocalTime.TextColor3 = newTheme.Text
-            end
-        end
-        if Window.WelcomeMsg then
-            if animated then
-                TweenService:Create(Window.WelcomeMsg, tweenInfo, {TextColor3 = newTheme.Text}):Play()
-            else
-                Window.WelcomeMsg.TextColor3 = newTheme.Text
-            end
-        end
+        -- Deep tab traversal
+        for name, tab in pairs(Window.Tabs or {}) do
+            local active = (name == Window.ActiveTab)
+            local tabColor = active and theme.Text or theme.SubText
+            set(tab.Button, { TextColor3 = tabColor })
+            set(tab.Icon, { ImageColor3 = tabColor })
 
-        if Window.Tabs then
-            for name, tabData in pairs(Window.Tabs) do
-                if tabData.Button then
-                    local targetColor = (name == Window.ActiveTab) and newTheme.Text or newTheme.SubText
-                    if animated then
-                        TweenService:Create(tabData.Button, tweenInfo, {TextColor3 = targetColor}):Play()
-                    else
-                        tabData.Button.TextColor3 = targetColor
-                    end
-                end
-                if tabData.Icon then
-                    local targetColor = (name == Window.ActiveTab) and newTheme.Text or newTheme.SubText
-                    if animated then
-                        TweenService:Create(tabData.Icon, tweenInfo, {ImageColor3 = targetColor}):Play()
-                    else
-                        tabData.Icon.ImageColor3 = targetColor
-                    end
-                end
-
-                if tabData.ContentFrame then
-                    if animated then
-                        TweenService:Create(tabData.ContentFrame, tweenInfo, {ScrollBarImageColor3 = newTheme.Divider}):Play()
-                    else
-                        tabData.ContentFrame.ScrollBarImageColor3 = newTheme.Divider
-                    end
-                    -- Deep traversal: refresh all Cards, TextLabels, TextBoxes, and Icons in tab ContentFrame
-                    for _, desc in ipairs(tabData.ContentFrame:GetDescendants()) do
-                        if desc:IsA("TextLabel") then
-                            local dName = desc.Name
-                            if dName == "CardBody" or dName == "DescLabel" or dName == "WebDesc" or dName == "BlurDesc" or dName == "CustomThemeDesc" or dName == "ClickEffectsDesc" or dName:find("Desc") or dName == "SubTitle" then
-                                if animated then
-                                    TweenService:Create(desc, tweenInfo, {TextColor3 = newTheme.SubText}):Play()
-                                else
-                                    desc.TextColor3 = newTheme.SubText
-                                end
-                            elseif dName ~= "LocalTime" and dName ~= "percloaded" and dName ~= "Loadingtext" then
-                                if animated then
-                                    TweenService:Create(desc, tweenInfo, {TextColor3 = newTheme.Text}):Play()
-                                else
-                                    desc.TextColor3 = newTheme.Text
-                                end
-                            end
-                        elseif desc:IsA("TextBox") and desc.Name ~= "HexBox" then
-                            if animated then
-                                TweenService:Create(desc, tweenInfo, {
-                                    TextColor3 = newTheme.Text,
-                                    PlaceholderColor3 = newTheme.SubText
-                                }):Play()
-                            else
-                                desc.TextColor3 = newTheme.Text
-                                desc.PlaceholderColor3 = newTheme.SubText
-                            end
-                        elseif desc:IsA("ImageLabel") and (desc.Name == "ArrowIcon" or desc.Name == "SearchIcon") then
-                            if animated then
-                                TweenService:Create(desc, tweenInfo, {ImageColor3 = newTheme.SubText}):Play()
-                            else
-                                desc.ImageColor3 = newTheme.SubText
-                            end
-                        elseif desc:IsA("Frame") then
-                            local fName = desc.Name
-                            if fName:find("SectionCard") or fName == "ColorPickerCard" or fName == "SliderCard" or fName == "ToggleCard" or (fName:find("Card") and fName ~= "MDButtonCard" and fName ~= "TogglePill") then
-                                if animated then
-                                    TweenService:Create(desc, tweenInfo, {BackgroundColor3 = newTheme.CardBG}):Play()
-                                else
-                                    desc.BackgroundColor3 = newTheme.CardBG
-                                end
-                            elseif fName == "SectionColumns" or fName == "LeftColumn" or fName == "RightColumn" or fName:find("Row") or fName:find("Group") then
-                                desc.BackgroundTransparency = 1
-                            end
-                        elseif desc:IsA("UIStroke") and desc.Parent and desc.Parent:IsA("Frame") and desc.Parent.Name:find("SectionCard") then
-                            desc.Color = newTheme.Divider or Color3.fromRGB(65, 70, 88)
+            local content = tab.ContentFrame
+            if content then
+                set(content, { ScrollBarImageColor3 = theme.Divider })
+                for _, desc in ipairs(content:GetDescendants()) do
+                    local dName = desc.Name
+                    if desc:IsA("TextLabel") then
+                        if DESC_NAMES[dName] or dName:find("Desc") then
+                            set(desc, { TextColor3 = theme.SubText })
+                        elseif not SKIP_TEXT_NAMES[dName] then
+                            set(desc, { TextColor3 = theme.Text })
+                        end
+                    elseif desc:IsA("TextBox") then
+                        if dName ~= "HexBox" then
+                            set(desc, { TextColor3 = theme.Text, PlaceholderColor3 = theme.SubText })
+                        end
+                    elseif desc:IsA("ImageLabel") then
+                        if dName == "ArrowIcon" or dName == "SearchIcon" then
+                            set(desc, { ImageColor3 = theme.SubText })
+                        end
+                    elseif desc:IsA("Frame") then
+                        if dName:find("Card") and dName ~= "MDButtonCard" and dName ~= "TogglePill" then
+                            set(desc, { BackgroundColor3 = theme.CardBG })
+                        elseif dName == "SectionColumns" or dName == "LeftColumn" or dName == "RightColumn"
+                            or dName:find("Row") or dName:find("Group") then
+                            desc.BackgroundTransparency = 1
+                        end
+                    elseif desc:IsA("UIStroke") then
+                        local p = desc.Parent
+                        if p and p:IsA("Frame") and p.Name:find("SectionCard") then
+                            desc.Color = theme.Divider or DEFAULT_DIVIDER
                         end
                     end
                 end
             end
         end
 
-        if Window.RegisteredCustom then
-            for _, o in ipairs(Window.RegisteredCustom) do
-                if o and o.RefreshTheme then
-                    pcall(o.RefreshTheme, newTheme)
-                end
-            end
-        end
+        refreshAll(Window.RegisteredCustom, false, theme)
 
-        Window:Notify("Theme updated", "Applied " .. newTheme.Name .. " theme!", 2.5)
+        if not silent and Window.Notify then
+            Window:Notify("Theme updated", "Applied " .. tostring(theme.Name or themeKey) .. " theme!", 2.5)
+        end
+        return true
     end
 
-    function Window:ApplyCustomTheme(baseColor, animated)
-        if not baseColor then return end
-        animated = (animated == nil) and true or animated
-        Window.CustomThemeColor = baseColor
-        local h, s, v = baseColor:ToHSV()
-
-        local mainBG, accentBG, topBG, bottomBG, cardBG, buttonBG, divider, text, subText
-        local bot1, bot2, bot3, min1, min2, min3
-
-        if s <= 0.05 then
-            -- Grayscale / Monochrome selection (Black, Grey, White)
-            local isDark = (v < 0.55)
-            if v <= 0.10 then
-                -- Deep black palette
-                mainBG = Color3.fromRGB(13, 13, 16)
-                accentBG = Color3.fromRGB(19, 19, 24)
-                topBG = Color3.fromRGB(24, 24, 28)
-                bottomBG = topBG
-                cardBG = Color3.fromRGB(16, 16, 20)
-                buttonBG = Color3.fromRGB(34, 34, 42)
-                divider = Color3.fromRGB(55, 55, 65)
-                text = Color3.fromRGB(245, 245, 250)
-                subText = Color3.fromRGB(150, 150, 165)
-                bot1 = Color3.fromRGB(22, 22, 28)
-                bot2 = Color3.fromRGB(36, 36, 46)
-                bot3 = Color3.fromRGB(18, 18, 24)
-                min1 = Color3.fromRGB(32, 32, 40)
-                min2 = Color3.fromRGB(50, 50, 62)
-                min3 = Color3.fromRGB(28, 28, 36)
-            elseif v >= 0.88 then
-                -- Light white palette
-                mainBG = Color3.fromRGB(238, 240, 246)
-                accentBG = Color3.fromRGB(224, 228, 236)
-                topBG = Color3.fromRGB(246, 248, 252)
-                bottomBG = topBG
-                cardBG = Color3.fromRGB(255, 255, 255)
-                buttonBG = Color3.fromRGB(210, 216, 228)
-                divider = Color3.fromRGB(175, 182, 196)
-                text = Color3.fromRGB(20, 22, 28)
-                subText = Color3.fromRGB(90, 95, 110)
-                bot1 = Color3.fromRGB(220, 225, 236)
-                bot2 = Color3.fromRGB(245, 247, 252)
-                bot3 = Color3.fromRGB(210, 216, 228)
-                min1 = Color3.fromRGB(215, 220, 232)
-                min2 = Color3.fromRGB(250, 252, 255)
-                min3 = Color3.fromRGB(205, 212, 225)
-            else
-                -- Neutral grey palette 
-                mainBG = Color3.fromHSV(0, 0, math.clamp(v * 0.45 + 0.05, 0.10, 0.70))
-                accentBG = Color3.fromHSV(0, 0, math.clamp(v * 0.60 + 0.08, 0.14, 0.76))
-                topBG = Color3.fromHSV(0, 0, math.clamp(v * 0.65 + 0.10, 0.16, 0.82))
-                bottomBG = topBG
-                cardBG = Color3.fromHSV(0, 0, math.clamp(v * 0.40 + 0.06, 0.08, 0.90))
-                buttonBG = Color3.fromHSV(0, 0, math.clamp(v * 0.85 + 0.15, 0.22, 0.88))
-                divider = Color3.fromHSV(0, 0, math.clamp(v * 0.70 + 0.20, 0.25, 0.85))
-                text = isDark and Color3.fromRGB(245, 245, 250) or Color3.fromRGB(20, 22, 28)
-                subText = isDark and Color3.fromRGB(160, 165, 180) or Color3.fromRGB(85, 90, 105)
-                bot1 = Color3.fromHSV(0, 0, math.clamp(v * 0.50 + 0.08, 0.15, 0.75))
-                bot2 = Color3.fromHSV(0, 0, math.clamp(v * 0.75 + 0.12, 0.25, 0.85))
-                bot3 = Color3.fromHSV(0, 0, math.clamp(v * 0.45 + 0.06, 0.12, 0.70))
-                min1 = Color3.fromHSV(0, 0, math.clamp(v * 0.60 + 0.10, 0.20, 0.80))
-                min2 = Color3.fromHSV(0, 0, math.clamp(v * 0.90 + 0.10, 0.35, 0.98))
-                min3 = Color3.fromHSV(0, 0, math.clamp(v * 0.55 + 0.08, 0.18, 0.75))
-            end
+    -- Builds a full palette from a single base color.
+    local function buildGrayscalePalette(v)
+        local isDark = v < 0.55
+        local p = {}
+        if v <= 0.10 then
+            p.mainBG, p.accentBG, p.topBG = Color3.fromRGB(13, 13, 16), Color3.fromRGB(19, 19, 24), Color3.fromRGB(24, 24, 28)
+            p.cardBG, p.buttonBG, p.divider = Color3.fromRGB(16, 16, 20), Color3.fromRGB(34, 34, 42), Color3.fromRGB(55, 55, 65)
+            p.text, p.subText = Color3.fromRGB(245, 245, 250), Color3.fromRGB(150, 150, 165)
+            p.bot = { Color3.fromRGB(22, 22, 28), Color3.fromRGB(36, 36, 46), Color3.fromRGB(18, 18, 24) }
+            p.min = { Color3.fromRGB(32, 32, 40), Color3.fromRGB(50, 50, 62), Color3.fromRGB(28, 28, 36) }
+        elseif v >= 0.88 then
+            p.mainBG, p.accentBG, p.topBG = Color3.fromRGB(238, 240, 246), Color3.fromRGB(224, 228, 236), Color3.fromRGB(246, 248, 252)
+            p.cardBG, p.buttonBG, p.divider = Color3.fromRGB(255, 255, 255), Color3.fromRGB(210, 216, 228), Color3.fromRGB(175, 182, 196)
+            p.text, p.subText = Color3.fromRGB(20, 22, 28), Color3.fromRGB(90, 95, 110)
+            p.bot = { Color3.fromRGB(220, 225, 236), Color3.fromRGB(245, 247, 252), Color3.fromRGB(210, 216, 228) }
+            p.min = { Color3.fromRGB(215, 220, 232), Color3.fromRGB(250, 252, 255), Color3.fromRGB(205, 212, 225) }
         else
-            -- Saturated chromatic palette
-            buttonBG = Color3.fromHSV(h, math.clamp(s * 0.88, 0.05, 0.95), math.clamp(v * 0.78, 0.20, 0.82))
-            accentBG = Color3.fromHSV(h, math.clamp(s * 0.75, 0.04, 0.8), math.clamp(v * 0.45, 0.12, 0.55))
-            topBG = Color3.fromHSV(h, math.clamp(s * 0.70, 0.04, 0.75), math.clamp(v * 0.38, 0.10, 0.50))
-            bottomBG = topBG
-            mainBG = Color3.fromHSV(h, math.clamp(s * 0.65, 0.03, 0.60), math.clamp(v * 0.24, 0.06, 0.38))
-            cardBG = Color3.fromHSV(h, math.clamp(s * 0.60, 0.03, 0.55), math.clamp(v * 0.16, 0.04, 0.28))
-            divider = Color3.fromHSV(h, math.clamp(s * 0.90, 0.05, 0.95), math.clamp(v * 0.75, 0.20, 0.85))
-
-            text = Color3.fromRGB(245, 245, 250)
-            subText = Color3.fromHSV(h, math.clamp(s * 0.25, 0.02, 0.35), 0.85)
-
-            bot1 = Color3.fromHSV(h, math.clamp(s * 0.80, 0.05, 0.85), math.clamp(v * 0.35, 0.10, 0.45))
-            bot2 = Color3.fromHSV(h, math.clamp(s * 0.85, 0.05, 0.90), math.clamp(v * 0.55, 0.18, 0.65))
-            bot3 = Color3.fromHSV(h, math.clamp(s * 0.80, 0.05, 0.85), math.clamp(v * 0.30, 0.08, 0.40))
-
-            min1 = Color3.fromHSV(h, math.clamp(s * 0.90, 0.08, 0.95), math.clamp(v * 0.65, 0.25, 0.80))
-            min2 = Color3.fromHSV(h, math.clamp(s * 0.75, 0.05, 0.80), math.clamp(v * 0.95, 0.45, 1.0))
-            min3 = Color3.fromHSV(h, math.clamp(s * 0.90, 0.08, 0.95), math.clamp(v * 0.70, 0.28, 0.85))
+            local function g(mul, add, lo, hi) return Color3.fromHSV(0, 0, math.clamp(v * mul + add, lo, hi)) end
+            p.mainBG, p.accentBG, p.topBG = g(0.45, 0.05, 0.10, 0.70), g(0.60, 0.08, 0.14, 0.76), g(0.65, 0.10, 0.16, 0.82)
+            p.cardBG, p.buttonBG, p.divider = g(0.40, 0.06, 0.08, 0.90), g(0.85, 0.15, 0.22, 0.88), g(0.70, 0.20, 0.25, 0.85)
+            p.text = isDark and Color3.fromRGB(245, 245, 250) or Color3.fromRGB(20, 22, 28)
+            p.subText = isDark and Color3.fromRGB(160, 165, 180) or Color3.fromRGB(85, 90, 105)
+            p.bot = { g(0.50, 0.08, 0.15, 0.75), g(0.75, 0.12, 0.25, 0.85), g(0.45, 0.06, 0.12, 0.70) }
+            p.min = { g(0.60, 0.10, 0.20, 0.80), g(0.90, 0.10, 0.35, 0.98), g(0.55, 0.08, 0.18, 0.75) }
         end
+        return p
+    end
 
-        local customTheme = {
+    local function buildChromaticPalette(h, s, v)
+        local function c(sMul, sLo, sHi, vMul, vLo, vHi)
+            return Color3.fromHSV(h, math.clamp(s * sMul, sLo, sHi), math.clamp(v * vMul, vLo, vHi))
+        end
+        local p = {}
+        p.buttonBG = c(0.88, 0.05, 0.95, 0.78, 0.20, 0.82)
+        p.accentBG = c(0.75, 0.04, 0.80, 0.45, 0.12, 0.55)
+        p.topBG = c(0.70, 0.04, 0.75, 0.38, 0.10, 0.50)
+        p.mainBG = c(0.65, 0.03, 0.60, 0.24, 0.06, 0.38)
+        p.cardBG = c(0.60, 0.03, 0.55, 0.16, 0.04, 0.28)
+        p.divider = c(0.90, 0.05, 0.95, 0.75, 0.20, 0.85)
+        p.text = Color3.fromRGB(245, 245, 250)
+        p.subText = Color3.fromHSV(h, math.clamp(s * 0.25, 0.02, 0.35), 0.85)
+        p.bot = { c(0.80, 0.05, 0.85, 0.35, 0.10, 0.45), c(0.85, 0.05, 0.90, 0.55, 0.18, 0.65), c(0.80, 0.05, 0.85, 0.30, 0.08, 0.40) }
+        p.min = { c(0.90, 0.08, 0.95, 0.65, 0.25, 0.80), c(0.75, 0.05, 0.80, 0.95, 0.45, 1.0), c(0.90, 0.08, 0.95, 0.70, 0.28, 0.85) }
+        return p
+    end
+
+    function Window:ApplyCustomTheme(baseColor, animated, silent)
+        if typeof(baseColor) ~= "Color3" then return false end
+        Window.CustomThemeColor = baseColor
+
+        local h, s, v = baseColor:ToHSV()
+        local p = (s <= 0.05) and buildGrayscalePalette(v) or buildChromaticPalette(h, s, v)
+        local topTrans = Window.TopBottomTransparency or 0.12
+
+        Library.ThemePresets["Custom"] = {
             Name = "Custom",
-            MainBG = mainBG,
+            MainBG = p.mainBG,
             MainTrans = Window.CustomBGTransparency or 0.12,
-            AccentBG = topBG,
-            AccentTrans = Window.TopBottomTransparency or 0.12,
-            TopBG = topBG,
-            TopTrans = Window.TopBottomTransparency or 0.12,
-            BottomBG = topBG,
-            BottomTrans = Window.TopBottomTransparency or 0.12,
-            BottomGradient = { bot1, bot2, bot3 },
-            MinGradient = { min1, min2, min3 },
-            Divider = divider,
-            Text = text,
-            SubText = subText,
-            CardBG = cardBG,
-            ButtonBG = buttonBG
+            AccentBG = p.topBG,
+            AccentTrans = topTrans,
+            TopBG = p.topBG,
+            TopTrans = topTrans,
+            BottomBG = p.topBG,
+            BottomTrans = topTrans,
+            BottomGradient = p.bot,
+            MinGradient = p.min,
+            Divider = p.divider,
+            Text = p.text,
+            SubText = p.subText,
+            CardBG = p.cardBG,
+            ButtonBG = p.buttonBG,
         }
 
-        Library.ThemePresets["Custom"] = customTheme
-        Window:ApplyTheme("Custom", animated)
+        return Window:ApplyTheme("Custom", animated, silent)
     end
 
+    ---------------------------------------------------------------------------
+    -- Transparency
+    ---------------------------------------------------------------------------
+
     function Window:SetBackgroundTransparency(transparency)
-        local pct = math.clamp(transparency or 0.12, 0, 0.95)
+        local pct = math.clamp(tonumber(transparency) or 0.12, 0, 0.95)
         Window.CustomBGTransparency = pct
-        if Window.MainFrame then
-            Window.MainFrame.BackgroundTransparency = pct
-        end
-        if Window.RegisteredSliders then
-            local sld = Window.RegisteredSliders["BGTransparency"]
-            if sld and sld.SetValue and sld.GetValue and sld:GetValue() ~= math.floor(pct * 100) then
-                pcall(function() sld:SetValue(math.floor(pct * 100), false) end)
-            end
-        end
+        if Window.MainFrame then Window.MainFrame.BackgroundTransparency = pct end
+        syncSlider("BGTransparency", math.floor(pct * 100))
     end
 
     function Window:SetElementsTransparency(transparency)
-        local pct = math.clamp(transparency or 0.33, 0, 0.95)
+        local pct = math.clamp(tonumber(transparency) or 0.33, 0, 0.95)
         Window.ElementsTransparency = pct
-        if Window.RegisteredSections then
-            for _, sec in ipairs(Window.RegisteredSections) do
-                if sec and sec.Card and sec.Card.Parent then
-                    if not Window.SectionsTransparent then
-                        sec.Card.BackgroundTransparency = pct
-                    end
+
+        for _, sec in ipairs(Window.RegisteredSections or {}) do
+            if sec then
+                if sec.Card and sec.Card.Parent and not Window.SectionsTransparent then
+                    sec.Card.BackgroundTransparency = pct
                 end
-                local cont = sec and (sec.Container or sec.ItemContainer)
+                local cont = sec.Container or sec.ItemContainer
                 if cont and cont.Parent then
                     for _, desc in ipairs(cont:GetDescendants()) do
-                        if desc:IsA("Frame") and desc.Parent then
-                            local dName = desc.Name
-                            local isButton = (dName == "MDButtonCard" or dName:find("BtnFrame") or dName == "Btn" or (desc:FindFirstChildOfClass("TextButton") and (dName:find("Btn") or dName:find("Button"))))
-                            if not isButton then
-                                local isCard = (desc:GetAttribute("MDCard") == true) or dName:find("Card") or dName:find("TextboxFrame") or dName:find("DropdownFrame") or dName:find("BoxFrame")
-                                if not isCard and desc.BackgroundColor3 == Window.CurrentTheme.CardBG then
-                                    isCard = true
-                                end
-                                if isCard then
-                                    if Window.SectionsTransparent then
-                                        desc.BackgroundTransparency = 1
-                                    else
-                                        desc.BackgroundTransparency = pct
-                                    end
-                                end
-                            end
+                        if desc:IsA("Frame") and not isButtonFrame(desc) and isCardFrame(desc) then
+                            desc.BackgroundTransparency = Window.SectionsTransparent and 1 or pct
                         end
                     end
                 end
             end
         end
-        if Window.RegisteredMDButtons then
-            for _, btn in ipairs(Window.RegisteredMDButtons) do
-                if btn and btn.CardFrame and btn.CardFrame.Parent then
-                    if btn.Button and IsInsideSection(btn.CardFrame) and Window.SectionsTransparent then
-                        btn.CardFrame.BackgroundTransparency = 1
-                    else
-                        btn.CardFrame.BackgroundTransparency = pct
-                    end
-                end
+
+        local registries = {
+            Window.RegisteredMDButtons, Window.RegisteredMDToggles, Window.RegisteredMDSliders,
+            Window.RegisteredDropdownsList, Window.RegisteredTextboxesList, Window.RegisteredColorPickersList,
+        }
+        for _, list in ipairs(registries) do
+            for _, obj in ipairs(list or {}) do
+                setCardTransparency(obj and (obj.CardFrame or obj.Frame), pct)
             end
         end
-        if Window.RegisteredMDToggles then
-            for _, tog in ipairs(Window.RegisteredMDToggles) do
-                local cFrame = tog and (tog.CardFrame or tog.Frame)
-                if cFrame and cFrame.Parent then
-                    if IsInsideSection(cFrame) and Window.SectionsTransparent then
-                        cFrame.BackgroundTransparency = 1
-                    else
-                        cFrame.BackgroundTransparency = pct
-                    end
-                end
-            end
-        end
-        if Window.RegisteredMDSliders then
-            for _, sld in ipairs(Window.RegisteredMDSliders) do
-                if sld and sld.CardFrame and sld.CardFrame.Parent then
-                    if IsInsideSection(sld.CardFrame) and Window.SectionsTransparent then
-                        sld.CardFrame.BackgroundTransparency = 1
-                    else
-                        sld.CardFrame.BackgroundTransparency = pct
-                    end
-                end
-            end
-        end
-        if Window.RegisteredDropdownsList then
-            for _, drp in ipairs(Window.RegisteredDropdownsList) do
-                local drpFrame = drp and (drp.CardFrame or drp.Frame)
-                if drpFrame and drpFrame.Parent then
-                    if IsInsideSection(drpFrame) and Window.SectionsTransparent then
-                        drpFrame.BackgroundTransparency = 1
-                    else
-                        drpFrame.BackgroundTransparency = pct
-                    end
-                end
-            end
-        end
-        if Window.RegisteredTextboxesList then
-            for _, tb in ipairs(Window.RegisteredTextboxesList) do
-                local tbFrame = tb and (tb.CardFrame or tb.Frame)
-                if tbFrame and tbFrame.Parent then
-                    if IsInsideSection(tbFrame) and Window.SectionsTransparent then
-                        tbFrame.BackgroundTransparency = 1
-                    else
-                        tbFrame.BackgroundTransparency = pct
-                    end
-                end
-            end
-        end
-        if Window.RegisteredColorPickersList then
-            for _, cp in ipairs(Window.RegisteredColorPickersList) do
-                local cpFrame = cp and (cp.CardFrame or cp.Frame)
-                if cpFrame and cpFrame.Parent then
-                    if IsInsideSection(cpFrame) and Window.SectionsTransparent then
-                        cpFrame.BackgroundTransparency = 1
-                    else
-                        cpFrame.BackgroundTransparency = pct
-                    end
-                end
-            end
-        end
-        if Window.RegisteredSliders then
-            local sld = Window.RegisteredSliders["ElementsTransparency"]
-            if sld and sld.SetValue and sld.GetValue and sld:GetValue() ~= math.floor(pct * 100) then
-                pcall(function() sld:SetValue(math.floor(pct * 100), false) end)
-            end
-        end
+
+        syncSlider("ElementsTransparency", math.floor(pct * 100))
     end
 
     function Window:SetTopBottomTransparency(transparency)
-        local pct = math.clamp(transparency or 0.12, 0, 0.95)
+        local pct = math.clamp(tonumber(transparency) or 0.12, 0, 0.95)
         Window.TopBottomTransparency = pct
-        if Window.TopFrame and Window.TopFrame.Parent then
-            Window.TopFrame.BackgroundTransparency = pct
+        for _, frame in ipairs({ Window.TopFrame, Window.LeftFrame, Window.BottomFrame }) do
+            if frame and frame.Parent then frame.BackgroundTransparency = pct end
         end
-        if Window.LeftFrame and Window.LeftFrame.Parent then
-            Window.LeftFrame.BackgroundTransparency = pct
-        end
-        if Window.BottomFrame and Window.BottomFrame.Parent then
-            Window.BottomFrame.BackgroundTransparency = pct
-        end
-        if Window.RegisteredSliders then
-            local sld = Window.RegisteredSliders["TopBottomTransparency"]
-            if sld and sld.SetValue and sld.GetValue and sld:GetValue() ~= math.floor(pct * 100) then
-                pcall(function() sld:SetValue(math.floor(pct * 100), false) end)
-            end
-        end
-    end
-
-    function Window:SetUISounds(enabled)
-        Window.UISoundsEnabled = enabled
-    end
-
-    function Window:SetSoundVolume(volume)
-        local pct = math.clamp(volume or 0.8, 0, 1)
-        Window.SoundVolume = pct
-        local HoverSoundTemplate = Window.HoverSoundTemplate
-        local ClickSoundTemplate = Window.ClickSoundTemplate
-        local NotifSoundTemplate = Window.NotifSoundTemplate
-        if HoverSoundTemplate then HoverSoundTemplate.Volume = pct * 0.4 end
-        if ClickSoundTemplate then ClickSoundTemplate.Volume = pct * 0.5 end
-        if NotifSoundTemplate then NotifSoundTemplate.Volume = pct * 0.5 end
-    end
-
-    function Window:SetBlurIntensity(val)
-        local num = tonumber(val) or 1.0
-        if num > 1 then num = num / 100 end
-        num = math.clamp(num, 0, 1.0)
-        Window.BlurIntensity = num
-        local BackgroundDOF = Window.BackgroundDOF
-        if BackgroundDOF and BackgroundDOF.Parent then
-            BackgroundDOF.NearIntensity = num
-        end
-    end
-
-    function Window:SetBackgroundBlur(enabled)
-        Window.BackgroundBlurEnabled = enabled
-        local BackgroundDOF = Window.BackgroundDOF
-        local LocalUIBlurPart = Window.LocalUIBlurPart
-        local UpdateLocalUIBlur = Window.UpdateLocalUIBlur
-        if BackgroundDOF and BackgroundDOF.Parent then
-            BackgroundDOF.Enabled = enabled
-            if enabled then
-                BackgroundDOF.NearIntensity = Window.BlurIntensity or 0.5
-            end
-        elseif enabled then
-            BackgroundDOF = Instance.new("DepthOfFieldEffect")
-            BackgroundDOF.Name = "ScriptHubDOF"
-            BackgroundDOF.FocusDistance = 2.5
-            BackgroundDOF.InFocusRadius = 0
-            BackgroundDOF.NearIntensity = Window.BlurIntensity or 0.5
-            BackgroundDOF.FarIntensity = 0.0
-            BackgroundDOF.Enabled = true
-            BackgroundDOF.Parent = Lighting
-            Window.BackgroundDOF = BackgroundDOF
-        end
-
-        if LocalUIBlurPart and LocalUIBlurPart.Parent then
-            LocalUIBlurPart.Transparency = enabled and 0.98 or 1
-        elseif enabled then
-            LocalUIBlurPart = Instance.new("Part")
-            LocalUIBlurPart.Name = "LocalUIBlurPart"
-            LocalUIBlurPart.Material = Enum.Material.Glass
-            LocalUIBlurPart.Transparency = 0.98
-            LocalUIBlurPart.Color = Color3.fromRGB(255, 255, 255)
-            LocalUIBlurPart.CastShadow = false
-            LocalUIBlurPart.CanCollide = false
-            LocalUIBlurPart.CanTouch = false
-            LocalUIBlurPart.CanQuery = false
-            LocalUIBlurPart.Anchored = true
-            LocalUIBlurPart.Size = Vector3.new(1, 1, 0.01)
-            LocalUIBlurPart.Parent = workspace
-            Window.LocalUIBlurPart = LocalUIBlurPart
-        end
-
-        if enabled and UpdateLocalUIBlur then
-            pcall(UpdateLocalUIBlur)
-        end
-    end
-
-    function Window:SetSpiderwebBackground(enabled)
-        Window.SpiderwebBGEnabled = enabled
-    end
-
-    function Window:SetNoiseEnabled(enabled)
-        Window.NoiseEnabled = (enabled == true)
-        if Window._NoiseUpdateFunc then
-            Window._NoiseUpdateFunc()
-        end
-        if Window.RegisteredToggles and Window.RegisteredToggles["BackgroundNoise"] then
-            local tog = Window.RegisteredToggles["BackgroundNoise"]
-            if tog and tog.SetState and tog.GetState and tog:GetState() ~= (enabled == true) then
-                pcall(function() tog:SetState(enabled == true, false) end)
-            end
-        end
-    end
-
-    function Window:SetNoiseType(noiseType)
-        Window.NoiseType = "Generated"
-        if Window._NoiseUpdateFunc then
-            Window._NoiseUpdateFunc()
-        end
-        if Window.RegisteredDropdowns and Window.RegisteredDropdowns["NoiseType"] then
-            local dd = Window.RegisteredDropdowns["NoiseType"]
-            if dd and dd.SelectOption then
-                pcall(function() dd:SelectOption(Window.NoiseType, false) end)
-            end
-        end
-    end
-
-    function Window:SetNoiseSize(size)
-        Window.NoiseSize = tonumber(size) or 128
-        if Window._NoiseUpdateFunc then
-            Window._NoiseUpdateFunc()
-        end
-        if Window.RegisteredSliders and Window.RegisteredSliders["NoiseSize"] then
-            local sld = Window.RegisteredSliders["NoiseSize"]
-            if sld and sld.SetValue and sld.GetValue and sld:GetValue() ~= Window.NoiseSize then
-                pcall(function() sld:SetValue(Window.NoiseSize, false) end)
-            end
-        end
-    end
-
-    function Window:SetNoiseTransparency(transparency)
-        Window.NoiseTransparency = tonumber(transparency) or 0.88
-        for _, n in ipairs(Window.NoiseOverlays or {}) do
-            if n and n.Parent then
-                n.ImageTransparency = Window.NoiseTransparency
-            end
-        end
-    end
-
-    function Window:SetContentBackgroundImage(configOrImage, size, position, zIndex, color, transparency)
-        local img, sz, pos, z, col, trans, scaleType
-        if type(configOrImage) == "table" then
-            img = configOrImage.Image or configOrImage.Asset or configOrImage.Texture or configOrImage[1]
-            sz = configOrImage.Size or configOrImage.size
-            pos = configOrImage.Position or configOrImage.position or (configOrImage.X and configOrImage.Y and UDim2.new(0, configOrImage.X, 0, configOrImage.Y))
-            z = configOrImage.ZIndex or configOrImage.zIndex or configOrImage.Z
-            col = configOrImage.Color or configOrImage.ImageColor3 or configOrImage.Color3
-            trans = configOrImage.Transparency or configOrImage.ImageTransparency
-            scaleType = configOrImage.ScaleType
-        else
-            img = configOrImage
-            sz = size
-            pos = position
-            z = zIndex
-            col = color
-            trans = transparency
-        end
-
-        local parentTarget = MainContentFrame or Window.MainFrame
-        if not Window.ContentBGImage then
-            local bgImg = Instance.new("ImageLabel")
-            bgImg.Name = "ContentBackgroundImage"
-            bgImg.BackgroundTransparency = 1
-            bgImg.BorderSizePixel = 0
-            bgImg.ScaleType = scaleType or Enum.ScaleType.Stretch
-            bgImg.Parent = parentTarget
-            Window.ContentBGImage = bgImg
-        end
-
-        local bg = Window.ContentBGImage
-        if img ~= nil then
-            bg.Image = tostring(img):find("://") and tostring(img) or ("rbxassetid://" .. tostring(img))
-        end
-        if sz ~= nil then bg.Size = sz else bg.Size = UDim2.new(1, 0, 1, 0) end
-        if pos ~= nil then bg.Position = pos else bg.Position = UDim2.new(0, 0, 0, 0) end
-        if z ~= nil then bg.ZIndex = z else bg.ZIndex = 1 end
-        if col ~= nil then bg.ImageColor3 = col else bg.ImageColor3 = Color3.fromRGB(255, 255, 255) end
-        if trans ~= nil then bg.ImageTransparency = trans else bg.ImageTransparency = 0 end
-        if scaleType ~= nil then bg.ScaleType = scaleType end
-        bg.Visible = (bg.Image ~= "")
-        return bg
-    end
-
-    function Window:SetShadowIntensity(intensity)
-        local pct = math.clamp(tonumber(intensity) or 56, 0, 100) / 100
-        Window.ShadowIntensity = pct
-        Library.ShadowIntensity = pct
-
-        local function applyShadow(shadow, origTrans)
-            if not shadow then return end
-            local parentCard = shadow.Parent
-            local isSuppressed = false
-            if parentCard and parentCard:IsA("GuiObject") then
-                if parentCard.BackgroundTransparency >= 0.99 then
-                    isSuppressed = true
-                elseif IsInsideSection(parentCard) and Window.SectionsTransparent then
-                    isSuppressed = true
-                end
-            end
-            local baseOpacity = 1 - (origTrans or 0.5)
-            local curOpacity = math.clamp(baseOpacity * pct, 0, 1)
-            local curTrans = 1 - curOpacity
-            local shouldShow = (Window.ShadowsEnabled and pct > 0) and not isSuppressed
-            pcall(function() shadow.Enabled = shouldShow end)
-            pcall(function() shadow.Visible = shouldShow end)
-            pcall(function() shadow.Transparency = shouldShow and curTrans or 1 end)
-        end
-
-        for shadow, origTrans in pairs(Library.Shadows) do
-            if shadow and shadow.Parent then
-                applyShadow(shadow, origTrans)
-            else
-                Library.Shadows[shadow] = nil
-            end
-        end
-
-        local roots = {
-            ScriptUi,
-            Window.ScriptUi,
-            Window.MinimisedUI,
-            Window.NotificationUI,
-            ParentGui
-        }
-        for _, root in ipairs(roots) do
-            if root and typeof(root) == "Instance" and root.Parent then
-                pcall(function()
-                    for _, desc in ipairs(root:GetDescendants()) do
-                        local isShadow = false
-                        pcall(function()
-                            if desc.ClassName == "UIShadow" or desc:IsA("UIShadow") then
-                                isShadow = true
-                            end
-                        end)
-                        if not isShadow and desc.Name and tostring(desc.Name):sub(1, 8) == "UIShadow" then
-                            isShadow = true
-                        end
-                        if isShadow then
-                            local orig = Library.Shadows[desc] or (desc.Transparency < 1 and desc.Transparency or 0.5)
-                            Library.Shadows[desc] = orig
-                            applyShadow(desc, orig)
-                        end
-                    end
-                end)
-            end
-        end
-    end
-
-    function Window:SetShadowsEnabled(enabled)
-        enabled = (enabled ~= false)
-        Window.ShadowsEnabled = enabled
-        Library.ShadowsEnabled = enabled
-
-        local function applyShadowState(shadow, origTrans)
-            if not shadow then return end
-            local parentCard = shadow.Parent
-            local isSuppressed = false
-            if parentCard and parentCard:IsA("GuiObject") then
-                if parentCard.BackgroundTransparency >= 0.99 then
-                    isSuppressed = true
-                elseif IsInsideSection(parentCard) and Window.SectionsTransparent then
-                    isSuppressed = true
-                end
-            end
-            local intensity = Window.ShadowIntensity or Library.ShadowIntensity or (1 / 1.8)
-            local baseOpacity = 1 - (origTrans or 0.5)
-            local curOpacity = math.clamp(baseOpacity * intensity, 0, 1)
-            local curTrans = 1 - curOpacity
-            local shouldShow = (enabled and intensity > 0) and not isSuppressed
-            pcall(function() shadow.Enabled = shouldShow end)
-            pcall(function() shadow.Visible = shouldShow end)
-            pcall(function()
-                shadow.Transparency = shouldShow and curTrans or 1
-            end)
-        end
-
-        for shadow, origTrans in pairs(Library.Shadows) do
-            if shadow and shadow.Parent then
-                applyShadowState(shadow, origTrans)
-            else
-                Library.Shadows[shadow] = nil -- prune destroyed ones
-            end
-        end
-
-        -- Also sweep all UI roots to ensure every shadow node is reached
-        local roots = {
-            ScriptUi,
-            Window.ScriptUi,
-            Window.MinimisedUI,
-            Window.NotificationUI,
-            ParentGui
-        }
-        for _, root in ipairs(roots) do
-            if root and typeof(root) == "Instance" and root.Parent then
-                pcall(function()
-                    for _, desc in ipairs(root:GetDescendants()) do
-                        local isShadow = false
-                        local ok = pcall(function()
-                            if desc.ClassName == "UIShadow" or desc:IsA("UIShadow") then
-                                isShadow = true
-                            end
-                        end)
-                        if not isShadow and desc.Name and tostring(desc.Name):sub(1, 8) == "UIShadow" then
-                            isShadow = true
-                        end
-                        if isShadow then
-                            local orig = Library.Shadows[desc]
-                            if not orig and desc.Transparency < 1 then
-                                orig = desc.Transparency
-                            end
-                            orig = orig or 0.5
-                            Library.Shadows[desc] = orig
-                            applyShadowState(desc, orig)
-                        end
-                    end
-                end)
-            end
-        end
+        syncSlider("TopBottomTransparency", math.floor(pct * 100))
     end
 
     function Window:SetSectionBGTransparent(enabled)
         enabled = (enabled ~= false)
         Window.SectionsTransparent = enabled
-        if not Window.RegisteredSections then return end
-        for _, sec in ipairs(Window.RegisteredSections) do
+
+        for _, sec in ipairs(Window.RegisteredSections or {}) do
             pcall(function()
+                local elemTrans = Window.ElementsTransparency or 0.33
                 if sec.Card and sec.Card.Parent then
-                    sec.Card.BackgroundTransparency = enabled and 1 or (Window.ElementsTransparency or 0.33)
+                    sec.Card.BackgroundTransparency = enabled and 1 or elemTrans
                 end
                 if sec.Stroke and sec.Stroke.Parent then
                     sec.Stroke.Transparency = enabled and 1 or 0.5
@@ -1266,28 +595,201 @@ return function(Library, Window)
                 local cont = sec.Container or sec.ItemContainer
                 if cont and cont.Parent then
                     for _, desc in ipairs(cont:GetDescendants()) do
-                        if desc:IsA("Frame") and desc.Parent then
-                            local dName = desc.Name
-                            local isButton = (dName == "MDButtonCard" or dName:find("BtnFrame") or dName == "Btn" or (desc:FindFirstChildOfClass("TextButton") and (dName:find("Btn") or dName:find("Button"))))
-                            if not isButton then
-                                local isCard = (desc:GetAttribute("MDCard") == true) or dName:find("Card") or dName:find("TextboxFrame") or dName:find("DropdownFrame") or dName:find("BoxFrame")
-                                if not isCard and (desc.BackgroundColor3 == Window.CurrentTheme.CardBG or (Window.CurrentTheme and desc.BackgroundColor3 == Window.CurrentTheme.CardBG)) then
-                                    isCard = true
-                                end
-                                if isCard then
-                                    desc.BackgroundTransparency = enabled and 1 or (Window.ElementsTransparency or 0.33)
-                                    for _, child in ipairs(desc:GetChildren()) do
-                                        if child.ClassName == "UIShadow" or child:IsA("UIShadow") or (child.Name and tostring(child.Name):sub(1, 8) == "UIShadow") then
-                                            child.Visible = (not enabled) and (Window.ShadowsEnabled and (Window.ShadowIntensity or 1) > 0)
-                                        end
-                                    end
-                                end
-                            end
+                        if desc:IsA("Frame") and not isButtonFrame(desc) and isCardFrame(desc) then
+                            desc.BackgroundTransparency = enabled and 1 or elemTrans
                         end
                     end
                 end
             end)
         end
+
+        refreshShadows()
     end
 
+    ---------------------------------------------------------------------------
+    -- Shadows
+    ---------------------------------------------------------------------------
+
+    function Window:SetShadowIntensity(intensity)
+        local pct = math.clamp(tonumber(intensity) or 56, 0, 100) / 100
+        Window.ShadowIntensity = pct
+        Library.ShadowIntensity = pct
+        refreshShadows(true)
+    end
+
+    function Window:SetShadowsEnabled(enabled)
+        enabled = (enabled ~= false)
+        Window.ShadowsEnabled = enabled
+        Library.ShadowsEnabled = enabled
+        refreshShadows(true)
+    end
+
+    ---------------------------------------------------------------------------
+    -- Sound
+    ---------------------------------------------------------------------------
+
+    function Window:SetUISounds(enabled)
+        Window.UISoundsEnabled = enabled and true or false
+    end
+
+    function Window:SetSoundVolume(volume)
+        local pct = math.clamp(tonumber(volume) or 0.8, 0, 1)
+        Window.SoundVolume = pct
+        if Window.HoverSoundTemplate then Window.HoverSoundTemplate.Volume = pct * 0.4 end
+        if Window.ClickSoundTemplate then Window.ClickSoundTemplate.Volume = pct * 0.5 end
+        if Window.NotifSoundTemplate then Window.NotifSoundTemplate.Volume = pct * 0.5 end
+    end
+
+    ---------------------------------------------------------------------------
+    -- Blur
+    ---------------------------------------------------------------------------
+
+    function Window:SetBlurIntensity(val)
+        local num = tonumber(val) or 1.0
+        if num > 1 then num = num / 100 end
+        num = math.clamp(num, 0, 1)
+        Window.BlurIntensity = num
+        if Window.BackgroundDOF and Window.BackgroundDOF.Parent then
+            Window.BackgroundDOF.NearIntensity = num
+        end
+    end
+
+    function Window:SetBackgroundBlur(enabled)
+        enabled = enabled and true or false
+        Window.BackgroundBlurEnabled = enabled
+
+        local dof = Window.BackgroundDOF
+        if dof and dof.Parent then
+            dof.Enabled = enabled
+            if enabled then dof.NearIntensity = Window.BlurIntensity or 0.5 end
+        elseif enabled then
+            dof = Instance.new("DepthOfFieldEffect")
+            dof.Name = "ScriptHubDOF"
+            dof.FocusDistance = 2.5
+            dof.InFocusRadius = 0
+            dof.NearIntensity = Window.BlurIntensity or 0.5
+            dof.FarIntensity = 0
+            dof.Enabled = true
+            dof.Parent = Lighting
+            Window.BackgroundDOF = dof
+        end
+
+        local part = Window.LocalUIBlurPart
+        if part and part.Parent then
+            part.Transparency = enabled and 0.98 or 1
+        elseif enabled then
+            part = Instance.new("Part")
+            part.Name = "LocalUIBlurPart"
+            part.Material = Enum.Material.Glass
+            part.Transparency = 0.98
+            part.Color = WHITE
+            part.CastShadow = false
+            part.CanCollide = false
+            part.CanTouch = false
+            part.CanQuery = false
+            part.Anchored = true
+            part.Size = Vector3.new(1, 1, 0.01)
+            part.Parent = workspace
+            Window.LocalUIBlurPart = part
+        end
+
+        if enabled and Window.UpdateLocalUIBlur then
+            pcall(Window.UpdateLocalUIBlur)
+        end
+    end
+
+    function Window:SetSpiderwebBackground(enabled)
+        Window.SpiderwebBGEnabled = enabled and true or false
+    end
+
+    ---------------------------------------------------------------------------
+    -- Noise
+    ---------------------------------------------------------------------------
+
+    local function updateNoise()
+        if Window._NoiseUpdateFunc then Window._NoiseUpdateFunc() end
+    end
+
+    function Window:SetNoiseEnabled(enabled)
+        enabled = (enabled == true)
+        Window.NoiseEnabled = enabled
+        updateNoise()
+        local tog = Window.RegisteredToggles and Window.RegisteredToggles["BackgroundNoise"]
+        if tog and tog.SetState and tog.GetState and tog:GetState() ~= enabled then
+            pcall(function() tog:SetState(enabled, false) end)
+        end
+    end
+
+    function Window:SetNoiseType()
+        -- Only the generated noise texture is supported.
+        Window.NoiseType = "Generated"
+        updateNoise()
+        local dd = Window.RegisteredDropdowns and Window.RegisteredDropdowns["NoiseType"]
+        if dd and dd.SelectOption then
+            pcall(function() dd:SelectOption(Window.NoiseType, false) end)
+        end
+    end
+
+    function Window:SetNoiseSize(size)
+        Window.NoiseSize = math.clamp(tonumber(size) or 128, 16, 1024)
+        updateNoise()
+        local sld = Window.RegisteredSliders and Window.RegisteredSliders["NoiseSize"]
+        if sld and sld.SetValue and sld.GetValue and sld:GetValue() ~= Window.NoiseSize then
+            pcall(function() sld:SetValue(Window.NoiseSize, false) end)
+        end
+    end
+
+    function Window:SetNoiseTransparency(transparency)
+        Window.NoiseTransparency = math.clamp(tonumber(transparency) or 0.88, 0, 1)
+        for _, n in ipairs(Window.NoiseOverlays or {}) do
+            if n and n.Parent then n.ImageTransparency = Window.NoiseTransparency end
+        end
+    end
+
+    ---------------------------------------------------------------------------
+    -- Content background image
+    ---------------------------------------------------------------------------
+
+    function Window:SetContentBackgroundImage(configOrImage, size, position, zIndex, color, transparency)
+        local img, sz, pos, z, col, trans, scaleType
+        if type(configOrImage) == "table" then
+            local c = configOrImage
+            img = c.Image or c.Asset or c.Texture or c[1]
+            sz = c.Size or c.size
+            pos = c.Position or c.position or (c.X and c.Y and UDim2.new(0, c.X, 0, c.Y)) or nil
+            z = c.ZIndex or c.zIndex or c.Z
+            col = c.Color or c.ImageColor3 or c.Color3
+            trans = c.Transparency or c.ImageTransparency
+            scaleType = c.ScaleType
+        else
+            img, sz, pos, z, col, trans = configOrImage, size, position, zIndex, color, transparency
+        end
+
+        local parent = Window.MainFrame
+        if not parent then return nil end
+
+        local bg = Window.ContentBGImage
+        if not (bg and bg.Parent) then
+            bg = Instance.new("ImageLabel")
+            bg.Name = "ContentBackgroundImage"
+            bg.BackgroundTransparency = 1
+            bg.BorderSizePixel = 0
+            bg.ScaleType = Enum.ScaleType.Stretch
+            bg.Parent = parent
+            Window.ContentBGImage = bg
+        end
+
+        if img ~= nil then
+            local str = tostring(img)
+            bg.Image = str:find("://") and str or ("rbxassetid://" .. str)
+        end
+        bg.Size = sz or UDim2.new(1, 0, 1, 0)
+        bg.Position = pos or UDim2.new(0, 0, 0, 0)
+        bg.ZIndex = z or 1
+        bg.ImageColor3 = col or WHITE
+        bg.ImageTransparency = trans or 0
+        if scaleType ~= nil then bg.ScaleType = scaleType end
+        bg.Visible = (bg.Image ~= "")
+        return bg
+    end
 end
