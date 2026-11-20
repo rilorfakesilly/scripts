@@ -4641,6 +4641,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 cFrame.Visible = (tName == activeTab)
             end
 
+            if parentTab.ContentFrame then
+                parentTab.ContentFrame.CanvasPosition = Vector2.new(0, 0)
+            end
+            if parentTab.UpdateCanvasSize then
+                parentTab:UpdateCanvasSize()
+            end
+
             UpdateIndicator(animated)
         end
 
@@ -4655,6 +4662,12 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             SubFrame.LayoutOrder = order or 1
             SubFrame.Visible = (tName == activeTab)
             SubFrame.Parent = ContentFrame
+
+            SubFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+                if parentTab.UpdateCanvasSize then
+                    parentTab:UpdateCanvasSize()
+                end
+            end)
 
             local subLayout = Instance.new("UIListLayout")
             subLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -9619,6 +9632,9 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     grad.Transparency = NumberSequence.new(1.0)
                 end
                 newTab.ContentFrame.CanvasPosition = Vector2.new(0, 0)
+                if newTab.UpdateCanvasSize then
+                    newTab:UpdateCanvasSize()
+                end
                 local targetY = newTab.HasSubTabs and 34 or 0
                 newTab.ContentFrame.Position = UDim2.new(0, 0, 0, targetY + 10)
                 newTab.ContentFrame.Visible = true
@@ -9885,7 +9901,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         ContentPadding.PaddingLeft = UDim.new(0, 10)
         ContentPadding.PaddingRight = UDim.new(0, 10)
         ContentPadding.PaddingTop = UDim.new(0, 8)
-        ContentPadding.PaddingBottom = UDim.new(0, 14)
+        ContentPadding.PaddingBottom = UDim.new(0, 40)
         ContentPadding.Parent = ContentFrame
 
         local ContentLayout = Instance.new("UIListLayout")
@@ -9902,9 +9918,33 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
         end)
 
-        ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 40)
-        end)
+        local _canvasUpdatePending = false
+        local function UpdateCanvasSize()
+            if _canvasUpdatePending then return end
+            _canvasUpdatePending = true
+            task.defer(function()
+                _canvasUpdatePending = false
+                if not ContentFrame or not ContentFrame.Parent or not ContentLayout then return end
+                local maxBottom = 0
+                for _, child in ipairs(ContentFrame:GetChildren()) do
+                    if child:IsA("GuiObject") and child.Visible then
+                        local bottom = child.Position.Y.Offset + child.AbsoluteSize.Y
+                        if bottom > maxBottom then
+                            maxBottom = bottom
+                        end
+                    end
+                end
+                if ContentLayout.AbsoluteContentSize.Y > maxBottom then
+                    maxBottom = ContentLayout.AbsoluteContentSize.Y
+                end
+                -- Extra bottom clearance allows complete scrolling even on small/non-fullscreen windows
+                ContentFrame.CanvasSize = UDim2.new(0, 0, 0, math.max(0, maxBottom + 100))
+            end)
+        end
+
+        ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvasSize)
+        ContentFrame.ChildAdded:Connect(UpdateCanvasSize)
+        ContentFrame.ChildRemoved:Connect(UpdateCanvasSize)
 
         local TabObj = {
             Name = tabName,
@@ -9914,7 +9954,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             HoverGradient = HoverGradient,
             Icon = TabIcon,
             ContentFrame = ContentFrame,
-            Layout = ContentLayout
+            Layout = ContentLayout,
+            UpdateCanvasSize = UpdateCanvasSize
         }
 
         function TabObj:AddWelcomeHeader()
@@ -10002,7 +10043,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             table.insert(Window.WelcomeUpdateCallbacks, UpdateWelcomeText)
 
             Window.WelcomeMsg = WelcomeMsg
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             return MainHeaderFrame
         end
 
@@ -10170,7 +10211,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 buttonData:WithSaveKey(btnOpts.SaveKey or btnOpts.saveKey)
             end
 
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
 
             table.insert(Window.SearchableItems, {
                 Type = "Button",
@@ -10276,7 +10317,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 DescLabel.Parent = CardFrame
             end
 
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
 
             local cardObj = {
                 Frame = CardFrame,
@@ -10445,7 +10486,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end)
             end
 
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             return labelObj
         end
 
@@ -10510,7 +10551,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             Window.RegisteredDividers = Window.RegisteredDividers or {}
             table.insert(Window.RegisteredDividers, dividerObj)
 
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             return dividerObj
         end
 
@@ -10794,7 +10835,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             end
             table.insert(Window.RegisteredNumberInputsList, numberObj)
 
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             table.insert(Window.SearchableItems, {
                 Type = "NumberInput",
                 Name = title or "NumberInput",
@@ -10836,7 +10877,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local multiDropData = Window:CreateMDMultiDropdown(targetParent, pos, cardSize, title, dropOpts, defSels, cb, multiOpts)
 
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             table.insert(Window.SearchableItems, {
                 Type = "MultiDropdown",
                 Name = title or "MultiDropdown",
@@ -10876,7 +10917,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local pos = position or UDim2.new(0, 0, 0, 0)
 
             local dropData = Window:CreateMDPriorityDropdown(targetParent, pos, cardSize, title, dropOpts, defOrder, cb, dropConfig)
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             table.insert(Window.SearchableItems, {
                 Type = "PriorityDropdown",
                 Name = title or "PriorityDropdown",
@@ -10915,7 +10956,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local pos = position or UDim2.new(0, 0, 0, 0)
 
             local dropData = Window:CreateMDImageDropdown(targetParent, pos, cardSize, title, dropOpts, defOpt, cb, dropConfig)
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             table.insert(Window.SearchableItems, {
                 Type = "ImageDropdown",
                 Name = title or "ImageDropdown",
@@ -10930,7 +10971,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local cfg = (type(configOrStats) == "table" and not configOrStats.IsA) and configOrStats or { Stats = configOrStats }
             local targetParent = ResolveParent(parentContainer) or cfg.Parent or TabObj.CurrentSectionContainer or ContentFrame
             local statGrid = Window:CreateMDStatGrid(targetParent, nil, nil, cfg)
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             return statGrid
         end
         TabObj.AddStatCard = function(self, config, parentContainer)
@@ -10944,7 +10985,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local cfg = (type(config) == "table" and not config.IsA) and config or {}
             local targetParent = ResolveParent(parentContainer) or cfg.Parent or TabObj.CurrentSectionContainer or ContentFrame
             local imgGrid = Window:CreateMDImageGrid(targetParent, nil, nil, cfg)
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             return imgGrid
         end
         TabObj.AddGallery = TabObj.AddImageGrid
@@ -10957,7 +10998,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local triggerCard = Window:CreateMDPreviewButton(targetParent, nil, nil, preview, cfg.Title or cfg.title or "Preview")
                 preview.TriggerCard = triggerCard
             end
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             return preview
         end
 
@@ -10970,7 +11011,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 previewObj = Window:CreateMDPreview(nil, nil, nil, cfg)
             end
             local triggerCard = Window:CreateMDPreviewButton(targetParent, nil, nil, previewObj, title)
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             return triggerCard, previewObj
         end
 
@@ -11153,7 +11194,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 progressObj:WithTooltip(cardOpts.Tooltip or cardOpts.tooltip)
             end
 
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             table.insert(Window.SearchableItems, {
                 Type = "ProgressBar",
                 Name = title or "Progress",
@@ -11357,7 +11398,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end,
             })
 
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             return RowObj
         end
 
@@ -11428,7 +11469,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
             local pos = position or UDim2.new(0, 0, 0, 0)
             local btnData = Window:CreateMDButtonLong(targetParent, pos, finalSize, text, callback, icon, showArrow)
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
 
             if Window.RegisterLocalizedElement then
                 Window:RegisterLocalizedElement(btnData, text, function(newText)
@@ -11535,7 +11576,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
             local pos = position or UDim2.new(0, 0, 0, 0)
             local dropObj = Window:CreateMDDropdown(targetParent, pos, size, title, dropOpts, defOpt, cb, cfg)
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
 
             table.insert(Window.SearchableItems, {
                 Type = "Dropdown",
@@ -11588,7 +11629,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
             local pos = position or UDim2.new(0, 0, 0, 0)
             local boxObj = Window:CreateMDTextbox(targetParent, pos, size, title, ph, def, cb, opts)
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
 
             table.insert(Window.SearchableItems, {
                 Type = "Textbox",
@@ -11626,7 +11667,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local size = explicitUDim or (isGroup and UDim2.new(1, 0, 0, defaultH)) or (parentRow and ComputeRowItemWidth(fraction or 0.5, defaultH)) or UDim2.new(1, -10, 0, defaultH)
             local pos = position or UDim2.new(0, 0, 0, 0)
             local cpData = Window:CreateMDColorPicker(targetParent, pos, size, title, defColor, cb, id, titleOrConfig)
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
 
             table.insert(Window.SearchableItems, {
                 Type = "Color picker",
@@ -11976,7 +12017,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                         SectionCard.ClipsDescendants = false
                         ItemContainer.ClipsDescendants = false
                         isAnimating = false
-                        ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+                        UpdateCanvasSize()
                     end)
                 else
                     -- Expand section to target height
@@ -12002,7 +12043,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                             SectionCard.ClipsDescendants = false
                             ItemContainer.ClipsDescendants = false
                             isAnimating = false
-                            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+                            UpdateCanvasSize()
                         end)
                     end)
                 end
@@ -12024,7 +12065,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TabObj.CurrentSectionContainer = ItemContainer
             TabObj.CurrentSectionCard = SectionCard
 
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
 
             local SectionObj = {
                 Card = SectionCard,
@@ -12410,7 +12451,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             local pos = position or UDim2.new(0, 0, 0, 0)
 
             local toggleData = Window:CreateMDToggleHalf(targetParent, pos, size, text, state, cb, bind, connectMode)
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
 
             if sliderConfig then
                 toggleData:AddSlider(sliderConfig)
@@ -12665,7 +12706,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end)
             end
 
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             return checkboxObj
         end
 
@@ -12729,7 +12770,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 local toggle = TabObj:AddToggle(config)
                 table.insert(results, toggle)
             end
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            UpdateCanvasSize()
             return results
         end
 
@@ -12848,7 +12889,48 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
             end
 
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+            local function LayoutGroupCorners()
+                if not GroupFrame or not GroupFrame.Parent or not isInside then return end
+                local visibleChildren = {}
+                for _, child in ipairs(GroupFrame:GetChildren()) do
+                    if child:IsA("GuiObject") and child.Visible then
+                        table.insert(visibleChildren, child)
+                    end
+                end
+                local visCount = #visibleChildren
+                for idx, child in ipairs(visibleChildren) do
+                    local corner = child:FindFirstChildOfClass("UICorner")
+                    if corner then
+                        if visCount == 1 then
+                            ApplyCornerRadii(corner, 12, 12, 12, 12)
+                        elseif isHorizontal then
+                            if idx == 1 then
+                                ApplyCornerRadii(corner, 12, 0, 0, 12)
+                            elseif idx == visCount then
+                                ApplyCornerRadii(corner, 0, 12, 12, 0)
+                            else
+                                ApplyCornerRadii(corner, 0, 0, 0, 0)
+                            end
+                        else
+                            if idx == 1 then
+                                ApplyCornerRadii(corner, 12, 12, 0, 0)
+                            elseif idx == visCount then
+                                ApplyCornerRadii(corner, 0, 0, 12, 12)
+                            else
+                                ApplyCornerRadii(corner, 0, 0, 0, 0)
+                            end
+                        end
+                    end
+                end
+            end
+            GroupFrame.LayoutGroupCorners = LayoutGroupCorners
+            for _, res in ipairs(results) do
+                if type(res) == "table" and not res.LayoutGroupCorners then
+                    res.LayoutGroupCorners = LayoutGroupCorners
+                end
+            end
+
+            UpdateCanvasSize()
             return results
         end
 
@@ -13116,7 +13198,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     ValueLabel.TextColor3 = theme.Text
                 end
 
-                ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+                UpdateCanvasSize()
                 table.insert(Window.SearchableItems, {
                     Type = "Slider",
                     Name = displayTitle,
@@ -13143,11 +13225,25 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end)
                 end
 
+                sliderData.SetVisible = function(selfOrVis, maybeVis)
+                    local vis = (maybeVis ~= nil) and (maybeVis == true) or (selfOrVis == true)
+                    if SliderCard and SliderCard.Parent then
+                        SliderCard.Visible = vis
+                    end
+                    if GroupFrame and GroupFrame.Parent and GroupFrame.LayoutGroupCorners then
+                        GroupFrame:LayoutGroupCorners()
+                    end
+                    if ContentFrame and ContentLayout then
+                        UpdateCanvasSize()
+                    end
+                    return sliderData
+                end
+
                 return sliderData
             else
                 local size = (targetParent and targetParent.Name == "RowFrame") and UDim2.new(0.485, -4, 0, 14) or UDim2.new(1, -10, 0, 14)
                 local sliderData = Window:CreateMDSlider(targetParent, pos, size, minVal, maxVal, defaultVal, onValueChange, sliderName, sliderOptions)
-                ContentFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
+                UpdateCanvasSize()
 
                 local nonCardTitle = (type(sliderOptions) == "table" and (sliderOptions.Title or sliderOptions.Text or sliderOptions.Name))
                     or (type(arg1) == "string" and (type(arg2) ~= "table" or not (arg2.Title or arg2.Text or arg2.Name)) and arg1)
@@ -13173,6 +13269,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                             sliderData.TitleLabel.Text = tostring(newText)
                         end
                     end)
+                end
+
+                sliderData.SetVisible = function(selfOrVis, maybeVis)
+                    local vis = (maybeVis ~= nil) and (maybeVis == true) or (selfOrVis == true)
+                    local frame = sliderData.Frame or sliderData.CardFrame or sliderData.Track
+                    if frame and frame.Parent then
+                        frame.Visible = vis
+                    end
+                    if GroupFrame and GroupFrame.Parent and GroupFrame.LayoutGroupCorners then
+                        GroupFrame:LayoutGroupCorners()
+                    end
+                    if ContentFrame and ContentLayout then
+                        UpdateCanvasSize()
+                    end
+                    return sliderData
                 end
 
                 return sliderData
