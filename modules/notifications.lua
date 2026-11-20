@@ -310,18 +310,10 @@ return function(Library, Window)
         mainCorner.Parent = main
         AddUIShadow(main, 20, 0.5)
 
-        local stripe = Instance.new("Frame")
-        stripe.Name = "AccentStripe"
-        stripe.Size = UDim2.new(0, 3, 1, 0)
-        stripe.BackgroundColor3 = accent
-        stripe.BorderSizePixel = 0
-        stripe.ZIndex = 33
-        stripe.Parent = main
-
         local icon = Instance.new("ImageLabel")
         icon.Name = "Icon"
         icon.Size = UDim2.new(0, 48, 0, 48)
-        icon.Position = UDim2.new(0, 14, 0.5, -24)
+        icon.Position = UDim2.new(0, 12, 0.5, -24)
         icon.BackgroundTransparency = 1
         icon.Image = iconAsset
         icon.ImageColor3 = textColor
@@ -346,8 +338,8 @@ return function(Library, Window)
 
         local barBG = Instance.new("Frame")
         barBG.Name = "ProgressBarBG"
-        barBG.Size = UDim2.new(1, 0, 0, 2)
-        barBG.Position = UDim2.new(0, 0, 1, -2)
+        barBG.Size = UDim2.new(1, 0, 0, 3)
+        barBG.Position = UDim2.new(0, 0, 1, -3)
         barBG.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         barBG.BackgroundTransparency = 0.6
         barBG.BorderSizePixel = 0
