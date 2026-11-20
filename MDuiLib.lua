@@ -950,12 +950,159 @@ Library.ThemePresets.Blue = Library.ThemePresets.Original
 Library.ThemePresets.Green = Library.ThemePresets.Nature
 
 local function ApplyCornerRadii(uiCorner, topLeft, topRight, bottomLeft, bottomRight)
-    pcall(function()
+    if not uiCorner then return end
+    topLeft = topLeft or 0
+    topRight = topRight or 0
+    bottomLeft = bottomLeft or 0
+    bottomRight = bottomRight or 0
+
+    local ok = pcall(function()
         uiCorner.TopLeftRadius = UDim.new(0, topLeft)
         uiCorner.TopRightRadius = UDim.new(0, topRight)
         uiCorner.BottomLeftRadius = UDim.new(0, bottomLeft)
         uiCorner.BottomRightRadius = UDim.new(0, bottomRight)
     end)
+
+    if not ok then
+        local maxR = math.max(topLeft, topRight, bottomLeft, bottomRight)
+        local minR = math.min(topLeft, topRight, bottomLeft, bottomRight)
+        local parentFrame = uiCorner.Parent
+
+        if maxR == 0 then
+            uiCorner.CornerRadius = UDim.new(0, 0)
+            if parentFrame and parentFrame:IsA("GuiObject") then
+                local topC = parentFrame:FindFirstChild("GroupCornerCoverTop")
+                if topC then topC.Visible = false end
+                local btmC = parentFrame:FindFirstChild("GroupCornerCoverBottom")
+                if btmC then btmC.Visible = false end
+                local leftC = parentFrame:FindFirstChild("GroupCornerCoverLeft")
+                if leftC then leftC.Visible = false end
+                local rightC = parentFrame:FindFirstChild("GroupCornerCoverRight")
+                if rightC then rightC.Visible = false end
+            end
+            return
+        end
+
+        if minR == maxR then
+            uiCorner.CornerRadius = UDim.new(0, maxR)
+            if parentFrame and parentFrame:IsA("GuiObject") then
+                local topC = parentFrame:FindFirstChild("GroupCornerCoverTop")
+                if topC then topC.Visible = false end
+                local btmC = parentFrame:FindFirstChild("GroupCornerCoverBottom")
+                if btmC then btmC.Visible = false end
+                local leftC = parentFrame:FindFirstChild("GroupCornerCoverLeft")
+                if leftC then leftC.Visible = false end
+                local rightC = parentFrame:FindFirstChild("GroupCornerCoverRight")
+                if rightC then rightC.Visible = false end
+            end
+            return
+        end
+
+        uiCorner.CornerRadius = UDim.new(0, maxR)
+
+        if parentFrame and parentFrame:IsA("GuiObject") then
+            local topFlat = (topLeft == 0 and topRight == 0)
+            local btmFlat = (bottomLeft == 0 and bottomRight == 0)
+            local leftFlat = (topLeft == 0 and bottomLeft == 0)
+            local rightFlat = (topRight == 0 and bottomRight == 0)
+
+            local topC = parentFrame:FindFirstChild("GroupCornerCoverTop")
+            if topFlat then
+                if not topC then
+                    topC = Instance.new("Frame")
+                    topC.Name = "GroupCornerCoverTop"
+                    topC.Size = UDim2.new(1, 0, 0, maxR)
+                    topC.Position = UDim2.new(0, 0, 0, 0)
+                    topC.BorderSizePixel = 0
+                    topC.ZIndex = math.max(1, parentFrame.ZIndex)
+                    topC.Parent = parentFrame
+                end
+                topC.BackgroundColor3 = parentFrame.BackgroundColor3
+                topC.BackgroundTransparency = parentFrame.BackgroundTransparency
+                topC.Visible = true
+            elseif topC then
+                topC.Visible = false
+            end
+
+            local btmC = parentFrame:FindFirstChild("GroupCornerCoverBottom")
+            if btmFlat then
+                if not btmC then
+                    btmC = Instance.new("Frame")
+                    btmC.Name = "GroupCornerCoverBottom"
+                    btmC.Size = UDim2.new(1, 0, 0, maxR)
+                    btmC.Position = UDim2.new(0, 0, 1, -maxR)
+                    btmC.BorderSizePixel = 0
+                    btmC.ZIndex = math.max(1, parentFrame.ZIndex)
+                    btmC.Parent = parentFrame
+                end
+                btmC.BackgroundColor3 = parentFrame.BackgroundColor3
+                btmC.BackgroundTransparency = parentFrame.BackgroundTransparency
+                btmC.Visible = true
+            elseif btmC then
+                btmC.Visible = false
+            end
+
+            local leftC = parentFrame:FindFirstChild("GroupCornerCoverLeft")
+            if leftFlat then
+                if not leftC then
+                    leftC = Instance.new("Frame")
+                    leftC.Name = "GroupCornerCoverLeft"
+                    leftC.Size = UDim2.new(0, maxR, 1, 0)
+                    leftC.Position = UDim2.new(0, 0, 0, 0)
+                    leftC.BorderSizePixel = 0
+                    leftC.ZIndex = math.max(1, parentFrame.ZIndex)
+                    leftC.Parent = parentFrame
+                end
+                leftC.BackgroundColor3 = parentFrame.BackgroundColor3
+                leftC.BackgroundTransparency = parentFrame.BackgroundTransparency
+                leftC.Visible = true
+            elseif leftC then
+                leftC.Visible = false
+            end
+
+            local rightC = parentFrame:FindFirstChild("GroupCornerCoverRight")
+            if rightFlat then
+                if not rightC then
+                    rightC = Instance.new("Frame")
+                    rightC.Name = "GroupCornerCoverRight"
+                    rightC.Size = UDim2.new(0, maxR, 1, 0)
+                    rightC.Position = UDim2.new(1, -maxR, 0, 0)
+                    rightC.BorderSizePixel = 0
+                    rightC.ZIndex = math.max(1, parentFrame.ZIndex)
+                    rightC.Parent = parentFrame
+                end
+                rightC.BackgroundColor3 = parentFrame.BackgroundColor3
+                rightC.BackgroundTransparency = parentFrame.BackgroundTransparency
+                rightC.Visible = true
+            elseif rightC then
+                rightC.Visible = false
+            end
+
+            if not parentFrame:GetAttribute("CornerCoversHooked") then
+                parentFrame:SetAttribute("CornerCoversHooked", true)
+                parentFrame:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+                    local t = parentFrame:FindFirstChild("GroupCornerCoverTop")
+                    if t then t.BackgroundColor3 = parentFrame.BackgroundColor3 end
+                    local b = parentFrame:FindFirstChild("GroupCornerCoverBottom")
+                    if b then b.BackgroundColor3 = parentFrame.BackgroundColor3 end
+                    local l = parentFrame:FindFirstChild("GroupCornerCoverLeft")
+                    if l then l.BackgroundColor3 = parentFrame.BackgroundColor3 end
+                    local r = parentFrame:FindFirstChild("GroupCornerCoverRight")
+                    if r then r.BackgroundColor3 = parentFrame.BackgroundColor3 end
+                end)
+                parentFrame:GetPropertyChangedSignal("BackgroundTransparency"):Connect(function()
+                    local t = parentFrame:FindFirstChild("GroupCornerCoverTop")
+                    if t then t.BackgroundTransparency = parentFrame.BackgroundTransparency end
+                    local b = parentFrame:FindFirstChild("GroupCornerCoverBottom")
+                    if b then b.BackgroundTransparency = parentFrame.BackgroundTransparency end
+                    local l = parentFrame:FindFirstChild("GroupCornerCoverLeft")
+                    if l then l.BackgroundTransparency = parentFrame.BackgroundTransparency end
+                    local r = parentFrame:FindFirstChild("GroupCornerCoverRight")
+                    if r then r.BackgroundTransparency = parentFrame.BackgroundTransparency end
+                end)
+            end
+        end
+    end
 end
 
 Library.ShadowsEnabled = true
@@ -1584,6 +1731,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
         local connectMode = type(boxOptions) == "table" and (boxOptions.Connect or boxOptions.Connected or boxOptions.connectMode or boxOptions.PositionInGroup)
         local Corner = Instance.new("UICorner")
+        Corner.Parent = BoxFrame
         if connectMode == "Top" or connectMode == "First" then
             ApplyCornerRadii(Corner, 12, 12, 0, 0)
         elseif connectMode == "Middle" then
@@ -1597,7 +1745,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         else
             Corner.CornerRadius = UDim.new(0, 12)
         end
-        Corner.Parent = BoxFrame
 
         if not connectMode then
             local shadow = AddUIShadow(BoxFrame, 20, 0.5)
@@ -1921,7 +2068,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 elseif connectMode == "Right" then
                     ApplyCornerRadii(Corner, 0, 12, 12, 0)
                 else
-                    Corner.CornerRadius = UDim.new(0, 12)
+                    ApplyCornerRadii(Corner, 12, 12, 12, 12)
                 end
             end
         end
@@ -3093,6 +3240,19 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             TitleLabel = TitleText,
             ArrowIcon = ArrowIcon,
             Close = CloseDropdown,
+            SetVisible = function(selfOrVis, maybeVis)
+                local vis = (maybeVis ~= nil) and (maybeVis == true) or (selfOrVis == true)
+                if DropdownFrame and DropdownFrame.Parent then
+                    DropdownFrame.Visible = vis
+                end
+                if type(dropObj) == "table" and dropObj.LayoutGroupCorners then
+                    pcall(function() dropObj:LayoutGroupCorners() end)
+                end
+                if ContentFrame and ContentLayout then
+                    UpdateCanvasSize()
+                end
+                return dropObj
+            end,
             SetTitle = function(selfOrTitle, maybeTitle)
                 local newT = (maybeTitle ~= nil) and maybeTitle or selfOrTitle
                 if type(newT) == "table" then
@@ -6838,6 +6998,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         end
 
         local Corner = Instance.new("UICorner")
+        Corner.Parent = CardFrame
         if connectMode == "Top" or connectMode == "First" then
             ApplyCornerRadii(Corner, 12, 12, 0, 0)
         elseif connectMode == "Middle" then
@@ -6851,7 +7012,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         else
             Corner.CornerRadius = UDim.new(0, 12)
         end
-        Corner.Parent = CardFrame
 
         if not connectMode then
             local shadow = AddUIShadow(CardFrame, 20, 0.5)
@@ -7194,6 +7354,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         CardFrame.Parent = parent
 
         local Corner = Instance.new("UICorner")
+        Corner.Parent = CardFrame
         if connectMode == "Top" or connectMode == "First" then
             ApplyCornerRadii(Corner, 12, 12, 0, 0)
         elseif connectMode == "Middle" then
@@ -7207,7 +7368,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         else
             Corner.CornerRadius = UDim.new(0, 12)
         end
-        Corner.Parent = CardFrame
 
         if not connectMode then
             local shadow = AddUIShadow(CardFrame, 20, 0.5)
@@ -8385,6 +8545,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             UIScaleConstraint.Scale = GetTargetViewportScale()
         end
         RefreshHUDScales()
+        if Window.Tabs then
+            for _, tab in pairs(Window.Tabs) do
+                if tab and tab.UpdateCanvasSize then
+                    pcall(function() tab.UpdateCanvasSize() end)
+                end
+            end
+        end
     end
 
     local function HookViewportSignal()
@@ -9065,6 +9232,13 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
         TrackConn(UIScaleConstraint:GetPropertyChangedSignal("Scale"):Connect(function()
             if ActiveTabGlow and ActiveTabGlow.Visible and Window.ActiveTab and ScriptUi.Enabled and not IsAnimatingMinimize then
                 UpdateActiveTabIndicator(true)
+            end
+            if Window.Tabs then
+                for _, tab in pairs(Window.Tabs) do
+                    if tab and tab.UpdateCanvasSize then
+                        pcall(function() tab.UpdateCanvasSize() end)
+                    end
+                end
             end
         end))
     end
@@ -9925,20 +10099,21 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             task.defer(function()
                 _canvasUpdatePending = false
                 if not ContentFrame or not ContentFrame.Parent or not ContentLayout then return end
-                local maxBottom = 0
+                local scale = (UIScaleConstraint and UIScaleConstraint.Scale > 0) and UIScaleConstraint.Scale or 1
+                local maxBottomLocal = 0
                 for _, child in ipairs(ContentFrame:GetChildren()) do
                     if child:IsA("GuiObject") and child.Visible then
-                        local bottom = child.Position.Y.Offset + child.AbsoluteSize.Y
-                        if bottom > maxBottom then
-                            maxBottom = bottom
+                        local localTop = ((child.AbsolutePosition.Y - ContentFrame.AbsolutePosition.Y) / scale) + ContentFrame.CanvasPosition.Y
+                        local localBottom = localTop + (child.AbsoluteSize.Y / scale)
+                        if localBottom > maxBottomLocal then
+                            maxBottomLocal = localBottom
                         end
                     end
                 end
-                if ContentLayout.AbsoluteContentSize.Y > maxBottom then
-                    maxBottom = ContentLayout.AbsoluteContentSize.Y
-                end
+                local layoutHeightLocal = ContentLayout.AbsoluteContentSize.Y / scale
+                local totalLocalHeight = math.max(maxBottomLocal, layoutHeightLocal)
                 -- Extra bottom clearance allows complete scrolling even on small/non-fullscreen windows
-                ContentFrame.CanvasSize = UDim2.new(0, 0, 0, math.max(0, maxBottom + 100))
+                ContentFrame.CanvasSize = UDim2.new(0, 0, 0, math.max(0, math.ceil(totalLocalHeight + 140)))
             end)
         end
 
@@ -10264,6 +10439,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             CardFrame.Parent = targetParent
 
             local CardCorner = Instance.new("UICorner")
+            CardCorner.Parent = CardFrame
             local connectMode = cardOpts.Connect or cardOpts.Connected or cardOpts.connectMode or cardOpts.PositionInGroup
             if connectMode == "Top" or connectMode == "First" then
                 ApplyCornerRadii(CardCorner, 12, 12, 0, 0)
@@ -10278,7 +10454,6 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
             else
                 CardCorner.CornerRadius = UDim.new(0, 12)
             end
-            CardCorner.Parent = CardFrame
 
             local CardStroke = Instance.new("UIStroke")
             CardStroke.Color = Window.CurrentTheme.Divider or Color3.fromRGB(80, 85, 100)
@@ -12885,18 +13060,25 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 end
 
                 if resultItem then
+                    local itemFrame = resultItem.Frame or resultItem.CardFrame or resultItem.Card or (typeof(resultItem) == "Instance" and resultItem)
+                    if itemFrame and itemFrame:IsA("GuiObject") then
+                        itemFrame.LayoutOrder = i
+                    end
                     table.insert(results, resultItem)
                 end
             end
 
             local function LayoutGroupCorners()
-                if not GroupFrame or not GroupFrame.Parent or not isInside then return end
+                if not GroupFrame or not GroupFrame.Parent then return end
                 local visibleChildren = {}
                 for _, child in ipairs(GroupFrame:GetChildren()) do
-                    if child:IsA("GuiObject") and child.Visible then
+                    if child:IsA("GuiObject") and child.Visible and not child.Name:find("Cover") and not child.Name:find("Shadow") and child.ClassName ~= "UIShadow" then
                         table.insert(visibleChildren, child)
                     end
                 end
+                table.sort(visibleChildren, function(a, b)
+                    return (a.LayoutOrder or 0) < (b.LayoutOrder or 0)
+                end)
                 local visCount = #visibleChildren
                 for idx, child in ipairs(visibleChildren) do
                     local corner = child:FindFirstChildOfClass("UICorner")
@@ -12923,12 +13105,20 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                     end
                 end
             end
+
             for _, res in ipairs(results) do
                 if type(res) == "table" and not res.LayoutGroupCorners then
                     res.LayoutGroupCorners = LayoutGroupCorners
                 end
+                local itemFrame = res and (res.Frame or res.CardFrame or res.Card or (typeof(res) == "Instance" and res))
+                if itemFrame and itemFrame:IsA("GuiObject") then
+                    pcall(function()
+                        itemFrame:GetPropertyChangedSignal("Visible"):Connect(LayoutGroupCorners)
+                    end)
+                end
             end
 
+            LayoutGroupCorners()
             UpdateCanvasSize()
             return results
         end
@@ -13030,6 +13220,7 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
 
                 local connectMode = type(sliderOptions) == "table" and (sliderOptions.Connect or sliderOptions.Connected or sliderOptions.connectMode or sliderOptions.PositionInGroup)
                 local CardCorner = Instance.new("UICorner")
+                CardCorner.Parent = SliderCard
                 if connectMode == "Top" or connectMode == "First" then
                     ApplyCornerRadii(CardCorner, 12, 12, 0, 0)
                 elseif connectMode == "Middle" then
@@ -13041,9 +13232,8 @@ function Library:CreateWindow(arg1, arg2, arg3, arg4, arg5)
                 elseif connectMode == "Right" then
                     ApplyCornerRadii(CardCorner, 0, 12, 12, 0)
                 else
-                    CardCorner.CornerRadius = UDim.new(0, 12)
+                    ApplyCornerRadii(CardCorner, 12, 12, 12, 12)
                 end
-                CardCorner.Parent = SliderCard
 
                 if not connectMode then
                     local shadow = AddUIShadow(SliderCard, 20, 0.5)
