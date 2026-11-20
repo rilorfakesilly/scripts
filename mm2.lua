@@ -133,6 +133,10 @@ state = {
     aimbotEnabled = false,
     autoAimEnabled = false,
     autoAimWallbang = false,
+    autoAimRaycast = false,
+    autoAimPredictionMode = "Adaptive (Smart Auto)",
+    autoAimHorizPred = 0.16,
+    autoAimVertPred = 0.13,
     antiFlingEnabled = false,
     chinaHatEnabled = false,
     chinaHatFollowHead = false,
@@ -251,7 +255,7 @@ local camlockSettings = {
     predictionFactor = 0.2,
     horizontalPrediction = 0.2,
     verticalPrediction = 0.2,
-    predictionMode = "Auto (MoveDirection)",
+    predictionMode = "Adaptive (Smart Auto)",
     bodyPartSelected = "Head"
 }
 local isCoinBagVisible
@@ -361,6 +365,8 @@ local function doCleanup()
     state.aimbotEnabled = false
     state.autoAimEnabled = false
     state.autoAimWallbang = false
+    state.autoAimRaycast = false
+    if state.updateAutoAimRaycast then pcall(function() state.updateAutoAimRaycast(false) end) end
     state.bhopEnabled = false
     state.autoBhop = false
     state.flightEnabled = false
@@ -544,6 +550,8 @@ end
 
 
 -- MM2 Values Cache & Scraper (mm2checker.com)
+local detectRarityFromColor, getMM2ItemValue, getMM2ItemValueWithIcon, formatValue
+do
 local MM2Values = {}
 local MM2ValuesNormalized = {}
 local MM2ValuesByRarity = {}
@@ -3491,7 +3499,7 @@ local function resolveItemNameFromIcon(iconObj)
     return MM2_ITEM_ASSET_MAP[id], MM2_ITEM_RARITY_MAP[id]
 end
 
-local function detectRarityFromColor(guiObj, fallbackCont)
+detectRarityFromColor = function(guiObj, fallbackCont)
     if not guiObj and not fallbackCont then return nil end
     local candidates = {}
 
@@ -3611,7 +3619,7 @@ local function detectRarityFromColor(guiObj, fallbackCont)
     return nil
 end
 
-local function getMM2ItemValue(rawName, rarity)
+getMM2ItemValue = function(rawName, rarity)
     if not rawName or rawName == "" then return nil end
     local clean = rawName:gsub("^%s+", ""):gsub("%s+$", "")
     if clean:lower():find("default") then return 0 end
@@ -3711,7 +3719,7 @@ end
 
 -- Like getMM2ItemValue but uses icon to disambiguate gun vs knife.
 -- Returns nil when value cannot be fetched or icon resolution fails on ambiguous names.
-local function getMM2ItemValueWithIcon(rawName, rarity, iconObj)
+getMM2ItemValueWithIcon = function(rawName, rarity, iconObj)
     local resolved, iconRarity = nil, nil
     if iconObj then
         resolved, iconRarity = resolveItemNameFromIcon(iconObj)
@@ -3757,7 +3765,7 @@ local function getMM2ItemDisplay(rawName)
     return nil
 end
 
-local function formatValue(val)
+formatValue = function(val)
     if val == nil or val == "?" then return "?" end
     local num = tonumber(val)
     if not num then return "?" end
@@ -3784,6 +3792,7 @@ local function formatValue(val)
     else
         return "0"
     end
+end
 end
 
 -- load ui library from github
@@ -4834,6 +4843,7 @@ local silentAimConfig = {
     wallCheck = false,
     aliveCheck = true,
     wallbang = false,
+    predictionMode = "Adaptive (Smart Auto)",
     predictionFactor = 0.2,
     horizontalPrediction = 0.2,
     verticalPrediction = 0.2,
@@ -5444,51 +5454,223 @@ local function getAutoAimTarget()
     return targetPlayer, targetPart
 end
 
-local function calculateAimPosition(rawPos, part, predH, predV)
-    if not part then return rawPos end
+local calculateAimPosition, getSilentAimPred, getCamlockPred, getAutoAimPred
+do
+local playerPosHistory = {} -- [Player] = { {pos = Vector3, t = tick()}, ... }
 
-    local vel = Vector3.zero
-    pcall(function()
-        local char = part:FindFirstAncestorOfClass("Model") or part.Parent
-        local root = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
-        local sourcePart = root or part
-        vel = sourcePart.AssemblyLinearVelocity or sourcePart.Velocity or part.AssemblyLinearVelocity or part.Velocity or Vector3.zero
-    end)
-
-    local hFactor = tonumber(predH) or 0
-    local vFactor = tonumber(predV) or 0
-    if hFactor < 0 then hFactor = 0 end
-    if vFactor < 0 then vFactor = 0 end
-
-    -- Horizontal prediction (stays the same)
-    local offsetX = vel.X * hFactor
-    local offsetZ = vel.Z * hFactor
-    local offsetY = 0
-
-    -- Vertical prediction dependent on target's vertical velocity / fall speed
-    if vFactor > 0.001 then
-        local char = part:FindFirstAncestorOfClass("Model") or part.Parent
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        local isGrounded = false
-        if hum then
-            local floorMat = hum.FloorMaterial
-            if floorMat and floorMat ~= Enum.Material.Air then
-                isGrounded = true
+trackConnection(RunService.Heartbeat:Connect(function()
+    local now = tick()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and isPlayerAlive(p) then
+            local char = p.Character
+            local root = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
+            if root then
+                local hist = playerPosHistory[p]
+                if not hist then
+                    hist = {}
+                    playerPosHistory[p] = hist
+                end
+                table.insert(hist, { pos = root.Position, t = now })
+                while #hist > 6 or (hist[1] and (now - hist[1].t) > 0.3) do
+                    table.remove(hist, 1)
+                end
+            end
+        else
+            if playerPosHistory[p] then
+                playerPosHistory[p] = nil
             end
         end
+    end
+end))
 
-        if not isGrounded or math.abs(vel.Y) > 1.5 then
-            offsetY = math.clamp(vel.Y * vFactor, -30, 30)
+trackConnection(Players.PlayerRemoving:Connect(function(p)
+    playerPosHistory[p] = nil
+end))
+
+local function getNetworkLatency()
+    local ping = 0.045
+    pcall(function()
+        local stats = game:GetService("Stats")
+        local item = stats.Network:FindFirstChild("ServerStatsItem") and stats.Network.ServerStatsItem:FindFirstChild("Data Ping")
+        if item then
+            ping = (item:GetValue() / 1000)
+        end
+    end)
+    if ping <= 0.005 or ping > 1 then
+        ping = 0.045
+    end
+    return ping
+end
+
+local function getEffectiveLeadTime()
+    local ping = getNetworkLatency()
+    return math.clamp(ping + 0.016, 0.02, 0.5)
+end
+
+local function getTargetPlayerFromPart(part)
+    if not part then return nil, nil end
+    local char = part:FindFirstAncestorOfClass("Model") or part.Parent
+    if not char then return nil, nil end
+    local plr = Players:GetPlayerFromCharacter(char)
+    return plr, char
+end
+
+local function getPositionalDeltaVelocity(plr, sourcePart)
+    local hist = plr and playerPosHistory[plr]
+    if hist and #hist >= 2 then
+        local newest = hist[#hist]
+        local oldest = hist[1]
+        local dt = newest.t - oldest.t
+        if dt > 0.01 and dt < 0.5 then
+            local delta = (newest.pos - oldest.pos) / dt
+            if delta.Magnitude < 300 then
+                return delta
+            end
+        end
+    end
+    if sourcePart then
+        return sourcePart.AssemblyLinearVelocity or sourcePart.Velocity or Vector3.zero
+    end
+    return Vector3.zero
+end
+
+local function getMoveDirectionVelocity(char, fallbackVel)
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum and hum.MoveDirection.Magnitude > 0.05 then
+            local speed = hum.WalkSpeed
+            if speed < 1 or speed > 100 then speed = 16 end
+            local moveVec = hum.MoveDirection * speed
+            local yVel = fallbackVel and fallbackVel.Y or 0
+            return Vector3.new(moveVec.X, yVel, moveVec.Z)
+        end
+    end
+    return fallbackVel or Vector3.zero
+end
+
+calculateAimPosition = function(rawPos, part, predH, predV, mode)
+    if not part then return rawPos end
+
+    local plr, char = getTargetPlayerFromPart(part)
+    local root = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
+    local sourcePart = root or part
+
+    local physVel = Vector3.zero
+    pcall(function()
+        physVel = sourcePart.AssemblyLinearVelocity or sourcePart.Velocity or part.AssemblyLinearVelocity or part.Velocity or Vector3.zero
+    end)
+
+    local effMode = mode
+    if not effMode or effMode == "" then
+        if silentAimConfig and silentAimConfig.predictionMode then
+            effMode = silentAimConfig.predictionMode
+        elseif camlockSettings and camlockSettings.predictionMode then
+            effMode = camlockSettings.predictionMode
+        else
+            effMode = "Adaptive (Smart Auto)"
         end
     end
 
-    return rawPos + Vector3.new(offsetX, offsetY, offsetZ)
+    local leadTime = getEffectiveLeadTime()
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local isGrounded = false
+    if hum then
+        local floorMat = hum.FloorMaterial
+        if floorMat and floorMat ~= Enum.Material.Air then
+            isGrounded = true
+        end
+    end
+
+    if effMode == "Positional Delta (Anti-Desync)" then
+        local chosenVel = getPositionalDeltaVelocity(plr, sourcePart)
+        local offsetX = chosenVel.X * leadTime
+        local offsetZ = chosenVel.Z * leadTime
+        local offsetY = 0
+        if not isGrounded or math.abs(chosenVel.Y) > 1.5 then
+            offsetY = math.clamp(chosenVel.Y * leadTime, -30, 30)
+        end
+        return rawPos + Vector3.new(offsetX, offsetY, offsetZ)
+
+    elseif effMode == "MoveDirection (Input-Based)" then
+        local chosenVel = getMoveDirectionVelocity(char, physVel)
+        local offsetX = chosenVel.X * leadTime
+        local offsetZ = chosenVel.Z * leadTime
+        local offsetY = 0
+        if not isGrounded or math.abs(physVel.Y) > 1.5 then
+            offsetY = math.clamp(physVel.Y * leadTime, -30, 30)
+        end
+        return rawPos + Vector3.new(offsetX, offsetY, offsetZ)
+
+    elseif effMode == "Manual (Sliders)" then
+        local hFactor = tonumber(predH) or 0
+        local vFactor = tonumber(predV) or 0
+        if hFactor < 0 then hFactor = 0 end
+        if vFactor < 0 then vFactor = 0 end
+
+        local offsetX = physVel.X * hFactor
+        local offsetZ = physVel.Z * hFactor
+        local offsetY = 0
+        if vFactor > 0.001 then
+            if not isGrounded or math.abs(physVel.Y) > 1.5 then
+                offsetY = math.clamp(physVel.Y * vFactor, -30, 30)
+            end
+        end
+        return rawPos + Vector3.new(offsetX, offsetY, offsetZ)
+
+    else
+        -- "Adaptive (Smart Auto)" - Zero configuration, dynamically filters manipulated/spoofed velocity
+        local deltaVel = getPositionalDeltaVelocity(plr, sourcePart)
+        local moveVel  = getMoveDirectionVelocity(char, physVel)
+
+        local horizPhys = Vector3.new(physVel.X, 0, physVel.Z)
+        local horizDelta = Vector3.new(deltaVel.X, 0, deltaVel.Z)
+        local horizMove = Vector3.new(moveVel.X, 0, moveVel.Z)
+
+        local finalHoriz = horizPhys
+
+        -- Check for velocity manipulation / spoofing:
+        -- 1. Velocity nullifier: physical velocity is near 0, but delta or input shows movement
+        if horizPhys.Magnitude < 0.5 and (horizDelta.Magnitude > 1.5 or horizMove.Magnitude > 1.5) then
+            finalHoriz = (horizDelta.Magnitude > 1.5) and horizDelta or horizMove
+        -- 2. Velocity flinger / extreme spoof (> 90 studs/s in normal gameplay where max walkspeed is ~16-32)
+        elseif horizPhys.Magnitude > 90 then
+            finalHoriz = (horizDelta.Magnitude < 90) and horizDelta or horizMove
+        -- 3. Jitter desync: direction of physVel differs heavily from actual position displacement
+        elseif horizDelta.Magnitude > 2 and horizPhys.Magnitude > 2 and horizPhys:Dot(horizDelta) < 0 then
+            finalHoriz = horizDelta
+        else
+            -- Normal clean movement: blend physical velocity with frame delta for smooth lead
+            if horizDelta.Magnitude > 0.5 then
+                finalHoriz = (horizPhys * 0.6) + (horizDelta * 0.4)
+            end
+        end
+
+        local finalY = physVel.Y
+        if math.abs(deltaVel.Y) > 2 and math.abs(physVel.Y) < 0.5 then
+            finalY = deltaVel.Y
+        elseif math.abs(physVel.Y) > 100 then
+            finalY = deltaVel.Y
+        end
+
+        local offsetX = finalHoriz.X * leadTime
+        local offsetZ = finalHoriz.Z * leadTime
+        local offsetY = 0
+        if not isGrounded or math.abs(finalY) > 1.5 then
+            offsetY = math.clamp(finalY * leadTime, -30, 30)
+        end
+
+        return rawPos + Vector3.new(offsetX, offsetY, offsetZ)
+    end
 end
 
-local function getSilentAimPred()
+getSilentAimPred = function()
     local predH = 0.2
     local predV = 0.2
+    local mode = "Adaptive (Smart Auto)"
     if silentAimConfig then
+        if silentAimConfig.predictionMode ~= nil then
+            mode = silentAimConfig.predictionMode
+        end
         if silentAimConfig.horizontalPrediction ~= nil then
             predH = tonumber(silentAimConfig.horizontalPrediction) or 0
         elseif silentAimConfig.predictionFactor ~= nil then
@@ -5500,13 +5682,17 @@ local function getSilentAimPred()
             predV = 0
         end
     end
-    return predH, predV
+    return predH, predV, mode
 end
 
-local function getCamlockPred()
+getCamlockPred = function()
     local predH = 0.2
     local predV = 0.2
+    local mode = "Adaptive (Smart Auto)"
     if camlockSettings then
+        if camlockSettings.predictionMode ~= nil then
+            mode = camlockSettings.predictionMode
+        end
         if camlockSettings.horizontalPrediction ~= nil then
             predH = tonumber(camlockSettings.horizontalPrediction) or 0
         elseif camlockSettings.predictionFactor ~= nil then
@@ -5518,7 +5704,15 @@ local function getCamlockPred()
             predV = 0
         end
     end
-    return predH, predV
+    return predH, predV, mode
+end
+
+getAutoAimPred = function()
+    local predH = (state and tonumber(state.autoAimHorizPred)) or (silentAimConfig and tonumber(silentAimConfig.horizontalPrediction)) or 0.16
+    local predV = (state and tonumber(state.autoAimVertPred)) or (silentAimConfig and tonumber(silentAimConfig.verticalPrediction)) or 0.13
+    local mode = (state and state.autoAimPredictionMode) or (silentAimConfig and silentAimConfig.predictionMode) or "Adaptive (Smart Auto)"
+    return predH, predV, mode
+end
 end
 
 local function getSilentAimTarget()
@@ -5581,10 +5775,10 @@ local function getSilentAimTarget()
                                 local better
                                 if byDistance then better = worldDist < bestWorld else better = dist <= bestScreen end
                                 if better then
-                                    local predH, predV = getSilentAimPred()
+                                    local predH, predV, mode = getSilentAimPred()
                                     bestScreen, bestWorld = dist, worldDist
                                     targetPlayer, targetPart = p, part
-                                    targetPos = calculateAimPosition(part.Position, part, predH, predV)
+                                    targetPos = calculateAimPosition(part.Position, part, predH, predV, mode)
                                 end
                             end
                         end
@@ -5649,8 +5843,8 @@ if hookmetamethod then
                         end
 
                         local rawPos = shootPart.Position
-                        local predH, predV = getSilentAimPred()
-                        local targetPos = calculateAimPosition(rawPos, shootPart, predH, predV)
+                        local predH, predV, mode = getAutoAimPred()
+                        local targetPos = calculateAimPosition(rawPos, shootPart, predH, predV, mode)
 
                         local originPos = nil
                         if isWallbang and targetChar then
@@ -5756,8 +5950,8 @@ local function updateCamlock()
         local part = char:FindFirstChild(camlockSettings.bodyPartSelected) or char:FindFirstChild("HumanoidRootPart")
         if part then
             local rawPos = part.Position
-            local predH, predV = getCamlockPred()
-            local predicted = calculateAimPosition(rawPos, part, predH, predV)
+            local predH, predV, mode = getCamlockPred()
+            local predicted = calculateAimPosition(rawPos, part, predH, predV, mode)
             local goalCF    = CFrame.new(CurrentCamera.CFrame.Position, predicted)
             local alpha     = math.clamp(1 - camlockSettings.smoothingFactor, 0.05, 1)
             CurrentCamera.CFrame = CurrentCamera.CFrame:Lerp(goalCF, alpha)
@@ -6548,8 +6742,8 @@ local function killTarget()
             local mTorso = mChar and (mChar:FindFirstChild("UpperTorso") or mChar:FindFirstChild("Torso") or mChar:FindFirstChild("LowerTorso") or mChar:FindFirstChild("HumanoidRootPart"))
             if shootEvent and mTorso then
                 local rawPos = mTorso.Position
-                local predH, predV = getSilentAimPred()
-                local targetPos = calculateAimPosition(rawPos, mTorso, predH, predV)
+                local predH, predV, mode = getAutoAimPred()
+                local targetPos = calculateAimPosition(rawPos, mTorso, predH, predV, mode)
                 local startPos = mHead and mHead.Position or (rawPos + Vector3.new(0, 1.5, 0))
                 local startCF  = CFrame.new(startPos, targetPos)
                 local targetCF = CFrame.new(targetPos)
@@ -6650,87 +6844,69 @@ local function getCoinTouchInterest(part)
     return nil
 end
 
+local function getCoinServerPart(item)
+    if not item then return nil end
+    if item:IsA("BasePart") then return item end
+    for _, d in ipairs(item:GetDescendants()) do
+        if d:IsA("BasePart") and getCoinTouchInterest(d) then return d end
+    end
+    return item:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function getCoinVisualPart(serverPart)
+    local v = serverPart and serverPart:FindFirstChild("CoinVisual")
+    if not v then return nil end
+    local p = v:FindFirstChild("2Part")
+    if p and p:IsA("BasePart") then return p end
+    if v:IsA("BasePart") then return v end
+    return v:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function isCoinCollected(serverPart)
+    if not serverPart or not serverPart.Parent then return true end
+    local vis = getCoinVisualPart(serverPart)
+    if vis then return vis.Transparency >= 0.9 end
+    return false
+end
+
 local lastFallbackCoinScan = 0
 
 local function scanAllCoins()
-    local coins = {}
-    local seen  = {}
+    local coins, seen = {}, {}
 
-    local function tryAdd(item, part)
-        -- locate physics collider holding pickup trigger
-        if not part or not part:IsA("BasePart") then return end
-        if seen[part] then return end
-        if not part.Parent then return end
-
-        -- ignore coins already collected: CoinVisual fades to ~1 when collected (normal value ~0.05)
-        if item then
-            local visual = item:FindFirstChild("CoinVisual")
-            if visual and visual:IsA("BasePart") and visual.Transparency >= 0.9 then return end
+    local function addFromContainer(cc)
+        if not cc then return end
+        for _, item in ipairs(cc:GetChildren()) do
+            local part = getCoinServerPart(item)
+            if part and not seen[part] and part.Parent then
+                local ti = getCoinTouchInterest(part)
+                if ti and not isCoinCollected(part) then
+                    seen[part] = true
+                    table.insert(coins, { Part = part, TouchInterest = ti, Position = part.Position })
+                end
+            end
         end
-        if part.Transparency >= 0.9 then return end
-
-        -- TouchInterest lives on Coin_Server (item), fall back to checking part directly
-        local ti = (item and getCoinTouchInterest(item)) or getCoinTouchInterest(part)
-        if not ti then return end  -- ignore static decoration coins
-
-        seen[part] = true
-        table.insert(coins, {
-            Part          = part,
-            TouchInterest = ti,
-            Position      = part.Position,
-        })
     end
 
-    -- pull coin folder from active map first
     local map = getMapModel()
     if map then
-        local cc = map:FindFirstChild("CoinContainer")
-              or map:FindFirstChild("Coins")
-              or map:FindFirstChild("CoinArea")
-        if cc then
-            for _, item in ipairs(cc:GetChildren()) do
-                -- item IS the Coin_Server model; CoinVisual is the BasePart inside it
-                local visual = item:FindFirstChild("CoinVisual")
-                if visual and visual:IsA("BasePart") then
-                    tryAdd(item, visual)
-                elseif item:IsA("BasePart") then
-                    tryAdd(nil, item)
-                else
-                    tryAdd(item, item:FindFirstChildWhichIsA("BasePart", true))
-                end
-            end
-        end
+        addFromContainer(map:FindFirstChild("CoinContainer") or map:FindFirstChild("Coins") or map:FindFirstChild("CoinArea"))
     end
-
-    -- fall back to common map container names
-    for _, parentName in ipairs({"Workplace", "Normal", "Map", "CurrentMap"}) do
-        local p = Workspace:FindFirstChild(parentName)
+    for _, n in ipairs({"Workplace", "Normal", "Map", "CurrentMap"}) do
+        local p = Workspace:FindFirstChild(n)
         if p and p ~= map then
-            local cc = p:FindFirstChild("CoinContainer") or p:FindFirstChild("Coins") or p:FindFirstChild("CoinArea")
-            if cc then
-                for _, item in ipairs(cc:GetChildren()) do
-                    -- item IS the Coin_Server model; CoinVisual is the BasePart inside it
-                    local visual = item:FindFirstChild("CoinVisual")
-                    if visual and visual:IsA("BasePart") then
-                        tryAdd(item, visual)
-                    elseif item:IsA("BasePart") then
-                        tryAdd(nil, item)
-                    else
-                        tryAdd(item, item:FindFirstChildWhichIsA("BasePart", true))
-                    end
-                end
-            end
+            addFromContainer(p:FindFirstChild("CoinContainer") or p:FindFirstChild("Coins") or p:FindFirstChild("CoinArea"))
         end
     end
 
-    -- scan workspace if map hierarchy differs (look for CoinVisual BaseParts)
     local now = tick()
     if #coins == 0 and (now - lastFallbackCoinScan >= 5) then
         lastFallbackCoinScan = now
         for _, desc in ipairs(Workspace:GetDescendants()) do
-            if desc:IsA("BasePart") and desc.Name == "CoinVisual" then
-                -- desc.Parent is Coin_Server
-                tryAdd(desc.Parent, desc)
+            if desc.Name == "Coin_Server" and desc:IsA("BasePart") and not seen[desc]
+                and getCoinTouchInterest(desc) and not isCoinCollected(desc) then
+                seen[desc] = true
+                table.insert(coins, { Part = desc, TouchInterest = getCoinTouchInterest(desc), Position = desc.Position })
             end
         end
     end
@@ -7391,6 +7567,7 @@ trackThread(task.spawn(function()
 end))
 
 -- attack enemies within knife reach automatically
+do
 local knifeKillAuraZonePart = nil
 local knifeAttackDebounce = false
 
@@ -7516,8 +7693,100 @@ registerCleanupHook(function()
         knifeKillAuraZonePart = nil
     end
 end)
+end
 
--- avoid slowing down in water volumes 
+-- auto aim raycast tracer: live line from your gun to the auto aim target (auto aim only)
+do
+    local rayPart, rayConn
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    rayParams.IgnoreWater = true
+
+    local COLOR_CLEAR   = Color3.fromRGB(255, 0, 0)
+    local COLOR_BLOCKED = Color3.fromRGB(255, 160, 0)
+
+    local function cleanupRay()
+        if rayConn then pcall(function() rayConn:Disconnect() end) rayConn = nil end
+        if rayPart then pcall(function() rayPart:Destroy() end) rayPart = nil end
+    end
+
+    local function hideRay()
+        if rayPart and rayPart.Transparency ~= 1 then rayPart.Transparency = 1 end
+    end
+
+    state.updateAutoAimRaycast = function(enabled)
+        cleanupRay()
+        if not enabled then return end
+
+        rayPart = Instance.new("Part")
+        rayPart.Name = "AutoAimRaycastPart"
+        rayPart.Material = Enum.Material.Neon
+        rayPart.Color = COLOR_CLEAR
+        rayPart.Transparency = 1
+        rayPart.Anchored = true
+        rayPart.CanCollide = false
+        rayPart.CanTouch = false
+        rayPart.CanQuery = false
+        rayPart.CastShadow = false
+        rayPart.Size = Vector3.new(0.12, 0.12, 1)
+        rayPart.Parent = workspace
+
+        rayConn = RunService.RenderStepped:Connect(function()
+            if state.unloaded or not state.autoAimRaycast or not state.autoAimEnabled then
+                return hideRay()
+            end
+            if not rayPart or not rayPart.Parent then return end
+
+            local char = LocalPlayer.Character
+            if not char or not isPlayerAlive(LocalPlayer) then return hideRay() end
+
+            -- only while a gun is equipped (same condition auto aim fires under)
+            local handle = getOwnGunHandle()
+            if not handle then return hideRay() end
+
+            -- same target selection as the auto aim hook
+            local target = getAutoAimTarget()
+            local tChar = target and target.Character
+            if not target or not tChar or not isPlayerAlive(target) then return hideRay() end
+
+            local isWallbang = state.autoAimWallbang or (silentAimConfig and silentAimConfig.wallbang)
+            local part
+            if isWallbang then
+                part = tChar:FindFirstChild("UpperTorso") or tChar:FindFirstChild("Torso") or tChar:FindFirstChild("LowerTorso")
+            else
+                local want = silentAimConfig and silentAimConfig.targetPart
+                if want == "Random" or not want or want == "" then want = "Head" end -- avoid per-frame flicker
+                part = tChar:FindFirstChild(want)
+            end
+            part = part or tChar:FindFirstChild("Head") or tChar:FindFirstChild("HumanoidRootPart")
+            if not part then return hideRay() end
+
+            local predH, predV, mode = getAutoAimPred()
+            local aimPos = calculateAimPosition(part.Position, part, predH, predV, mode)
+            local startPos = (handle.CFrame * CFrame.new(0, 0.5, -1)).Position
+
+            local vec = aimPos - startPos
+            local dist = vec.Magnitude
+            if dist < 0.5 then return hideRay() end
+
+            -- blocked check (irrelevant when wallbang is on)
+            local blocked = false
+            if not isWallbang then
+                rayParams.FilterDescendantsInstances = { char, rayPart, CurrentCamera }
+                local hit = Workspace:Raycast(startPos, vec, rayParams)
+                blocked = hit ~= nil and not hit.Instance:IsDescendantOf(tChar)
+            end
+
+            rayPart.Size = Vector3.new(0.12, 0.12, dist)
+            rayPart.CFrame = CFrame.new(startPos, aimPos) * CFrame.new(0, 0, -dist / 2)
+            rayPart.Color = blocked and COLOR_BLOCKED or COLOR_CLEAR
+            rayPart.Transparency = 0.5
+        end)
+        trackConnection(rayConn)
+    end
+
+    registerCleanupHook(cleanupRay)
+end
 trackThread(task.spawn(function()
     while not state.unloaded do
         if state.autofarmEnabled then
@@ -7568,6 +7837,8 @@ end))
 
 
 -- trigger character emote animations
+local playEmote, stopEmote
+do
 local currentEmoteTrack = nil
 
 local standardEmotes = {
@@ -7578,7 +7849,7 @@ local standardEmotes = {
     ["Gangnam Style"]    = "rbxassetid://129764254213842",
 }
 
-local function stopEmote()
+stopEmote = function()
     if currentEmoteTrack then
         pcall(function() currentEmoteTrack:Stop() end)
         currentEmoteTrack = nil
@@ -7595,7 +7866,7 @@ local function stopEmote()
     end
 end
 
-local function playEmote(emoteNameOrId)
+playEmote = function(emoteNameOrId)
     stopEmote()
     if not emoteNameOrId or emoteNameOrId == "" then return end
 
@@ -7654,8 +7925,10 @@ trackConnection(RunService.Heartbeat:Connect(function()
     end
 end))
 registerCleanupHook(stopEmote)
+end
 
 -- display item values directly over inventory slots
+do
 local function applyRedGradient(label)
     if not label then return end
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -8300,6 +8573,7 @@ trackThread(task.spawn(function()
         end
     end
 end))
+end
 
 
 local function toKeyCode(k)
@@ -8972,6 +9246,20 @@ local function _buildScriptUI()
                             OnChanged = function(s, callback)
                                 s._callback = callback
                                 return s
+                            end,
+                            SetVisible = function(s, vis)
+                                if elem and elem.SetVisible then
+                                    pcall(function() elem:SetVisible(vis) end)
+                                elseif elem and (elem.Frame or elem.CardFrame) then
+                                    local f = elem.Frame or elem.CardFrame
+                                    if f and f.Parent then
+                                        f.Visible = (vis == true)
+                                        if type(elem) == "table" and elem.LayoutGroupCorners then
+                                            pcall(function() elem:LayoutGroupCorners() end)
+                                        end
+                                    end
+                                end
+                                return s
                             end
                         }
                         Options[id] = wrapper
@@ -9078,6 +9366,20 @@ local function _buildScriptUI()
                             end,
                             OnChanged = function(s, callback)
                                 s._callback = callback
+                                return s
+                            end,
+                            SetVisible = function(s, vis)
+                                if elem and elem.SetVisible then
+                                    pcall(function() elem:SetVisible(vis) end)
+                                elseif elem and (elem.Frame or elem.CardFrame) then
+                                    local f = elem.Frame or elem.CardFrame
+                                    if f and f.Parent then
+                                        f.Visible = (vis == true)
+                                        if type(elem) == "table" and elem.LayoutGroupCorners then
+                                            pcall(function() elem:LayoutGroupCorners() end)
+                                        end
+                                    end
+                                end
                                 return s
                             end
                         }
@@ -11099,7 +11401,7 @@ local function _buildScriptUI()
                             end
 
                             local function coinGone(part)
-                                return not part.Parent or not getCoinTouchInterest(part) or part.Transparency >= 0.9
+                                return not part.Parent or not getCoinTouchInterest(part) or isCoinCollected(part)
                             end
 
                             local function fireCoin(part)
@@ -11170,31 +11472,13 @@ local function _buildScriptUI()
                                 end
 
                                 for _, item in ipairs(container:GetChildren()) do
-                                    -- item IS the Coin_Server model; CoinVisual is the BasePart inside it
-                                    local visual = item:FindFirstChild("CoinVisual")
-                                    -- CoinVisual is used for position/transparency; item (Coin_Server) has the TouchInterest
-                                    local part = (visual and visual:IsA("BasePart") and visual)
-                                        or (item:IsA("BasePart") and item)
-                                        or item:FindFirstChildWhichIsA("BasePart")
-
-                                    if part then
-                                        -- TouchInterest lives on Coin_Server (item), not on CoinVisual
-                                        local touchTarget = item:IsA("BasePart") and item or item
-                                        local hasTouch = getCoinTouchInterest(touchTarget) or getCoinTouchInterest(part)
-                                        local inDebounce = collectedCoinsDebounce[part]
-                                        local yCheck = part.Position.Y >= minY
-
-                                        -- coin is available when CoinVisual is visible; normal value ~0.05, fully collected = 1
-                                        local isNotCollected = true
-                                        if visual and visual:IsA("BasePart") then
-                                            isNotCollected = visual.Transparency < 0.9
-                                        elseif part.Transparency >= 0.9 then
-                                            isNotCollected = false
-                                        end
-
-                                        if yCheck and not inDebounce and hasTouch and isNotCollected then
-                                            table.insert(coins, part)
-                                        end
+                                    local part = getCoinServerPart(item)
+                                    if part and part.Parent
+                                        and part.Position.Y >= minY
+                                        and not collectedCoinsDebounce[part]
+                                        and getCoinTouchInterest(part)
+                                        and not isCoinCollected(part) then
+                                        table.insert(coins, part)
                                     end
                                 end
 
@@ -11293,7 +11577,7 @@ local function _buildScriptUI()
 
                                         while tick() - flyStart < flyDuration do
                                             if not state.autofarmEnabled or not canFarmCoins() then break end
-                                            if not coinPart.Parent or not getCoinTouchInterest(coinPart) then
+                                            if not coinPart.Parent or not getCoinTouchInterest(coinPart) or isCoinCollected(coinPart) then
                                                 retarget = true
                                                 break
                                             end
@@ -11940,6 +12224,24 @@ local function _buildScriptUI()
                 if mobileCamlockBtn and mobileCamlockBtn.GetState and mobileCamlockBtn:GetState() ~= v then
                     mobileCamlockBtn:SetState(v, false)
                 end
+                if Options and Options.CameraCamlockEnabled and Options.CameraCamlockEnabled.Value ~= v then
+                    Options.CameraCamlockEnabled:SetValue(v, false)
+                end
+            end
+        },
+
+        {
+            Id = "AimbotSnapEnabled",
+            Type = "Toggle",
+            Title = "Aimbot snap",
+            Description = "Automatically snaps camera to weapon holder (murderer/sheriff)",
+            Default = false,
+            Callback = function(v)
+                state.aimbotEnabled = v
+                if Options and Options.CameraAimbotSnapEnabled and Options.CameraAimbotSnapEnabled.Value ~= v then
+                    Options.CameraAimbotSnapEnabled:SetValue(v, false)
+                end
+                log("Aimbot target snap: " .. (v and "Enabled" or "Disabled"))
             end
         },
 
@@ -11951,6 +12253,24 @@ local function _buildScriptUI()
             Default = "Head",
             Callback = function(v)
                 camlockSettings.bodyPartSelected = v
+            end
+        },
+
+        {
+            Id = "CamlockPredMode",
+            Type = "Dropdown",
+            Title = "Prediction mode",
+            Values = {"Adaptive (Smart Auto)", "Positional Delta (Anti-Desync)", "MoveDirection (Input-Based)", "Manual (Sliders)"},
+            Default = "Adaptive (Smart Auto)",
+            Callback = function(v)
+                camlockSettings.predictionMode = v
+                local isManual = (v == "Manual (Sliders)")
+                if Options and Options.CamlockHorizPred then
+                    Options.CamlockHorizPred:SetVisible(isManual)
+                end
+                if Options and Options.CamlockVertPred then
+                    Options.CamlockVertPred:SetVisible(isManual)
+                end
             end
         },
 
@@ -11985,6 +12305,13 @@ local function _buildScriptUI()
             end
         }
     })
+    task.defer(function()
+        if Options and Options.CamlockHorizPred and Options.CamlockVertPred then
+            local isManual = (camlockSettings.predictionMode == "Manual (Sliders)")
+            Options.CamlockHorizPred:SetVisible(isManual)
+            Options.CamlockVertPred:SetVisible(isManual)
+        end
+    end)
 
     Tabs.Player:AddSection("Target")
 
@@ -12595,8 +12922,8 @@ local function _buildScriptUI()
             local mTorso = mChar and (mChar:FindFirstChild("UpperTorso") or mChar:FindFirstChild("Torso") or mChar:FindFirstChild("LowerTorso") or mChar:FindFirstChild("HumanoidRootPart"))
             if shootEvent and mTorso then
                 local rawPos = mTorso.Position
-                local predH, predV = getSilentAimPred()
-                local targetPos = calculateAimPosition(rawPos, mTorso, predH, predV)
+                local predH, predV, mode = getAutoAimPred()
+                local targetPos = calculateAimPosition(rawPos, mTorso, predH, predV, mode)
                 local startPos = mHead and mHead.Position or (rawPos + Vector3.new(0, 1.5, 0))
                 local startCF  = CFrame.new(startPos, targetPos)
                 local targetCF = CFrame.new(targetPos)
@@ -12652,6 +12979,37 @@ local function _buildScriptUI()
             end
         },
         {
+            Id = "AutoAimRaycast",
+            Type = "Toggle",
+            Title = "Raycast tracer",
+            Description = "Stretches a red 0.5 transparency part from start to aim point",
+            Default = false,
+            Callback = function(v)
+                state.autoAimRaycast = v
+                if state.updateAutoAimRaycast then
+                    state.updateAutoAimRaycast(v)
+                end
+                log("Auto aim raycast: " .. (v and "on" or "off"))
+            end
+        },
+        {
+            Id = "AutoAimPredMode",
+            Type = "Dropdown",
+            Title = "Prediction mode",
+            Values = {"Adaptive (Smart Auto)", "Positional Delta (Anti-Desync)", "MoveDirection (Input-Based)", "Manual (Sliders)"},
+            Default = "Adaptive (Smart Auto)",
+            Callback = function(v)
+                state.autoAimPredictionMode = v
+                local isManual = (v == "Manual (Sliders)")
+                if Options and Options.AutoAimHorizPred then
+                    Options.AutoAimHorizPred:SetVisible(isManual)
+                end
+                if Options and Options.AutoAimVertPred then
+                    Options.AutoAimVertPred:SetVisible(isManual)
+                end
+            end
+        },
+        {
             Id = "AutoAimHorizPred",
             Type = "Slider",
             Title = "Horizontal prediction",
@@ -12662,6 +13020,7 @@ local function _buildScriptUI()
             Suffix = " %",
             Callback = function(val)
                 local n = tonumber(val) or 0
+                state.autoAimHorizPred = n / 100
                 silentAimConfig.horizontalPrediction = n / 100
                 silentAimConfig.predictionFactor = n / 100
             end
@@ -12677,10 +13036,18 @@ local function _buildScriptUI()
             Suffix = " %",
             Callback = function(val)
                 local n = tonumber(val) or 0
+                state.autoAimVertPred = n / 100
                 silentAimConfig.verticalPrediction = n / 100
             end
         }
     })
+    task.defer(function()
+        if Options and Options.AutoAimHorizPred and Options.AutoAimVertPred then
+            local isManual = (state.autoAimPredictionMode == "Manual (Sliders)")
+            Options.AutoAimHorizPred:SetVisible(isManual)
+            Options.AutoAimVertPred:SetVisible(isManual)
+        end
+    end)
 
 
     Tabs.Player:AddSection("Silent aim")
@@ -12729,6 +13096,23 @@ local function _buildScriptUI()
             end
         },
         {
+            Id = "SilentAimPredMode",
+            Type = "Dropdown",
+            Title = "Prediction mode",
+            Values = {"Adaptive (Smart Auto)", "Positional Delta (Anti-Desync)", "MoveDirection (Input-Based)", "Manual (Sliders)"},
+            Default = "Adaptive (Smart Auto)",
+            Callback = function(v)
+                silentAimConfig.predictionMode = v
+                local isManual = (v == "Manual (Sliders)")
+                if Options and Options.SilentAimHorizPred then
+                    Options.SilentAimHorizPred:SetVisible(isManual)
+                end
+                if Options and Options.SilentAimVertPred then
+                    Options.SilentAimVertPred:SetVisible(isManual)
+                end
+            end
+        },
+        {
             Id = "SilentAimHorizPred",
             Type = "Slider",
             Title = "Horizontal prediction",
@@ -12758,6 +13142,13 @@ local function _buildScriptUI()
             end
         }
     })
+    task.defer(function()
+        if Options and Options.SilentAimHorizPred and Options.SilentAimVertPred then
+            local isManual = (silentAimConfig.predictionMode == "Manual (Sliders)")
+            Options.SilentAimHorizPred:SetVisible(isManual)
+            Options.SilentAimVertPred:SetVisible(isManual)
+        end
+    end)
 
 
     Tabs.Player:AddCheckbox("SilentAimWallCheck", {
@@ -17193,6 +17584,138 @@ Tabs.World:AddSection("Skybox")
         end
     })
 
+    Tabs.Camera:AddSection("Camlock")
+    Tabs.Camera:AddGroup({
+        {
+            Id = "CameraCamlockEnabled",
+            Type = "Toggle",
+            Title = "Camlock",
+            Default = false,
+            DefaultBind = Enum.KeyCode.Q,
+            Slider = {
+                Title = "Camlock smoothness",
+                Min = 0,
+                Max = 100,
+                Default = 20,
+                Suffix = "%",
+                Callback = function(v)
+                    camlockSettings.smoothingFactor = v / 100
+                end
+            },
+            Callback = function(v)
+                state.camlockEnabled = v
+                camlockSettings.aimLockEnabled = v
+                camlockSettings.isLockedOn = v
+                if v then
+                    camlockSettings.targetPlayer = getCamlockTarget()
+                else
+                    camlockSettings.targetPlayer = nil
+                end
+                toggleCamlockConnection(v)
+                if mobileCamlockBtn and mobileCamlockBtn.GetState and mobileCamlockBtn:GetState() ~= v then
+                    mobileCamlockBtn:SetState(v, false)
+                end
+                if Options and Options.CamlockEnabled and Options.CamlockEnabled.Value ~= v then
+                    Options.CamlockEnabled:SetValue(v, false)
+                end
+            end
+        },
+
+        {
+            Id = "CameraAimbotSnapEnabled",
+            Type = "Toggle",
+            Title = "Aimbot snap",
+            Description = "Automatically snaps camera to weapon holder (murderer/sheriff)",
+            Default = false,
+            Callback = function(v)
+                state.aimbotEnabled = v
+                if Options and Options.AimbotSnapEnabled and Options.AimbotSnapEnabled.Value ~= v then
+                    Options.AimbotSnapEnabled:SetValue(v, false)
+                end
+                log("Aimbot target snap: " .. (v and "Enabled" or "Disabled"))
+            end
+        },
+
+        {
+            Id = "CameraCamlockBodyPart",
+            Type = "Dropdown",
+            Title = "Target body part",
+            Values = {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso"},
+            Default = "Head",
+            Callback = function(v)
+                camlockSettings.bodyPartSelected = v
+                if Options and Options.CamlockBodyPart and Options.CamlockBodyPart.Value ~= v then
+                    Options.CamlockBodyPart:SetValue(v, false)
+                end
+            end
+        },
+
+        {
+            Id = "CameraCamlockPredMode",
+            Type = "Dropdown",
+            Title = "Prediction mode",
+            Values = {"Adaptive (Smart Auto)", "Positional Delta (Anti-Desync)", "MoveDirection (Input-Based)", "Manual (Sliders)"},
+            Default = "Adaptive (Smart Auto)",
+            Callback = function(v)
+                camlockSettings.predictionMode = v
+                local isManual = (v == "Manual (Sliders)")
+                if Options and Options.CameraCamlockHorizPred then
+                    Options.CameraCamlockHorizPred:SetVisible(isManual)
+                end
+                if Options and Options.CameraCamlockVertPred then
+                    Options.CameraCamlockVertPred:SetVisible(isManual)
+                end
+                if Options and Options.CamlockPredMode and Options.CamlockPredMode.Value ~= v then
+                    Options.CamlockPredMode:SetValue(v, false)
+                end
+            end
+        },
+
+        {
+            Id = "CameraCamlockHorizPred",
+            Type = "Slider",
+            Title = "Horizontal prediction",
+            Description = "Lead moving targets horizontally (default 0.2)",
+            Min = 0,
+            Max = 200,
+            Default = 20,
+            Suffix = " %",
+            Callback = function(v)
+                local n = tonumber(v) or 0
+                camlockSettings.horizontalPrediction = n / 100
+                camlockSettings.predictionFactor = n / 100
+                if Options and Options.CamlockHorizPred and Options.CamlockHorizPred.Value ~= v then
+                    Options.CamlockHorizPred:SetValue(v, false)
+                end
+            end
+        },
+
+        {
+            Id = "CameraCamlockVertPred",
+            Type = "Slider",
+            Title = "Vertical prediction",
+            Description = "Lead jumping/falling targets vertically (default 0.2)",
+            Min = 0,
+            Max = 200,
+            Default = 20,
+            Suffix = " %",
+            Callback = function(v)
+                local n = tonumber(v) or 0
+                camlockSettings.verticalPrediction = n / 100
+                if Options and Options.CamlockVertPred and Options.CamlockVertPred.Value ~= v then
+                    Options.CamlockVertPred:SetValue(v, false)
+                end
+            end
+        }
+    })
+    task.defer(function()
+        if Options and Options.CameraCamlockHorizPred and Options.CameraCamlockVertPred then
+            local isManual = (camlockSettings.predictionMode == "Manual (Sliders)")
+            Options.CameraCamlockHorizPred:SetVisible(isManual)
+            Options.CameraCamlockVertPred:SetVisible(isManual)
+        end
+    end)
+
 
     -- mount floating action buttons for touch devices
     mobileFlyBtn = Window:CreateMobileButton({
@@ -17228,6 +17751,9 @@ Tabs.World:AddSection("Skybox")
             toggleCamlockConnection(btnState)
             if Options and Options.CamlockEnabled and Options.CamlockEnabled.Value ~= btnState then
                 Options.CamlockEnabled:SetValue(btnState, false)
+            end
+            if Options and Options.CameraCamlockEnabled and Options.CameraCamlockEnabled.Value ~= btnState then
+                Options.CameraCamlockEnabled:SetValue(btnState, false)
             end
         end
     })
@@ -17276,8 +17802,8 @@ Tabs.World:AddSection("Skybox")
             local targetPos = nil
             if shootPart then
                 local rawPos = shootPart.Position
-                local predH, predV = getSilentAimPred()
-                targetPos = calculateAimPosition(rawPos, shootPart, predH, predV)
+                local predH, predV, mode = (state and state.autoAimEnabled) and getAutoAimPred() or getSilentAimPred()
+                targetPos = calculateAimPosition(rawPos, shootPart, predH, predV, mode)
             end
 
             local originPos = nil
@@ -18260,8 +18786,8 @@ Tabs.World:AddSection("Skybox")
                                 task.spawn(function()
                                     task.wait(0.01)
                                     local rawPos = shootPart.Position
-                                    local predH, predV = getSilentAimPred()
-                                    local targetPos = calculateAimPosition(rawPos, shootPart, predH, predV)
+                                    local predH, predV, mode = (state and state.autoAimEnabled) and getAutoAimPred() or getSilentAimPred()
+                                    local targetPos = calculateAimPosition(rawPos, shootPart, predH, predV, mode)
                                     -- prediction delta: how much the target will have moved
                                     local predDelta = targetPos - rawPos
 
